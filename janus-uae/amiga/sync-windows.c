@@ -24,11 +24,13 @@
 #include <exec/types.h>
 #include <exec/memory.h>
 #include <intuition/intuition.h>
+#include <intuition/intuitionbase.h>
 
 #include <proto/exec.h>
 
 #include "janus-daemon.h"
 
+extern struct IntuitionBase* IntuitionBase;
 
 struct Window *old_MoveWindowInFront_Window,
               *old_MoveWindowInFront_BehindWindow;
@@ -48,38 +50,48 @@ BOOL init_sync_windows() {
 /****************************************************
  * update the window list, so that new aros windows
  * and threads are created for new amigaOS windows
+ *
+ * we just return a list of all windows on any
+ * public screen. We are not interested in custom
+ * screens here. The uae side can fidn out, on which
+ * screen the window is.
  ****************************************************/
 void update_windows() {
   ULONG *command_mem;
-  int i=0;
-  struct Screen *wb;
-  struct Window *w;
+  int    i;
+  struct Window        *w;
+  struct List          *public_screen_list;
+  struct PubScreenNode *public_screen_node;
 
   //printf("update_windows()\n");
+ 
+  public_screen_list = (struct List *) LockPubScreenList();
+  public_screen_node = (struct PubScreenNode *) public_screen_list->lh_Head;
+  if(!public_screen_node) {
+    printf("no public_screen_node!?\n"); /* TODO */
+    UnlockPubScreenList();
+    return;
+  }
 
   command_mem=AllocVec(AD__MAXMEM,MEMF_CLEAR);
 
-  wb=(struct Screen *) LockPubScreen(NULL);
-
-  if(!wb) {
-    printf("no wb!?\n"); /* TODO */
+  i=0;
+  while (public_screen_node && public_screen_node->psn_Screen) {
+    w=public_screen_node->psn_Screen->FirstWindow;
+    while(w) {
+      //printf("add window #%d: %lx (screen %lx)\n",i,w,public_screen_node->psn_Screen);
+      command_mem[i++]=(ULONG) w;
+      w=w->NextWindow;
+    }
+    public_screen_node=(struct PubScreenNode *)
+		       public_screen_node->psn_Node.ln_Succ;
   }
 
-  w=wb->FirstWindow;
-
-  while(w) {
-    //printf("add window #%d: %lx\n",i,w);
-    command_mem[i++]=(ULONG) w;
-    w=w->NextWindow;
-  }
+  UnlockPubScreenList();
 
   calltrap (AD_GET_JOB, AD_GET_JOB_LIST_WINDOWS, command_mem);
-
   FreeVec(command_mem);
 
-  /* signal, that we are done! */
-  //calltrap (AD_GET_JOB, AD_JOB_DONE, NULL);
-  //printf("update_windows() done\n");
 }
 
 
@@ -244,10 +256,8 @@ static UWORD get_lo(ULONG l) {
 }
 
 void report_host_windows() {
-  struct Screen *screen;
   struct Window *win;
   ULONG         *command_mem;
-  UWORD         *word;
   ULONG          i;
 
   command_mem=AllocVec(AD__MAXMEM,MEMF_CLEAR);
@@ -260,7 +270,7 @@ void report_host_windows() {
   i=0;
   while(command_mem[i]) {
     win=(struct Window *)command_mem[i];
-    printf("resize window %lx (%s)\n",win,win->Title);
+    printf("resize window %lx (%s)\n",(ULONG) win,win->Title);
 
     printf("  w/h: %d x %d\n",get_hi(command_mem[i+2]),get_lo(command_mem[i+2]));
     printf("  x/y: %d x %d\n",get_hi(command_mem[i+1]),get_lo(command_mem[i+1]));
@@ -346,16 +356,17 @@ static void my_MoveWindowInFrontOf(struct Window *Window,
 
   if(old_MoveWindowInFront_Counter) {
     printf("MoveWindowInFrontOf(%lx,%lx) ignored %d times\n", 
-           old_MoveWindowInFront_Window, 
-	   old_MoveWindowInFront_BehindWindow,
-	   old_MoveWindowInFront_Counter); 
+           (ULONG) old_MoveWindowInFront_Window, 
+	   (ULONG) old_MoveWindowInFront_BehindWindow,
+	   (int) old_MoveWindowInFront_Counter); 
     old_MoveWindowInFront_Counter=0;
   }
 
   old_MoveWindowInFront_Window=Window;
   old_MoveWindowInFront_BehindWindow=BehindWindow;
   
-  printf("MoveWindowInFrontOf(%lx,%lx)\n", Window, BehindWindow); 
+  printf("MoveWindowInFrontOf(%lx,%lx)\n", (ULONG) Window, 
+                                           (ULONG) BehindWindow); 
   MoveWindowInFrontOf(Window,BehindWindow);
   //printf("my_MoveWindowInFrontOf left\n");
 }
@@ -370,8 +381,8 @@ static void my_MoveWindowInFrontOf(struct Window *Window,
 void sync_windows() {
   ULONG *command_mem;
   struct Layer *layer;
-  struct Window *window;
   struct Screen *screen;
+  struct Window *win;
   ULONG  i=0;
   ULONG  done;
 
@@ -383,10 +394,31 @@ void sync_windows() {
     return;
   }
 
-  
   /* get the AROS window order */
   calltrap (AD_GET_JOB, AD_GET_JOB_SYNC_WINDOWS, command_mem);
 
+  if(!command_mem[0]) {
+    /* no window, might be.. */
+    FreeVec(command_mem);
+    return;
+  }
+
+  win=(struct Window *) command_mem[0];
+  screen=win->WScreen;
+
+  if(!screen) {
+    /* no screen !? */
+    printf("ERROR: window %lx has no screen !?\n",(ULONG) win);
+    FreeVec(command_mem);
+    return;
+  }
+
+  /* check screen of window 0 */
+  if(screen != IntuitionBase->FirstScreen) {
+    ScreenToFront(screen);
+  }
+
+#if 0
   screen=(struct Screen *) LockPubScreen(NULL);
   if(!screen) {
     printf("sync_windows: screen==NULL?!\n");
@@ -394,6 +426,8 @@ void sync_windows() {
     return;
   }
   UnlockPubScreen(NULL,screen); /* TODO: is it safe already? */
+#endif
+
 
 #if 0
   dump_uae_windows(screen);
