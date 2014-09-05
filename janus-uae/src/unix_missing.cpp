@@ -22,6 +22,8 @@
  ************************************************************************/
 
 #include <stdio.h>
+#include <string.h>
+#include "tchar.h"
 
 #define WRITE_LOG_BUF_SIZE 4096
 void write_log (const char *format, ...)
@@ -40,3 +42,4 @@ void write_log (const char *format, ...)
 	va_end (parms);
 #endif
 }
+
