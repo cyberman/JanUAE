@@ -319,6 +319,7 @@ static void tree_send_notify(ULONG type, Object *obj, struct Data *data, struct 
   }
 
   node=(struct MUI_NListtree_TreeNode *) XGET((Object *) obj, MUIA_NListtree_Active);
+
   if(!node || node==(struct MUI_NListtree_TreeNode *) MUIA_NListtree_Active) {
     DebOut("no node / MUIA_Listtree_Active_Off! Do nothing!\n");
     goto TREE_SEND_NOTIFY_EXIT;
@@ -358,8 +359,12 @@ AROS_UFH2(void, tree_active, AROS_UFHA(struct Hook *, hook, A0), AROS_UFHA(APTR,
   DebOut("entered (obj 0x%p)\n", obj);
 
   node=(struct MUI_NListtree_TreeNode *) XGET((Object *) obj, MUIA_NListtree_Active);
+  DebOut("node: 0x%p\n", node);
 
-  if(node!=(struct MUI_NListtree_TreeNode *) MUIA_NListtree_Active) {
+  if(!node) {
+    DebOut("node is NULL!?\n", obj);
+  }
+  else if(node!=(struct MUI_NListtree_TreeNode *) MUIA_NListtree_Active) {
     tree_send_notify(TVN_SELCHANGED, (Object *) obj, data, (struct ConfigStruct *) node->tn_User);
   }
 
@@ -377,7 +382,10 @@ AROS_UFH2(void, tree_double, AROS_UFHA(struct Hook *, hook, A0), AROS_UFHA(APTR,
 
   node=(struct MUI_NListtree_TreeNode *) XGET((Object *) obj, MUIA_NListtree_Active);
 
-  if(node!=(struct MUI_NListtree_TreeNode *) MUIA_NListtree_Active) {
+  if(!node) {
+    DebOut("node is NULL!?\n", obj);
+  }
+  else if(node!=(struct MUI_NListtree_TreeNode *) MUIA_NListtree_Active) {
     tree_send_notify(NM_DBLCLK, (Object *) obj, data, (struct ConfigStruct *) node->tn_User);
   }
 
