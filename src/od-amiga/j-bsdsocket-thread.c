@@ -89,6 +89,32 @@ int sockabort_init(struct socketbase *sb) {
  * 
  * 
  ***********************************************************/  
+/****i* januae-j-bsdsocket-thread/aros_bsdsocket_thread ********************
+*
+*   NAME
+*       aros_bsdsocket_thread() -- Process socket work requests.
+*
+*   SYNOPSIS
+*       static void aros_bsdsocket_thread (void);
+*
+*   FUNCTION
+*       Receive queued BSD operations, dispatch each to its native handler
+*       and reply to the requesting task.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       A blocking request is replied to before execution. BSD_killme
+*       releases context resources and ends the worker.
+*
+****************************************************************************
+*
+*/
+
 static void aros_bsdsocket_thread (void) {
 
   struct Process                *thread = (struct Process *) FindTask (NULL);
@@ -251,6 +277,33 @@ static void aros_bsdsocket_thread (void) {
 EXIT:
   BSDLOG("aros_bsdsocket_thread[%lx]: dies..\n", thread);
 }
+
+/****i* januae-j-bsdsocket-thread/aros_bsdsocket_start_thread **************
+*
+*   NAME
+*       aros_bsdsocket_start_thread() -- Start the socket worker.
+*
+*   SYNOPSIS
+*       int aros_bsdsocket_start_thread (struct socketbase *sb);
+*
+*   FUNCTION
+*       Allocate per-context resources and create a socket process with the
+*       socketbase as task user data.
+*
+*   INPUTS
+*       sb - Socket context.
+*
+*   RESULT
+*       Current code returns whether aros_launch_task is nonzero, not
+*       whether the new socket worker was created.
+*
+*   NOTES
+*       Compiled only when BSDSOCKET is defined; the created process owns an
+*       Exec message port.
+*
+****************************************************************************
+*
+*/
 
 int aros_bsdsocket_start_thread (struct socketbase *sb) {
 

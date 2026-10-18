@@ -207,6 +207,33 @@ static int mySockStartup( void )
  *
  * (taken from bsdsocket-posix-new.c)
  */
+/****i* januae-bsdsock/copysockaddr_a2n ************************************
+*
+*   NAME
+*       copysockaddr_a2n() -- Decode a guest IPv4 address.
+*
+*   SYNOPSIS
+*       static int copysockaddr_a2n (struct sockaddr_in *addr, uae_u32
+*       a_addr, unsigned int len);
+*
+*   FUNCTION
+*       Copy the guest family, port and IPv4 address fields into a host
+*       sockaddr_in.
+*
+*   INPUTS
+*       addr - Destination host structure. a_addr - Guest address. len -
+*       Guest structure length.
+*
+*   RESULT
+*       Zero for an accepted length; one for an invalid length.
+*
+*   NOTES
+*       A zero guest address is accepted without copying fields.
+*
+****************************************************************************
+*
+*/
+
 static int copysockaddr_a2n (struct sockaddr_in *addr, uae_u32 a_addr, unsigned int len) {
 
   if ((len > sizeof (struct sockaddr_in)) || (len < 8)) {
@@ -233,6 +260,30 @@ static int copysockaddr_a2n (struct sockaddr_in *addr, uae_u32 a_addr, unsigned 
 /*
  * Copy a sockaddr object from native space to amiga space
  */
+/****i* januae-bsdsock/copysockaddr_n2a ************************************
+*
+*   NAME
+*       copysockaddr_n2a() -- Encode an IPv4 address for the guest.
+*
+*   SYNOPSIS
+*       static int copysockaddr_n2a (uae_u32 a_addr, const struct
+*       sockaddr_in *addr, unsigned int len);
+*
+*   FUNCTION
+*       Write the host IPv4 address fields into guest sockaddr storage.
+*
+*   INPUTS
+*       a_addr - Guest destination. addr - Host address. len - Available
+*       guest storage.
+*
+*   RESULT
+*       Zero for an accepted length; one when fewer than eight bytes are
+*       provided.
+*
+****************************************************************************
+*
+*/
+
 static int copysockaddr_n2a (uae_u32 a_addr, const struct sockaddr_in *addr, unsigned int len) {
 
   if (len < 8) {
@@ -255,6 +306,29 @@ static int copysockaddr_n2a (uae_u32 a_addr, const struct sockaddr_in *addr, uns
   return 0;
 }
 
+/****i* januae-bsdsock/get_errno *******************************************
+*
+*   NAME
+*       get_errno() -- Read socket library error state.
+*
+*   SYNOPSIS
+*       static LONG get_errno(struct socketbase *sb);
+*
+*   FUNCTION
+*       Query the current socket-library error through the socketbase
+*       associated with the guest context.
+*
+*   INPUTS
+*       sb - Per-guest socket context.
+*
+*   RESULT
+*       The socket-library error number, or ENOENT when the library or query
+*       fails.
+*
+****************************************************************************
+*
+*/
+
 static LONG get_errno(struct socketbase *sb) {
 
   struct Library *SocketBase;
@@ -275,6 +349,28 @@ static LONG get_errno(struct socketbase *sb) {
 }
 
 /* not working ..? */
+/****i* januae-bsdsock/get_errno_str ***************************************
+*
+*   NAME
+*       get_errno_str() -- Resolve a socket error string.
+*
+*   SYNOPSIS
+*       static char *get_errno_str(struct socketbase *sb, LONG error);
+*
+*   FUNCTION
+*       Retrieve a textual description of an error through SocketBaseTags.
+*
+*   INPUTS
+*       sb - Socket context. error - Error number.
+*
+*   RESULT
+*       Socket-library string pointer; failure paths return an error number
+*       cast to a pointer.
+*
+****************************************************************************
+*
+*/
+
 static char *get_errno_str(struct socketbase *sb, LONG error) {
 
   struct Library *SocketBase;
@@ -294,9 +390,56 @@ static char *get_errno_str(struct socketbase *sb, LONG error) {
   return (char *) str;
 }
 
+/****i* januae-bsdsock/seterrno ********************************************
+*
+*   NAME
+*       seterrno() -- Store a guest socket error.
+*
+*   SYNOPSIS
+*       static void seterrno (struct socketbase *sb, int err);
+*
+*   FUNCTION
+*       Assign the supplied error number to the socketbase error field.
+*
+*   INPUTS
+*       sb - Socket context. err - Error number.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void seterrno (struct socketbase *sb, int err) {
   sb->sb_errno=err;
 };
+
+/****i* januae-bsdsock/getsocketbase ***************************************
+*
+*   NAME
+*       getsocketbase() -- Resolve the socket library for a context.
+*
+*   SYNOPSIS
+*       struct Library *getsocketbase(struct socketbase *sb);
+*
+*   FUNCTION
+*       Return a cached bsdsocket.library base or open the library for this
+*       socket context.
+*
+*   INPUTS
+*       sb - Socket context.
+*
+*   RESULT
+*       Socket library pointer, or NULL when the context or library is
+*       unavailable.
+*
+*   NOTES
+*       The opened base is retained in sb->bsdsocketbase.
+*
+****************************************************************************
+*
+*/
 
 struct Library *getsocketbase(struct socketbase *sb) {
 
@@ -329,6 +472,28 @@ struct Library *getsocketbase(struct socketbase *sb) {
 
   return sb->bsdsocketbase;
 }
+
+/****i* januae-bsdsock/clearsockabort **************************************
+*
+*   NAME
+*       clearsockabort() -- Clear a socket abort indication.
+*
+*   SYNOPSIS
+*       static void clearsockabort (SB);
+*
+*   FUNCTION
+*       Emit a diagnostic; the previous abort-draining implementation is
+*       disabled.
+*
+*   INPUTS
+*       SB - Socket-context parameter macro.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void clearsockabort (SB) {
 
@@ -378,6 +543,31 @@ void clearsockabort (SB)
 #endif
 
 static int socket_layer_initialized = 0;
+
+/****i* januae-bsdsock/init_socket_layer ***********************************
+*
+*   NAME
+*       init_socket_layer() -- Initialize socket layer status.
+*
+*   SYNOPSIS
+*       int init_socket_layer(void);
+*
+*   FUNCTION
+*       Set socket_layer_initialized to a successful status without
+*       performing the disabled stack startup sequence.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       1.
+*
+*   NOTES
+*       No socket library is opened by the active path.
+*
+****************************************************************************
+*
+*/
 
 int init_socket_layer(void) {
 
@@ -481,6 +671,28 @@ void deinit_socket_layer(void)
 
 //#ifdef BSDSOCKET
 
+/****i* januae-bsdsock/locksigqueue ****************************************
+*
+*   NAME
+*       locksigqueue() -- Acquire signal queue protection.
+*
+*   SYNOPSIS
+*       void locksigqueue(void);
+*
+*   FUNCTION
+*       Emit a not-implemented diagnostic; the former critical-section
+*       operation is disabled.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void locksigqueue(void)
 {
   BSDLOG("NOT YET IMPLEMENTED!\n");
@@ -488,6 +700,28 @@ void locksigqueue(void)
     EnterCriticalSection(&csSigQueueLock);
 #endif
 }
+
+/****i* januae-bsdsock/unlocksigqueue **************************************
+*
+*   NAME
+*       unlocksigqueue() -- Release signal queue protection.
+*
+*   SYNOPSIS
+*       void unlocksigqueue(void);
+*
+*   FUNCTION
+*       Emit a not-implemented diagnostic; the former critical-section
+*       operation is disabled.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void unlocksigqueue(void)
 {
@@ -520,6 +754,31 @@ uae_u32 asyncsd[MAXPENDINGASYNC];
 int asyncindex;
 //#endif
 #endif
+
+/****i* januae-bsdsock/host_sbinit *****************************************
+*
+*   NAME
+*       host_sbinit() -- Initialize a socketbase abort signal.
+*
+*   SYNOPSIS
+*       int host_sbinit(TrapContext *context, struct socketbase *sb);
+*
+*   FUNCTION
+*       Allocate a signal bit for a guest socket context and retain it for
+*       interruption requests.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context.
+*
+*   RESULT
+*       1 when a signal is allocated; otherwise 0.
+*
+*   NOTES
+*       Socket-based abort setup is disabled.
+*
+****************************************************************************
+*
+*/
 
 int host_sbinit(TrapContext *context, struct socketbase *sb) {
 
@@ -555,6 +814,28 @@ int host_sbinit(TrapContext *context, struct socketbase *sb) {
 	return 1;
 }
 
+/****i* januae-bsdsock/host_closesocketquick *******************************
+*
+*   NAME
+*       host_closesocketquick() -- Close a socket without waiting.
+*
+*   SYNOPSIS
+*       void host_closesocketquick(int s);
+*
+*   FUNCTION
+*       Emit a not-implemented diagnostic without closing the supplied
+*       socket.
+*
+*   INPUTS
+*       s - Native socket descriptor.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void host_closesocketquick(int s)
 {
   BSDLOG("NOT YET IMPLEMENTED!\n");
@@ -569,6 +850,28 @@ void host_closesocketquick(int s)
 	}
 #endif
 }
+
+/****i* januae-bsdsock/host_sbcleanup **************************************
+*
+*   NAME
+*       host_sbcleanup() -- Clean up a guest socketbase.
+*
+*   SYNOPSIS
+*       void host_sbcleanup(struct socketbase *sb);
+*
+*   FUNCTION
+*       Emit a not-implemented diagnostic; the old descriptor and
+*       asynchronous-event cleanup is disabled.
+*
+*   INPUTS
+*       sb - Socket context.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void host_sbcleanup(struct socketbase *sb)
 {
@@ -593,6 +896,28 @@ void host_sbcleanup(struct socketbase *sb)
 	free(sb->mtable);
 #endif
 }
+
+/****i* januae-bsdsock/host_sbreset ****************************************
+*
+*   NAME
+*       host_sbreset() -- Reset socket subsystem state.
+*
+*   SYNOPSIS
+*       void host_sbreset(void);
+*
+*   FUNCTION
+*       Emit a not-implemented diagnostic without resetting the disabled
+*       asynchronous-event tables.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void host_sbreset(void)
 {
@@ -728,6 +1053,31 @@ static void cancelasyncmsg(unsigned int wMsg)
 }
 #endif
 
+/****i* januae-bsdsock/sockabort *******************************************
+*
+*   NAME
+*       sockabort() -- Request interruption of socket work.
+*
+*   SYNOPSIS
+*       void sockabort(struct socketbase *sb);
+*
+*   FUNCTION
+*       Signal the task recorded in the socket context using its allocated
+*       abort signal bit.
+*
+*   INPUTS
+*       sb - Socket context containing task and signal.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The earlier socket-based abort channel is disabled.
+*
+****************************************************************************
+*
+*/
+
 void sockabort(struct socketbase *sb) {	
 
   ULONG sig;
@@ -827,10 +1177,53 @@ void setWSAAsyncSelect(struct socketbase *sb, uae_u32 sd, SOCKET s, long lEvent 
 #endif
 
 // address cleaning
+/****i* januae-bsdsock/prephostaddr ****************************************
+*
+*   NAME
+*       prephostaddr() -- Normalize a host IPv4 address.
+*
+*   SYNOPSIS
+*       static void prephostaddr(struct sockaddr_in *addr);
+*
+*   FUNCTION
+*       Set the host sockaddr_in address family to AF_INET.
+*
+*   INPUTS
+*       addr - IPv4 address structure to update.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void prephostaddr(struct sockaddr_in *addr)
 {
     addr->sin_family = AF_INET;
 }
+
+/****i* januae-bsdsock/prepamigaaddr ***************************************
+*
+*   NAME
+*       prepamigaaddr() -- Format a socket address for the guest.
+*
+*   SYNOPSIS
+*       static void prepamigaaddr(struct sockaddr *realpt, int len);
+*
+*   FUNCTION
+*       Rewrite the address family and length bytes into the guest sockaddr
+*       layout.
+*
+*   INPUTS
+*       realpt - Address storage. len - Reported structure length.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void prepamigaaddr(struct sockaddr *realpt, int len)
 {
@@ -842,6 +1235,28 @@ static void prepamigaaddr(struct sockaddr *realpt, int len)
 }
 
 /* debug */
+/****i* januae-bsdsock/debug_socket ****************************************
+*
+*   NAME
+*       debug_socket() -- Inspect a connected native socket.
+*
+*   SYNOPSIS
+*       static void debug_socket(struct socketbase *sb, int s);
+*
+*   FUNCTION
+*       Query and log the peer address of a socket when a socket library
+*       base is available.
+*
+*   INPUTS
+*       sb - Socket context. s - Native socket descriptor.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void debug_socket(struct socketbase *sb, int s) {
   struct Library *SocketBase;
   struct sockaddr_in debug_sockaddr;
@@ -875,6 +1290,35 @@ static void debug_socket(struct socketbase *sb, int s) {
  * not get reusing it working at all. Might not be preformant..
  *
  ****************************************************************************/
+/****i* januae-bsdsock/execute_in_task *************************************
+*
+*   NAME
+*       execute_in_task() -- Dispatch a socket operation to its worker.
+*
+*   SYNOPSIS
+*       static ULONG execute_in_task(struct socketbase *sb, LONG cmd, LONG
+*       block, ULONG a, ULONG b, ULONG c, ULONG d, ULONG e, ULONG f, ULONG
+*       g, ULONG h);
+*
+*   FUNCTION
+*       Package an operation and up to eight arguments in a message, submit
+*       it to the socket worker and await a reply.
+*
+*   INPUTS
+*       sb - Socket context. cmd - Worker operation. block - Early-reply
+*       flag. a through h - Operation arguments.
+*
+*   RESULT
+*       The response message ret field.
+*
+*   NOTES
+*       Creates and deletes a reply port for the operation. Early-reply
+*       operations may finish after the waiting caller proceeds.
+*
+****************************************************************************
+*
+*/
+
 static ULONG execute_in_task(struct socketbase *sb, 
                              LONG cmd, LONG block,
                              ULONG a, ULONG b, ULONG c, ULONG d, ULONG e, ULONG f, ULONG g, ULONG h) {
@@ -917,6 +1361,33 @@ static ULONG execute_in_task(struct socketbase *sb,
  * WARNING: this has never been tested.
  *
  */
+/****i* januae-bsdsock/host_dup2socket_real ********************************
+*
+*   NAME
+*       host_dup2socket_real() -- Duplicate a native socket descriptor.
+*
+*   SYNOPSIS
+*       int host_dup2socket_real(struct socketbase *sb, int fd1, int fd2);
+*
+*   FUNCTION
+*       Resolve the source descriptor and perform the socket duplication
+*       mapping in the worker context.
+*
+*   INPUTS
+*       sb - Socket context. fd1 - Source descriptor. fd2 - Requested
+*       destination.
+*
+*   RESULT
+*       Mapped destination descriptor on success; a negative value on
+*       failure.
+*
+*   NOTES
+*       This implementation is marked untested in its source.
+*
+****************************************************************************
+*
+*/
+
 int host_dup2socket_real(struct socketbase *sb, int fd1, int fd2) {
 
   struct Library *SocketBase;
@@ -959,6 +1430,28 @@ int host_dup2socket_real(struct socketbase *sb, int fd1, int fd2) {
   return -1;
 }
 
+/****i* januae-bsdsock/host_dup2socket *************************************
+*
+*   NAME
+*       host_dup2socket() -- Dispatch socket descriptor duplication.
+*
+*   SYNOPSIS
+*       int host_dup2socket(struct socketbase *sb, int fd1, int fd2);
+*
+*   FUNCTION
+*       Submit a descriptor duplication request to the socket worker.
+*
+*   INPUTS
+*       sb - Socket context. fd1 - Source descriptor. fd2 - Destination
+*       descriptor.
+*
+*   RESULT
+*       Worker result from execute_in_task().
+*
+****************************************************************************
+*
+*/
+
 int host_dup2socket(struct socketbase *sb, int fd1, int fd2) {
 
   BSDLOG("======== %s ========\n",__func__);
@@ -970,6 +1463,30 @@ int host_dup2socket(struct socketbase *sb, int fd1, int fd2) {
 /***********************************
  * socket
  ***********************************/
+
+/****i* januae-bsdsock/host_socket_real ************************************
+*
+*   NAME
+*       host_socket_real() -- Create and register a native socket.
+*
+*   SYNOPSIS
+*       int host_socket_real(struct socketbase *sb, int af, int type, int
+*       protocol);
+*
+*   FUNCTION
+*       Open a native socket and install its descriptor in the guest socket
+*       descriptor table.
+*
+*   INPUTS
+*       sb - Socket context. af - Address family. type - Socket type.
+*       protocol - Protocol.
+*
+*   RESULT
+*       Guest descriptor on success; -1 on failure.
+*
+****************************************************************************
+*
+*/
 
 int host_socket_real(struct socketbase *sb, int af, int type, int protocol) {
   struct Library *SocketBase;
@@ -1065,6 +1582,29 @@ int host_socket_real(struct socketbase *sb, int af, int type, int protocol) {
 	return sd-1;
 }
 
+/****i* januae-bsdsock/host_socket *****************************************
+*
+*   NAME
+*       host_socket() -- Dispatch native socket creation.
+*
+*   SYNOPSIS
+*       int host_socket(struct socketbase *sb, int af, int type, int
+*       protocol);
+*
+*   FUNCTION
+*       Submit a socket creation request to the socket worker.
+*
+*   INPUTS
+*       sb - Socket context. af, type, protocol - Socket creation
+*       parameters.
+*
+*   RESULT
+*       Worker result from execute_in_task().
+*
+****************************************************************************
+*
+*/
+
 int host_socket(struct socketbase *sb, int af, int type, int protocol) {
 
   BSDLOG("======== %s ========\n", __func__);
@@ -1122,6 +1662,30 @@ int host_socket(struct socketbase *sb, int af, int type, int protocol)
 /***********************************
  * bind
  ***********************************/
+
+/****i* januae-bsdsock/host_bind_real **************************************
+*
+*   NAME
+*       host_bind_real() -- Bind a native socket address.
+*
+*   SYNOPSIS
+*       uae_u32 host_bind_real(struct socketbase *sb, uae_u32 sd, uae_u32
+*       name, uae_u32 namelen);
+*
+*   FUNCTION
+*       Resolve a guest descriptor, translate the guest socket address and
+*       invoke the host bind operation.
+*
+*   INPUTS
+*       sb - Socket context. sd - Guest descriptor. name - Guest address.
+*       namelen - Address size.
+*
+*   RESULT
+*       Socket operation status; failures update socket-context error state.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 host_bind_real(struct socketbase *sb, uae_u32 sd, uae_u32 name, uae_u32 namelen) {
   struct Library *SocketBase;
@@ -1199,6 +1763,30 @@ uae_u32 host_bind_real(struct socketbase *sb, uae_u32 sd, uae_u32 name, uae_u32 
 #endif
 }
 
+/****i* januae-bsdsock/host_bind *******************************************
+*
+*   NAME
+*       host_bind() -- Dispatch socket address binding.
+*
+*   SYNOPSIS
+*       uae_u32 host_bind(struct socketbase *sb, uae_u32 sd, uae_u32 name,
+*       uae_u32 namelen);
+*
+*   FUNCTION
+*       Submit the guest address and descriptor for binding by the socket
+*       worker.
+*
+*   INPUTS
+*       sb - Socket context. sd - Guest descriptor. name - Guest address.
+*       namelen - Address size.
+*
+*   RESULT
+*       Worker result from execute_in_task().
+*
+****************************************************************************
+*
+*/
+
 uae_u32 host_bind(struct socketbase *sb, uae_u32 sd, uae_u32 name, uae_u32 namelen) {
 
   BSDLOG("======== %s ========\n", __func__);
@@ -1206,6 +1794,30 @@ uae_u32 host_bind(struct socketbase *sb, uae_u32 sd, uae_u32 name, uae_u32 namel
   return execute_in_task(sb, BSD_bind, 0,
                          (ULONG) sb, (ULONG) sd, (ULONG) name, (ULONG) namelen, 0, 0, 0, 0);
 }
+
+/****i* januae-bsdsock/host_listen *****************************************
+*
+*   NAME
+*       host_listen() -- Handle a socket listen request.
+*
+*   SYNOPSIS
+*       uae_u32 host_listen(struct socketbase *sb, uae_u32 sd, uae_u32
+*       backlog);
+*
+*   FUNCTION
+*       Report an unimplemented listen operation without invoking the native
+*       listener.
+*
+*   INPUTS
+*       sb - Socket context. sd - Guest descriptor. backlog - Requested
+*       queue depth.
+*
+*   RESULT
+*       -1.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 host_listen(struct socketbase *sb, uae_u32 sd, uae_u32 backlog)
 {
@@ -1232,6 +1844,30 @@ uae_u32 host_listen(struct socketbase *sb, uae_u32 sd, uae_u32 backlog)
 #endif
   return success;
 }
+
+/****i* januae-bsdsock/host_accept *****************************************
+*
+*   NAME
+*       host_accept() -- Handle an incoming connection request.
+*
+*   SYNOPSIS
+*       void host_accept(TrapContext *context, struct socketbase *sb,
+*       uae_u32 sd, uae_u32 name, uae_u32 namelen);
+*
+*   FUNCTION
+*       Emit a not-implemented diagnostic without accepting a native
+*       connection.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. sd - Guest listener.
+*       name, namelen - Guest peer-address output.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void host_accept(TrapContext *context, struct socketbase *sb, uae_u32 sd, uae_u32 name, uae_u32 namelen)
 {
@@ -1555,6 +2191,34 @@ static unsigned int __stdcall sock_thread(void *blah)
  *   our guest call was blocking or not.
  ***********************************/
 
+/****i* januae-bsdsock/host_connect_real ***********************************
+*
+*   NAME
+*       host_connect_real() -- Connect a native socket.
+*
+*   SYNOPSIS
+*       void host_connect_real(TrapContext *context, struct socketbase *sb,
+*       uae_u32 sd, uae_u32 addr68k, uae_u32 addrlen);
+*
+*   FUNCTION
+*       Translate a guest peer address and execute the connection operation
+*       in the socket worker.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. sd - Guest descriptor.
+*       addr68k - Guest peer address. addrlen - Address size.
+*
+*   RESULT
+*       No C value is returned.
+*
+*   NOTES
+*       Operation status and errors are conveyed through the guest
+*       trap/socket context.
+*
+****************************************************************************
+*
+*/
+
 void host_connect_real(TrapContext *context, struct socketbase *sb, uae_u32 sd, uae_u32 addr68k, uae_u32 addrlen) {
   struct Library *SocketBase;
   int s;
@@ -1710,6 +2374,30 @@ CONNECTED:
   uae_Signal (sb->ownertask, sb->sigstosend | ((uae_u32) 1) << sb->signal); 
 }
 
+/****i* januae-bsdsock/host_connect ****************************************
+*
+*   NAME
+*       host_connect() -- Dispatch a socket connection.
+*
+*   SYNOPSIS
+*       void host_connect(TrapContext *context, struct socketbase *sb,
+*       uae_u32 sd, uae_u32 addr68k, uae_u32 addrlen);
+*
+*   FUNCTION
+*       Send a connect request to the socket worker using the guest
+*       descriptor blocking flag.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. sd - Guest descriptor.
+*       addr68k - Guest peer address. addrlen - Address size.
+*
+*   RESULT
+*       No C value is returned.
+*
+****************************************************************************
+*
+*/
+
 void host_connect(TrapContext *context, struct socketbase *sb, uae_u32 sd, uae_u32 addr68k, uae_u32 addrlen) {
 
   ULONG block=0;
@@ -1739,6 +2427,35 @@ void host_connect(TrapContext *context, struct socketbase *sb, uae_u32 sd, uae_u
 /***********************************
  * sendto
  ***********************************/
+
+/****i* januae-bsdsock/host_sendto_real ************************************
+*
+*   NAME
+*       host_sendto_real() -- Send guest data through a socket.
+*
+*   SYNOPSIS
+*       void host_sendto_real(TrapContext *context, struct socketbase *sb,
+*       uae_u32 sd, uae_u32 msg, uae_u32 len, uae_u32 flags, uae_u32 to,
+*       uae_u32 tolen);
+*
+*   FUNCTION
+*       Translate guest send buffers and destination-address information and
+*       perform native socket output.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. sd - Guest descriptor.
+*       msg - Guest buffer. len - Byte count. flags - Flags. to, tolen -
+*       Optional destination.
+*
+*   RESULT
+*       No C value is returned.
+*
+*   NOTES
+*       Result and errors are reported through the trap/socket context.
+*
+****************************************************************************
+*
+*/
 
 void host_sendto_real(TrapContext *context, struct socketbase *sb, uae_u32 sd, uae_u32 msg, uae_u32 len, uae_u32 flags, uae_u32 to, uae_u32 tolen) {
   struct Library *SocketBase;
@@ -2126,6 +2843,31 @@ void host_sendto_real(TrapContext *context, struct socketbase *sb, uae_u32 sd, u
 #endif
 }
 
+/****i* januae-bsdsock/host_sendto *****************************************
+*
+*   NAME
+*       host_sendto() -- Dispatch socket output.
+*
+*   SYNOPSIS
+*       void host_sendto(TrapContext *context, struct socketbase *sb,
+*       uae_u32 sd, uae_u32 msg_in, uae_u32 len, uae_u32 flags, uae_u32 to,
+*       uae_u32 tolen);
+*
+*   FUNCTION
+*       Submit the guest send buffer, flags and optional destination to the
+*       socket worker.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. sd - Guest descriptor.
+*       msg_in - Guest data. len, flags, to, tolen - Send parameters.
+*
+*   RESULT
+*       No C value is returned.
+*
+****************************************************************************
+*
+*/
+
 void host_sendto(TrapContext *context, struct socketbase *sb, uae_u32 sd, uae_u32 msg_in, uae_u32 len, uae_u32 flags, uae_u32 to, uae_u32 tolen) {
 
   BSDLOG("======== %s ========\n",__func__);
@@ -2149,12 +2891,63 @@ void host_sendto(TrapContext *context, struct socketbase *sb, uae_u32 sd, uae_u3
  * Can be blocking..
  */
 
+/****i* januae-bsdsock/a ***************************************************
+*
+*   NAME
+*       a() -- Display a readable byte for diagnostics.
+*
+*   SYNOPSIS
+*       char a(char c);
+*
+*   FUNCTION
+*       Return a printable ASCII character or a dot for a nonprintable byte.
+*
+*   INPUTS
+*       c - Input byte.
+*
+*   RESULT
+*       c when printable; otherwise a dot character.
+*
+****************************************************************************
+*
+*/
+
 char a(char c) {
   if(c>31 && c<126) {
     return c;
   }
   return '.';
 }
+/****i* januae-bsdsock/host_recvfrom_real **********************************
+*
+*   NAME
+*       host_recvfrom_real() -- Receive socket data for the guest.
+*
+*   SYNOPSIS
+*       void host_recvfrom_real(TrapContext *context, struct socketbase *sb,
+*       uae_u32 sd, uae_u32 msg, uae_u32 len, uae_u32 flags, uae_u32 addr,
+*       uae_u32 addrlen);
+*
+*   FUNCTION
+*       Receive native socket data and transfer the payload and optional
+*       source address to guest memory.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. sd - Guest descriptor.
+*       msg - Guest destination. len - Size. flags - Flags. addr, addrlen -
+*       Source-address outputs.
+*
+*   RESULT
+*       No C value is returned.
+*
+*   NOTES
+*       Operation status is transmitted through the guest trap/socket
+*       context.
+*
+****************************************************************************
+*
+*/
+
 void host_recvfrom_real(TrapContext *context, struct socketbase *sb, uae_u32 sd, uae_u32 msg, uae_u32 len, uae_u32 flags, uae_u32 addr, uae_u32 addrlen) {
   struct Library *SocketBase;
   int s;
@@ -2324,6 +3117,32 @@ RECEIVED:
   uae_Signal (sb->ownertask, sb->sigstosend | ((uae_u32) 1) << sb->signal); 
 }
 
+/****i* januae-bsdsock/host_recvfrom ***************************************
+*
+*   NAME
+*       host_recvfrom() -- Dispatch socket input.
+*
+*   SYNOPSIS
+*       void host_recvfrom(TrapContext *context, struct socketbase *sb,
+*       uae_u32 sd, uae_u32 msg_in, uae_u32 len, uae_u32 flags, uae_u32
+*       addr, uae_u32 addrlen);
+*
+*   FUNCTION
+*       Submit a socket receive operation to the worker, selecting the
+*       early-reply path when the descriptor is marked blocking.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. sd - Guest descriptor.
+*       msg_in - Guest destination. len, flags, addr, addrlen - Receive
+*       parameters.
+*
+*   RESULT
+*       No C value is returned.
+*
+****************************************************************************
+*
+*/
+
 void host_recvfrom(TrapContext *context, struct socketbase *sb, uae_u32 sd, uae_u32 msg_in, uae_u32 len, uae_u32 flags, uae_u32 addr, uae_u32 addrlen) {
 
   ULONG block=0;
@@ -2364,6 +3183,30 @@ void host_recvfrom(TrapContext *context, struct socketbase *sb, uae_u32 sd, uae_
 
 
 
+/****i* januae-bsdsock/host_shutdown ***************************************
+*
+*   NAME
+*       host_shutdown() -- Handle socket shutdown.
+*
+*   SYNOPSIS
+*       uae_u32 host_shutdown(struct socketbase *sb, uae_u32 sd, uae_u32
+*       how);
+*
+*   FUNCTION
+*       Report an unimplemented socket shutdown without invoking the native
+*       operation.
+*
+*   INPUTS
+*       sb - Socket context. sd - Guest descriptor. how - Shutdown
+*       direction.
+*
+*   RESULT
+*       -1.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 host_shutdown(struct socketbase *sb, uae_u32 sd, uae_u32 how)
 {
   BSDLOG("NOT YET IMPLEMENTED!\n");
@@ -2395,6 +3238,33 @@ uae_u32 host_shutdown(struct socketbase *sb, uae_u32 sd, uae_u32 how)
 /***********************************
  * setsockopt
  ***********************************/
+
+/****i* januae-bsdsock/host_setsockopt_real ********************************
+*
+*   NAME
+*       host_setsockopt_real() -- Apply a socket option.
+*
+*   SYNOPSIS
+*       void host_setsockopt_real(struct socketbase *sb, uae_u32 sd, uae_u32
+*       level, uae_u32 optname, uae_u32 optval, uae_u32 len);
+*
+*   FUNCTION
+*       Translate a guest socket option request and apply it to the resolved
+*       native socket.
+*
+*   INPUTS
+*       sb - Socket context. sd - Guest descriptor. level, optname - Option
+*       identity. optval - Guest option value. len - Size.
+*
+*   RESULT
+*       No C value is returned.
+*
+*   NOTES
+*       Socket failures are reflected in the context error state.
+*
+****************************************************************************
+*
+*/
 
 void host_setsockopt_real(struct socketbase *sb, uae_u32 sd, uae_u32 level, uae_u32 optname, uae_u32 optval, uae_u32 len) {
 
@@ -2479,6 +3349,29 @@ void host_setsockopt_real(struct socketbase *sb, uae_u32 sd, uae_u32 level, uae_
   return;
 }
 
+/****i* januae-bsdsock/host_setsockopt *************************************
+*
+*   NAME
+*       host_setsockopt() -- Dispatch a socket option change.
+*
+*   SYNOPSIS
+*       void host_setsockopt(struct socketbase *sb, uae_u32 sd, uae_u32
+*       level, uae_u32 optname, uae_u32 optval, uae_u32 len);
+*
+*   FUNCTION
+*       Submit a socket option update to the socket worker.
+*
+*   INPUTS
+*       sb - Socket context. sd - Guest descriptor. level, optname, optval,
+*       len - Option request.
+*
+*   RESULT
+*       No C value is returned.
+*
+****************************************************************************
+*
+*/
+
 void host_setsockopt(struct socketbase *sb, uae_u32 sd, uae_u32 level, uae_u32 optname, uae_u32 optval, uae_u32 len) {
 
   BSDLOG("======== %s ========\n",__func__);
@@ -2493,6 +3386,30 @@ void host_setsockopt(struct socketbase *sb, uae_u32 sd, uae_u32 level, uae_u32 o
 /***********************************
  * getsockopt
  ***********************************/
+
+/****i* januae-bsdsock/host_getsockopt *************************************
+*
+*   NAME
+*       host_getsockopt() -- Handle a socket option query.
+*
+*   SYNOPSIS
+*       uae_u32 host_getsockopt(struct socketbase *sb, uae_u32 sd, uae_u32
+*       level, uae_u32 optname, uae_u32 optval, uae_u32 optlen);
+*
+*   FUNCTION
+*       Report an unimplemented socket option query without populating the
+*       supplied guest option buffer.
+*
+*   INPUTS
+*       sb - Socket context. sd - Guest descriptor. level, optname - Option
+*       identity. optval, optlen - Guest output parameters.
+*
+*   RESULT
+*       -1.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 host_getsockopt(struct socketbase *sb, uae_u32 sd, uae_u32 level, uae_u32 optname, uae_u32 optval, uae_u32 optlen)
 {
@@ -2542,6 +3459,32 @@ uae_u32 host_getsockopt(struct socketbase *sb, uae_u32 sd, uae_u32 level, uae_u3
  * getsockname
  ***********************************/
 
+/****i* januae-bsdsock/host_getsockname_real *******************************
+*
+*   NAME
+*       host_getsockname_real() -- Read a socket local address.
+*
+*   SYNOPSIS
+*       uae_u32 host_getsockname_real(struct socketbase *sb, uae_u32 sd,
+*       uae_u32 name, uae_u32 namelen);
+*
+*   FUNCTION
+*       Query the native socket local address and copy it to guest storage.
+*
+*   INPUTS
+*       sb - Socket context. sd - Guest descriptor. name - Guest address
+*       output. namelen - Guest length location.
+*
+*   RESULT
+*       Zero on success; -1 on error.
+*
+*   NOTES
+*       Uses the translated guest socket descriptor.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 host_getsockname_real(struct socketbase *sb, uae_u32 sd, uae_u32 name, uae_u32 namelen) {
 
   struct Library *SocketBase;
@@ -2582,6 +3525,34 @@ uae_u32 host_getsockname_real(struct socketbase *sb, uae_u32 sd, uae_u32 name, u
   return 0;
 }
 
+/****i* januae-bsdsock/host_getsockname ************************************
+*
+*   NAME
+*       host_getsockname() -- Dispatch a local socket address query.
+*
+*   SYNOPSIS
+*       uae_u32 host_getsockname(struct socketbase *sb, uae_u32 sd, uae_u32
+*       name, uae_u32 namelen);
+*
+*   FUNCTION
+*       Submit the local-address arguments through the worker message
+*       interface.
+*
+*   INPUTS
+*       sb - Socket context. sd - Guest descriptor. name - Address
+*       destination. namelen - Length location.
+*
+*   RESULT
+*       Worker result from execute_in_task().
+*
+*   NOTES
+*       The current implementation uses BSD_setsockopt as its command
+*       identifier.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 host_getsockname(struct socketbase *sb, uae_u32 sd, uae_u32 name, uae_u32 namelen) {
 
   BSDLOG("======== %s ========\n",__func__);
@@ -2594,6 +3565,30 @@ uae_u32 host_getsockname(struct socketbase *sb, uae_u32 sd, uae_u32 name, uae_u3
 /***********************************
  * getpeername
  ***********************************/
+/****i* januae-bsdsock/host_getpeername_real *******************************
+*
+*   NAME
+*       host_getpeername_real() -- Read a socket peer address.
+*
+*   SYNOPSIS
+*       uae_u32 host_getpeername_real(struct socketbase *sb, uae_u32 sd,
+*       uae_u32 name, uae_u32 namelen);
+*
+*   FUNCTION
+*       Query the native socket peer address and copy the resulting sockaddr
+*       to guest storage.
+*
+*   INPUTS
+*       sb - Socket context. sd - Guest descriptor. name - Guest address
+*       output. namelen - Guest length location.
+*
+*   RESULT
+*       Zero on success; -1 on error.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 host_getpeername_real(struct socketbase *sb, uae_u32 sd, uae_u32 name, uae_u32 namelen) {
   struct Library *SocketBase;
   int s;
@@ -2635,6 +3630,29 @@ uae_u32 host_getpeername_real(struct socketbase *sb, uae_u32 sd, uae_u32 name, u
   return 0;
 }
 
+/****i* januae-bsdsock/host_getpeername ************************************
+*
+*   NAME
+*       host_getpeername() -- Dispatch a peer socket address query.
+*
+*   SYNOPSIS
+*       uae_u32 host_getpeername(struct socketbase *sb, uae_u32 sd, uae_u32
+*       name, uae_u32 namelen);
+*
+*   FUNCTION
+*       Submit the peer-address query to the socket worker.
+*
+*   INPUTS
+*       sb - Socket context. sd - Guest descriptor. name - Address
+*       destination. namelen - Length location.
+*
+*   RESULT
+*       Worker result from execute_in_task().
+*
+****************************************************************************
+*
+*/
+
 uae_u32 host_getpeername(struct socketbase *sb, uae_u32 sd, uae_u32 name, uae_u32 namelen) {
 
   BSDLOG("======== %s ========\n",__func__);
@@ -2643,6 +3661,28 @@ uae_u32 host_getpeername(struct socketbase *sb, uae_u32 sd, uae_u32 name, uae_u3
                          (ULONG) sb, (ULONG) sd, (ULONG) name, (ULONG) namelen, (ULONG) 0, 
                          (ULONG) 0, (ULONG) 0, (ULONG) 0);
 }
+
+/****i* januae-bsdsock/read_blocking ***************************************
+*
+*   NAME
+*       read_blocking() -- Read a socket blocking flag.
+*
+*   SYNOPSIS
+*       static int read_blocking(struct socketbase *sb, int s);
+*
+*   FUNCTION
+*       Determine whether the guest descriptor corresponding to a native
+*       socket has SF_BLOCKING set.
+*
+*   INPUTS
+*       sb - Socket context. s - Native socket descriptor.
+*
+*   RESULT
+*       1 when marked blocking; otherwise 0.
+*
+****************************************************************************
+*
+*/
 
 static int read_blocking(struct socketbase *sb, int s) {
   struct Library *SocketBase;
@@ -2661,6 +3701,28 @@ static int read_blocking(struct socketbase *sb, int s) {
   }
   return 0;
 }
+
+/****i* januae-bsdsock/set_blocking ****************************************
+*
+*   NAME
+*       set_blocking() -- Change native socket blocking mode.
+*
+*   SYNOPSIS
+*       static void set_blocking(struct socketbase *sb, int s, int value);
+*
+*   FUNCTION
+*       Set the native FIONBIO mode through IoctlSocket.
+*
+*   INPUTS
+*       sb - Socket context. s - Native socket descriptor. value - Nonzero
+*       for blocking mode, zero for nonblocking.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void set_blocking(struct socketbase *sb, int s, int value) {
   struct Library *SocketBase;
@@ -2695,6 +3757,30 @@ static void set_blocking(struct socketbase *sb, int s, int value) {
 
   BSDLOG("ERROR on IoctlSocket call: %d\n", errno); /* errno TODO */
 }
+
+/****i* januae-bsdsock/host_IoctlSocket ************************************
+*
+*   NAME
+*       host_IoctlSocket() -- Handle a guest socket control request.
+*
+*   SYNOPSIS
+*       uae_u32 host_IoctlSocket(struct socketbase *sb, uae_u32 sd, uae_u32
+*       request, uae_u32 arg);
+*
+*   FUNCTION
+*       Report an unimplemented ioctl request; active code does not read or
+*       write the supplied argument.
+*
+*   INPUTS
+*       sb - Socket context. sd - Guest descriptor. request - Control code.
+*       arg - Guest argument.
+*
+*   RESULT
+*       -1.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 host_IoctlSocket(struct socketbase *sb, uae_u32 sd, uae_u32 request, uae_u32 arg)
 {
@@ -2772,6 +3858,27 @@ uae_u32 host_IoctlSocket(struct socketbase *sb, uae_u32 sd, uae_u32 request, uae
  * CloseSocket
  ***********************************/
 
+/****i* januae-bsdsock/host_CloseSocket ************************************
+*
+*   NAME
+*       host_CloseSocket() -- Dispatch socket closure.
+*
+*   SYNOPSIS
+*       int host_CloseSocket(struct socketbase *sb, int sd);
+*
+*   FUNCTION
+*       Send a CloseSocket request to the socket worker.
+*
+*   INPUTS
+*       sb - Socket context. sd - Guest descriptor.
+*
+*   RESULT
+*       Worker result from execute_in_task().
+*
+****************************************************************************
+*
+*/
+
 int host_CloseSocket(struct socketbase *sb, int sd) {
 
   BSDLOG("======== %s ========\n",__func__);
@@ -2780,6 +3887,29 @@ int host_CloseSocket(struct socketbase *sb, int sd) {
                          (ULONG) sb, (ULONG) sd, 0, 0, 0,
                          (ULONG) 0, (ULONG) 0, (ULONG) 0);
 }
+
+/****i* januae-bsdsock/host_CloseSocket_real *******************************
+*
+*   NAME
+*       host_CloseSocket_real() -- Close a native socket.
+*
+*   SYNOPSIS
+*       int host_CloseSocket_real(struct socketbase *sb, int sd);
+*
+*   FUNCTION
+*       Resolve a guest descriptor and invoke the socket library CloseSocket
+*       function.
+*
+*   INPUTS
+*       sb - Socket context. sd - Guest descriptor.
+*
+*   RESULT
+*       Native CloseSocket result; -1 when the socket library cannot be
+*       obtained.
+*
+****************************************************************************
+*
+*/
 
 int host_CloseSocket_real(struct socketbase *sb, int sd) {
 
@@ -3068,6 +4198,32 @@ static unsigned int __stdcall thread_WaitSelect(void *index2)
 }
 #endif
 
+/****i* januae-bsdsock/host_WaitSelect *************************************
+*
+*   NAME
+*       host_WaitSelect() -- Handle multiplexed socket waiting.
+*
+*   SYNOPSIS
+*       void host_WaitSelect(TrapContext *context, struct socketbase *sb,
+*       uae_u32 nfds, uae_u32 readfds, uae_u32 writefds, uae_u32 exceptfds,
+*       uae_u32 timeout, uae_u32 sigmp);
+*
+*   FUNCTION
+*       Emit a not-implemented diagnostic without performing a native select
+*       or guest-signal wait.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. nfds - Descriptor
+*       bound. readfds, writefds, exceptfds - Guest sets. timeout - Time
+*       limit. sigmp - Guest signals.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void host_WaitSelect(TrapContext *context, struct socketbase *sb, uae_u32 nfds, uae_u32 readfds, uae_u32 writefds, uae_u32 exceptfds, uae_u32 timeout, uae_u32 sigmp)
 {
   BSDLOG("NOT YET IMPLEMENTED!\n");
@@ -3219,6 +4375,29 @@ void host_WaitSelect(TrapContext *context, struct socketbase *sb, uae_u32 nfds, 
  * Inet_NtoA
  ***********************************/
 
+/****i* januae-bsdsock/host_Inet_NtoA_real *********************************
+*
+*   NAME
+*       host_Inet_NtoA_real() -- Convert an IPv4 address to text.
+*
+*   SYNOPSIS
+*       uae_u32 host_Inet_NtoA_real(TrapContext *context, struct socketbase
+*       *sb, uae_u32 in);
+*
+*   FUNCTION
+*       Convert the supplied IPv4 value using the native library and copy
+*       the result to guest scratch storage.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. in - IPv4 value.
+*
+*   RESULT
+*       Guest scratch-buffer address on success; zero on failure.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 host_Inet_NtoA_real(TrapContext *context, struct socketbase *sb, uae_u32 in) {
 
   struct Library *SocketBase;
@@ -3269,6 +4448,28 @@ uae_u32 host_Inet_NtoA_real(TrapContext *context, struct socketbase *sb, uae_u32
 }
 
 
+/****i* januae-bsdsock/host_Inet_NtoA **************************************
+*
+*   NAME
+*       host_Inet_NtoA() -- Dispatch IPv4 address formatting.
+*
+*   SYNOPSIS
+*       uae_u32 host_Inet_NtoA(TrapContext *context, struct socketbase *sb,
+*       uae_u32 in);
+*
+*   FUNCTION
+*       Request native IPv4 text formatting through the socket worker.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. in - IPv4 address.
+*
+*   RESULT
+*       Worker result from execute_in_task().
+*
+****************************************************************************
+*
+*/
+
 uae_u32 host_Inet_NtoA(TrapContext *context, struct socketbase *sb, uae_u32 in) {
 
   BSDLOG("======== %s ========\n",__func__);
@@ -3279,6 +4480,30 @@ uae_u32 host_Inet_NtoA(TrapContext *context, struct socketbase *sb, uae_u32 in) 
 /***********************************
  * inet_addr
  ***********************************/
+
+/****i* januae-bsdsock/host_inet_addr_real *********************************
+*
+*   NAME
+*       host_inet_addr_real() -- Parse a guest IPv4 address string.
+*
+*   SYNOPSIS
+*       uae_u32 host_inet_addr_real(TrapContext *context, struct socketbase
+*       *sb, uae_u32 cp);
+*
+*   FUNCTION
+*       Read a guest string, parse it as an IPv4 address and return the
+*       converted address value.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. cp - Guest string
+*       address.
+*
+*   RESULT
+*       Converted IPv4 value, or the implementation failure sentinel.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 host_inet_addr_real(TrapContext *context, struct socketbase *sb, uae_u32 cp) {
 
@@ -3313,6 +4538,29 @@ uae_u32 host_inet_addr_real(TrapContext *context, struct socketbase *sb, uae_u32
 
 	return addr;
 }
+
+/****i* januae-bsdsock/host_inet_addr **************************************
+*
+*   NAME
+*       host_inet_addr() -- Dispatch IPv4 string parsing.
+*
+*   SYNOPSIS
+*       uae_u32 host_inet_addr(TrapContext *context, struct socketbase *sb,
+*       uae_u32 cp);
+*
+*   FUNCTION
+*       Submit a guest IPv4 string address for parsing by the socket worker.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. cp - Guest string
+*       address.
+*
+*   RESULT
+*       Worker result from execute_in_task().
+*
+****************************************************************************
+*
+*/
 
 uae_u32 host_inet_addr(TrapContext *context, struct socketbase *sb, uae_u32 cp) {
 
@@ -3489,6 +4737,34 @@ static unsigned int __stdcall thread_get(void *index2)
 /***********************************
  * gethostbynameaddr
  ***********************************/
+
+/****i* januae-bsdsock/host_gethostbynameaddr_real *************************
+*
+*   NAME
+*       host_gethostbynameaddr_real() -- Resolve a host name or address.
+*
+*   SYNOPSIS
+*       void host_gethostbynameaddr_real(TrapContext *context, struct
+*       socketbase *sb, uae_u32 name68k, uae_u32 namelen, long addrtype);
+*
+*   FUNCTION
+*       Query the native host database and encode the resulting hostent
+*       information for the guest.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. name68k - Guest
+*       name/address. namelen - Input length. addrtype - Query selector.
+*
+*   RESULT
+*       No C value is returned.
+*
+*   NOTES
+*       Guest result memory and socket-context status carry the lookup
+*       result.
+*
+****************************************************************************
+*
+*/
 
 void host_gethostbynameaddr_real(TrapContext *context, struct socketbase *sb, uae_u32 name68k, uae_u32 namelen, long addrtype) {
 
@@ -3751,6 +5027,29 @@ kludge:
 }
 
 /* go to according task and call back _real .. */
+/****i* januae-bsdsock/host_gethostbynameaddr ******************************
+*
+*   NAME
+*       host_gethostbynameaddr() -- Dispatch host database lookup.
+*
+*   SYNOPSIS
+*       void host_gethostbynameaddr(TrapContext *context, struct socketbase
+*       *sb, uae_u32 name68k, uae_u32 namelen, long addrtype);
+*
+*   FUNCTION
+*       Submit a host name/address query to the socket worker.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. name68k, namelen,
+*       addrtype - Lookup parameters.
+*
+*   RESULT
+*       No C value is returned.
+*
+****************************************************************************
+*
+*/
+
 void host_gethostbynameaddr(TrapContext *context, struct socketbase *sb, uae_u32 name68k, uae_u32 namelen, long addrtype) {
 
   BSDLOG("======== %s ========\n",__func__);
@@ -3763,6 +5062,30 @@ void host_gethostbynameaddr(TrapContext *context, struct socketbase *sb, uae_u32
 /***********************************
  * getprotobyname
  ***********************************/
+
+/****i* januae-bsdsock/host_getprotobyname_real ****************************
+*
+*   NAME
+*       host_getprotobyname_real() -- Resolve a protocol by name.
+*
+*   SYNOPSIS
+*       void host_getprotobyname_real(TrapContext *context, struct
+*       socketbase *sb, uae_u32 name);
+*
+*   FUNCTION
+*       Query the native protocol database and encode the protoent record
+*       for guest access.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. name - Guest protocol
+*       name.
+*
+*   RESULT
+*       No C value is returned.
+*
+****************************************************************************
+*
+*/
 
 void host_getprotobyname_real(TrapContext *context, struct socketbase *sb, uae_u32 name) {
   struct Library *SocketBase;
@@ -3837,6 +5160,29 @@ void host_getprotobyname_real(TrapContext *context, struct socketbase *sb, uae_u
 }
 
 
+/****i* januae-bsdsock/host_getprotobyname *********************************
+*
+*   NAME
+*       host_getprotobyname() -- Dispatch protocol name lookup.
+*
+*   SYNOPSIS
+*       void host_getprotobyname(TrapContext *context, struct socketbase
+*       *sb, uae_u32 name);
+*
+*   FUNCTION
+*       Submit a protocol-name query to the socket worker.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. name - Guest protocol
+*       name.
+*
+*   RESULT
+*       No C value is returned.
+*
+****************************************************************************
+*
+*/
+
 void host_getprotobyname(TrapContext *context, struct socketbase *sb, uae_u32 name) {
 
   BSDLOG("======== %s ========\n",__func__);
@@ -3846,6 +5192,30 @@ void host_getprotobyname(TrapContext *context, struct socketbase *sb, uae_u32 na
   return;
 }
 
+
+/****i* januae-bsdsock/host_getservbynameport ******************************
+*
+*   NAME
+*       host_getservbynameport() -- Handle service database lookup.
+*
+*   SYNOPSIS
+*       void host_getservbynameport(TrapContext *context, struct socketbase
+*       *sb, uae_u32 nameport, uae_u32 proto, uae_u32 type);
+*
+*   FUNCTION
+*       Emit a not-implemented diagnostic without resolving a service name
+*       or port.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. nameport - Service name
+*       or port. proto - Protocol. type - Query mode.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void host_getservbynameport(TrapContext *context, struct socketbase *sb, uae_u32 nameport, uae_u32 proto, uae_u32 type)
 {
@@ -3983,6 +5353,30 @@ void host_getservbynameport(TrapContext *context, struct socketbase *sb, uae_u32
  * gethostname
  ***********************************/
 
+/****i* januae-bsdsock/host_gethostname_real *******************************
+*
+*   NAME
+*       host_gethostname_real() -- Read the local host name.
+*
+*   SYNOPSIS
+*       uae_u32 host_gethostname_real(struct socketbase *sb, uae_u32 name,
+*       uae_u32 namelen);
+*
+*   FUNCTION
+*       Copy the host system name into the supplied guest buffer through the
+*       socket library.
+*
+*   INPUTS
+*       sb - Socket context. name - Guest output buffer. namelen - Buffer
+*       length.
+*
+*   RESULT
+*       Native gethostname status.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 host_gethostname_real(struct socketbase *sb, uae_u32 name, uae_u32 namelen) {
   struct Library *SocketBase;
   int ret;
@@ -4008,6 +5402,29 @@ uae_u32 host_gethostname_real(struct socketbase *sb, uae_u32 name, uae_u32 namel
   return ret;
 }
 
+/****i* januae-bsdsock/host_gethostname ************************************
+*
+*   NAME
+*       host_gethostname() -- Dispatch local host name lookup.
+*
+*   SYNOPSIS
+*       uae_u32 host_gethostname(struct socketbase *sb, uae_u32 name,
+*       uae_u32 namelen);
+*
+*   FUNCTION
+*       Submit a hostname request to the socket worker.
+*
+*   INPUTS
+*       sb - Socket context. name - Guest output buffer. namelen - Buffer
+*       size.
+*
+*   RESULT
+*       Worker result from execute_in_task().
+*
+****************************************************************************
+*
+*/
+
 uae_u32 host_gethostname(struct socketbase *sb, uae_u32 name, uae_u32 namelen) {
 
   BSDLOG("======== %s ========\n",__func__);
@@ -4016,9 +5433,54 @@ uae_u32 host_gethostname(struct socketbase *sb, uae_u32 name, uae_u32 namelen) {
                          (ULONG) sb, (ULONG) name, (ULONG) namelen, 0, 0, 0, 0, 0);
 }
   
+/****i* januae-bsdsock/host_getprotobynumber *******************************
+*
+*   NAME
+*       host_getprotobynumber() -- Handle protocol number lookup.
+*
+*   SYNOPSIS
+*       void host_getprotobynumber (TrapContext *context, struct socketbase
+*       *sb, uae_u32 any);
+*
+*   FUNCTION
+*       Emit a not-implemented diagnostic without resolving the supplied
+*       protocol number.
+*
+*   INPUTS
+*       context - Trap context. sb - Socket context. any - Protocol number.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void host_getprotobynumber (TrapContext *context, struct socketbase *sb, uae_u32 any) {
   BSDLOG("NOT YET IMPLEMENTED!\n");
 }
+
+/****i* januae-bsdsock/aros_bsdsocket_kill_thread **************************
+*
+*   NAME
+*       aros_bsdsocket_kill_thread() -- Request termination of a socket
+*       worker.
+*
+*   SYNOPSIS
+*       void aros_bsdsocket_kill_thread(struct socketbase *sb);
+*
+*   FUNCTION
+*       Submit BSD_killme to the worker associated with the socket context.
+*
+*   INPUTS
+*       sb - Socket context.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void aros_bsdsocket_kill_thread(struct socketbase *sb) {
 
@@ -4028,6 +5490,33 @@ void aros_bsdsocket_kill_thread(struct socketbase *sb) {
                   (ULONG) sb, 0, 0, 0, 0, 0, 0, 0);
   return;
 }
+
+/****i* januae-bsdsock/aros_bsdsocket_kill_thread_real *********************
+*
+*   NAME
+*       aros_bsdsocket_kill_thread_real() -- Release socket worker
+*       resources.
+*
+*   SYNOPSIS
+*       void aros_bsdsocket_kill_thread_real(struct socketbase *sb);
+*
+*   FUNCTION
+*       Delete the socket-context memory pool and close its cached
+*       bsdsocket.library handle.
+*
+*   INPUTS
+*       sb - Socket context.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The worker processes this operation before terminating its message
+*       loop.
+*
+****************************************************************************
+*
+*/
 
 void aros_bsdsocket_kill_thread_real(struct socketbase *sb) {
 
