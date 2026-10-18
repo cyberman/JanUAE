@@ -40,6 +40,27 @@
 
 static BPTR serial_file;
 
+/****i* januae-serial/checkserwrite ****************************************
+*
+*   NAME
+*       checkserwrite() -- Report serial output availability.
+*
+*   SYNOPSIS
+*       int checkserwrite(void);
+*
+*   FUNCTION
+*       Check whether the serial output file handle is open.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       1 when the handle is present; otherwise 0.
+*
+****************************************************************************
+*
+*/
+
 int checkserwrite(void) {
   if(serial_file) {
     //DebOut("check ok\n");
@@ -49,6 +70,28 @@ int checkserwrite(void) {
   return 0;
 }
 
+/****i* januae-serial/writeser *********************************************
+*
+*   NAME
+*       writeser() -- Write a serial value to the output file.
+*
+*   SYNOPSIS
+*       void writeser(uae_u16 data);
+*
+*   FUNCTION
+*       Write a character to the configured serial output file and flush it
+*       immediately; do nothing when no file is open.
+*
+*   INPUTS
+*       data - Serial value passed to FPutC.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void writeser(uae_u16 data) {
   DebOut("entered(data: %d)\n", data);
   if(serial_file) {
@@ -57,10 +100,54 @@ void writeser(uae_u16 data) {
   }
 }
 
+/****i* januae-serial/readseravail *****************************************
+*
+*   NAME
+*       readseravail() -- Report serial input availability.
+*
+*   SYNOPSIS
+*       int readseravail(void);
+*
+*   FUNCTION
+*       Return the fixed no-input indication without checking an input
+*       device.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       0.
+*
+****************************************************************************
+*
+*/
+
 int readseravail(void) {
   DebOut("entered\n");
   return 0;
 }
+
+/****i* januae-serial/readser **********************************************
+*
+*   NAME
+*       readser() -- Read a serial input value.
+*
+*   SYNOPSIS
+*       int readser(int *data);
+*
+*   FUNCTION
+*       Return the fixed no-input indication without modifying the
+*       destination.
+*
+*   INPUTS
+*       data - Destination pointer; not written.
+*
+*   RESULT
+*       0.
+*
+****************************************************************************
+*
+*/
 
 int readser(int *data) {
   DebOut("entered\n");
@@ -68,13 +155,82 @@ int readser(int *data) {
 }
 
 
+/****i* januae-serial/setbaud **********************************************
+*
+*   NAME
+*       setbaud() -- Request a serial baud-rate change.
+*
+*   SYNOPSIS
+*       void setbaud(int rate);
+*
+*   FUNCTION
+*       Return without changing transmission speed.
+*
+*   INPUTS
+*       rate - Requested baud rate; ignored.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void setbaud(int rate) {
   DebOut("new rate: %d\n", rate);
 }
 
+/****i* januae-serial/setserstat *******************************************
+*
+*   NAME
+*       setserstat() -- Request serial status changes.
+*
+*   SYNOPSIS
+*       void setserstat(int state, int foo);
+*
+*   FUNCTION
+*       Return without changing serial status.
+*
+*   INPUTS
+*       state - Requested status; ignored. foo - Additional argument;
+*       ignored.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void setserstat(int state, int foo) {
   DebOut("entered\n");
 }
+
+/****i* januae-serial/openser **********************************************
+*
+*   NAME
+*       openser() -- Open the file-backed serial output.
+*
+*   SYNOPSIS
+*       int openser(char *name);
+*
+*   FUNCTION
+*       Close any previous serial file, open the named path for
+*       existing-file access or create it, and seek to its end before
+*       writing.
+*
+*   INPUTS
+*       name - DOS path of the serial output file.
+*
+*   RESULT
+*       1 when a file handle is open; otherwise 0.
+*
+*   NOTES
+*       The target uses an output file rather than a hardware serial device.
+*
+****************************************************************************
+*
+*/
 
 int openser(char *name) {
 
@@ -101,6 +257,28 @@ int openser(char *name) {
   return 0;
 }
 
+/****i* januae-serial/closeser *********************************************
+*
+*   NAME
+*       closeser() -- Close the serial output file.
+*
+*   SYNOPSIS
+*       void closeser(void);
+*
+*   FUNCTION
+*       Append two newline characters, flush and close the serial file when
+*       open, then clear its handle.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void closeser(void) {
   DebOut("entered\n");
   if(serial_file) {
@@ -113,9 +291,51 @@ void closeser(void) {
   }
 }
 
+/****i* januae-serial/getserstat *******************************************
+*
+*   NAME
+*       getserstat() -- Read serial device status.
+*
+*   SYNOPSIS
+*       void getserstat(int *status);
+*
+*   FUNCTION
+*       Return without writing a status value.
+*
+*   INPUTS
+*       status - Destination pointer; not written.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void getserstat(int *status) {
   DebOut("entered\n");
 }
+
+/****i* januae-serial/serialuartbreak **************************************
+*
+*   NAME
+*       serialuartbreak() -- Request a serial break condition.
+*
+*   SYNOPSIS
+*       void serialuartbreak(int v);
+*
+*   FUNCTION
+*       Return without issuing a serial break.
+*
+*   INPUTS
+*       v - Break request; ignored.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void serialuartbreak(int v) {
   DebOut("entered\n");

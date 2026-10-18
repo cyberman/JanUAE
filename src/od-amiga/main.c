@@ -108,6 +108,33 @@ struct ExpansionIFace *IExpansion;
 extern int os39;
 
 /* close all libraries */
+/****i* januae-main/free_libs **********************************************
+*
+*   NAME
+*       free_libs() -- Release selected host libraries.
+*
+*   SYNOPSIS
+*       static void free_libs (void);
+*
+*   FUNCTION
+*       Close the recorded ASL, GadTools, CyberGraphics, Graphics, Layers,
+*       Intuition and DOS libraries when their bases are non-NULL. Release
+*       the timer and expansion interfaces on AmigaOS 4.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Each closed library base is cleared. The implementation does not
+*       close every library opened by init_libs().
+*
+****************************************************************************
+*
+*/
+
 static void free_libs (void) {
 
   JWLOG("free_libs()\n");
@@ -169,6 +196,34 @@ static void free_libs (void) {
  * Keep in mind: Prohibit gtk-mui
  * from opening its own libraries!
  ***********************************************/
+/****i* januae-main/init_libs **********************************************
+*
+*   NAME
+*       init_libs() -- Initialize native runtime dependencies.
+*
+*   SYNOPSIS
+*       static int init_libs (void);
+*
+*   FUNCTION
+*       Check the Exec version, open the core AmigaOS libraries required by
+*       the emulator, obtain AmigaOS 4 interfaces where applicable, locate
+*       timer.device and open the MUI master library.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       1 after the required initialization path succeeds; 0 when a required
+*       dependency or interface is unavailable.
+*
+*   NOTES
+*       CyberGraphics initialization is conditional on USE_CYBERGFX. Opened
+*       resources remain available to worker tasks.
+*
+****************************************************************************
+*
+*/
+
 static int init_libs (void) {
 
   ENTER
@@ -324,6 +379,33 @@ static FILE *logfile;
  ************************************************/
 void stop_proxy_thread (void);
 
+/****i* januae-main/main ***************************************************
+*
+*   NAME
+*       main() -- Enter the Amiga-host emulator runtime.
+*
+*   SYNOPSIS
+*       int main (int argc, char *argv[]);
+*
+*   FUNCTION
+*       Select a log file for Workbench launches, initialize native
+*       libraries, start the splash task and optional SDL host support, then
+*       invoke real_main(). Release selected libraries on normal return.
+*
+*   INPUTS
+*       argc - Argument count (zero for Workbench startup). argv - Program
+*       arguments.
+*
+*   RESULT
+*       0 on normal return from real_main().
+*
+*   NOTES
+*       Failure to initialize required libraries calls exit(1).
+*
+****************************************************************************
+*
+*/
+
 int main (int argc, char *argv[]) {
 
   fromWB = argc == 0;
@@ -358,12 +440,56 @@ int main (int argc, char *argv[]) {
 /*
  * Handle CTRL-C signals
  */
+/****i* januae-main/sigbrkhandler ******************************************
+*
+*   NAME
+*       sigbrkhandler() -- Handle the host interrupt signal.
+*
+*   SYNOPSIS
+*       static RETSIGTYPE sigbrkhandler(int foo);
+*
+*   FUNCTION
+*       Activate the emulator debugger when DEBUGGER is enabled; otherwise
+*       perform no action.
+*
+*   INPUTS
+*       foo - Signal number; not examined.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static RETSIGTYPE sigbrkhandler(int foo)
 {
 #ifdef DEBUGGER
     activate_debugger ();
 #endif
 }
+
+/****i* januae-main/setup_brkhandler ***************************************
+*
+*   NAME
+*       setup_brkhandler() -- Register the host interrupt handler.
+*
+*   SYNOPSIS
+*       void setup_brkhandler (void);
+*
+*   FUNCTION
+*       Install sigbrkhandler() for SIGINT using sigaction with SA_RESTART
+*       when available, otherwise use signal().
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void setup_brkhandler (void)
 {
@@ -383,14 +509,83 @@ void setup_brkhandler (void)
 /*
  * Handle target-specific cfgfile options
  */
+/****i* januae-main/target_save_options ************************************
+*
+*   NAME
+*       target_save_options() -- Handle target-specific configuration
+*       output.
+*
+*   SYNOPSIS
+*       void target_save_options (FILE *f, const struct uae_prefs *p);
+*
+*   FUNCTION
+*       Return without writing any target-specific configuration entries.
+*
+*   INPUTS
+*       f - Configuration output stream; unused. p - Current preferences;
+*       unused.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void target_save_options (FILE *f, const struct uae_prefs *p)
 {
 }
+
+/****i* januae-main/target_parse_option ************************************
+*
+*   NAME
+*       target_parse_option() -- Recognize target-specific configuration
+*       options.
+*
+*   SYNOPSIS
+*       int target_parse_option (struct uae_prefs *p, const char *option,
+*       const char *value);
+*
+*   FUNCTION
+*       Decline every target-specific option without modifying preferences.
+*
+*   INPUTS
+*       p - Preferences; unused. option - Option name; unused. value -
+*       Option value; unused.
+*
+*   RESULT
+*       0 for every call.
+*
+****************************************************************************
+*
+*/
 
 int target_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     return 0;
 }
+
+/****i* januae-main/target_default_options *********************************
+*
+*   NAME
+*       target_default_options() -- Initialize target-specific preference
+*       defaults.
+*
+*   SYNOPSIS
+*       void target_default_options (struct uae_prefs *p);
+*
+*   FUNCTION
+*       Return without changing any target-specific preference fields.
+*
+*   INPUTS
+*       p - Preferences structure; unused.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void target_default_options (struct uae_prefs *p)
 {
