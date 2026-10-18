@@ -92,6 +92,33 @@ static void trap_HandleExtendedTrap (TrapHandler, int has_retval);
  *
  * returns trap number of defined trap
  */
+/****i* januae-traps/define_trap *******************************************
+*
+*   NAME
+*       define_trap() -- Register a host handler in the emulator trap table.
+*
+*   SYNOPSIS
+*       unsigned int define_trap (TrapHandler handler_func, int flags, const
+*       char *name);
+*
+*   FUNCTION
+*       Reserve the next trap number and associate it with the handler,
+*       attributes, and optional diagnostic name.
+*
+*   INPUTS
+*       handler_func - Host trap callback; flags - Trap attributes; name -
+*       Optional diagnostic label.
+*
+*   RESULT
+*       Assigned trap number.
+*
+*   NOTES
+*       Exhausting the fixed 4,096-entry table terminates execution.
+*
+****************************************************************************
+*
+*/
+
 unsigned int define_trap (TrapHandler handler_func, int flags, const char *name)
 {
     if (trap_count == MAX_TRAPS) {
@@ -116,6 +143,32 @@ unsigned int define_trap (TrapHandler handler_func, int flags, const char *name)
  * trap_num = number of trap to invoke
  * regs     = current 68k state
  */
+/****i* januae-traps/m68k_handle_trap **************************************
+*
+*   NAME
+*       m68k_handle_trap() -- Dispatch an emulator trap encountered by the
+*       68k CPU.
+*
+*   SYNOPSIS
+*       void REGPARAM2 m68k_handle_trap (unsigned int trap_num, struct
+*       regstruct *regs);
+*
+*   FUNCTION
+*       Look up the registered handler and execute a simple or extended trap
+*       according to its flags, propagating a return value or performing an
+*       implicit RTS when requested.
+*
+*   INPUTS
+*       trap_num - Registered trap number; regs - Active 68k register state.
+*
+*   RESULT
+*       No C return value; guest registers and execution state may be
+*       updated.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 m68k_handle_trap (unsigned int trap_num, struct regstruct *regs)
 {
     struct Trap *trap = &traps[trap_num];
@@ -203,6 +256,29 @@ static ExtendedTrapContext *current_context;
 /*
  * Thread body for trap context
  */
+/****i* januae-traps/trap_thread *******************************************
+*
+*   NAME
+*       trap_thread() -- Execute an extended trap handler on a host thread.
+*
+*   SYNOPSIS
+*       static void *trap_thread (void *arg);
+*
+*   FUNCTION
+*       Wait for the emulator to release the trap context, run the handler,
+*       record its return value, and arrange resumption at the extended-trap
+*       exit handler.
+*
+*   INPUTS
+*       arg - Extended-trap context supplied to the handler thread.
+*
+*   RESULT
+*       Null pointer when the thread entry returns.
+*
+****************************************************************************
+*
+*/
+
 static void *trap_thread (void *arg)
 {
     ExtendedTrapContext *context = (ExtendedTrapContext *) arg;
@@ -248,6 +324,36 @@ static void *trap_thread (void *arg)
 /*
  * Set up extended trap context and call handler function
  */
+/****i* januae-traps/trap_HandleExtendedTrap *******************************
+*
+*   NAME
+*       trap_HandleExtendedTrap() -- Start an extended trap and yield
+*       emulator execution.
+*
+*   SYNOPSIS
+*       static void trap_HandleExtendedTrap (TrapHandler handler_func, int
+*       has_retval);
+*
+*   FUNCTION
+*       Allocate a trap context, initialize its two handoff semaphores, copy
+*       68k state, create the handler thread, and wait for a state handoff
+*       back to the emulator.
+*
+*   INPUTS
+*       handler_func - Extended trap callback; has_retval - Whether its
+*       return value should reach guest D0.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The context can resume execution at either a guest-call trap or the
+*       extended-trap exit trap.
+*
+****************************************************************************
+*
+*/
+
 static void trap_HandleExtendedTrap (TrapHandler handler_func, int has_retval)
 {
     struct ExtendedTrapContext *context = calloc (1, sizeof (ExtendedTrapContext));
@@ -289,6 +395,31 @@ static void trap_HandleExtendedTrap (TrapHandler handler_func, int has_retval)
  *
  * This function is to be called from the trap context.
  */
+/****i* januae-traps/trap_Call68k ******************************************
+*
+*   NAME
+*       trap_Call68k() -- Call guest 68k code from an extended trap.
+*
+*   SYNOPSIS
+*       static uae_u32 trap_Call68k (ExtendedTrapContext *context, uaecptr
+*       func_addr);
+*
+*   FUNCTION
+*       Record the target address, arrange emulator resumption at the
+*       68k-call handler, exchange execution with the emulator thread, and
+*       return the guest call result.
+*
+*   INPUTS
+*       context - Active extended-trap context; func_addr - Guest function
+*       entry address.
+*
+*   RESULT
+*       Value returned by the guest function in D0.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 trap_Call68k (ExtendedTrapContext *context, uaecptr func_addr)
 {
     /* Enter critical section - only one trap at a time, please! */
@@ -324,6 +455,30 @@ static uae_u32 trap_Call68k (ExtendedTrapContext *context, uaecptr func_addr)
 /*
  * Handles the emulator's side of a 68k call (from an extended trap)
  */
+/****i* januae-traps/m68k_call_handler *************************************
+*
+*   NAME
+*       m68k_call_handler() -- Enter a guest function requested by an
+*       extended trap.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 m68k_call_handler (struct regstruct *regs);
+*
+*   FUNCTION
+*       Push the trap context and an emulator return-trap address onto the
+*       68k stack, set the guest program counter, and restore interrupt
+*       handling for the guest call.
+*
+*   INPUTS
+*       regs - Active 68k register state.
+*
+*   RESULT
+*       Zero; guest stack, program counter, and interrupt mask are updated.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 m68k_call_handler (struct regstruct *regs)
 {
     ExtendedTrapContext *context = current_context;
@@ -360,6 +515,32 @@ static uae_u32 REGPARAM2 m68k_call_handler (struct regstruct *regs)
 /*
  * Handles the return from a 68k call at the emulator's side.
  */
+/****i* januae-traps/m68k_return_handler ***********************************
+*
+*   NAME
+*       m68k_return_handler() -- Return control from guest code to an
+*       extended trap.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 m68k_return_handler (struct regstruct
+*       *regs);
+*
+*   FUNCTION
+*       Recover the extended-trap context from the guest stack, capture D0
+*       and register state, and hand execution back to the waiting host trap
+*       thread.
+*
+*   INPUTS
+*       regs - 68k register state after the guest function returns.
+*
+*   RESULT
+*       Zero; register state is replaced with the state selected by the trap
+*       thread.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 m68k_return_handler (struct regstruct *regs)
 {
     ExtendedTrapContext *context;
@@ -402,6 +583,30 @@ static uae_u32 REGPARAM2 m68k_return_handler (struct regstruct *regs)
  * Handles completion of an extended trap and passes
  * return value from trap function to 68k space.
  */
+/****i* januae-traps/exit_trap_handler *************************************
+*
+*   NAME
+*       exit_trap_handler() -- Complete an extended trap and restore guest
+*       execution.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 exit_trap_handler (struct regstruct *regs);
+*
+*   FUNCTION
+*       Wait for the handler thread, restore the saved guest registers,
+*       optionally place the handler result in D0, and release the trap
+*       context and handoff semaphores.
+*
+*   INPUTS
+*       regs - Active 68k state for the completed trap.
+*
+*   RESULT
+*       Zero; guest state is restored and may include the trap result.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 exit_trap_handler (struct regstruct *regs)
 {
     uae_u32 retval;
@@ -435,6 +640,30 @@ static uae_u32 REGPARAM2 exit_trap_handler (struct regstruct *regs)
 /*
  * Call a 68k library function from extended trap.
  */
+/****i* januae-traps/CallLib ***********************************************
+*
+*   NAME
+*       CallLib() -- Invoke a guest library vector from an extended trap.
+*
+*   SYNOPSIS
+*       uae_u32 CallLib (TrapContext *context, uaecptr base, uae_s16
+*       offset);
+*
+*   FUNCTION
+*       Temporarily set guest A6 to the library base, invoke the function at
+*       the base-relative vector address, and restore the original A6.
+*
+*   INPUTS
+*       context - Extended trap context; base - Guest library base; offset -
+*       Signed vector offset.
+*
+*   RESULT
+*       Value returned by the guest library function.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 CallLib (TrapContext *context, uaecptr base, uae_s16 offset)
 {
     uae_u32 retval;
@@ -451,6 +680,28 @@ uae_u32 CallLib (TrapContext *context, uaecptr base, uae_s16 offset)
 /*
  * Initialize trap mechanism.
  */
+/****i* januae-traps/init_traps ********************************************
+*
+*   NAME
+*       init_traps() -- Reset the emulator trap registration table index.
+*
+*   SYNOPSIS
+*       void init_traps (void);
+*
+*   FUNCTION
+*       Set the number of defined traps to zero so subsequent registrations
+*       reuse the table from its first entry.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void init_traps (void)
 {
    trap_count = 0;
@@ -459,6 +710,28 @@ void init_traps (void)
 /*
  * Initialize the extended trap mechanism.
  */
+/****i* januae-traps/init_extended_traps ***********************************
+*
+*   NAME
+*       init_extended_traps() -- Install the extended-trap handoff entries.
+*
+*   SYNOPSIS
+*       void init_extended_traps (void);
+*
+*   FUNCTION
+*       Emit the guest-call, guest-return, and extended-trap exit handlers
+*       into runtime memory and initialize the global trap mutex.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void init_extended_traps (void)
 {
     m68k_call_trapaddr = here ();

@@ -24,6 +24,29 @@ static uae_u32 uaeexe_server (TrapContext *context) REGPARAM;
 /*
  * Install the server
  */
+/****i* januae-uaeexe/uaeexe_install ***************************************
+*
+*   NAME
+*       uaeexe_install() -- Install the guest-facing remote-command trap.
+*
+*   SYNOPSIS
+*       void uaeexe_install (void);
+*
+*   FUNCTION
+*       Write a call to the remote-command handler and an RTS instruction at
+*       UAEEXE_ORG, then restore the previous runtime-area assembly
+*       position.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void uaeexe_install (void)
 {
     uaecptr loop;
@@ -44,6 +67,32 @@ void uaeexe_install (void)
  * to launch the command asynchronously. Please note also that the
  * remote cli works better if you've got the fifo-handler installed.
  */
+/****i* januae-uaeexe/uaeexe ***********************************************
+*
+*   NAME
+*       uaeexe() -- Queue a command for execution by the guest remote CLI.
+*
+*   SYNOPSIS
+*       int uaeexe (const char *cmd);
+*
+*   FUNCTION
+*       Copy the command into a newly allocated linked-list entry and append
+*       it to the pending queue if the remote CLI has registered itself.
+*
+*   INPUTS
+*       cmd - Zero-terminated command text to enqueue.
+*
+*   RESULT
+*       UAEEXE_OK when queued, UAEEXE_NOMEM on allocation failure, or
+*       UAEEXE_NOTRUNNING when the server is inactive.
+*
+*   NOTES
+*       The command remains queued until the guest-side server retrieves it.
+*
+****************************************************************************
+*
+*/
+
 int uaeexe (const char *cmd)
 {
     struct uae_xcmd *nw;
@@ -83,6 +132,31 @@ int uaeexe (const char *cmd)
 /*
  * returns next command to be executed
  */
+/****i* januae-uaeexe/get_cmd **********************************************
+*
+*   NAME
+*       get_cmd() -- Remove the oldest pending remote command.
+*
+*   SYNOPSIS
+*       static char *get_cmd (void);
+*
+*   FUNCTION
+*       Unlink the head of the remote-command queue, retain ownership of its
+*       command text, and release the queue node.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Owned command text, or NULL when the queue is empty.
+*
+*   NOTES
+*       The caller is responsible for freeing the returned text.
+*
+****************************************************************************
+*
+*/
+
 static char *get_cmd (void)
 {
     struct uae_xcmd *cmd;
@@ -103,6 +177,34 @@ static char *get_cmd (void)
  * helper function
  */
 #define ARG(x) (get_long (m68k_areg (&context->regs, 7) + 4*(x+1)))
+/****i* januae-uaeexe/uaeexe_server ****************************************
+*
+*   NAME
+*       uaeexe_server() -- Deliver a queued command to the guest CLI.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 uaeexe_server (TrapContext *context);
+*
+*   FUNCTION
+*       Recognize an active guest command buffer, dequeue the next command,
+*       and copy it into the guest buffer up to the supplied length.
+*
+*   INPUTS
+*       context - 68k trap context; the guest stack supplies the destination
+*       address and maximum length.
+*
+*   RESULT
+*       Guest destination address when a command is delivered; otherwise
+*       zero.
+*
+*   NOTES
+*       The first nonzero command-buffer address marks the remote CLI as
+*       running.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 uaeexe_server (TrapContext *context)
 {
     int len;

@@ -31,6 +31,28 @@
 /*
  * Returns UAE Version
  */
+/****i* januae-uaelib/emulib_GetVersion ************************************
+*
+*   NAME
+*       emulib_GetVersion() -- Return the emulator library version.
+*
+*   SYNOPSIS
+*       static uae_u32 emulib_GetVersion (void);
+*
+*   FUNCTION
+*       Read the compile-time UAE version constant exposed through the guest
+*       library trap.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       UAEVERSION.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 emulib_GetVersion (void)
 {
     return UAEVERSION;
@@ -39,11 +61,54 @@ static uae_u32 emulib_GetVersion (void)
 /*
  * Resets your amiga
  */
+/****i* januae-uaelib/emulib_HardReset *************************************
+*
+*   NAME
+*       emulib_HardReset() -- Request a guest reset from the library
+*       interface.
+*
+*   SYNOPSIS
+*       static uae_u32 emulib_HardReset (void);
+*
+*   FUNCTION
+*       Invoke the emulator reset routine with a zero reset argument.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Zero.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 emulib_HardReset (void)
 {
     uae_reset(0);
     return 0;
 }
+
+/****i* januae-uaelib/emulib_Reset *****************************************
+*
+*   NAME
+*       emulib_Reset() -- Request the standard guest reset operation.
+*
+*   SYNOPSIS
+*       static uae_u32 emulib_Reset (void);
+*
+*   FUNCTION
+*       Pass a zero argument to the emulator reset routine.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Zero.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 emulib_Reset (void)
 {
@@ -54,6 +119,29 @@ static uae_u32 emulib_Reset (void)
 /*
  * Enables SOUND
  */
+/****i* januae-uaelib/emulib_EnableSound ***********************************
+*
+*   NAME
+*       emulib_EnableSound() -- Change the requested sound-production
+*       setting.
+*
+*   SYNOPSIS
+*       static uae_u32 emulib_EnableSound (uae_u32 val);
+*
+*   FUNCTION
+*       Assign the requested production mode only when sound is available
+*       and the current production setting is not two.
+*
+*   INPUTS
+*       val - Requested sound-production mode.
+*
+*   RESULT
+*       One when the setting is accepted; zero otherwise.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 emulib_EnableSound (uae_u32 val)
 {
     if (!sound_available || currprefs.produce_sound == 2)
@@ -66,6 +154,29 @@ static uae_u32 emulib_EnableSound (uae_u32 val)
 /*
  * Enables FAKE JOYSTICK
  */
+/****i* januae-uaelib/emulib_EnableJoystick ********************************
+*
+*   NAME
+*       emulib_EnableJoystick() -- Select the two emulator joystick-port
+*       assignments.
+*
+*   SYNOPSIS
+*       static uae_u32 emulib_EnableJoystick (uae_u32 val);
+*
+*   FUNCTION
+*       Store the low and next higher bytes of the supplied value in the
+*       port-zero and port-one preferences.
+*
+*   INPUTS
+*       val - Packed joystick-port selections.
+*
+*   RESULT
+*       One.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 emulib_EnableJoystick (uae_u32 val)
 {
     currprefs.jport0 = val & 255;
@@ -76,6 +187,29 @@ static uae_u32 emulib_EnableJoystick (uae_u32 val)
 /*
  * Sets the framerate
  */
+/****i* januae-uaelib/emulib_SetFrameRate **********************************
+*
+*   NAME
+*       emulib_SetFrameRate() -- Set the frame-skipping rate used by the
+*       emulator.
+*
+*   SYNOPSIS
+*       static uae_u32 emulib_SetFrameRate (uae_u32 val);
+*
+*   FUNCTION
+*       Accept a nonzero value no greater than twenty and assign it to the
+*       current graphics frame-rate preference.
+*
+*   INPUTS
+*       val - Requested frame-rate setting, from 1 through 20.
+*
+*   RESULT
+*       One for an accepted setting; zero for an out-of-range value.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 emulib_SetFrameRate (uae_u32 val)
 {
     if (val == 0)
@@ -91,6 +225,29 @@ static uae_u32 emulib_SetFrameRate (uae_u32 val)
 /*
  * Changes keyboard language settings
  */
+/****i* januae-uaelib/emulib_ChangeLanguage ********************************
+*
+*   NAME
+*       emulib_ChangeLanguage() -- Choose one of the supported keyboard
+*       layouts.
+*
+*   SYNOPSIS
+*       static uae_u32 emulib_ChangeLanguage (uae_u32 which);
+*
+*   FUNCTION
+*       Map selection values zero through six to the US, Danish, German,
+*       Swedish, French, Italian, and Spanish keyboard-language constants.
+*
+*   INPUTS
+*       which - Keyboard-language selection.
+*
+*   RESULT
+*       One for a supported selection; zero otherwise.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 emulib_ChangeLanguage (uae_u32 which)
 {
     if (which > 6)
@@ -130,6 +287,35 @@ static uae_u32 emulib_ChangeLanguage (uae_u32 which)
  * Changes chip memory size
  *  (reboots)
  */
+/****i* januae-uaelib/emulib_ChgCMemSize ***********************************
+*
+*   NAME
+*       emulib_ChgCMemSize() -- Request a reset with an updated chip-memory
+*       preference.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 emulib_ChgCMemSize (struct regstruct *regs,
+*       uae_u32 memsize);
+*
+*   FUNCTION
+*       Normalize unsupported chip-memory sizes to 2 MiB, clear guest D0,
+*       set the chip-memory preference, and request an emulator reset.
+*
+*   INPUTS
+*       regs - 68k register state; memsize - Requested chip-memory size in
+*       bytes.
+*
+*   RESULT
+*       One.
+*
+*   NOTES
+*       This operation updates a preference and initiates a reset; it does
+*       not itself resize the allocated memory.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 emulib_ChgCMemSize (struct regstruct *regs, uae_u32 memsize)
 {
     if (memsize != 0x80000 && memsize != 0x100000 &&
@@ -148,6 +334,34 @@ static uae_u32 REGPARAM2 emulib_ChgCMemSize (struct regstruct *regs, uae_u32 mem
  * Changes slow memory size
  *  (reboots)
  */
+/****i* januae-uaelib/emulib_ChgSMemSize ***********************************
+*
+*   NAME
+*       emulib_ChgSMemSize() -- Request a reset with an updated slow-memory
+*       preference.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 emulib_ChgSMemSize (struct regstruct *regs,
+*       uae_u32 memsize);
+*
+*   FUNCTION
+*       Replace unsupported bogomem sizes with zero, clear guest D0, update
+*       the slow-memory preference, and request a reset.
+*
+*   INPUTS
+*       regs - 68k register state; memsize - Requested slow-memory size in
+*       bytes.
+*
+*   RESULT
+*       One.
+*
+*   NOTES
+*       Memory allocation is not performed by this routine.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 emulib_ChgSMemSize (struct regstruct *regs, uae_u32 memsize)
 {
     if (memsize != 0x80000 && memsize != 0x100000 &&
@@ -166,6 +380,35 @@ static uae_u32 REGPARAM2 emulib_ChgSMemSize (struct regstruct *regs, uae_u32 mem
  * Changes fast memory size
  *  (reboots)
  */
+/****i* januae-uaelib/emulib_ChgFMemSize ***********************************
+*
+*   NAME
+*       emulib_ChgFMemSize() -- Request a reset with an updated fast-memory
+*       preference.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 emulib_ChgFMemSize (struct regstruct *regs,
+*       uae_u32 memsize);
+*
+*   FUNCTION
+*       Replace unsupported fast-memory sizes with zero, clear guest D0,
+*       update the fast-memory preference, and request a reset.
+*
+*   INPUTS
+*       regs - 68k register state; memsize - Requested fast-memory size in
+*       bytes.
+*
+*   RESULT
+*       Zero.
+*
+*   NOTES
+*       The return value is zero even after the preference and reset request
+*       have been applied.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 emulib_ChgFMemSize (struct regstruct *regs, uae_u32 memsize)
 {
     if (memsize != 0x100000 && memsize != 0x200000 &&
@@ -182,6 +425,30 @@ static uae_u32 REGPARAM2 emulib_ChgFMemSize (struct regstruct *regs, uae_u32 mem
 /*
  * Inserts a disk
  */
+/****i* januae-uaelib/emulib_InsertDisk ************************************
+*
+*   NAME
+*       emulib_InsertDisk() -- Set the pending image name for a floppy
+*       drive.
+*
+*   SYNOPSIS
+*       static uae_u32 emulib_InsertDisk (uaecptr name, uae_u32 drive);
+*
+*   FUNCTION
+*       Read a zero-terminated filename from guest memory and copy it into
+*       the selected drive entry in the changed preferences.
+*
+*   INPUTS
+*       name - Guest address of the image filename; drive - Floppy index
+*       from 0 through 3.
+*
+*   RESULT
+*       One when the drive and filename length are accepted; zero otherwise.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 emulib_InsertDisk (uaecptr name, uae_u32 drive)
 {
     int i = 0;
@@ -204,6 +471,27 @@ static uae_u32 emulib_InsertDisk (uaecptr name, uae_u32 drive)
 /*
  * Exits the emulator
  */
+/****i* januae-uaelib/emulib_ExitEmu ***************************************
+*
+*   NAME
+*       emulib_ExitEmu() -- Request emulator termination.
+*
+*   SYNOPSIS
+*       static uae_u32 emulib_ExitEmu (void);
+*
+*   FUNCTION
+*       Call the emulator quit routine.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       One.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 emulib_ExitEmu (void)
 {
     uae_quit ();
@@ -213,6 +501,34 @@ static uae_u32 emulib_ExitEmu (void)
 /*
  * Gets UAE Configuration
  */
+/****i* januae-uaelib/emulib_GetUaeConfig **********************************
+*
+*   NAME
+*       emulib_GetUaeConfig() -- Write the current emulator configuration
+*       into guest memory.
+*
+*   SYNOPSIS
+*       static uae_u32 emulib_GetUaeConfig (uaecptr place);
+*
+*   FUNCTION
+*       Serialize version, allocated memory sizes, frame rate, audio state,
+*       joystick selections, keyboard layout, drive occupancy, and four
+*       fixed-length floppy filename fields.
+*
+*   INPUTS
+*       place - Writable guest address for the configuration data.
+*
+*   RESULT
+*       One.
+*
+*   NOTES
+*       The caller must provide space for the complete 1,060-byte
+*       configuration record.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 emulib_GetUaeConfig (uaecptr place)
 {
     int i;
@@ -256,6 +572,32 @@ static uae_u32 emulib_GetUaeConfig (uaecptr place)
  *
  * NOT IMPLEMENTED YET
  */
+/****i* januae-uaelib/emulib_SetUaeConfig **********************************
+*
+*   NAME
+*       emulib_SetUaeConfig() -- Accept the reserved configuration-set trap.
+*
+*   SYNOPSIS
+*       static uae_u32 emulib_SetUaeConfig (uaecptr place);
+*
+*   FUNCTION
+*       Return the current success constant without reading the supplied
+*       configuration address or changing emulator settings.
+*
+*   INPUTS
+*       place - Guest address reserved for configuration input; not
+*       accessed.
+*
+*   RESULT
+*       One.
+*
+*   NOTES
+*       Configuration writing is not implemented in this routine.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 emulib_SetUaeConfig (uaecptr place)
 {
     return 1;
@@ -264,6 +606,30 @@ static uae_u32 emulib_SetUaeConfig (uaecptr place)
 /*
  * Gets the name of the disk in the given drive
  */
+/****i* januae-uaelib/emulib_GetDisk ***************************************
+*
+*   NAME
+*       emulib_GetDisk() -- Copy the selected floppy filename to guest
+*       memory.
+*
+*   SYNOPSIS
+*       static uae_u32 emulib_GetDisk (uae_u32 drive, uaecptr name);
+*
+*   FUNCTION
+*       Write the 256-byte filename field from the requested drive entry to
+*       the supplied guest address.
+*
+*   INPUTS
+*       drive - Floppy index from 0 through 3; name - Writable guest address
+*       for 256 bytes.
+*
+*   RESULT
+*       One for a valid drive index; zero otherwise.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 emulib_GetDisk (uae_u32 drive, uaecptr name)
 {
     int i;
@@ -279,6 +645,29 @@ static uae_u32 emulib_GetDisk (uae_u32 drive, uaecptr name)
 /*
  * Enter debugging state
  */
+/****i* januae-uaelib/emulib_Debug *****************************************
+*
+*   NAME
+*       emulib_Debug() -- Enter the debugger when debugger support is
+*       compiled.
+*
+*   SYNOPSIS
+*       static uae_u32 emulib_Debug (void);
+*
+*   FUNCTION
+*       Invoke the debugger activation entry point only in builds that
+*       enable DEBUGGER.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       One when DEBUGGER is enabled; zero otherwise.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 emulib_Debug (void)
 {
 #ifdef DEBUGGER
@@ -321,6 +710,30 @@ static uae_u32 FindFunctionInObject (uae_u8 *objectptr)
 #define CALL_NATIVE_FUNC( d1,d2,d3,d4,d5,d6,d7,a1,a2,a3,a4,a5,a6 ) if(native_func) native_func( d1,d2,d3,d4,d5,d6,d7,a1,a2,a3,a4,a5,a6 )
 /* A0 - Contains a ptr to the native .obj data.  This ptr is Amiga-based. */
 /*      We simply find the first function in this .obj data, and execute it. */
+/****i* januae-uaelib/emulib_ExecuteNativeCode *****************************
+*
+*   NAME
+*       emulib_ExecuteNativeCode() -- Handle the reserved native-object
+*       execution operation.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 emulib_ExecuteNativeCode (struct regstruct
+*       *regs);
+*
+*   FUNCTION
+*       Return without loading or invoking a native object. The former
+*       object-execution path is excluded from compilation.
+*
+*   INPUTS
+*       regs - 68k register state; unused by the active implementation.
+*
+*   RESULT
+*       Zero.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 emulib_ExecuteNativeCode (struct regstruct *regs)
 {
 #if 0
@@ -355,10 +768,62 @@ static uae_u32 REGPARAM2 emulib_ExecuteNativeCode (struct regstruct *regs)
     return 0;
 }
 
+/****i* januae-uaelib/emulib_Minimize **************************************
+*
+*   NAME
+*       emulib_Minimize() -- Handle the reserved host minimize operation.
+*
+*   SYNOPSIS
+*       static uae_u32 emulib_Minimize (void);
+*
+*   FUNCTION
+*       Return without requesting a host window or application minimize
+*       action.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Zero.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 emulib_Minimize (void)
 {
     return 0; // OSDEP_minimize_uae();
 }
+
+/****i* januae-uaelib/uaelib_demux *****************************************
+*
+*   NAME
+*       uaelib_demux() -- Dispatch a guest UAE-library request to its
+*       implementation.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 uaelib_demux (TrapContext *context);
+*
+*   FUNCTION
+*       Read the operation selector and arguments from the guest stack,
+*       invoke the corresponding emulator service, and return its value to
+*       the trap caller.
+*
+*   INPUTS
+*       context - Trap context containing the 68k registers and stack
+*       arguments.
+*
+*   RESULT
+*       Result returned by the selected operation; zero for an unrecognized
+*       selector.
+*
+*   NOTES
+*       Picasso96 and hardware-sprite selectors are present only when their
+*       respective build options are enabled.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 REGPARAM2 uaelib_demux (TrapContext *context)
 {
@@ -429,6 +894,29 @@ static uae_u32 REGPARAM2 uaelib_demux (TrapContext *context)
 /*
  * Installs the UAE LIBRARY
  */
+/****i* januae-uaelib/emulib_install ***************************************
+*
+*   NAME
+*       emulib_install() -- Install the guest library entry trap in runtime
+*       memory.
+*
+*   SYNOPSIS
+*       void emulib_install (void);
+*
+*   FUNCTION
+*       Emit a call to the library dispatcher followed by an RTS at
+*       RTAREA_BASE plus 0xFF60, then restore the previous emission address.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void emulib_install (void)
 {
     uaecptr a = here ();
