@@ -32,6 +32,29 @@
 BOOL init_done=FALSE;
 
 /* this is disabled! TODO! */
+/****i* januae/assert_window ***********************************************
+*
+*   NAME
+*       assert_window() -- return the supplied window pointer without
+*       checking whether the window is still present.
+*
+*   SYNOPSIS
+*       struct Window *assert_window(struct Window *search);
+*
+*   FUNCTION
+*       Return search unchanged. The disabled validation branch does not
+*       inspect any window list.
+*
+*   INPUTS
+*       search - Window pointer supplied by the caller.
+*
+*   RESULT
+*       Returns search unchanged.
+*
+****************************************************************************
+*
+*/
+
 struct Window *assert_window (struct Window *search) {
 
   return search;
@@ -56,6 +79,35 @@ struct Window *assert_window (struct Window *search) {
 #endif
 }
 
+/****i* januae/aos3_process_compare ****************************************
+*
+*   NAME
+*       aos3_process_compare() -- test whether a JanusWin belongs to the
+*       supplied task.
+*
+*   SYNOPSIS
+*       gint aos3_process_compare(gconstpointer aos3win, gconstpointer t);
+*
+*   FUNCTION
+*       Compare the task recorded in the supplied JanusWin with t. Return
+*       zero for a match and one otherwise.
+*
+*   INPUTS
+*       aos3win - Pointer to a JanusWin.
+*       t - Task pointer to compare.
+*
+*   RESULT
+*       Returns 0 for a matching task and 1 otherwise.
+*
+*   NOTES
+*       This is an equality predicate for list searching, not a three-way
+*       sorting comparator. The input is dereferenced without validity
+*       checking.
+*
+****************************************************************************
+*
+*/
+
 gint aos3_process_compare(gconstpointer aos3win, gconstpointer t) {
 
   if(((JanusWin *)aos3win)->task == t) {
@@ -63,6 +115,34 @@ gint aos3_process_compare(gconstpointer aos3win, gconstpointer t) {
   }
   return 1; /* don't care for sorting here */
 }
+
+/****i* januae/aos3_screen_process_compare *********************************
+*
+*   NAME
+*       aos3_screen_process_compare() -- test whether a JanusScreen belongs
+*       to the supplied task.
+*
+*   SYNOPSIS
+*       gint aos3_screen_process_compare(gconstpointer jscreen,
+*       gconstpointer t);
+*
+*   FUNCTION
+*       Compare the task recorded in the supplied JanusScreen with t. Return
+*       zero for a match and one otherwise.
+*
+*   INPUTS
+*       jscreen - Pointer to a JanusScreen.
+*       t - Task pointer to compare.
+*
+*   RESULT
+*       Returns 0 for a matching task and 1 otherwise.
+*
+*   NOTES
+*       The input is dereferenced without validity checking.
+*
+****************************************************************************
+*
+*/
 
 gint aos3_screen_process_compare(gconstpointer jscreen, gconstpointer t) {
 
@@ -73,6 +153,30 @@ gint aos3_screen_process_compare(gconstpointer jscreen, gconstpointer t) {
 }
 
 
+/****i* januae/aos3_window_compare *****************************************
+*
+*   NAME
+*       aos3_window_compare() -- compare a JanusWin guest-window identifier
+*       with a supplied identifier.
+*
+*   SYNOPSIS
+*       gint aos3_window_compare(gconstpointer aos3win, gconstpointer w);
+*
+*   FUNCTION
+*       Compare the guest-window identifier in the supplied JanusWin with w.
+*       Return zero for a match and one otherwise.
+*
+*   INPUTS
+*       aos3win - Pointer to a JanusWin.
+*       w - Guest-window identifier to compare.
+*
+*   RESULT
+*       Returns 0 when the identifiers match and 1 otherwise.
+*
+****************************************************************************
+*
+*/
+
 gint aos3_window_compare(gconstpointer aos3win, gconstpointer w) {
 
   if(((JanusWin *)aos3win)->aos3win == w) {
@@ -81,6 +185,34 @@ gint aos3_window_compare(gconstpointer aos3win, gconstpointer w) {
   return 1; /* don't care for sorting here */
 }
 
+/****i* januae/aros_window_compare *****************************************
+*
+*   NAME
+*       aros_window_compare() -- compare a JanusWin native window pointer
+*       with a supplied pointer.
+*
+*   SYNOPSIS
+*       gint aros_window_compare(gconstpointer jwin, gconstpointer aroswin);
+*
+*   FUNCTION
+*       Compare the native window pointer in the supplied JanusWin with
+*       aroswin. Return zero for a match and one otherwise.
+*
+*   INPUTS
+*       jwin - Pointer to a JanusWin.
+*       aroswin - Native window pointer to compare.
+*
+*   RESULT
+*       Returns 0 when the pointers match and 1 otherwise.
+*
+*   NOTES
+*       The function does not validate the JanusWin pointer or window
+*       lifetime.
+*
+****************************************************************************
+*
+*/
+
 gint aros_window_compare(gconstpointer jwin, gconstpointer aroswin) {
 
   if(((JanusWin *)jwin)->aroswin == aroswin) {
@@ -88,6 +220,30 @@ gint aros_window_compare(gconstpointer jwin, gconstpointer aroswin) {
   }
   return 1; /* don't care for sorting here */
 }
+
+/****i* januae/aos3_screen_compare *****************************************
+*
+*   NAME
+*       aos3_screen_compare() -- compare a JanusScreen guest-screen
+*       identifier with a supplied identifier.
+*
+*   SYNOPSIS
+*       gint aos3_screen_compare(gconstpointer jscreen, gconstpointer s);
+*
+*   FUNCTION
+*       Compare the guest-screen identifier in the supplied JanusScreen with
+*       s. Return zero for a match and one otherwise.
+*
+*   INPUTS
+*       jscreen - Pointer to a JanusScreen.
+*       s - Guest-screen identifier to compare.
+*
+*   RESULT
+*       Returns 0 on equality and 1 otherwise.
+*
+****************************************************************************
+*
+*/
 
 gint aos3_screen_compare(gconstpointer jscreen, gconstpointer s) {
 
@@ -129,6 +285,32 @@ gint aos3_screen_compare(gconstpointer jscreen, gconstpointer s) {
  *
  *********************************************************/
 
+/****i* januae/get_lo_word *************************************************
+*
+*   NAME
+*       get_lo_word() -- read and return the low 16 bits of a guest
+*       longword.
+*
+*   SYNOPSIS
+*       WORD get_lo_word(ULONG *field);
+*
+*   FUNCTION
+*       Read a longword through get_long_p and return its low 16 bits as
+*       WORD.
+*
+*   INPUTS
+*       field - Guest address represented as a pointer to ULONG.
+*
+*   RESULT
+*       Returns the low 16 bits of get_long_p(field), converted to WORD.
+*
+*   NOTES
+*       The caller must supply a readable guest address.
+*
+****************************************************************************
+*
+*/
+
 WORD get_lo_word(ULONG *field) {
   ULONG l;
 
@@ -136,6 +318,32 @@ WORD get_lo_word(ULONG *field) {
   l=l & 0xFFFF;
   return (WORD) l;
 }
+
+/****i* januae/get_hi_word *************************************************
+*
+*   NAME
+*       get_hi_word() -- read and return the high 16 bits of a guest
+*       longword.
+*
+*   SYNOPSIS
+*       WORD get_hi_word(ULONG *field);
+*
+*   FUNCTION
+*       Read a longword through get_long_p and return its high 16 bits as
+*       WORD.
+*
+*   INPUTS
+*       field - Guest address represented as a pointer to ULONG.
+*
+*   RESULT
+*       Returns bits 16 through 31 of get_long_p(field), converted to WORD.
+*
+*   NOTES
+*       The caller must supply a readable guest address.
+*
+****************************************************************************
+*
+*/
 
 WORD get_hi_word(ULONG *field) {
   ULONG l;
@@ -157,6 +365,38 @@ WORD get_hi_word(ULONG *field) {
  * will keep calling, as long as he gets messages
  **********************************************************/
 int wait=0;
+/****i* januae/ad_job_fetch_message ****************************************
+*
+*   NAME
+*       ad_job_fetch_message() -- return at most one pending Janus
+*       integration message to the guest daemon.
+*
+*   SYNOPSIS
+*       static uae_u32 ad_job_fetch_message(ULONG *m68k_results);
+*
+*   FUNCTION
+*       Under janus_messages_access, discard an acknowledged head entry and
+*       return the next queued Janus message. Write its type and
+*       guest-window identifier to the result buffer, or write zero to the
+*       first field when the queue is empty.
+*
+*   INPUTS
+*       m68k_results - Guest result buffer receiving a message type and
+*       guest-window identifier.
+*
+*   RESULT
+*       Returns TRUE. Writes zero to the first result field when no message
+*       is pending.
+*
+*   NOTES
+*       Acquires janus_messages_access, removes a previously acknowledged
+*       head message, and marks the next message as sent. The caller must
+*       provide adequate writable guest memory.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 ad_job_fetch_message(ULONG *m68k_results) {
   JanusMsg *j;
 
@@ -196,6 +436,33 @@ extern int diwstrt, diwhigh;
 extern int *native2amiga_line_map;
 extern int thisframe_y_adjust;
 
+/****i* januae/ad_test *****************************************************
+*
+*   NAME
+*       ad_test() -- respond to the integration service test command.
+*
+*   SYNOPSIS
+*       static uae_u32 ad_test(ULONG *m68k_results);
+*
+*   FUNCTION
+*       Acknowledge the dispatcher test request without modifying the
+*       supplied result buffer.
+*
+*   INPUTS
+*       m68k_results - Supplied guest results pointer, which this function
+*       does not modify.
+*
+*   RESULT
+*       Returns TRUE.
+*
+*   NOTES
+*       A TRUE result only acknowledges this test handler; it does not prove
+*       the availability of other integration services.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 ad_test(ULONG *m68k_results) {
 
   JWLOG("\nAD_TEST AD_TEST AD_TEST\n\n");
@@ -203,13 +470,90 @@ static uae_u32 ad_test(ULONG *m68k_results) {
   return TRUE;
 }
 
+/****i* januae/put_long_p **************************************************
+*
+*   NAME
+*       put_long_p() -- write a longword to a guest-memory address.
+*
+*   SYNOPSIS
+*       void put_long_p(ULONG *p, ULONG value);
+*
+*   FUNCTION
+*       Pass the guest address and longword value to the emulator put_long
+*       operation.
+*
+*   INPUTS
+*       p - Guest address represented as a ULONG pointer.
+*       value - Longword value to write.
+*
+*   RESULT
+*       No return value.
+*
+*   NOTES
+*       Uses the emulator put_long operation rather than directly assigning
+*       to host memory. The guest address must be writable.
+*
+****************************************************************************
+*
+*/
+
 void put_long_p(ULONG *p, ULONG value) {
   put_long((ULONG) p, value);
 }
 
+/****i* januae/get_long_p **************************************************
+*
+*   NAME
+*       get_long_p() -- read a longword from a guest-memory address.
+*
+*   SYNOPSIS
+*       ULONG get_long_p(ULONG *p);
+*
+*   FUNCTION
+*       Read the longword at a guest address using the emulator get_long
+*       operation.
+*
+*   INPUTS
+*       p - Guest address represented as a ULONG pointer.
+*
+*   RESULT
+*       Returns the longword read by the emulator get_long operation.
+*
+*   NOTES
+*       The guest address must be readable.
+*
+****************************************************************************
+*
+*/
+
 ULONG get_long_p(ULONG *p) {
   return (ULONG) get_long((uaecptr) p);
 }
+
+/****i* januae/get_word_p **************************************************
+*
+*   NAME
+*       get_word_p() -- read a word from a guest-memory address.
+*
+*   SYNOPSIS
+*       UWORD get_word_p(ULONG *p);
+*
+*   FUNCTION
+*       Read the word at a guest address using the emulator get_word
+*       operation.
+*
+*   INPUTS
+*       p - Guest address represented as a ULONG pointer.
+*
+*   RESULT
+*       Returns the word read by the emulator get_word operation.
+*
+*   NOTES
+*       The guest address must be readable.
+*
+****************************************************************************
+*
+*/
 
 UWORD get_word_p(ULONG *p) {
   return (UWORD) get_word((uaecptr) p);
@@ -220,6 +564,37 @@ void unlock_jgui(void);
 /*********************************
  * setup janusd
  *********************************/
+/****i* januae/jd_setup ****************************************************
+*
+*   NAME
+*       jd_setup() -- register the guest Janus daemon and apply a requested
+*       coherence-mode state change.
+*
+*   SYNOPSIS
+*       static uae_u32 jd_setup(TrapContext *context, ULONG *param);
+*
+*   FUNCTION
+*       On initial registration, record the guest daemon task, signal,
+*       guest-system identifier, and initialize the Janus semaphores. Apply
+*       coherence-mode requests: 1 disables and closes cloned windows and
+*       screens; 2 enables. Write the resulting coherence preference to the
+*       guest buffer.
+*
+*   INPUTS
+*       context - Trap context supplied by the dispatcher; not read by this
+*       function.
+*       param - Guest parameter/result memory; longword positions 0, 4, 8,
+*       and 12 carry the task, signal, requested state, and guest-system
+*       identifier.
+*
+*   RESULT
+*       Returns TRUE. Writes changed_prefs.jcoherence to position 8 of
+*       param.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 jd_setup(TrapContext *context, ULONG *param) {
     ULONG want_to_die;
     /* want_to_die:
@@ -289,6 +664,35 @@ static uae_u32 jd_setup(TrapContext *context, ULONG *param) {
 /*********************************
  * setup clipd
  *********************************/
+/****i* januae/cd_setup ****************************************************
+*
+*   NAME
+*       cd_setup() -- register the guest clipboard daemon and update the
+*       clipboard preference when requested.
+*
+*   SYNOPSIS
+*       static uae_u32 cd_setup(TrapContext *context, ULONG *param);
+*
+*   FUNCTION
+*       On first registration, store the clipboard task and signals and
+*       request installation of the change hook. State request 1 disables
+*       clipboard integration; request 2 enables it. Write the clipboard
+*       preference to the guest parameter buffer.
+*
+*   INPUTS
+*       context - Trap context supplied by the dispatcher; not read by this
+*       function.
+*       param - Guest parameter/result memory containing the clipboard task,
+*       transfer signals, and requested state at positions 0, 4, 8, and 12.
+*
+*   RESULT
+*       Writes changed_prefs.jclipboard to position 12 and returns the same
+*       value.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 cd_setup(TrapContext *context, ULONG *param) {
     ULONG want_to_die;
     /* want_to_die:
@@ -339,6 +743,39 @@ static uae_u32 cd_setup(TrapContext *context, ULONG *param) {
 /*********************************
  * setup launchd
  *********************************/
+/****i* januae/ld_setup ****************************************************
+*
+*   NAME
+*       ld_setup() -- register the guest launch daemon and start host CLI
+*       handling on its initial setup.
+*
+*   SYNOPSIS
+*       static uae_u32 ld_setup(TrapContext *context, ULONG *param);
+*
+*   FUNCTION
+*       On first registration, store the launch-daemon task and signal,
+*       initialize launch-list synchronization, and start the host CLI
+*       thread. Requests 1 and 2 currently perform no additional
+*       launch-state operation.
+*
+*   INPUTS
+*       context - Trap context supplied by the dispatcher; not read by this
+*       function.
+*       param - Guest parameter/result memory with daemon task and signal at
+*       positions 0 and 4 and a requested state at position 12.
+*
+*   RESULT
+*       Writes changed_prefs.jclipboard to position 12 and returns that
+*       clipboard preference value.
+*
+*   BUGS
+*       The response currently reflects the clipboard preference, not a
+*       separately established launch-service status.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 ld_setup(TrapContext *context, ULONG *param) {
     ULONG want_to_die;
     /* want_to_die:
@@ -391,6 +828,39 @@ static uae_u32 ld_setup(TrapContext *context, ULONG *param) {
 /**********************************************************
  * this stuff gets called from janusd/clipd 
  **********************************************************/
+/****i* januae/aroshack_helper *********************************************
+*
+*   NAME
+*       aroshack_helper() -- dispatch guest service calls to the JanUAE host
+*       integration handlers.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 aroshack_helper(TrapContext *context);
+*
+*   FUNCTION
+*       Read the primary service from guest D0 and dispatch setup, job,
+*       clipboard, and launch requests. For job groups, D1 selects the
+*       subcommand; A0 and any additional registers carry service-specific
+*       inputs and outputs. Unknown services and subcommands return FALSE.
+*
+*   INPUTS
+*       context - Emulator trap context containing service selection and
+*       guest registers.
+*
+*   RESULT
+*       Returns the selected handler result. Returns FALSE for unknown
+*       services and jobs, and for the explicitly unsupported AD_SHUTDOWN
+*       service.
+*
+*   BUGS
+*       The MODIFY_IDCMP subjob currently returns TRUE without performing
+*       the requested operation. Selected clipboard subjobs return TRUE
+*       without proving successful clipboard transfer.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 aroshack_helper (TrapContext *context) {
 
   unsigned long service;
