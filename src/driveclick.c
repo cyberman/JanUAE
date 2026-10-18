@@ -32,6 +32,36 @@ static int sample_step;
 
 static uae_s16 *clickbuffer;
 
+/****i* januae-driveclick/decodewav ****************************************
+*
+*   NAME
+*       decodewav() -- Decode a RIFF/WAVE drive sound sample.
+*
+*   SYNOPSIS
+*       uae_s16 *decodewav (uae_u8 *s, int *lenp);
+*
+*   FUNCTION
+*       Check the RIFF and WAVE identifiers, scan wave chunks for the data
+*       chunk, copy its payload into allocated sample storage and replace
+*       the supplied byte length with a count of 16-bit samples. A format
+*       chunk updates the module sample-frequency setting.
+*
+*   INPUTS
+*       s - Wave-file byte buffer; lenp - Pointer to its total byte length,
+*       updated when sample data is found.
+*
+*   RESULT
+*       An allocated sample buffer when a data chunk is found; otherwise
+*       NULL.
+*
+*   NOTES
+*       The decoder interprets the sample payload as signed 16-bit data
+*       without performing channel or encoding conversion.
+*
+****************************************************************************
+*
+*/
+
 uae_s16 *decodewav (uae_u8 *s, int *lenp)
 {
     uae_s16 *dst;
@@ -60,6 +90,34 @@ uae_s16 *decodewav (uae_u8 *s, int *lenp)
     return 0;
 }
 
+/****i* januae-driveclick/loadsample ***************************************
+*
+*   NAME
+*       loadsample() -- Load a drive sound sample from a file.
+*
+*   SYNOPSIS
+*       static int loadsample (const char *path, struct drvsample *ds);
+*
+*   FUNCTION
+*       Read a file through the zfile interface, pass its contents to
+*       decodewav and store the resulting sample pointer and sample count in
+*       the drive sample descriptor.
+*
+*   INPUTS
+*       path - Source filename; ds - Destination sample descriptor.
+*
+*   RESULT
+*       Zero if the source file cannot be opened; one after attempting to
+*       decode a readable file.
+*
+*   NOTES
+*       A return value of one does not indicate whether decodewav found a
+*       usable data chunk.
+*
+****************************************************************************
+*
+*/
+
 static int loadsample (const char *path, struct drvsample *ds)
 {
     struct zfile *f;
@@ -83,6 +141,27 @@ static int loadsample (const char *path, struct drvsample *ds)
     return 1;
 }
 
+/****i* januae-driveclick/freesample ***************************************
+*
+*   NAME
+*       freesample() -- Release the storage owned by a drive sample.
+*
+*   SYNOPSIS
+*       static void freesample (struct drvsample *s);
+*
+*   FUNCTION
+*       Free the sample data pointer and set it to NULL.
+*
+*   INPUTS
+*       s - Drive sample descriptor whose data pointer is released.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void freesample (struct drvsample *s)
 {
     free (s->p);
@@ -90,6 +169,35 @@ static void freesample (struct drvsample *s)
 }
 
 extern char *start_path;
+
+/****i* januae-driveclick/driveclick_init **********************************
+*
+*   NAME
+*       driveclick_init() -- Initialize drive sound emulation from
+*       preferences.
+*
+*   SYNOPSIS
+*       void driveclick_init (void);
+*
+*   FUNCTION
+*       Release previously owned sample buffers, then visit the four
+*       configured floppy drives. Reset mixing state only when a positive
+*       sample-selection total has been established.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The sample-loading branch is excluded by a compile-time false
+*       condition in this implementation, so this routine does not activate
+*       click mixing.
+*
+****************************************************************************
+*
+*/
 
 void driveclick_init (void)
 {
@@ -138,12 +246,60 @@ void driveclick_init (void)
     }
 }
 
+/****i* januae-driveclick/driveclick_reset *********************************
+*
+*   NAME
+*       driveclick_reset() -- Reallocate the drive sound mixing buffer.
+*
+*   SYNOPSIS
+*       void driveclick_reset (void);
+*
+*   FUNCTION
+*       Free the previous mixing buffer, allocate storage using the current
+*       sound buffer size and derive the fixed-point sample step from the
+*       drive sample frequency and configured output rate.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The sample step uses DS_SHIFT fractional bits.
+*
+****************************************************************************
+*
+*/
+
 void driveclick_reset (void)
 {
     free (clickbuffer);
     clickbuffer = xmalloc (sndbufsize);
     sample_step = (freq << DS_SHIFT) / currprefs.sound_freq;
 }
+
+/****i* januae-driveclick/driveclick_free **********************************
+*
+*   NAME
+*       driveclick_free() -- Release drive sound samples and mixing state.
+*
+*   SYNOPSIS
+*       void driveclick_free (void);
+*
+*   FUNCTION
+*       Free sample buffers for all four drives, clear their descriptors,
+*       release the mix buffer and mark click mixing uninitialized.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void driveclick_free (void)
 {
@@ -158,6 +314,34 @@ void driveclick_free (void)
     clickbuffer = 0;
     click_initialized = 0;
 }
+
+/****i* januae-driveclick/getsample ****************************************
+*
+*   NAME
+*       getsample() -- Compute one emulated drive sound sample.
+*
+*   SYNOPSIS
+*       STATIC_INLINE uae_s16 getsample (void);
+*
+*   FUNCTION
+*       Inspect enabled drives, advance applicable startup, spin and click
+*       sample positions, and combine the accumulated signed sample value
+*       using the per-drive divisor.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       A signed 16-bit output sample, or zero when no drive contributes to
+*       the divisor.
+*
+*   NOTES
+*       The active sample source depends on motor state, disk presence and
+*       per-sample playback positions.
+*
+****************************************************************************
+*
+*/
 
 STATIC_INLINE uae_s16 getsample (void)
 {
@@ -209,6 +393,29 @@ STATIC_INLINE uae_s16 getsample (void)
 
 static int clickcnt;
 
+/****i* januae-driveclick/mix **********************************************
+*
+*   NAME
+*       mix() -- Accumulate drive audio for the current output buffer.
+*
+*   SYNOPSIS
+*       static void mix (void);
+*
+*   FUNCTION
+*       Determine the number of output frames already written, then fill the
+*       drive click buffer up to that frame count by calling getsample.
+*       Apply the configured click-volume attenuation when nonzero.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void mix (void)
 {
     int total = ((uae_u8*)sndbufpt - (uae_u8*)sndbuffer) / (currprefs.sound_stereo ? 4 : 2);
@@ -224,6 +431,28 @@ static void mix (void)
     }
 }
 
+/****i* januae-driveclick/limit ********************************************
+*
+*   NAME
+*       limit() -- Clamp a mixed audio value to the 16-bit sample range.
+*
+*   SYNOPSIS
+*       STATIC_INLINE uae_s16 limit (uae_s32 v);
+*
+*   FUNCTION
+*       Saturate values below -32768 or above 32767 and return the resulting
+*       signed 16-bit value.
+*
+*   INPUTS
+*       v - Signed 32-bit mixed audio value.
+*
+*   RESULT
+*       A signed 16-bit value within the inclusive range -32768 to 32767.
+*
+****************************************************************************
+*
+*/
+
 STATIC_INLINE uae_s16 limit (uae_s32 v)
 {
     if (v < -32768)
@@ -232,6 +461,35 @@ STATIC_INLINE uae_s16 limit (uae_s32 v)
 	v = 32767;
     return v;
 }
+
+/****i* januae-driveclick/driveclick_mix ***********************************
+*
+*   NAME
+*       driveclick_mix() -- Mix generated drive sound into emulator audio.
+*
+*   SYNOPSIS
+*       void driveclick_mix (uae_s16 *sndbuffer, int size);
+*
+*   FUNCTION
+*       When initialized, fill the current drive sound buffer and combine
+*       each drive sample with the existing output. Use the same drive
+*       contribution for both stereo channels and saturate the result to
+*       16-bit range.
+*
+*   INPUTS
+*       sndbuffer - Destination emulator audio samples; size - Mono sample
+*       count or total interleaved stereo sample count.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The combined sample is weighted by two thirds; when click mixing is
+*       not initialized the output is left untouched.
+*
+****************************************************************************
+*
+*/
 
 void driveclick_mix (uae_s16 *sndbuffer, int size)
 {
@@ -256,6 +514,31 @@ void driveclick_mix (uae_s16 *sndbuffer, int size)
     }
 }
 
+/****i* januae-driveclick/driveclick_click *********************************
+*
+*   NAME
+*       driveclick_click() -- Start a floppy seek-click sample.
+*
+*   SYNOPSIS
+*       void driveclick_click (int drive, int startOffset);
+*
+*   FUNCTION
+*       If drive sounds are active for the selected drive, first preserve
+*       audio already accumulated for the current buffer and then set the
+*       click sample position from the supplied offset, capped at half the
+*       sample length.
+*
+*   INPUTS
+*       drive - Zero-based floppy-drive index; startOffset - Starting click
+*       offset scaled to the fixed-point sample position.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void driveclick_click (int drive, int startOffset)
 {
     if (!click_initialized)
@@ -267,6 +550,34 @@ void driveclick_click (int drive, int startOffset)
     if (drvs[drive][DS_CLICK].pos > drvs[drive][DS_CLICK].len / 2)
 	drvs[drive][DS_CLICK].pos = drvs[drive][DS_CLICK].len / 2;
 }
+
+/****i* januae-driveclick/driveclick_motor *********************************
+*
+*   NAME
+*       driveclick_motor() -- Update the emulated drive motor sound state.
+*
+*   SYNOPSIS
+*       void driveclick_motor (int drive, int running);
+*
+*   FUNCTION
+*       Preserve mixed audio before changing the motor state, stop the motor
+*       when requested, or start rotation and select the initial spin,
+*       startup and disk-engagement sample positions.
+*
+*   INPUTS
+*       drive - Zero-based floppy-drive index; running - Zero to stop, one
+*       to run, or two to request startup-sample restart.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The function returns without modifying state when drive click mixing
+*       is inactive or disabled for the specified drive.
+*
+****************************************************************************
+*
+*/
 
 void driveclick_motor (int drive, int running)
 {
@@ -291,6 +602,33 @@ void driveclick_motor (int drive, int running)
     }
 }
 
+/****i* januae-driveclick/driveclick_insert ********************************
+*
+*   NAME
+*       driveclick_insert() -- Update disk-presence state for drive sounds.
+*
+*   SYNOPSIS
+*       void driveclick_insert (int drive, int eject);
+*
+*   FUNCTION
+*       Record whether the specified drive has an inserted disk and clear
+*       its previous-spin flag when the disk is ejected.
+*
+*   INPUTS
+*       drive - Zero-based floppy-drive index; eject - Nonzero for ejection,
+*       zero for insertion.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Changes are ignored unless drive click mixing is initialized and
+*       enabled for the specified drive.
+*
+****************************************************************************
+*
+*/
+
 void driveclick_insert (int drive, int eject)
 {
     if (!click_initialized)
@@ -301,6 +639,31 @@ void driveclick_insert (int drive, int eject)
 	drv_has_spun[drive] = 0;
     drv_has_disk[drive] = !eject;
 }
+
+/****i* januae-driveclick/driveclick_check_prefs ***************************
+*
+*   NAME
+*       driveclick_check_prefs() -- Apply updated floppy drive sound
+*       preferences.
+*
+*   SYNOPSIS
+*       void driveclick_check_prefs (void);
+*
+*   FUNCTION
+*       Compare output volume, per-drive enable settings and external sample
+*       identifiers with the pending preferences. Copy changed fields into
+*       the current preferences and reinitialize drive sound state when any
+*       tracked field differs.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void driveclick_check_prefs (void)
 {
