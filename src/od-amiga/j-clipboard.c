@@ -55,27 +55,33 @@ void uae_Signal(uaecptr task, uae_u32 mask);
 static struct IOClipReq *ior=NULL;
 static struct Hook ClipHook;
 
-/****** cbio/CBOpen *************************************************
+/****i* januae/CBOpen ******************************************************
 *
 *   NAME
-*       CBOpen() -- Open the clipboard.device
+*       CBOpen() -- open a clipboard device unit.
 *
 *   SYNOPSIS
-*       ior = CBOpen(unit)
-*
-*       struct IOClipReq *CBOpen( ULONG )
+*       struct IOClipReq *CBOpen(ULONG unit);
 *
 *   FUNCTION
-*       Opens the clipboard.device.  A clipboard unit number
-*       must be passed in as an argument.  By default, the unit
-*       number should be 0 (currently valid unit numbers are
-*       0-255).
+*       Allocate a reply port and I/O request, then open the specified
+*       clipboard.device unit. Release both resources if opening fails.
 *
-*   RESULTS
-*       A pointer to an initialized IOClipReq structure, or
-*       a NULL pointer if the function fails.
+*   INPUTS
+*       unit - Clipboard device unit to open.
 *
-*********************************************************************/
+*   RESULT
+*       Returns an allocated, open I/O request, or NULL if a port, request,
+*       or device could not be obtained. The caller owns the request and its
+*       associated resources.
+*
+*   NOTES
+*       On success, release the request with CBClose(). The implementation
+*       does not validate a numerical range for unit.
+*
+****************************************************************************
+*
+*/
 struct IOClipReq *CBOpen(ULONG unit) {
   struct MsgPort *mp;
   struct IORequest *ior;
@@ -94,21 +100,33 @@ struct IOClipReq *CBOpen(ULONG unit) {
   return(NULL);
 }
 
-/****** cbio/CBClose ************************************************
+/****i* januae/CBClose *****************************************************
 *
 *   NAME
-*       CBClose() -- Close the clipboard.device
+*       CBClose() -- release a clipboard device request.
 *
 *   SYNOPSIS
-*       CBClose()
-*
-*       void CBClose()
+*       static void CBClose(struct IOClipReq *ior);
 *
 *   FUNCTION
-*       Close the clipboard.device unit which was opened via
-*       CBOpen().
+*       Close an opened clipboard request, free the I/O request, and delete
+*       its reply port.
 *
-*********************************************************************/
+*   INPUTS
+*       ior - Request returned by CBOpen(), or NULL.
+*
+*   RESULT
+*       No return value. A NULL argument has no effect.
+*
+*   NOTES
+*       A non-NULL argument must identify an open request owned by the
+*       caller. The function closes the device, frees the request, and
+*       deletes its reply port. It must not be called twice on the same
+*       request.
+*
+****************************************************************************
+*
+*/
 static void CBClose(struct IOClipReq *ior) {
   struct MsgPort *mp;
 
@@ -123,9 +141,38 @@ static void CBClose(struct IOClipReq *ior) {
   DeletePort(mp);
 }
 
-/********************************************************************
- * clipboard_hook_install
- ********************************************************************/
+/****i* januae/ClipChange **************************************************
+*
+*   NAME
+*       ClipChange() -- mark the AROS clipboard as changed.
+*
+*   SYNOPSIS
+*       static ULONG ClipChange(struct Hook *c_hook, VOID *o, struct
+*       ClipHookMsg *msg);
+*
+*   FUNCTION
+*       Set clipboard_aros_changed to TRUE when clipboard.device invokes the
+*       change notification hook.
+*
+*   INPUTS
+*       c_hook - Hook supplied to clipboard.device.
+*       o - Hook object passed by the device.
+*       msg - Clipboard change notification.
+*
+*   RESULT
+*       Sets clipboard_aros_changed to TRUE. No defined return value can be
+*       stated for the current implementation.
+*
+*   NOTES
+*       The callback does not inspect its arguments.
+*
+*   BUGS
+*       The function is declared to return ULONG but reaches its end without
+*       returning a value.
+*
+****************************************************************************
+*
+*/
 static ULONG ClipChange(struct Hook *c_hook, VOID *o, struct ClipHookMsg *msg) {
 
   DebOut("clipboard changed\n");
@@ -134,6 +181,38 @@ static ULONG ClipChange(struct Hook *c_hook, VOID *o, struct ClipHookMsg *msg) {
 }
 
 static BOOL clip_hook_installed=FALSE;
+
+/****i* januae/clipboard_hook_install **************************************
+*
+*   NAME
+*       clipboard_hook_install() -- register the clipboard change hook.
+*
+*   SYNOPSIS
+*       void clipboard_hook_install(void);
+*
+*   FUNCTION
+*       Initialize the module-owned Hook and submit CBD_CHANGEHOOK to
+*       clipboard.device unit 0 with io_Length set to 1.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No return value. Sets clip_hook_installed to TRUE when the
+*       CBD_CHANGEHOOK request completes without an I/O error.
+*
+*   NOTES
+*       Sets the module-owned ClipHook fields and submits a synchronous
+*       registration request. The caller cannot determine registration
+*       success from the return value.
+*
+*   BUGS
+*       The opened request is dereferenced without checking whether CBOpen()
+*       returned NULL.
+*
+****************************************************************************
+*
+*/
 
 void clipboard_hook_install(void) {
 
@@ -160,6 +239,38 @@ void clipboard_hook_install(void) {
   ior=NULL;
 
 }
+
+/****i* januae/clipboard_hook_deinstall ************************************
+*
+*   NAME
+*       clipboard_hook_deinstall() -- remove the registered clipboard change
+*       hook.
+*
+*   SYNOPSIS
+*       void clipboard_hook_deinstall(void);
+*
+*   FUNCTION
+*       If the module records the hook as installed, submit CBD_CHANGEHOOK
+*       with io_Length set to 0.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No return value. If the remove request succeeds, sets
+*       clip_hook_installed to FALSE.
+*
+*   NOTES
+*       Returns without device I/O when clip_hook_installed is FALSE. A
+*       failed removal leaves the flag set.
+*
+*   BUGS
+*       When removal is attempted, the opened request is dereferenced
+*       without checking whether CBOpen() returned NULL.
+*
+****************************************************************************
+*
+*/
 
 void clipboard_hook_deinstall(void) {
 
@@ -194,11 +305,36 @@ void clipboard_hook_deinstall(void) {
 }
 
 
-/*********************************************************************
- * clipboard_write_raw
- *
- * write data to clipboard. data must already be valid IFF data.
- *********************************************************************/
+/****i* januae/clipboard_write_raw *****************************************
+*
+*   NAME
+*       clipboard_write_raw() -- write an IFF clipboard block.
+*
+*   SYNOPSIS
+*       static BOOL clipboard_write_raw(struct IOClipReq *ior, UBYTE *data,
+*       ULONG len);
+*
+*   FUNCTION
+*       Submit the supplied IFF data with CMD_WRITE. Submit CMD_UPDATE only
+*       if the write reports no I/O error.
+*
+*   INPUTS
+*       ior - Open clipboard I/O request.
+*       data - Buffer containing the IFF data to write.
+*       len - Number of bytes in data.
+*
+*   RESULT
+*       Returns FALSE if CMD_WRITE reports an error. Otherwise issues
+*       CMD_UPDATE and returns FALSE if that request reports an error, or
+*       TRUE if no error is reported.
+*
+*   NOTES
+*       The caller is responsible for the validity and lifetime of the
+*       request and buffer. The function does not validate the IFF data.
+*
+****************************************************************************
+*
+*/
 static BOOL clipboard_write_raw(struct IOClipReq *ior, UBYTE *data, ULONG len) {
   BOOL success;
 
@@ -236,11 +372,33 @@ static BOOL clipboard_write_raw(struct IOClipReq *ior, UBYTE *data, ULONG len) {
   return(success);
 }
 
-/****************************************************
- * cb_read_done
- *
- * tell clipboard.device, we are done
- ****************************************************/
+/****i* januae/cb_read_done ************************************************
+*
+*   NAME
+*       cb_read_done() -- finish a clipboard read.
+*
+*   SYNOPSIS
+*       void cb_read_done(struct IOClipReq *ior);
+*
+*   FUNCTION
+*       Discard subsequent clipboard data into a local buffer until
+*       io_Actual becomes zero or an I/O operation fails.
+*
+*   INPUTS
+*       ior - Open clipboard I/O request whose io_Actual reflects the
+*       current read state.
+*
+*   RESULT
+*       No return value. Continues issuing CMD_READ requests while io_Actual
+*       is nonzero; stops after a reported I/O failure.
+*
+*   NOTES
+*       Uses a 256-byte local array and requests up to 254 bytes per read.
+*       Does not report a read error to its caller.
+*
+****************************************************************************
+*
+*/
 void cb_read_done(struct IOClipReq *ior) {
   char buffer[256];
 
@@ -258,9 +416,38 @@ void cb_read_done(struct IOClipReq *ior) {
   }
 }
 
-/*******************************************************
- * copy_clipboard_to_aros();
- *******************************************************/
+/****i* januae/copy_clipboard_to_aros **************************************
+*
+*   NAME
+*       copy_clipboard_to_aros() -- request guest-to-AROS clipboard
+*       synchronization.
+*
+*   SYNOPSIS
+*       void copy_clipboard_to_aros(void);
+*
+*   FUNCTION
+*       Signal the guest clipboard daemon when the guest clipboard is marked
+*       as changed.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No return value. Does nothing if clipboard_amiga_changed is FALSE;
+*       otherwise calls uae_Signal() to request transfer.
+*
+*   NOTES
+*       The transfer is delegated to the guest daemon; this function does
+*       not wait for confirmation.
+*
+*   BUGS
+*       A missing daemon task, missing signal, or disabled clipboard
+*       preference is logged but does not prevent uae_Signal() from being
+*       called.
+*
+****************************************************************************
+*
+*/
 void copy_clipboard_to_aros(void) {
 
   DebOut("entered\n");
@@ -284,6 +471,41 @@ void copy_clipboard_to_aros(void) {
   uae_Signal (aos3_clip_task, aos3_clip_signal);
 
 }
+
+/****i* januae/copy_clipboard_to_aros_real *********************************
+*
+*   NAME
+*       copy_clipboard_to_aros_real() -- transfer a guest clipboard block to
+*       AROS.
+*
+*   SYNOPSIS
+*       void copy_clipboard_to_aros_real(uaecptr data, uae_u32 len);
+*
+*   FUNCTION
+*       Check the guest buffer length and address range before attempting to
+*       write the data to clipboard.device unit 0.
+*
+*   INPUTS
+*       data - Guest address of the clipboard data.
+*       len - Number of bytes available at data.
+*
+*   RESULT
+*       No return value. Rejects input shorter than 18 bytes or a guest
+*       address range rejected by valid_address(). After attempting the
+*       clipboard write, clears both clipboard change flags.
+*
+*   NOTES
+*       Converts the guest address to host-accessible memory and passes the
+*       data to clipboard_write_raw().
+*
+*   BUGS
+*       CBOpen() failure is not checked. The write result is ignored and
+*       both change flags are cleared even if writing or updating the
+*       clipboard fails.
+*
+****************************************************************************
+*
+*/
 
 void copy_clipboard_to_aros_real(uaecptr data, uae_u32 len) {
   char *content;
@@ -314,9 +536,34 @@ void copy_clipboard_to_aros_real(uaecptr data, uae_u32 len) {
   clipboard_amiga_changed=FALSE;
 }
 
-/*******************************************************
- * copy_clipboard_to_amigaos();
- *******************************************************/
+/****i* januae/copy_clipboard_to_amigaos ***********************************
+*
+*   NAME
+*       copy_clipboard_to_amigaos() -- request AROS-to-guest clipboard
+*       synchronization.
+*
+*   SYNOPSIS
+*       void copy_clipboard_to_amigaos(void);
+*
+*   FUNCTION
+*       Signal the guest clipboard daemon when the native clipboard is
+*       marked as changed and the daemon readiness check passes.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No return value. Does nothing if clipboard_aros_changed is FALSE or
+*       the required daemon state or clipboard preference is unavailable;
+*       otherwise calls uae_Signal().
+*
+*   NOTES
+*       This function requests the transfer but does not wait for
+*       completion.
+*
+****************************************************************************
+*
+*/
 void copy_clipboard_to_amigaos(void) {
 
   DebOut("entered\n");
@@ -342,11 +589,38 @@ void copy_clipboard_to_amigaos(void) {
 
 }
 
-/*******************************************************
- * aros_clipboard_len
- *
- * report back size of aros clipboard
- *******************************************************/
+/****i* januae/aros_clipboard_len ******************************************
+*
+*   NAME
+*       aros_clipboard_len() -- query the AROS clipboard data length.
+*
+*   SYNOPSIS
+*       ULONG aros_clipboard_len(void);
+*
+*   FUNCTION
+*       Issue a CMD_READ size query on clipboard.device unit 0 and consume
+*       the remainder of the read sequence.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Returns the io_Actual value from a clipboard CMD_READ query when no
+*       I/O error is reported. Returns zero when the query reports an I/O
+*       error.
+*
+*   NOTES
+*       Queries unit 0 with a NULL data pointer and io_Length set to
+*       0xFFFFFFFF, then completes the read sequence. A zero return value is
+*       not an unambiguous success indicator.
+*
+*   BUGS
+*       The opened request is dereferenced without checking whether CBOpen()
+*       returned NULL.
+*
+****************************************************************************
+*
+*/
 ULONG aros_clipboard_len() {
   ULONG len;
   struct IOClipReq *ior;
@@ -377,12 +651,40 @@ ULONG aros_clipboard_len() {
   return len;
 }
 
-/*******************************************************
- * copy_clipboard_to_amigaos_real
- *
- * we need to copy our clipboard content into the
- * m68kbuffer data (maximal length: len)
- *******************************************************/
+/****i* januae/copy_clipboard_to_amigaos_real ******************************
+*
+*   NAME
+*       copy_clipboard_to_amigaos_real() -- transfer AROS clipboard data to
+*       guest memory.
+*
+*   SYNOPSIS
+*       void copy_clipboard_to_amigaos_real(uaecptr m68k_data, uae_u32 len);
+*
+*   FUNCTION
+*       Read at most len bytes into the guest-addressed destination and
+*       finish the clipboard read sequence.
+*
+*   INPUTS
+*       m68k_data - Guest address of the destination.
+*       len - Maximum number of bytes requested for the initial read.
+*
+*   RESULT
+*       No return value. After the read sequence, clears both clipboard
+*       change flags.
+*
+*   NOTES
+*       Uses get_real_address() to obtain a host pointer for the guest
+*       destination and completes the device read sequence with
+*       cb_read_done(). The function does not itself establish the validity
+*       or capacity of m68k_data.
+*
+*   BUGS
+*       CBOpen() failure and clipboard read errors are not handled before
+*       clearing both change flags.
+*
+****************************************************************************
+*
+*/
 void copy_clipboard_to_amigaos_real(uaecptr m68k_data, uae_u32 len) {
   UBYTE *aros_data;
   struct IOClipReq *ior;
