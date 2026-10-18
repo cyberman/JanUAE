@@ -70,6 +70,28 @@ static POINTER_STATE get_pointer_state (const struct Window *w, int mousex, int 
  * Initializes a pointer object containing a blank pointer image.
  * Used for hiding the mouse pointer
  */
+/****i* januae-ami-mouse/init_pointer **************************************
+*
+*   NAME
+*       init_pointer() -- Create the blank pointer image.
+*
+*   SYNOPSIS
+*       void init_pointer (void);
+*
+*   FUNCTION
+*       Construct a one-pixel blank bitmap and request a POINTERCLASS object
+*       for hiding the host pointer.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void init_pointer (void) {
 
     static struct BitMap bitmap;
@@ -91,6 +113,28 @@ void init_pointer (void) {
 /*
  * Free up blank pointer object
  */
+/****i* januae-ami-mouse/free_pointer **************************************
+*
+*   NAME
+*       free_pointer() -- Dispose of the blank pointer object.
+*
+*   SYNOPSIS
+*       void free_pointer (void);
+*
+*   FUNCTION
+*       Dispose of the cached POINTERCLASS object when allocated and clear
+*       its pointer.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void free_pointer (void) {
 
     if (blank_pointer) {
@@ -102,6 +146,31 @@ void free_pointer (void) {
 /*
  * Hide mouse pointer for window
  */
+/****i* januae-ami-mouse/hide_pointer **************************************
+*
+*   NAME
+*       hide_pointer() -- Hide the pointer in a host window.
+*
+*   SYNOPSIS
+*       void hide_pointer (struct Window *w);
+*
+*   FUNCTION
+*       Create the blank pointer object if needed, set the pointer state to
+*       inside and apply the blank object to the given window.
+*
+*   INPUTS
+*       w - Window in which the pointer is hidden.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       If object creation fails, the window pointer is not modified.
+*
+****************************************************************************
+*
+*/
+
 void hide_pointer (struct Window *w) {
 
   if(!blank_pointer) {
@@ -117,6 +186,28 @@ void hide_pointer (struct Window *w) {
 /*
  * Restore default mouse pointer for window
  */
+/****i* januae-ami-mouse/show_pointer **************************************
+*
+*   NAME
+*       show_pointer() -- Restore the default pointer in a host window.
+*
+*   SYNOPSIS
+*       void show_pointer (struct Window *w);
+*
+*   FUNCTION
+*       Set the pointer state to outside and restore the default pointer on
+*       the supplied window.
+*
+*   INPUTS
+*       w - Window whose pointer is restored.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void show_pointer (struct Window *w) {
 
   pointer_state=OUTSIDE_WINDOW;
@@ -128,6 +219,34 @@ void show_pointer (struct Window *w) {
  *
  * x,y are relative to windows topleft edge
  */
+/****i* januae-ami-mouse/update_pointer ************************************
+*
+*   NAME
+*       update_pointer() -- Update pointer display for its current position.
+*
+*   SYNOPSIS
+*       void update_pointer(struct Window *w, int x, int y);
+*
+*   FUNCTION
+*       Compare the inferred pointer location with the stored pointer state,
+*       then use the stored state to select a hide or show operation on the
+*       global emulator window.
+*
+*   INPUTS
+*       w - Supplied window, unused. x - Pointer X coordinate. y - Pointer Y
+*       coordinate.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       This implementation acts on global W rather than the supplied
+*       window.
+*
+****************************************************************************
+*
+*/
+
 void update_pointer(struct Window *w, int x, int y) {
 
   POINTER_STATE new_state = get_pointer_state (W, x, y);
@@ -147,6 +266,31 @@ void update_pointer(struct Window *w, int x, int y) {
  * Grab mouse pointer under OS4.0. Needs to be called periodically
  * to maintain grabbed status.
  */
+/****i* januae-ami-mouse/grab_pointer **************************************
+*
+*   NAME
+*       grab_pointer() -- Refresh the AmigaOS 4 mouse-grab region.
+*
+*   SYNOPSIS
+*       static void grab_pointer (struct Window *w);
+*
+*   FUNCTION
+*       Set window mouse limits to the interior of the global host window
+*       and update focus grabbing according to mouseGrabbed.
+*
+*   INPUTS
+*       w - Supplied window, unused.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Compiled only for __amigaos4__.
+*
+****************************************************************************
+*
+*/
+
 static void grab_pointer (struct Window *w) {
 
     struct IBox box = {
@@ -162,6 +306,33 @@ static void grab_pointer (struct Window *w) {
 #endif
 
 /****************************************************************************/
+
+/****i* januae-ami-mouse/get_pointer_state *********************************
+*
+*   NAME
+*       get_pointer_state() -- Determine whether the pointer occupies the
+*       host window.
+*
+*   SYNOPSIS
+*       static POINTER_STATE get_pointer_state (const struct Window *w, int
+*       mousex, int mousey);
+*
+*   FUNCTION
+*       Test the supplied coordinates against the client-area bounds and
+*       check whether the top layer at the pointer position belongs to that
+*       window.
+*
+*   INPUTS
+*       w - Host window. mousex - Window-relative X coordinate. mousey -
+*       Window-relative Y coordinate.
+*
+*   RESULT
+*       INSIDE_WINDOW for the unobscured client area; otherwise
+*       OUTSIDE_WINDOW.
+*
+****************************************************************************
+*
+*/
 
 static POINTER_STATE get_pointer_state (const struct Window *w, int mousex, int mousey) {
 
@@ -197,6 +368,31 @@ static POINTER_STATE get_pointer_state (const struct Window *w, int mousex, int 
     return new_state;
 }
 
+/****i* januae-ami-mouse/toggle_mousegrab **********************************
+*
+*   NAME
+*       toggle_mousegrab() -- Toggle host mouse capture.
+*
+*   SYNOPSIS
+*       void toggle_mousegrab (void);
+*
+*   FUNCTION
+*       Switch the AmigaOS 4 mouse-grab flag and refresh the global window
+*       limits when a window exists.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Other builds log that mouse grabbing is unsupported.
+*
+****************************************************************************
+*
+*/
+
 void toggle_mousegrab (void) {
 
 #ifdef __amigaos4__ 
@@ -219,40 +415,209 @@ void toggle_mousegrab (void) {
 #define FIRST_AXIS      0
 #define FIRST_BUTTON    MAX_AXES
 
+/****i* januae-ami-mouse/init_mouse ****************************************
+*
+*   NAME
+*       init_mouse() -- Initialize host mouse input callbacks.
+*
+*   SYNOPSIS
+*       static int init_mouse (void);
+*
+*   FUNCTION
+*       Report successful initialization without allocating per-device
+*       state.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       1.
+*
+****************************************************************************
+*
+*/
+
 static int init_mouse (void)
 {
    return 1;
 }
+
+/****i* januae-ami-mouse/close_mouse ***************************************
+*
+*   NAME
+*       close_mouse() -- Close host mouse input callbacks.
+*
+*   SYNOPSIS
+*       static void close_mouse (void);
+*
+*   FUNCTION
+*       Return without releasing per-device mouse resources.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void close_mouse (void)
 {
    return;
 }
 
+/****i* januae-ami-mouse/acquire_mouse *************************************
+*
+*   NAME
+*       acquire_mouse() -- Acquire a host mouse device.
+*
+*   SYNOPSIS
+*       static int acquire_mouse (unsigned int num, int flags);
+*
+*   FUNCTION
+*       Report successful acquisition without changing input ownership.
+*
+*   INPUTS
+*       num - Mouse index; ignored. flags - Acquisition flags; ignored.
+*
+*   RESULT
+*       1.
+*
+****************************************************************************
+*
+*/
+
 static int acquire_mouse (unsigned int num, int flags)
 {
    return 1;
 }
+
+/****i* januae-ami-mouse/unacquire_mouse ***********************************
+*
+*   NAME
+*       unacquire_mouse() -- Release a host mouse device.
+*
+*   SYNOPSIS
+*       static void unacquire_mouse (unsigned int num);
+*
+*   FUNCTION
+*       Return without changing input ownership.
+*
+*   INPUTS
+*       num - Mouse index; ignored.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void unacquire_mouse (unsigned int num)
 {
    return;
 }
 
+/****i* januae-ami-mouse/get_mouse_num *************************************
+*
+*   NAME
+*       get_mouse_num() -- Report the host mouse count.
+*
+*   SYNOPSIS
+*       static unsigned int get_mouse_num (void);
+*
+*   FUNCTION
+*       Return one available mouse regardless of current window state.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       1.
+*
+****************************************************************************
+*
+*/
+
 static unsigned int get_mouse_num (void)
 {
     return 1;
 }
+
+/****i* januae-ami-mouse/get_mouse_name ************************************
+*
+*   NAME
+*       get_mouse_name() -- Return the host mouse name.
+*
+*   SYNOPSIS
+*       static const char *get_mouse_name (unsigned int mouse);
+*
+*   FUNCTION
+*       Return the fixed name for the host mouse device.
+*
+*   INPUTS
+*       mouse - Mouse index; ignored.
+*
+*   RESULT
+*       Pointer to the static string "Default mouse".
+*
+****************************************************************************
+*
+*/
 
 static const char *get_mouse_name (unsigned int mouse)
 {
     return "Default mouse";
 }
 
+/****i* januae-ami-mouse/get_mouse_widget_num ******************************
+*
+*   NAME
+*       get_mouse_widget_num() -- Report mouse axis and button widgets.
+*
+*   SYNOPSIS
+*       static unsigned int get_mouse_widget_num (unsigned int mouse);
+*
+*   FUNCTION
+*       Count the configured three axes and three buttons.
+*
+*   INPUTS
+*       mouse - Mouse index; ignored.
+*
+*   RESULT
+*       6.
+*
+****************************************************************************
+*
+*/
+
 static unsigned int get_mouse_widget_num (unsigned int mouse)
 {
     return MAX_AXES + MAX_BUTTONS;
 }
+
+/****i* januae-ami-mouse/get_mouse_widget_first ****************************
+*
+*   NAME
+*       get_mouse_widget_first() -- Locate the first widget of a mouse type.
+*
+*   SYNOPSIS
+*       static int get_mouse_widget_first (unsigned int mouse, int type);
+*
+*   FUNCTION
+*       Return the axis or button index where that class begins.
+*
+*   INPUTS
+*       mouse - Mouse index; ignored. type - Widget class.
+*
+*   RESULT
+*       0 for IDEV_WIDGET_AXIS, 3 for IDEV_WIDGET_BUTTON, or -1 otherwise.
+*
+****************************************************************************
+*
+*/
 
 static int get_mouse_widget_first (unsigned int mouse, int type)
 {
@@ -264,6 +629,30 @@ static int get_mouse_widget_first (unsigned int mouse, int type)
     }
     return -1;
 }
+
+/****i* januae-ami-mouse/get_mouse_widget_type *****************************
+*
+*   NAME
+*       get_mouse_widget_type() -- Describe a mouse input widget.
+*
+*   SYNOPSIS
+*       static int get_mouse_widget_type (unsigned int mouse, unsigned int
+*       num, char *name, uae_u32 *code);
+*
+*   FUNCTION
+*       Classify indexes zero through two as axes and three through five as
+*       buttons; optionally write a text label.
+*
+*   INPUTS
+*       mouse - Mouse index; ignored. num - Widget index. name - Optional
+*       output for a label. code - Event-code destination; unused.
+*
+*   RESULT
+*       IDEV_WIDGET_AXIS, IDEV_WIDGET_BUTTON or IDEV_WIDGET_NONE.
+*
+****************************************************************************
+*
+*/
 
 static int get_mouse_widget_type (unsigned int mouse, unsigned int num, char *name, uae_u32 *code)
 {
@@ -278,6 +667,32 @@ static int get_mouse_widget_type (unsigned int mouse, unsigned int num, char *na
     }
     return IDEV_WIDGET_NONE;
 }
+
+/****i* januae-ami-mouse/read_mouse ****************************************
+*
+*   NAME
+*       read_mouse() -- Poll optional Catweasel mouse input.
+*
+*   SYNOPSIS
+*       static void read_mouse (void);
+*
+*   FUNCTION
+*       With CATWEASEL support enabled, forward detected relative axes and
+*       button transitions to the emulator input device.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Regular host mouse events are processed by handle_events_W().
+*       Without CATWEASEL this callback performs no operation.
+*
+****************************************************************************
+*
+*/
 
 static void read_mouse (void)
 {
@@ -336,6 +751,28 @@ struct inputdevice_functions inputdevicefunc_mouse = {
 /*
  * Default inputdevice config for mouse
  */
+/****i* januae-ami-mouse/input_get_default_mouse ***************************
+*
+*   NAME
+*       input_get_default_mouse() -- Install default mouse event mappings.
+*
+*   SYNOPSIS
+*       void input_get_default_mouse (struct uae_input_device *uid);
+*
+*   FUNCTION
+*       Map three mouse axes and three button events to the first emulator
+*       mouse and enable that device.
+*
+*   INPUTS
+*       uid - Mutable emulator input-device configuration array.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void input_get_default_mouse (struct uae_input_device *uid)
 {
     /* Supports only one mouse for now */
@@ -347,6 +784,27 @@ void input_get_default_mouse (struct uae_input_device *uid)
     uid[0].eventid[ID_BUTTON_OFFSET + 2][0] = INPUTEVENT_JOY1_3RD_BUTTON;
     uid[0].enabled = 1;
 }
+
+/****i* januae-ami-mouse/mousehack_allowed *********************************
+*
+*   NAME
+*       mousehack_allowed() -- Report availability of mouse-hack mode.
+*
+*   SYNOPSIS
+*       int mousehack_allowed (void);
+*
+*   FUNCTION
+*       Return the fixed disabled indication.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       0.
+*
+****************************************************************************
+*
+*/
 
 int mousehack_allowed (void)
 {

@@ -68,6 +68,31 @@ void appw_events (void);
 
 /****************************************************************************/
 
+/****i* januae-ami-appw/appw_init ******************************************
+*
+*   NAME
+*       appw_init() -- Register the emulator as an AppWindow.
+*
+*   SYNOPSIS
+*       int appw_init (struct Window *W);
+*
+*   FUNCTION
+*       Open workbench.library, create a message port and register the
+*       supplied window as an AppWindow.
+*
+*   INPUTS
+*       W - Host window to register.
+*
+*   RESULT
+*       1 when registration succeeds; otherwise 0.
+*
+*   NOTES
+*       An AmigaOS 4 build also obtains the Workbench interface.
+*
+****************************************************************************
+*
+*/
+
 int appw_init (struct Window *W)
 {
     WorkbenchBase = (void*) OpenLibrary ("workbench.library", 36L);
@@ -98,6 +123,28 @@ int appw_init (struct Window *W)
 
 /****************************************************************************/
 
+/****i* januae-ami-appw/appw_exit ******************************************
+*
+*   NAME
+*       appw_exit() -- Release AppWindow resources.
+*
+*   SYNOPSIS
+*       void appw_exit (void);
+*
+*   FUNCTION
+*       Reply to pending AppWindow messages, dispose of the message port,
+*       unregister the AppWindow and close workbench.library when present.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void appw_exit (void)
 {
     if (AppPort) {
@@ -118,6 +165,33 @@ void appw_exit (void)
 }
 
 /***************************************************************************/
+
+/****i* januae-ami-appw/addcmd *********************************************
+*
+*   NAME
+*       addcmd() -- Append a dropped Workbench argument to a command.
+*
+*   SYNOPSIS
+*       static void addcmd (char *cmd, int len, ULONG lock, char *name);
+*
+*   FUNCTION
+*       Append a space, the directory obtained from a Workbench lock and the
+*       object name to the provided command buffer within its supplied
+*       length.
+*
+*   INPUTS
+*       cmd - Mutable command buffer. len - Available command size. lock -
+*       Workbench directory lock. name - Dropped object name.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The caller must provide a writable, NUL-terminated command buffer.
+*
+****************************************************************************
+*
+*/
 
 static void addcmd (char *cmd, int len, ULONG lock, char *name)
 {
@@ -153,6 +227,33 @@ static void addcmd (char *cmd, int len, ULONG lock, char *name)
 }
 
 /***************************************************************************/
+
+/****i* januae-ami-appw/appw_events ****************************************
+*
+*   NAME
+*       appw_events() -- Execute commands for pending AppWindow drops.
+*
+*   SYNOPSIS
+*       void appw_events (void);
+*
+*   FUNCTION
+*       Read queued Workbench AppMessages, issue a guest change-directory
+*       command from the first argument, then submit a guest run command
+*       containing the dropped object names when the directory command
+*       succeeds. Reply to each message.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Uses the guest command executor uaeexe().
+*
+****************************************************************************
+*
+*/
 
 void appw_events (void)
 {

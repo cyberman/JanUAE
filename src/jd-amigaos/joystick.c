@@ -45,6 +45,32 @@ static unsigned int nr_joysticks;
 #define FIRST_BUTTON 2
 
 
+/****i* januae-joystick/init_joysticks *************************************
+*
+*   NAME
+*       init_joysticks() -- Initialize lowlevel joystick input.
+*
+*   SYNOPSIS
+*       static int init_joysticks (void);
+*
+*   FUNCTION
+*       Open lowlevel.library (with host-specific version requirements) and
+*       advertise two ports when the library is available.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       1 when lowlevel.library is available; otherwise 0.
+*
+*   NOTES
+*       AROS reuses an already opened LowLevelBase. AmigaOS 4 also obtains
+*       the main interface.
+*
+****************************************************************************
+*
+*/
+
 static int init_joysticks (void)
 {
 #ifdef __AROS__
@@ -74,6 +100,27 @@ static int init_joysticks (void)
     }
 }
 
+/****i* januae-joystick/close_joysticks ************************************
+*
+*   NAME
+*       close_joysticks() -- Close lowlevel joystick support.
+*
+*   SYNOPSIS
+*       static void close_joysticks (void);
+*
+*   FUNCTION
+*       Close lowlevel.library when open and clear LowLevelBase.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void close_joysticks (void)
 {
     if (LowLevelBase) {
@@ -82,14 +129,79 @@ static void close_joysticks (void)
     }
 }
 
+/****i* januae-joystick/acquire_joy ****************************************
+*
+*   NAME
+*       acquire_joy() -- Acquire a joystick input port.
+*
+*   SYNOPSIS
+*       static int acquire_joy (unsigned int num, int flags);
+*
+*   FUNCTION
+*       Report successful acquisition without changing port state.
+*
+*   INPUTS
+*       num - Port index; ignored. flags - Acquisition flags; ignored.
+*
+*   RESULT
+*       1.
+*
+****************************************************************************
+*
+*/
+
 static int acquire_joy (unsigned int num, int flags)
 {
     return 1;
 }
 
+/****i* januae-joystick/unacquire_joy **************************************
+*
+*   NAME
+*       unacquire_joy() -- Release a joystick input port.
+*
+*   SYNOPSIS
+*       static void unacquire_joy (unsigned int num);
+*
+*   FUNCTION
+*       Return without changing port state.
+*
+*   INPUTS
+*       num - Port index; ignored.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void unacquire_joy (unsigned int num)
 {
 }
+
+/****i* januae-joystick/read_joy *******************************************
+*
+*   NAME
+*       read_joy() -- Read a lowlevel joystick port.
+*
+*   SYNOPSIS
+*       static void read_joy (unsigned int nr);
+*
+*   FUNCTION
+*       Read the direction and two button flags from lowlevel.library and
+*       forward axis and button values when the port is available.
+*       Optionally read Catweasel joystick data.
+*
+*   INPUTS
+*       nr - Joystick port index.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void read_joy (unsigned int nr)
 {
@@ -147,16 +259,82 @@ static void read_joy (unsigned int nr)
 #endif
 }
 
+/****i* januae-joystick/read_joysticks *************************************
+*
+*   NAME
+*       read_joysticks() -- Poll both joystick ports.
+*
+*   SYNOPSIS
+*       static void read_joysticks (void);
+*
+*   FUNCTION
+*       Invoke read_joy() for ports zero and one.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void read_joysticks (void)
 {
     read_joy (0);
     read_joy (1);
 }
 
+/****i* januae-joystick/get_joystick_num ***********************************
+*
+*   NAME
+*       get_joystick_num() -- Report the initialized joystick count.
+*
+*   SYNOPSIS
+*       static unsigned int get_joystick_num (void);
+*
+*   FUNCTION
+*       Return the number of ports made available by init_joysticks().
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Current value of nr_joysticks (zero or two).
+*
+****************************************************************************
+*
+*/
+
 static unsigned int get_joystick_num (void)
 {
     return nr_joysticks;
 }
+
+/****i* januae-joystick/get_joystick_name **********************************
+*
+*   NAME
+*       get_joystick_name() -- Format a joystick port name.
+*
+*   SYNOPSIS
+*       static const char *get_joystick_name (unsigned int joy);
+*
+*   FUNCTION
+*       Write the requested port index into the shared static name buffer.
+*
+*   INPUTS
+*       joy - Joystick port index.
+*
+*   RESULT
+*       Pointer to a shared buffer containing "Joy port N".
+*
+*   NOTES
+*       Later calls overwrite the returned buffer.
+*
+****************************************************************************
+*
+*/
 
 static const char *get_joystick_name (unsigned int joy)
 {
@@ -165,10 +343,55 @@ static const char *get_joystick_name (unsigned int joy)
     return name;
 }
 
+/****i* januae-joystick/get_joystick_widget_num ****************************
+*
+*   NAME
+*       get_joystick_widget_num() -- Report joystick axes and buttons.
+*
+*   SYNOPSIS
+*       static unsigned int get_joystick_widget_num (unsigned int joy);
+*
+*   FUNCTION
+*       Count two axes and two buttons per joystick port.
+*
+*   INPUTS
+*       joy - Joystick port index; ignored.
+*
+*   RESULT
+*       4.
+*
+****************************************************************************
+*
+*/
+
 static unsigned int get_joystick_widget_num (unsigned int joy)
 {
     return MAX_AXLES + MAX_BUTTONS;
 }
+
+/****i* januae-joystick/get_joystick_widget_type ***************************
+*
+*   NAME
+*       get_joystick_widget_type() -- Describe a joystick axis or button.
+*
+*   SYNOPSIS
+*       static int get_joystick_widget_type (unsigned int joy, unsigned int
+*       num, char *name, uae_u32 *code);
+*
+*   FUNCTION
+*       Classify indexes zero and one as axes, two and three as buttons, and
+*       optionally format a label.
+*
+*   INPUTS
+*       joy - Port index; ignored. num - Widget index. name - Optional label
+*       destination. code - Event-code destination; unused.
+*
+*   RESULT
+*       IDEV_WIDGET_AXIS, IDEV_WIDGET_BUTTON or IDEV_WIDGET_NONE.
+*
+****************************************************************************
+*
+*/
 
 static int get_joystick_widget_type (unsigned int joy, unsigned int num, char *name, uae_u32 *code)
 {
@@ -183,6 +406,28 @@ static int get_joystick_widget_type (unsigned int joy, unsigned int num, char *n
     }
     return IDEV_WIDGET_NONE;
 }
+
+/****i* januae-joystick/get_joystick_widget_first **************************
+*
+*   NAME
+*       get_joystick_widget_first() -- Locate the first widget of a joystick
+*       type.
+*
+*   SYNOPSIS
+*       static int get_joystick_widget_first (unsigned int joy, int type);
+*
+*   FUNCTION
+*       Return the first axis or button widget index for a requested class.
+*
+*   INPUTS
+*       joy - Port index; ignored. type - Widget class.
+*
+*   RESULT
+*       0 for IDEV_WIDGET_AXIS, 2 for IDEV_WIDGET_BUTTON, or -1 otherwise.
+*
+****************************************************************************
+*
+*/
 
 static int get_joystick_widget_first (unsigned int joy, int type)
 {
@@ -212,6 +457,28 @@ struct inputdevice_functions inputdevicefunc_joystick = {
 /*
  * Set default inputdevice config for Amiga joysticks
  */
+/****i* januae-joystick/input_get_default_joystick *************************
+*
+*   NAME
+*       input_get_default_joystick() -- Install default joystick mappings.
+*
+*   SYNOPSIS
+*       void input_get_default_joystick (struct uae_input_device *uid);
+*
+*   FUNCTION
+*       Map each reported port to the corresponding emulator horizontal and
+*       vertical axes and button events; enable the first input device.
+*
+*   INPUTS
+*       uid - Mutable input-device configuration array.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void input_get_default_joystick (struct uae_input_device *uid)
 {
     unsigned int i, port;

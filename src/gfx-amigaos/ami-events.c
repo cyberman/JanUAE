@@ -71,6 +71,28 @@ unsigned long            frame_num; /* for arexx */
  * if we have integrated windows, this is no problem at all. But
  * for custom screens, we need to call the according handle_custom_events_W.
  */
+/****i* januae-ami-events/handle_events ************************************
+*
+*   NAME
+*       handle_events() -- Dispatch host frame events.
+*
+*   SYNOPSIS
+*       void handle_events(void);
+*
+*   FUNCTION
+*       Pass event handling to the ordinary host window when no Janus custom
+*       screen is active, or to the active custom screen window otherwise.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void handle_events(void) {
   JWLOG("handle_events: dispatcher\n", W);
 
@@ -103,6 +125,28 @@ struct EasyStruct really_quit_req = {
         "Yes|No"
 };
 
+/****i* januae-ami-events/really_quit **************************************
+*
+*   NAME
+*       really_quit() -- Request confirmation before quitting.
+*
+*   SYNOPSIS
+*       static int really_quit(struct Window *win);
+*
+*   FUNCTION
+*       Display the Janus-UAE confirmation requester using the supplied host
+*       window.
+*
+*   INPUTS
+*       win - Parent window for the requester.
+*
+*   RESULT
+*       Nonzero when the user selects Yes; zero for No.
+*
+****************************************************************************
+*
+*/
+
 static int really_quit(struct Window *win) {
 
   /* EasyRequest returns 0 for No and 1 for Yes */
@@ -117,6 +161,34 @@ static int really_quit(struct Window *win) {
  * for a window on our own custom screen, for 
  * example
  ***************************************************/
+/****i* januae-ami-events/handle_events_W **********************************
+*
+*   NAME
+*       handle_events_W() -- Process host-window Intuition events.
+*
+*   SYNOPSIS
+*       void handle_events_W(struct Window *W, BOOL customscreen);
+*
+*   FUNCTION
+*       Process GUI events and optional Picasso96 invalidation, then consume
+*       the normal window IDCMP queue for keyboard, mouse, window lifecycle,
+*       refresh and focus changes. Poll AppWindow drops afterwards.
+*
+*   INPUTS
+*       W - Host window whose events are handled. customscreen - Whether a
+*       separate custom-screen task owns its event port.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Custom-screen mode leaves window-port messages to the corresponding
+*       screen task. The frame counter advances only when W is non-NULL.
+*
+****************************************************************************
+*
+*/
+
 void handle_events_W(struct Window *W, BOOL customscreen) {
 
     struct IntuiMessage *msg;
@@ -376,25 +448,133 @@ void handle_events_W(struct Window *W, BOOL customscreen) {
  *
  * Keyboard inputdevice functions
  */
+/****i* januae-ami-events/get_kb_num ***************************************
+*
+*   NAME
+*       get_kb_num() -- Report the host keyboard count.
+*
+*   SYNOPSIS
+*       static unsigned int get_kb_num (void);
+*
+*   FUNCTION
+*       Return the fixed count of one keyboard.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       1.
+*
+****************************************************************************
+*
+*/
+
 static unsigned int get_kb_num (void)
 {
     return 1;
 }
+
+/****i* januae-ami-events/get_kb_name **************************************
+*
+*   NAME
+*       get_kb_name() -- Return the host keyboard name.
+*
+*   SYNOPSIS
+*       static const char *get_kb_name (unsigned int kb);
+*
+*   FUNCTION
+*       Return the fixed keyboard name regardless of the requested index.
+*
+*   INPUTS
+*       kb - Keyboard index; ignored.
+*
+*   RESULT
+*       Pointer to the static string "Default keyboard".
+*
+****************************************************************************
+*
+*/
 
 static const char *get_kb_name (unsigned int kb)
 {
     return "Default keyboard";
 }
 
+/****i* januae-ami-events/get_kb_widget_num ********************************
+*
+*   NAME
+*       get_kb_widget_num() -- Report the keyboard widget count.
+*
+*   SYNOPSIS
+*       static unsigned int get_kb_widget_num (unsigned int kb);
+*
+*   FUNCTION
+*       Report 128 keyboard widgets for the host keyboard.
+*
+*   INPUTS
+*       kb - Keyboard index; ignored.
+*
+*   RESULT
+*       128.
+*
+****************************************************************************
+*
+*/
+
 static unsigned int get_kb_widget_num (unsigned int kb)
 {
     return 128;
 }
 
+/****i* januae-ami-events/get_kb_widget_first ******************************
+*
+*   NAME
+*       get_kb_widget_first() -- Return the first keyboard widget index.
+*
+*   SYNOPSIS
+*       static int get_kb_widget_first (unsigned int kb, int type);
+*
+*   FUNCTION
+*       Return the fixed first widget index.
+*
+*   INPUTS
+*       kb - Keyboard index; ignored. type - Widget type; ignored.
+*
+*   RESULT
+*       0.
+*
+****************************************************************************
+*
+*/
+
 static int get_kb_widget_first (unsigned int kb, int type)
 {
     return 0;
 }
+
+/****i* januae-ami-events/get_kb_widget_type *******************************
+*
+*   NAME
+*       get_kb_widget_type() -- Describe a host keyboard key widget.
+*
+*   SYNOPSIS
+*       static int get_kb_widget_type (unsigned int kb, unsigned int num,
+*       char *name, uae_u32 *code);
+*
+*   FUNCTION
+*       Write the widget index to the event-code destination and identify
+*       the widget as a key.
+*
+*   INPUTS
+*       kb - Keyboard index; ignored. num - Widget index. name - Name
+*       output; not modified. code - Output for the key code.
+*
+*   RESULT
+*       IDEV_WIDGET_KEY.
+*
+****************************************************************************
+*
+*/
 
 static int get_kb_widget_type (unsigned int kb, unsigned int num, char *name, uae_u32 *code)
 {
@@ -403,10 +583,58 @@ static int get_kb_widget_type (unsigned int kb, unsigned int num, char *name, ua
     return IDEV_WIDGET_KEY;
 }
 
+/****i* januae-ami-events/keyhack ******************************************
+*
+*   NAME
+*       keyhack() -- Preserve the supplied keyboard scan code.
+*
+*   SYNOPSIS
+*       static int keyhack (int scancode, int pressed, int num);
+*
+*   FUNCTION
+*       Return the scan code without translating it.
+*
+*   INPUTS
+*       scancode - Original scan code. pressed - Key state; ignored. num -
+*       Device number; ignored.
+*
+*   RESULT
+*       The unchanged scancode.
+*
+****************************************************************************
+*
+*/
+
 static int keyhack (int scancode, int pressed, int num)
 {
     return scancode;
 }
+
+/****i* januae-ami-events/read_kb ******************************************
+*
+*   NAME
+*       read_kb() -- Poll optional Catweasel keyboard input.
+*
+*   SYNOPSIS
+*       static void read_kb (void);
+*
+*   FUNCTION
+*       Read one Catweasel keyboard event and forward its scan code and
+*       pressed state when CATWEASEL support is enabled.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Without CATWEASEL, the function performs no operation; regular
+*       keyboard events are processed through Intuition.
+*
+****************************************************************************
+*
+*/
 
 static void read_kb (void)
 {
@@ -419,19 +647,104 @@ static void read_kb (void)
 #endif
 }
 
+/****i* januae-ami-events/init_kb ******************************************
+*
+*   NAME
+*       init_kb() -- Initialize keyboard input callbacks.
+*
+*   SYNOPSIS
+*       static int init_kb (void);
+*
+*   FUNCTION
+*       Report successful initialization without allocating keyboard
+*       resources.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       1.
+*
+****************************************************************************
+*
+*/
+
 static int init_kb (void)
 {
     return 1;
 }
 
+/****i* januae-ami-events/close_kb *****************************************
+*
+*   NAME
+*       close_kb() -- Close keyboard input callbacks.
+*
+*   SYNOPSIS
+*       static void close_kb (void);
+*
+*   FUNCTION
+*       Return without releasing keyboard-specific resources.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void close_kb (void)
 {
 }
+
+/****i* januae-ami-events/acquire_kb ***************************************
+*
+*   NAME
+*       acquire_kb() -- Acquire a keyboard input device.
+*
+*   SYNOPSIS
+*       static int acquire_kb (unsigned int num, int flags);
+*
+*   FUNCTION
+*       Report successful acquisition without changing device state.
+*
+*   INPUTS
+*       num - Device index; ignored. flags - Acquisition flags; ignored.
+*
+*   RESULT
+*       1.
+*
+****************************************************************************
+*
+*/
 
 static int acquire_kb (unsigned int num, int flags)
 {
     return 1;
 }
+
+/****i* januae-ami-events/unacquire_kb *************************************
+*
+*   NAME
+*       unacquire_kb() -- Release a keyboard input device.
+*
+*   SYNOPSIS
+*       static void unacquire_kb (unsigned int num);
+*
+*   FUNCTION
+*       Return without changing device state.
+*
+*   INPUTS
+*       num - Device index; ignored.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void unacquire_kb (unsigned int num)
 {
@@ -451,10 +764,52 @@ struct inputdevice_functions inputdevicefunc_keyboard =
     get_kb_widget_first
 };
 
+/****i* januae-ami-events/getcapslockstate *********************************
+*
+*   NAME
+*       getcapslockstate() -- Read the reported Caps Lock state.
+*
+*   SYNOPSIS
+*       int getcapslockstate (void);
+*
+*   FUNCTION
+*       Return the fixed Caps Lock state without querying the keyboard.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       0.
+*
+****************************************************************************
+*
+*/
+
 int getcapslockstate (void)
 {
     return 0;
 }
+
+/****i* januae-ami-events/setcapslockstate *********************************
+*
+*   NAME
+*       setcapslockstate() -- Set the reported Caps Lock state.
+*
+*   SYNOPSIS
+*       void setcapslockstate (int state);
+*
+*   FUNCTION
+*       Return without changing the keyboard or stored Caps Lock state.
+*
+*   INPUTS
+*       state - Requested state; ignored.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void setcapslockstate (int state)
 {
