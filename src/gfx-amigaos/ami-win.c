@@ -289,6 +289,31 @@ extern UBYTE cidx[4][8*4096];
 /*****************************************************************************/
 /* Overlay window under CGX */
 #ifdef USE_CGX_OVERLAY
+/****i* januae-ami-win/InitOverlay *****************************************
+*
+*   NAME
+*       InitOverlay() -- Create a hardware video overlay.
+*
+*   SYNOPSIS
+*       int InitOverlay(struct Screen * screen, int width, int height);
+*
+*   FUNCTION
+*       Request a source-format RGB16 video layer with color-key, backfill
+*       and the configured filtering mode.
+*
+*   INPUTS
+*       screen - Destination screen. width, height - Source dimensions.
+*
+*   RESULT
+*       1 if the video-layer handle was created; otherwise 0.
+*
+*   NOTES
+*       Available only when CGX video-overlay support is configured.
+*
+****************************************************************************
+*
+*/
+
 int InitOverlay(struct Screen * screen, int width, int height)
 {
 	if (!(VLHandle = CreateVLayerHandleTags(screen, VOA_SrcType, SRCFMT_RGB16,
@@ -299,6 +324,28 @@ int InitOverlay(struct Screen * screen, int width, int height)
 		return 0;
 	return 1;
 }
+
+/****i* januae-ami-win/AttachOverlay ***************************************
+*
+*   NAME
+*       AttachOverlay() -- Attach the video layer to a host window.
+*
+*   SYNOPSIS
+*       int AttachOverlay(struct Window * window);
+*
+*   FUNCTION
+*       Attach the current video-layer handle to a window, applying offsets
+*       and the public-screen color key as appropriate.
+*
+*   INPUTS
+*       window - Destination Intuition window.
+*
+*   RESULT
+*       1 on successful attachment; otherwise 0.
+*
+****************************************************************************
+*
+*/
 
 int AttachOverlay(struct Window * window)
 {
@@ -328,6 +375,27 @@ int AttachOverlay(struct Window * window)
 	return 1;
 }
 
+/****i* januae-ami-win/LockAddress *****************************************
+*
+*   NAME
+*       LockAddress() -- Access the video-layer pixel buffer.
+*
+*   SYNOPSIS
+*       APTR LockAddress(void);
+*
+*   FUNCTION
+*       Lock the video layer and obtain its base address.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       The buffer address if locking succeeds; otherwise NULL.
+*
+****************************************************************************
+*
+*/
+
 APTR LockAddress(void)
 {
 	if (LockVLayer(VLHandle))
@@ -336,14 +404,78 @@ APTR LockAddress(void)
 		return NULL;
 }
 
+/****i* januae-ami-win/UnlockAddress ***************************************
+*
+*   NAME
+*       UnlockAddress() -- Release a video-layer lock.
+*
+*   SYNOPSIS
+*       void UnlockAddress(void);
+*
+*   FUNCTION
+*       Unlock the current video-layer handle.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void UnlockAddress(void)
 {
 	UnlockVLayer(VLHandle);
 }
 
+/****i* januae-ami-win/SwapBuffer ******************************************
+*
+*   NAME
+*       SwapBuffer() -- Provide the video-layer swap callback.
+*
+*   SYNOPSIS
+*       void SwapBuffer(void);
+*
+*   FUNCTION
+*       Perform no operation; no video-layer buffer exchange is implemented.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void SwapBuffer(void)
 {
 }
+
+/****i* januae-ami-win/CloseOverlay ****************************************
+*
+*   NAME
+*       CloseOverlay() -- Destroy the host video overlay.
+*
+*   SYNOPSIS
+*       void CloseOverlay(void);
+*
+*   FUNCTION
+*       Detach an attached video layer, delete its handle and clear the
+*       overlay state.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void CloseOverlay(void)
 {
@@ -360,6 +492,28 @@ void CloseOverlay(void)
 	}
 }
 
+/****i* januae-ami-win/ToggleBilinear **************************************
+*
+*   NAME
+*       ToggleBilinear() -- Change video-layer filtering.
+*
+*   SYNOPSIS
+*       void ToggleBilinear(void);
+*
+*   FUNCTION
+*       Toggle the bilinear-filter setting and apply it to the existing
+*       video layer when one exists.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void ToggleBilinear(void)
 {
 	if (Bilinear)
@@ -375,14 +529,79 @@ void ToggleBilinear(void)
 /*
  * Dummy buffer locking methods
  */
+/****i* januae-ami-win/dummy_lock ******************************************
+*
+*   NAME
+*       dummy_lock() -- Supply an always-successful buffer lock.
+*
+*   SYNOPSIS
+*       static int dummy_lock (struct vidbuf_description *gfxinfo);
+*
+*   FUNCTION
+*       Leave the supplied video buffer unchanged.
+*
+*   INPUTS
+*       gfxinfo - Video-buffer descriptor; unused.
+*
+*   RESULT
+*       Always returns 1.
+*
+****************************************************************************
+*
+*/
+
 static int dummy_lock (struct vidbuf_description *gfxinfo)
 {
     return 1;
 }
 
+/****i* januae-ami-win/dummy_unlock ****************************************
+*
+*   NAME
+*       dummy_unlock() -- Supply an inert buffer unlock.
+*
+*   SYNOPSIS
+*       static void dummy_unlock (struct vidbuf_description *gfxinfo);
+*
+*   FUNCTION
+*       Leave the supplied video buffer unchanged.
+*
+*   INPUTS
+*       gfxinfo - Video-buffer descriptor; unused.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void dummy_unlock (struct vidbuf_description *gfxinfo)
 {
 }
+
+/****i* januae-ami-win/dummy_flush_screen **********************************
+*
+*   NAME
+*       dummy_flush_screen() -- Supply an inert full-screen flush.
+*
+*   SYNOPSIS
+*       static void dummy_flush_screen (struct vidbuf_description *gfxinfo,
+*       int first_line, int last_line);
+*
+*   FUNCTION
+*       Perform no drawing for the specified scan-line interval.
+*
+*   INPUTS
+*       gfxinfo - Video buffer. first_line, last_line - Requested interval;
+*       unused.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void dummy_flush_screen (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
@@ -395,6 +614,29 @@ static void dummy_flush_screen (struct vidbuf_description *gfxinfo, int first_li
  * This uses a delta buffer to reduce the overhead of doing the chunky-to-planar
  * conversion required.
  */
+/****i* januae-ami-win/flush_line_planar_nodither **************************
+*
+*   NAME
+*       flush_line_planar_nodither() -- Draw one changed planar scan line.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void flush_line_planar_nodither (struct
+*       vidbuf_description *gfxinfo, int line_no);
+*
+*   FUNCTION
+*       Compare the video row against its delta buffer, copy changed pixels
+*       and draw the changed span without dithering.
+*
+*   INPUTS
+*       gfxinfo - Video-buffer descriptor. line_no - Scan line to update.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 STATIC_INLINE void flush_line_planar_nodither (struct vidbuf_description *gfxinfo, int line_no)
 {
     int     xs      = 0;
@@ -435,6 +677,30 @@ STATIC_INLINE void flush_line_planar_nodither (struct vidbuf_description *gfxinf
     JWLOG("FIND: WritePixelLine8 ..\n");
 }
 
+/****i* januae-ami-win/flush_block_planar_nodither *************************
+*
+*   NAME
+*       flush_block_planar_nodither() -- Draw a range of planar scan lines.
+*
+*   SYNOPSIS
+*       static void flush_block_planar_nodither (struct vidbuf_description
+*       *gfxinfo, int first_line, int last_line);
+*
+*   FUNCTION
+*       Call the non-dithered planar scan-line updater for every inclusive
+*       line in the requested interval.
+*
+*   INPUTS
+*       gfxinfo - Video-buffer descriptor. first_line, last_line - Inclusive
+*       scan-line range.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void flush_block_planar_nodither (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
     int line_no;
@@ -449,6 +715,29 @@ static void flush_block_planar_nodither (struct vidbuf_description *gfxinfo, int
  * This uses a delta buffer to reduce the overhead of doing the chunky-to-planar
  * conversion required.
  */
+/****i* januae-ami-win/flush_line_planar_dither ****************************
+*
+*   NAME
+*       flush_line_planar_dither() -- Dither and draw one changed scan line.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void flush_line_planar_dither (struct
+*       vidbuf_description *gfxinfo, int line_no);
+*
+*   FUNCTION
+*       Detect differences against the delta buffer, dither the changed span
+*       to an indexed line buffer and blit it to the raster port.
+*
+*   INPUTS
+*       gfxinfo - Video-buffer descriptor. line_no - Scan line to update.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 STATIC_INLINE void flush_line_planar_dither (struct vidbuf_description *gfxinfo, int line_no)
 {
     int      xs      = 0;
@@ -491,6 +780,30 @@ STATIC_INLINE void flush_line_planar_dither (struct vidbuf_description *gfxinfo,
     JWLOG("FIND: WritePixelLine8 ..\n");
 }
 
+/****i* januae-ami-win/flush_block_planar_dither ***************************
+*
+*   NAME
+*       flush_block_planar_dither() -- Dither a range of planar scan lines.
+*
+*   SYNOPSIS
+*       static void flush_block_planar_dither (struct vidbuf_description
+*       *gfxinfo, int first_line, int last_line);
+*
+*   FUNCTION
+*       Call the dithered planar scan-line updater across an inclusive
+*       interval.
+*
+*   INPUTS
+*       gfxinfo - Video-buffer descriptor. first_line, last_line - Inclusive
+*       range.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void flush_block_planar_dither (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
     int line_no;
@@ -502,6 +815,29 @@ static void flush_block_planar_dither (struct vidbuf_description *gfxinfo, int f
 /*
  * Buffer methods for HAM screens.
  */
+/****i* januae-ami-win/flush_line_ham **************************************
+*
+*   NAME
+*       flush_line_ham() -- Render a scan line in Hold-And-Modify mode.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void flush_line_ham (struct vidbuf_description
+*       *gfxinfo, int line_no);
+*
+*   FUNCTION
+*       Convert the source scan line with the HAM conversion table and draw
+*       the converted indexed pixels unless updates are inhibited.
+*
+*   INPUTS
+*       gfxinfo - Video-buffer descriptor. line_no - Scan line to render.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 STATIC_INLINE void flush_line_ham (struct vidbuf_description *gfxinfo, int line_no)
 {
     int     len = gfxinfo->width;
@@ -516,6 +852,30 @@ STATIC_INLINE void flush_line_ham (struct vidbuf_description *gfxinfo, int line_
     return;
 }
 
+/****i* januae-ami-win/flush_block_ham *************************************
+*
+*   NAME
+*       flush_block_ham() -- Render a range of HAM scan lines.
+*
+*   SYNOPSIS
+*       static void flush_block_ham (struct vidbuf_description *gfxinfo, int
+*       first_line, int last_line);
+*
+*   FUNCTION
+*       Render each line of the requested inclusive interval using the HAM
+*       converter.
+*
+*   INPUTS
+*       gfxinfo - Video-buffer descriptor. first_line, last_line - Inclusive
+*       range.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void flush_block_ham (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
     int line_no;
@@ -526,6 +886,32 @@ static void flush_block_ham (struct vidbuf_description *gfxinfo, int first_line,
 
 #ifdef USE_CYBERGFX
 # ifndef USE_CYBERGFX_V41
+/****i* januae-ami-win/flush_line_cgx **************************************
+*
+*   NAME
+*       flush_line_cgx() -- Blit a legacy CyberGraphX scan line.
+*
+*   SYNOPSIS
+*       static void flush_line_cgx (struct vidbuf_description *gfxinfo, int
+*       line_no);
+*
+*   FUNCTION
+*       Copy a single line from the CyberGraphX bitmap into the host raster
+*       port when display updates are enabled.
+*
+*   INPUTS
+*       gfxinfo - Video-buffer descriptor. line_no - Source scan line.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Used by pre-V41 CyberGraphX builds.
+*
+****************************************************************************
+*
+*/
+
 static void flush_line_cgx (struct vidbuf_description *gfxinfo, int line_no)
 {
     if(!uae_no_display_update) {
@@ -539,6 +925,33 @@ static void flush_line_cgx (struct vidbuf_description *gfxinfo, int line_no)
                0xc0);
     }
 }
+
+/****i* januae-ami-win/flush_block_cgx *************************************
+*
+*   NAME
+*       flush_block_cgx() -- Blit a legacy CyberGraphX line range.
+*
+*   SYNOPSIS
+*       static void flush_block_cgx (struct vidbuf_description *gfxinfo, int
+*       first_line, int last_line);
+*
+*   FUNCTION
+*       Copy the inclusive source interval from the CyberGraphX bitmap into
+*       the host raster port.
+*
+*   INPUTS
+*       gfxinfo - Video-buffer descriptor. first_line, last_line - Inclusive
+*       range.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Used by pre-V41 CyberGraphX builds.
+*
+****************************************************************************
+*
+*/
 
 static void flush_block_cgx (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
@@ -554,6 +967,32 @@ static void flush_block_cgx (struct vidbuf_description *gfxinfo, int first_line,
     }
 }
 # else
+/****i* januae-ami-win/flush_line_cgx_v41 **********************************
+*
+*   NAME
+*       flush_line_cgx_v41() -- Transfer a CyberGraphX V41 scan line.
+*
+*   SYNOPSIS
+*       static void flush_line_cgx_v41 (struct vidbuf_description *gfxinfo,
+*       int line_no);
+*
+*   FUNCTION
+*       Write one row from the off-screen chunky buffer to the host raster
+*       port and propagate the updated area to cloned windows.
+*
+*   INPUTS
+*       gfxinfo - Video-buffer descriptor. line_no - Row to transfer.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Requires the CyberGraphX V41 rendering path.
+*
+****************************************************************************
+*
+*/
+
 static void flush_line_cgx_v41 (struct vidbuf_description *gfxinfo, int line_no)
 {
 
@@ -578,6 +1017,33 @@ static void flush_line_cgx_v41 (struct vidbuf_description *gfxinfo, int line_no)
     clone_area(0 , line_no,
                gfxinfo->width,1);
 }
+
+/****i* januae-ami-win/flush_block_cgx_v41 *********************************
+*
+*   NAME
+*       flush_block_cgx_v41() -- Transfer a CyberGraphX V41 line range.
+*
+*   SYNOPSIS
+*       static void flush_block_cgx_v41 (struct vidbuf_description *gfxinfo,
+*       int first_line, int last_line);
+*
+*   FUNCTION
+*       Write a contiguous line range from the off-screen buffer and update
+*       the overlapping cloned-window area.
+*
+*   INPUTS
+*       gfxinfo - Video-buffer descriptor. first_line, last_line - Inclusive
+*       range.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Requires the CyberGraphX V41 rendering path.
+*
+****************************************************************************
+*
+*/
 
 static void flush_block_cgx_v41 (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
@@ -613,6 +1079,29 @@ static void flush_block_cgx_v41 (struct vidbuf_description *gfxinfo, int first_l
 
 /****************************************************************************/
 
+/****i* januae-ami-win/flush_clear_screen_gfxlib ***************************
+*
+*   NAME
+*       flush_clear_screen_gfxlib() -- Clear the Amiga host display.
+*
+*   SYNOPSIS
+*       static void flush_clear_screen_gfxlib (struct vidbuf_description
+*       *gfxinfo);
+*
+*   FUNCTION
+*       Clear the active raster port using the configured graphics path and
+*       reset the delta buffer when enabled.
+*
+*   INPUTS
+*       gfxinfo - Video-buffer descriptor.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void flush_clear_screen_gfxlib (struct vidbuf_description *gfxinfo)
 {
   JWLOG("flush_clear_screen_gfxlib(..)\n");
@@ -646,6 +1135,28 @@ static void flush_clear_screen_gfxlib (struct vidbuf_description *gfxinfo)
 /****************************************************************************/
 
 
+/****i* januae-ami-win/RPDepth *********************************************
+*
+*   NAME
+*       RPDepth() -- Read the raster-port pixel depth.
+*
+*   SYNOPSIS
+*       static int RPDepth (struct RastPort *RP);
+*
+*   FUNCTION
+*       Get a CyberGraphX bitmap depth when active, otherwise use the planar
+*       bitmap depth.
+*
+*   INPUTS
+*       RP - Raster port to inspect.
+*
+*   RESULT
+*       The bitmap depth in bits per pixel.
+*
+****************************************************************************
+*
+*/
+
 static int RPDepth (struct RastPort *RP)
 {
 #ifdef USE_CYBERGFX
@@ -656,6 +1167,28 @@ static int RPDepth (struct RastPort *RP)
 }
 
 /****************************************************************************/
+
+/****i* januae-ami-win/get_color *******************************************
+*
+*   NAME
+*       get_color() -- Allocate a palette color for dithering.
+*
+*   SYNOPSIS
+*       static int get_color (int r, int g, int b, xcolnr *cnp);
+*
+*   FUNCTION
+*       Convert component values to the requested color representation,
+*       obtain a host pen and store the resulting index.
+*
+*   INPUTS
+*       r, g, b - Color components. cnp - Output color-index pointer.
+*
+*   RESULT
+*       1 when a pen is obtained; otherwise 0.
+*
+****************************************************************************
+*
+*/
 
 static int get_color (int r, int g, int b, xcolnr *cnp)
 {
@@ -688,6 +1221,29 @@ static int get_color (int r, int g, int b, xcolnr *cnp)
  * FIXME: find a better way to determine closeness of colors (closer to
  * human perception).
  */
+/****i* januae-ami-win/rgb2xyz *********************************************
+*
+*   NAME
+*       rgb2xyz() -- Transform RGB components for color matching.
+*
+*   SYNOPSIS
+*       static __inline__ void rgb2xyz (int r, int g, int b, int *x, int *y,
+*       int *z);
+*
+*   FUNCTION
+*       Calculate the scaled three-component coordinates used by the
+*       internal color-distance metric.
+*
+*   INPUTS
+*       r, g, b - Input components. x, y, z - Output coordinate pointers.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static __inline__ void rgb2xyz (int r, int g, int b,
                 int *x, int *y, int *z)
 {
@@ -695,6 +1251,29 @@ static __inline__ void rgb2xyz (int r, int g, int b,
     *y = 886 * (g - b);
     *z = (r + g + b) * 341;
 }
+
+/****i* januae-ami-win/calc_err ********************************************
+*
+*   NAME
+*       calc_err() -- Measure the distance between two RGB colors.
+*
+*   SYNOPSIS
+*       static __inline__ int calc_err (int r1, int g1, int b1, int r2, int
+*       g2, int b2);
+*
+*   FUNCTION
+*       Convert both colors to internal coordinates and sum the squared
+*       component differences.
+*
+*   INPUTS
+*       r1, g1, b1 - First RGB value. r2, g2, b2 - Second RGB value.
+*
+*   RESULT
+*       Squared color-distance metric.
+*
+****************************************************************************
+*
+*/
 
 static __inline__ int calc_err (int r1, int g1, int b1,
                 int r2, int g2, int b2)
@@ -708,6 +1287,28 @@ static __inline__ int calc_err (int r1, int g1, int b1,
 }
 
 /****************************************************************************/
+
+/****i* januae-ami-win/get_nearest_color ***********************************
+*
+*   NAME
+*       get_nearest_color() -- Choose the nearest available palette entry.
+*
+*   SYNOPSIS
+*       static int get_nearest_color (int r, int g, int b);
+*
+*   FUNCTION
+*       Compare the requested RGB components with palette entries and select
+*       the index with the smallest internal color error.
+*
+*   INPUTS
+*       r, g, b - Requested RGB components.
+*
+*   RESULT
+*       Index of the closest palette entry.
+*
+****************************************************************************
+*
+*/
 
 static int get_nearest_color (int r, int g, int b)
 {
@@ -756,6 +1357,31 @@ static int get_nearest_color (int r, int g, int b)
 /****************************************************************************/
 
 #ifdef USE_CYBERGFX
+/****i* januae-ami-win/init_colors_cgx *************************************
+*
+*   NAME
+*       init_colors_cgx() -- Configure CyberGraphX direct-color conversion.
+*
+*   SYNOPSIS
+*       static int init_colors_cgx (const struct RastPort *rp);
+*
+*   FUNCTION
+*       Inspect the bitmap pixel format and initialize the host
+*       pixel-channel masks and conversion state for supported formats.
+*
+*   INPUTS
+*       rp - Destination raster port.
+*
+*   RESULT
+*       Nonzero for a supported pixel format; otherwise zero.
+*
+*   NOTES
+*       Compiled when CyberGraphX support is enabled.
+*
+****************************************************************************
+*
+*/
+
 static int init_colors_cgx (const struct RastPort *rp)
 {
     int redbits,  greenbits,  bluebits;
@@ -834,6 +1460,28 @@ static int init_colors_cgx (const struct RastPort *rp)
     return found;
 }
 #endif
+
+/****i* januae-ami-win/init_colors *****************************************
+*
+*   NAME
+*       init_colors() -- Initialize the selected host color path.
+*
+*   SYNOPSIS
+*       static int init_colors (void);
+*
+*   FUNCTION
+*       Configure palette allocation, dithering and pixel conversion
+*       according to the active display depth and color preferences.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Nonzero on successful setup; otherwise zero.
+*
+****************************************************************************
+*
+*/
 
 static int init_colors (void)
 {
@@ -957,6 +1605,32 @@ static int init_colors (void)
 /*
  * Try to find a CGX/P96 screen mode which suits the requested size and depth
  */
+/****i* januae-ami-win/find_rtg_mode ***************************************
+*
+*   NAME
+*       find_rtg_mode() -- Select a CyberGraphX screen mode.
+*
+*   SYNOPSIS
+*       ULONG find_rtg_mode (ULONG *width, ULONG *height, ULONG depth);
+*
+*   FUNCTION
+*       Enumerate RTG display modes for the requested dimensions and depth,
+*       preferring a suitable matching or fallback mode.
+*
+*   INPUTS
+*       width, height - In/out dimensions. depth - Requested pixel depth.
+*
+*   RESULT
+*       Selected display-mode ID, or INVALID_ID when no suitable mode
+*       exists.
+*
+*   NOTES
+*       Available with CyberGraphX support.
+*
+****************************************************************************
+*
+*/
+
 ULONG find_rtg_mode (ULONG *width, ULONG *height, ULONG depth)
 {
     ULONG mode           = INVALID_ID;
@@ -1040,6 +1714,28 @@ ULONG find_rtg_mode (ULONG *width, ULONG *height, ULONG depth)
     return best_mode;
 }
 #endif
+
+/****i* januae-ami-win/setup_customscreen **********************************
+*
+*   NAME
+*       setup_customscreen() -- Open the emulator on a custom screen.
+*
+*   SYNOPSIS
+*       static int setup_customscreen (void);
+*
+*   FUNCTION
+*       Select a display mode, open an Intuition screen and window, and
+*       initialize the screen-dependent graphics state.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       1 when the custom-screen setup succeeds; otherwise 0.
+*
+****************************************************************************
+*
+*/
 
 static int setup_customscreen (void) {
 
@@ -1200,6 +1896,27 @@ static int setup_customscreen (void) {
  * with close_all_janus_windows() and set a full size region as a 
  * window shape, which shows the window again
  ****************************************************************************/
+/****i* januae-ami-win/enable_uae_main_window ******************************
+*
+*   NAME
+*       enable_uae_main_window() -- Enable normal emulator-window operation.
+*
+*   SYNOPSIS
+*       void enable_uae_main_window(void);
+*
+*   FUNCTION
+*       Clear the main-window-closed flag and close the splash window.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void enable_uae_main_window(void) {
   JWLOG("enable_uae_main_window\n");
   uae_main_window_closed=FALSE;
@@ -1207,6 +1924,28 @@ void enable_uae_main_window(void) {
   /* if we have our mainwidow visible, we don't need a splash window anymore */
   close_splash();
 }
+
+/****i* januae-ami-win/show_uae_main_window ********************************
+*
+*   NAME
+*       show_uae_main_window() -- Reveal the main emulator window.
+*
+*   SYNOPSIS
+*       void show_uae_main_window(void);
+*
+*   FUNCTION
+*       Update the host window shape for the full display region and resume
+*       drawing when the main window is available.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void show_uae_main_window(void) {
   struct Window *newW;
@@ -1258,12 +1997,57 @@ void show_uae_main_window(void) {
  * which basically hides the window.
  ****************************************************************************/
 
+/****i* januae-ami-win/disable_uae_main_window *****************************
+*
+*   NAME
+*       disable_uae_main_window() -- Disable normal main-window operation.
+*
+*   SYNOPSIS
+*       void disable_uae_main_window(void);
+*
+*   FUNCTION
+*       Set the main-window-closed state unless the build requires the main
+*       window to remain visible.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void disable_uae_main_window(void) {
   JWLOG("disable_uae_main_window\n");
 #ifndef ALWAYS_SHOW_MAIN_WINDOW
   uae_main_window_closed=TRUE;
 #endif
 }
+
+/****i* januae-ami-win/hide_uae_main_window ********************************
+*
+*   NAME
+*       hide_uae_main_window() -- Hide the main window without destroying
+*       it.
+*
+*   SYNOPSIS
+*       void hide_uae_main_window(void);
+*
+*   FUNCTION
+*       Apply an empty window shape, update visibility state and disable the
+*       main window when rootless operation is permitted.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void hide_uae_main_window(void) {
   BOOL ok;
@@ -1295,6 +2079,29 @@ void hide_uae_main_window(void) {
 
   release_W();
 }
+
+/****i* januae-ami-win/setup_publicscreen **********************************
+*
+*   NAME
+*       setup_publicscreen() -- Open the emulator on an existing public
+*       screen.
+*
+*   SYNOPSIS
+*       static int setup_publicscreen(void);
+*
+*   FUNCTION
+*       Lock the selected public screen, open the emulator host window and
+*       register its Workbench AppWindow.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       1 on successful setup; otherwise 0.
+*
+****************************************************************************
+*
+*/
 
 static int setup_publicscreen(void) {
 
@@ -1423,6 +2230,29 @@ static int setup_publicscreen(void) {
 
 /****************************************************************************/
 
+/****i* januae-ami-win/get_num *********************************************
+*
+*   NAME
+*       get_num() -- Parse an unsigned display-setting number.
+*
+*   SYNOPSIS
+*       static char *get_num (char *s, int *n);
+*
+*   FUNCTION
+*       Read a whitespace-delimited integer in hexadecimal, octal or decimal
+*       notation and advance the input pointer.
+*
+*   INPUTS
+*       s - Input string position. n - Output parsed integer.
+*
+*   RESULT
+*       Pointer to the first character following the parsed number and
+*       trailing whitespace.
+*
+****************************************************************************
+*
+*/
+
 static char *get_num (char *s, int *n)
 {
    int i=0;
@@ -1446,6 +2276,32 @@ static char *get_num (char *s, int *n)
 
 /****************************************************************************/
 
+/****i* januae-ami-win/get_displayid ***************************************
+*
+*   NAME
+*       get_displayid() -- Read a configured screen-mode selection.
+*
+*   SYNOPSIS
+*       static void get_displayid (ULONG *DI, LONG *DE);
+*
+*   FUNCTION
+*       Parse the display-mode ID and depth from the UAESM environment
+*       variable when present.
+*
+*   INPUTS
+*       DI - Output mode ID. DE - Output depth.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The output mode ID is set to INVALID_ID when the setting is absent
+*       or malformed.
+*
+****************************************************************************
+*
+*/
+
 static void get_displayid (ULONG *DI, LONG *DE)
 {
    char *s;
@@ -1461,6 +2317,29 @@ static void get_displayid (ULONG *DI, LONG *DE)
 }
 
 /****************************************************************************/
+
+/****i* januae-ami-win/setup_userscreen ************************************
+*
+*   NAME
+*       setup_userscreen() -- Select and open a user-requested screen.
+*
+*   SYNOPSIS
+*       static int setup_userscreen (void);
+*
+*   FUNCTION
+*       Obtain screen-mode settings through ASL or the configured
+*       environment, open the selected screen and make it publicly
+*       accessible.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       1 on successful setup; otherwise 0.
+*
+****************************************************************************
+*
+*/
 
 static int setup_userscreen (void)
 {
@@ -1624,6 +2503,28 @@ static int setup_userscreen (void)
 
 /****************************************************************************/
 
+/****i* januae-ami-win/graphics_setup **************************************
+*
+*   NAME
+*       graphics_setup() -- Prepare Amiga host graphics services.
+*
+*   SYNOPSIS
+*       int graphics_setup (void);
+*
+*   FUNCTION
+*       Initialize the pointer object and pseudo-device support after the
+*       host libraries have been handled by the startup module.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Returns 1.
+*
+****************************************************************************
+*
+*/
+
 int graphics_setup (void)
 {
   JWLOG("graphics_setup\n");
@@ -1723,6 +2624,28 @@ int graphics_setup (void)
 
 static struct Window *saved_prWindowPtr;
 
+/****i* januae-ami-win/set_prWindowPtr *************************************
+*
+*   NAME
+*       set_prWindowPtr() -- Set the current process requester window.
+*
+*   SYNOPSIS
+*       static void set_prWindowPtr (struct Window *w);
+*
+*   FUNCTION
+*       Save the previous process window pointer if not already retained,
+*       then install the supplied requester parent.
+*
+*   INPUTS
+*       w - Window to use for requester output.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void set_prWindowPtr (struct Window *w)
 {
    struct Process *self = (struct Process *) FindTask (NULL);
@@ -1731,6 +2654,28 @@ static void set_prWindowPtr (struct Window *w)
     saved_prWindowPtr = self->pr_WindowPtr;
    self->pr_WindowPtr = w;
 }
+
+/****i* januae-ami-win/restore_prWindowPtr *********************************
+*
+*   NAME
+*       restore_prWindowPtr() -- Restore the process requester window.
+*
+*   SYNOPSIS
+*       static void restore_prWindowPtr (void);
+*
+*   FUNCTION
+*       Restore a previously saved requester window pointer when one is
+*       available.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void restore_prWindowPtr (void)
 {
@@ -1751,6 +2696,30 @@ static void restore_prWindowPtr (void)
  * gfxinfo - the buffer description (which gets filled in by this routine)
  * rp      - the Rastport this buffer will be blitted to
  */
+/****i* januae-ami-win/setup_cgx41_buffer **********************************
+*
+*   NAME
+*       setup_cgx41_buffer() -- Allocate a CyberGraphX V41 rendering buffer.
+*
+*   SYNOPSIS
+*       static APTR setup_cgx41_buffer (struct vidbuf_description *gfxinfo,
+*       const struct RastPort *rp);
+*
+*   FUNCTION
+*       Allocate a chunky buffer with the destination bitmap pitch and
+*       select V41 scan-line and block flush callbacks.
+*
+*   INPUTS
+*       gfxinfo - Buffer descriptor to initialize. rp - Destination raster
+*       port.
+*
+*   RESULT
+*       Address of the allocated buffer, or NULL on allocation failure.
+*
+****************************************************************************
+*
+*/
+
 static APTR setup_cgx41_buffer (struct vidbuf_description *gfxinfo, const struct RastPort *rp)
 {
     int bytes_per_row   = GetCyberMapAttr (rp->BitMap, CYBRMATTR_XMOD);
@@ -1782,6 +2751,30 @@ static APTR setup_cgx41_buffer (struct vidbuf_description *gfxinfo, const struct
  * gfxinfo - the buffer description (which gets filled in by this routine)
  * rp      - the Rastport this buffer will be blitted to
  */
+/****i* januae-ami-win/setup_cgx_buffer ************************************
+*
+*   NAME
+*       setup_cgx_buffer() -- Allocate a pre-V41 CyberGraphX bitmap.
+*
+*   SYNOPSIS
+*       static APTR setup_cgx_buffer (struct vidbuf_description *gfxinfo,
+*       const struct RastPort *rp);
+*
+*   FUNCTION
+*       Allocate a compatible off-screen bitmap and configure its pixel
+*       address, pitch and legacy flush callbacks.
+*
+*   INPUTS
+*       gfxinfo - Buffer descriptor to initialize. rp - Destination raster
+*       port.
+*
+*   RESULT
+*       Allocated bitmap pointer, or NULL on failure.
+*
+****************************************************************************
+*
+*/
+
 static APTR setup_cgx_buffer (struct vidbuf_description *gfxinfo, const struct RastPort *rp)
 {
     int pixfmt   = GetCyberMapAttr (rp->BitMap, CYBRMATTR_PIXFMT);
@@ -1806,6 +2799,29 @@ static APTR setup_cgx_buffer (struct vidbuf_description *gfxinfo, const struct R
 }
 # endif
 #endif
+
+/****i* januae-ami-win/graphics_init ***************************************
+*
+*   NAME
+*       graphics_init() -- Initialize the active graphics mode.
+*
+*   SYNOPSIS
+*       int graphics_init (void);
+*
+*   FUNCTION
+*       Select or open the configured screen and window, initialize
+*       rendering buffers and color conversion, and configure hotkeys and
+*       pointer state.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       1 on success; otherwise 0.
+*
+****************************************************************************
+*
+*/
 
 int graphics_init (void)
 {
@@ -1989,6 +3005,28 @@ int graphics_init (void)
 
 /****************************************************************************/
 
+/****i* januae-ami-win/graphics_leave **************************************
+*
+*   NAME
+*       graphics_leave() -- Shut down Amiga host graphics.
+*
+*   SYNOPSIS
+*       void graphics_leave (void);
+*
+*   FUNCTION
+*       Stop auxiliary host threads, close cloned windows and graphics
+*       resources, then release screen and display resources.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void graphics_leave (void)
 {
   int i;
@@ -2103,6 +3141,28 @@ void graphics_leave (void)
 
 /****************************************************************************/
 
+/****i* januae-ami-win/do_inhibit_frame ************************************
+*
+*   NAME
+*       do_inhibit_frame() -- Read or change display-inhibition state.
+*
+*   SYNOPSIS
+*       int do_inhibit_frame (int onoff);
+*
+*   FUNCTION
+*       When onoff differs from -1, update the display-inhibit flag and
+*       refresh the host window title.
+*
+*   INPUTS
+*       onoff - Nonnegative state change, or -1 to query the current state.
+*
+*   RESULT
+*       Current display-inhibit flag.
+*
+****************************************************************************
+*
+*/
+
 int do_inhibit_frame (int onoff)
 {
   JWLOG("do_inhibit_frame(%d)\n",onoff);
@@ -2119,6 +3179,27 @@ int do_inhibit_frame (int onoff)
 
 /***************************************************************************/
 
+/****i* januae-ami-win/graphics_notify_state *******************************
+*
+*   NAME
+*       graphics_notify_state() -- Accept a graphics state notification.
+*
+*   SYNOPSIS
+*       void graphics_notify_state (int state);
+*
+*   FUNCTION
+*       Emit a trace entry without changing graphics state.
+*
+*   INPUTS
+*       state - State value; currently unused.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void graphics_notify_state (int state)
 {
   JWLOG("graphics_notify_state\n");
@@ -2128,45 +3209,235 @@ void graphics_notify_state (int state)
  * This stuff needs an own file, too 
  ***************************************************************************/
 
+/****i* januae-ami-win/get_LeftEdge ****************************************
+*
+*   NAME
+*       get_LeftEdge() -- Read the guest window left coordinate.
+*
+*   SYNOPSIS
+*       UWORD get_LeftEdge(ULONG win);
+*
+*   FUNCTION
+*       Read the 16-bit left-edge field from the emulated Intuition Window
+*       structure.
+*
+*   INPUTS
+*       win - Guest address of a Window structure.
+*
+*   RESULT
+*       Window left-edge word.
+*
+****************************************************************************
+*
+*/
+
 UWORD get_LeftEdge(ULONG win) {
 
   return (UWORD) get_word(win+4); 
 }
+
+/****i* januae-ami-win/get_TopEdge *****************************************
+*
+*   NAME
+*       get_TopEdge() -- Read the guest window top coordinate.
+*
+*   SYNOPSIS
+*       UWORD get_TopEdge(ULONG win);
+*
+*   FUNCTION
+*       Read the 16-bit top-edge field from the emulated Window structure.
+*
+*   INPUTS
+*       win - Guest Window structure address.
+*
+*   RESULT
+*       Window top-edge word.
+*
+****************************************************************************
+*
+*/
 
 UWORD get_TopEdge(ULONG win) {
 
   return (UWORD) get_word(win+6); 
 }
 
+/****i* januae-ami-win/get_Width *******************************************
+*
+*   NAME
+*       get_Width() -- Read the guest window width.
+*
+*   SYNOPSIS
+*       UWORD get_Width(ULONG win);
+*
+*   FUNCTION
+*       Read the 16-bit width field of the emulated Window structure.
+*
+*   INPUTS
+*       win - Guest Window structure address.
+*
+*   RESULT
+*       Window width word.
+*
+****************************************************************************
+*
+*/
+
 UWORD get_Width(ULONG win) {
 
   return (UWORD) get_word(win+8); 
 }
+
+/****i* januae-ami-win/get_Height ******************************************
+*
+*   NAME
+*       get_Height() -- Read the guest window height.
+*
+*   SYNOPSIS
+*       UWORD get_Height(ULONG win);
+*
+*   FUNCTION
+*       Read the 16-bit height field of the emulated Window structure.
+*
+*   INPUTS
+*       win - Guest Window structure address.
+*
+*   RESULT
+*       Window height word.
+*
+****************************************************************************
+*
+*/
 
 UWORD get_Height(ULONG win) {
 
   return (UWORD) get_word(win+10); 
 }
 
+/****i* januae-ami-win/get_Flags *******************************************
+*
+*   NAME
+*       get_Flags() -- Read the guest window flags.
+*
+*   SYNOPSIS
+*       UWORD get_Flags(ULONG win);
+*
+*   FUNCTION
+*       Read the 16-bit flags field from the emulated Window structure.
+*
+*   INPUTS
+*       win - Guest Window structure address.
+*
+*   RESULT
+*       Window flags word.
+*
+****************************************************************************
+*
+*/
+
 UWORD get_Flags(ULONG win) {
 
   return (UWORD) get_word(win+24); 
 }
+
+/****i* januae-ami-win/get_BorderLeft **************************************
+*
+*   NAME
+*       get_BorderLeft() -- Read the guest window left border.
+*
+*   SYNOPSIS
+*       UWORD get_BorderLeft(ULONG win);
+*
+*   FUNCTION
+*       Read the left border byte from the emulated Window structure.
+*
+*   INPUTS
+*       win - Guest Window structure address.
+*
+*   RESULT
+*       Left border size.
+*
+****************************************************************************
+*
+*/
 
 UWORD get_BorderLeft(ULONG win) {
 
   return (UWORD) get_byte(win+54); 
 }
 
+/****i* januae-ami-win/get_BorderTop ***************************************
+*
+*   NAME
+*       get_BorderTop() -- Read the guest window top border.
+*
+*   SYNOPSIS
+*       UWORD get_BorderTop(ULONG win);
+*
+*   FUNCTION
+*       Read the top border byte from the emulated Window structure.
+*
+*   INPUTS
+*       win - Guest Window structure address.
+*
+*   RESULT
+*       Top border size.
+*
+****************************************************************************
+*
+*/
+
 UWORD get_BorderTop(ULONG win) {
 
   return (UWORD) get_byte(win+55); 
 }
 
+/****i* januae-ami-win/get_BorderRight *************************************
+*
+*   NAME
+*       get_BorderRight() -- Read the guest window right border.
+*
+*   SYNOPSIS
+*       UWORD get_BorderRight(ULONG win);
+*
+*   FUNCTION
+*       Read the right border byte from the emulated Window structure.
+*
+*   INPUTS
+*       win - Guest Window structure address.
+*
+*   RESULT
+*       Right border size.
+*
+****************************************************************************
+*
+*/
+
 UWORD get_BorderRight(ULONG win) {
 
   return (UWORD) get_byte(win+56); 
 }
+
+/****i* januae-ami-win/get_BorderBottom ************************************
+*
+*   NAME
+*       get_BorderBottom() -- Read the guest window bottom border.
+*
+*   SYNOPSIS
+*       UWORD get_BorderBottom(ULONG win);
+*
+*   FUNCTION
+*       Read the bottom border byte from the emulated Window structure.
+*
+*   INPUTS
+*       win - Guest Window structure address.
+*
+*   RESULT
+*       Bottom border size.
+*
+****************************************************************************
+*
+*/
 
 UWORD get_BorderBottom(ULONG win) {
 
@@ -2185,6 +3456,31 @@ UWORD get_BorderBottom(ULONG win) {
  * TODO: jwin->plusx/y for area checks!
  *
  */
+
+/****i* januae-ami-win/clone_window_area ***********************************
+*
+*   NAME
+*       clone_window_area() -- Update an overlapping cloned guest window
+*       area.
+*
+*   SYNOPSIS
+*       static BOOL clone_window_area(JanusWin *jwin, WORD areax, WORD
+*       areay, UWORD areawidth, UWORD areaheight);
+*
+*   FUNCTION
+*       Intersect a changed guest graphics region with a registered host
+*       window and transfer the relevant pixels when drawing is enabled.
+*
+*   INPUTS
+*       jwin - Cloned window record. areax, areay - Source origin.
+*       areawidth, areaheight - Source extent.
+*
+*   RESULT
+*       Boolean result from the window-area update path.
+*
+****************************************************************************
+*
+*/
 
 static BOOL clone_window_area(JanusWin *jwin, 
                        WORD areax, WORD areay, 
@@ -2346,6 +3642,28 @@ static BOOL clone_window_area(JanusWin *jwin,
  * cover this area and update the area in those windows. Should
  * be ok, we'll see.
  */
+/****i* januae-ami-win/clone_area ******************************************
+*
+*   NAME
+*       clone_area() -- Propagate a changed display area to cloned windows.
+*
+*   SYNOPSIS
+*       void clone_area(WORD x, WORD y, UWORD width, UWORD height);
+*
+*   FUNCTION
+*       Iterate eligible live Janus windows under the window-list semaphore
+*       and update each overlapping area.
+*
+*   INPUTS
+*       x, y - Changed-area origin. width, height - Area extent.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void clone_area(WORD x, WORD y, UWORD width, UWORD height) {
   GSList *elem;
 
@@ -2576,6 +3894,31 @@ void o1i_clone_windows_task() {
 
 //static void o1i_Draw() {
 
+/****i* januae-ami-win/o1i_Display_Update **********************************
+*
+*   NAME
+*       o1i_Display_Update() -- Refresh the Picasso display region.
+*
+*   SYNOPSIS
+*       void o1i_Display_Update(int start,int i);
+*
+*   FUNCTION
+*       Transfer eligible updated Picasso scan lines from the guest pixel
+*       memory to the current host raster port.
+*
+*   INPUTS
+*       start - First source line. i - Number of requested lines.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Available with Picasso96 support.
+*
+****************************************************************************
+*
+*/
+
 void o1i_Display_Update(int start,int i) {
 
   if(uae_no_display_update) {
@@ -2615,6 +3958,28 @@ void o1i_Display_Update(int start,int i) {
   }
 }
 
+/****i* januae-ami-win/aros_daemon_runing **********************************
+*
+*   NAME
+*       aros_daemon_runing() -- Check whether the Janus daemon is signaled.
+*
+*   SYNOPSIS
+*       int aros_daemon_runing();
+*
+*   FUNCTION
+*       Check whether both the guest daemon task and its signal mask are
+*       present.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Nonzero when both daemon fields are set; otherwise zero.
+*
+****************************************************************************
+*
+*/
+
 int aros_daemon_runing() {
   return (aos3_task && aos3_task_signal);
 }
@@ -2622,12 +3987,54 @@ int aros_daemon_runing() {
 
 /***************************************************************************/
 
+/****i* januae-ami-win/debuggable ******************************************
+*
+*   NAME
+*       debuggable() -- Report debugger availability.
+*
+*   SYNOPSIS
+*       int debuggable (void);
+*
+*   FUNCTION
+*       Return a fixed affirmative debugger-capability indication.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Always returns 1.
+*
+****************************************************************************
+*
+*/
+
 int debuggable (void)
 {
     return 1;
 }
 
 /***************************************************************************/
+
+/****i* januae-ami-win/LED *************************************************
+*
+*   NAME
+*       LED() -- Receive an activity-indicator update.
+*
+*   SYNOPSIS
+*       void LED (int on);
+*
+*   FUNCTION
+*       Perform no activity-indicator update.
+*
+*   INPUTS
+*       on - Requested activity state; unused.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void LED (int on)
 {
@@ -2644,6 +4051,31 @@ void LED (int on)
 /* WARNING(?): this will not work, if the uae window
  *          is not on the public screen!
  */
+/****i* januae-ami-win/get_BytesPerPix *************************************
+*
+*   NAME
+*       get_BytesPerPix() -- Read host display bytes per pixel.
+*
+*   SYNOPSIS
+*       static int get_BytesPerPix(struct Window *win);
+*
+*   FUNCTION
+*       Inspect the window screen bitmap and query its CyberGraphX
+*       byte-per-pixel attribute.
+*
+*   INPUTS
+*       win - Host window to inspect.
+*
+*   RESULT
+*       Byte count per pixel, or zero for missing window or screen.
+*
+*   NOTES
+*       Available in the Picasso96 path.
+*
+****************************************************************************
+*
+*/
+
 static int get_BytesPerPix(struct Window *win) {
   struct Screen *scr;
   int res;
@@ -2676,6 +4108,31 @@ static int get_BytesPerPix(struct Window *win) {
  *
  * some kind of magix, I still don't understand (o1i)
  */
+/****i* januae-ami-win/get_BytesPerRow *************************************
+*
+*   NAME
+*       get_BytesPerRow() -- Calculate the Picasso display row stride.
+*
+*   SYNOPSIS
+*       static int get_BytesPerRow(struct Window *win);
+*
+*   FUNCTION
+*       Multiply the configured Picasso width by the host bitmap bytes per
+*       pixel.
+*
+*   INPUTS
+*       win - Host window used for pixel-format information.
+*
+*   RESULT
+*       Computed byte stride for one row.
+*
+*   NOTES
+*       Available in the Picasso96 path.
+*
+****************************************************************************
+*
+*/
+
 static int get_BytesPerRow(struct Window *win) {
   WORD width;
 
@@ -2695,6 +4152,32 @@ static int get_BytesPerRow(struct Window *win) {
   return width * get_BytesPerPix(win);
 }
 
+/****i* januae-ami-win/set_screen_for_picasso ******************************
+*
+*   NAME
+*       set_screen_for_picasso() -- Configure the host window for Picasso
+*       mode.
+*
+*   SYNOPSIS
+*       static void set_screen_for_picasso(void);
+*
+*   FUNCTION
+*       Invoke the parameterized Picasso window setup without forcing
+*       visibility.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Available in the Picasso96 path.
+*
+****************************************************************************
+*
+*/
+
 static void set_screen_for_picasso(void) {
 
   set_screen_for_picasso_param(FALSE);
@@ -2702,6 +4185,32 @@ static void set_screen_for_picasso(void) {
 
 
 /* if visible, set right shape, too */
+/****i* januae-ami-win/set_screen_for_picasso_param ************************
+*
+*   NAME
+*       set_screen_for_picasso_param() -- Size the host window for Picasso
+*       output.
+*
+*   SYNOPSIS
+*       static void set_screen_for_picasso_param(BOOL showme);
+*
+*   FUNCTION
+*       Adjust the host display window dimensions, shape and Picasso output
+*       state according to requested visibility and fullscreen settings.
+*
+*   INPUTS
+*       showme - Whether to force display visibility during setup.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Available in the Picasso96 path.
+*
+****************************************************************************
+*
+*/
+
 static void set_screen_for_picasso_param(BOOL showme) {
 
   WORD width, height;
@@ -2812,6 +4321,31 @@ static void set_screen_for_picasso_param(BOOL showme) {
  *
  * So we need some magic here obviously.
  */
+/****i* januae-ami-win/un_set_screen_for_picasso ***************************
+*
+*   NAME
+*       un_set_screen_for_picasso() -- Restore non-Picasso window geometry.
+*
+*   SYNOPSIS
+*       static void un_set_screen_for_picasso(void);
+*
+*   FUNCTION
+*       When the main window is visible, restore the configured native
+*       window dimensions and drawing state.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Available in the Picasso96 path.
+*
+****************************************************************************
+*
+*/
+
 static void un_set_screen_for_picasso(void) {
 
   JWLOG("entered\n");
@@ -2854,6 +4388,31 @@ static void un_set_screen_for_picasso(void) {
   }
 }
 
+/****i* januae-ami-win/gfx_set_picasso_state *******************************
+*
+*   NAME
+*       gfx_set_picasso_state() -- Switch Picasso graphics mode.
+*
+*   SYNOPSIS
+*       void gfx_set_picasso_state (int on);
+*
+*   FUNCTION
+*       Update the Picasso-active flag and adjust the host window or drawing
+*       state only when the requested mode differs.
+*
+*   INPUTS
+*       on - Requested Picasso-enabled state.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Available in the Picasso96 path.
+*
+****************************************************************************
+*
+*/
+
 void gfx_set_picasso_state (int on)
 {
 
@@ -2894,6 +4453,31 @@ void gfx_set_picasso_state (int on)
     }
 }
 
+/****i* januae-ami-win/DX_Invalidate ***************************************
+*
+*   NAME
+*       DX_Invalidate() -- Mark Picasso scan lines as changed.
+*
+*   SYNOPSIS
+*       void DX_Invalidate (int first, int last);
+*
+*   FUNCTION
+*       Expand the invalid-line interval and mark the specified inclusive
+*       lines dirty.
+*
+*   INPUTS
+*       first, last - Inclusive lines to invalidate.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Available in the Picasso96 path.
+*
+****************************************************************************
+*
+*/
+
 void DX_Invalidate (int first, int last)
 {
   //JWLOG("DX_Invalidate from %d to %d\n", first, last);
@@ -2907,11 +4491,60 @@ void DX_Invalidate (int first, int last)
   memset(&picasso_invalid_lines[first], 1, last-first+1);
 }
 
+/****i* januae-ami-win/DX_BitsPerCannon ************************************
+*
+*   NAME
+*       DX_BitsPerCannon() -- Report supported Picasso channel precision.
+*
+*   SYNOPSIS
+*       int DX_BitsPerCannon (void);
+*
+*   FUNCTION
+*       Return the fixed channel-bit count expected by the Picasso display
+*       interface.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Always returns 8.
+*
+*   NOTES
+*       Available in the Picasso96 path.
+*
+****************************************************************************
+*
+*/
+
 int DX_BitsPerCannon (void)
 {
   JWLOG("DX_BitsPerCannon\n");
     return 8;
 }
+
+/****i* januae-ami-win/DX_SetPalette ***************************************
+*
+*   NAME
+*       DX_SetPalette() -- Receive a Picasso palette update.
+*
+*   SYNOPSIS
+*       void DX_SetPalette (int start, int count);
+*
+*   FUNCTION
+*       Log the palette update request without changing the current palette.
+*
+*   INPUTS
+*       start - First palette entry. count - Number of entries; both unused.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Available in the Picasso96 path.
+*
+****************************************************************************
+*
+*/
 
 void DX_SetPalette (int start, int count)
 {
@@ -2921,6 +4554,32 @@ void DX_SetPalette (int start, int count)
 /* TODO: sync this with picasso96.c !! */
 
 void get_host_resolution(LONG *width, LONG *height, LONG  *depth); /* from j-screen.c */
+
+/****i* januae-ami-win/DX_FillResolutions **********************************
+*
+*   NAME
+*       DX_FillResolutions() -- Populate supported Picasso display modes.
+*
+*   SYNOPSIS
+*       int DX_FillResolutions (uae_u16 *ppixel_format);
+*
+*   FUNCTION
+*       Build the advertised display-mode list using fixed candidate
+*       resolutions and the current host resolution, setting the
+*       corresponding pixel-format bits.
+*
+*   INPUTS
+*       ppixel_format - In/out bit mask of supported pixel formats.
+*
+*   RESULT
+*       Number of advertised display modes.
+*
+*   NOTES
+*       Available in the Picasso96 path.
+*
+****************************************************************************
+*
+*/
 
 int DX_FillResolutions (uae_u16 *ppixel_format)
 {
@@ -3083,6 +4742,33 @@ int DX_FillResolutions (uae_u16 *ppixel_format)
     return count;
 }
 
+/****i* januae-ami-win/gfx_set_picasso_modeinfo ****************************
+*
+*   NAME
+*       gfx_set_picasso_modeinfo() -- Set Picasso mode dimensions and
+*       format.
+*
+*   SYNOPSIS
+*       void gfx_set_picasso_modeinfo (int w, int h, int d, int rgbfmt);
+*
+*   FUNCTION
+*       Store requested dimensions and depth, select the mapped RGB format
+*       and update the host window when Picasso mode is active.
+*
+*   INPUTS
+*       w, h - Mode dimensions. d - Pixel depth. rgbfmt - Supplied
+*       pixel-format value; not used in selection.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Available in the Picasso96 path.
+*
+****************************************************************************
+*
+*/
+
 void gfx_set_picasso_modeinfo (int w, int h, int d, int rgbfmt)
 {
     JWLOG("gfx_set_picasso_modeinfo (w: %d, h: %d, d: %d, rgbfmt: %d)\n",w,h,d,rgbfmt);;
@@ -3099,12 +4785,62 @@ void gfx_set_picasso_modeinfo (int w, int h, int d, int rgbfmt)
 }
 
 
+/****i* januae-ami-win/gfx_lock_picasso ************************************
+*
+*   NAME
+*       gfx_lock_picasso() -- Expose Picasso framebuffer memory.
+*
+*   SYNOPSIS
+*       uae_u8 *gfx_lock_picasso (void);
+*
+*   FUNCTION
+*       Return the current Picasso frame-buffer address without acquiring a
+*       lock.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Current Picasso memory address.
+*
+*   NOTES
+*       Available in the Picasso96 path.
+*
+****************************************************************************
+*
+*/
+
 uae_u8 *gfx_lock_picasso (void)
 {
 //    D(bug("gfx_lock_picasso()\n"));
   //JWLOG("gfx_lock_picasso\n");
     return picasso_memory;
 }
+/****i* januae-ami-win/gfx_unlock_picasso **********************************
+*
+*   NAME
+*       gfx_unlock_picasso() -- Complete a Picasso framebuffer access.
+*
+*   SYNOPSIS
+*       void gfx_unlock_picasso (void);
+*
+*   FUNCTION
+*       Perform no operation; there is no corresponding explicit lock to
+*       release.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Available in the Picasso96 path.
+*
+****************************************************************************
+*
+*/
+
 void gfx_unlock_picasso (void)
 {
   //JWLOG("gfx_unlock_picasso\n");
@@ -3119,6 +4855,28 @@ void gfx_unlock_picasso (void)
 static int led_state[5];
 
 #define WINDOW_TITLE PACKAGE_NAME " " PACKAGE_VERSION
+
+/****i* januae-ami-win/set_title *******************************************
+*
+*   NAME
+*       set_title() -- Update the emulator window title.
+*
+*   SYNOPSIS
+*       static void set_title (void);
+*
+*   FUNCTION
+*       Set the main host window title to the package identity, including a
+*       display-off suffix when frame output is inhibited.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void set_title (void)
 {
@@ -3157,6 +4915,27 @@ static void set_title (void)
 
 /****************************************************************************/
 
+/****i* januae-ami-win/main_window_led *************************************
+*
+*   NAME
+*       main_window_led() -- Refresh the main-window title for an LED event.
+*
+*   SYNOPSIS
+*       void main_window_led (int led, int on);
+*
+*   FUNCTION
+*       Update the window title without retaining the supplied LED state.
+*
+*   INPUTS
+*       led - Indicator index; unused. on - Requested state; unused.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void main_window_led (int led, int on)                /* is used in amigui.c */
 {
 #if 0
@@ -3170,6 +4949,30 @@ void main_window_led (int led, int on)                /* is used in amigui.c */
 /*
  * Routines for OS2.0 (code taken out of mpeg_play by Michael Balzer)
  */
+/****i* januae-ami-win/myAllocBitMap ***************************************
+*
+*   NAME
+*       myAllocBitMap() -- Allocate a host graphics bitmap.
+*
+*   SYNOPSIS
+*       static struct BitMap *myAllocBitMap(ULONG sizex, ULONG sizey, ULONG
+*       depth, ULONG flags, struct BitMap *friend_bitmap);
+*
+*   FUNCTION
+*       Use platform bitmap allocation, with an older planar-raster
+*       allocation path on supported pre-OS3.9 Amiga systems.
+*
+*   INPUTS
+*       sizex, sizey - Dimensions. depth - Pixel depth. flags - Bitmap
+*       flags. friend_bitmap - Compatible bitmap.
+*
+*   RESULT
+*       Allocated bitmap or NULL on failure.
+*
+****************************************************************************
+*
+*/
+
 static struct BitMap *myAllocBitMap(ULONG sizex, ULONG sizey, ULONG depth,
                                     ULONG flags, struct BitMap *friend_bitmap)
 {
@@ -3201,6 +5004,28 @@ static struct BitMap *myAllocBitMap(ULONG sizex, ULONG sizey, ULONG depth,
 
 /****************************************************************************/
 
+/****i* januae-ami-win/myFreeBitMap ****************************************
+*
+*   NAME
+*       myFreeBitMap() -- Free a host graphics bitmap.
+*
+*   SYNOPSIS
+*       static void myFreeBitMap(struct BitMap *bm);
+*
+*   FUNCTION
+*       Release a bitmap using the matching native or legacy planar
+*       allocation path.
+*
+*   INPUTS
+*       bm - Bitmap previously allocated for the host graphics path.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void myFreeBitMap(struct BitMap *bm)
 {
 #if !defined __amigaos4__ && !defined __MORPHOS__ && !defined __AROS__
@@ -3219,6 +5044,28 @@ static void myFreeBitMap(struct BitMap *bm)
 /*
  * find the best appropriate color. return -1 if none is available
  */
+/****i* januae-ami-win/ObtainColor *****************************************
+*
+*   NAME
+*       ObtainColor() -- Find or allocate a display palette color.
+*
+*   SYNOPSIS
+*       static LONG ObtainColor (ULONG r,ULONG g,ULONG b);
+*
+*   FUNCTION
+*       Obtain a suitable pen from the current colormap or match a palette
+*       index according to OS version and screen mode.
+*
+*   INPUTS
+*       r, g, b - Expanded color-channel values.
+*
+*   RESULT
+*       Pen index when available; otherwise -1.
+*
+****************************************************************************
+*
+*/
+
 static LONG ObtainColor (ULONG r,ULONG g,ULONG b)
 {
     int i, crgb;
@@ -3269,6 +5116,28 @@ static LONG ObtainColor (ULONG r,ULONG g,ULONG b)
 /*
  * free a color entry
  */
+/****i* januae-ami-win/ReleaseColors ***************************************
+*
+*   NAME
+*       ReleaseColors() -- Release allocated display pens.
+*
+*   SYNOPSIS
+*       static void ReleaseColors(void);
+*
+*   FUNCTION
+*       Release retained colormap pens when they are owned by the host and
+*       clear the pen count.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void ReleaseColors(void)
 {
     if (os39 && usepub && CM)
@@ -3279,6 +5148,28 @@ static void ReleaseColors(void)
 }
 
 /****************************************************************************/
+
+/****i* januae-ami-win/DoSizeWindow ****************************************
+*
+*   NAME
+*       DoSizeWindow() -- Resize a host window to fit its display.
+*
+*   SYNOPSIS
+*       static int DoSizeWindow (struct Window *W, int wi, int he);
+*
+*   FUNCTION
+*       Include the window borders, constrain the requested size to the
+*       containing screen and apply the required move and resize deltas.
+*
+*   INPUTS
+*       W - Host window. wi, he - Requested inner dimensions.
+*
+*   RESULT
+*       1 when the dimensions fit; 0 if constrained by screen bounds.
+*
+****************************************************************************
+*
+*/
 
 static int DoSizeWindow (struct Window *W, int wi, int he)
 {
@@ -3327,6 +5218,27 @@ static int DoSizeWindow (struct Window *W, int wi, int he)
  * worth as I use cidx as a buffer which is 128Kb long)..
  ****************************************************************************/
 
+/****i* januae-ami-win/dist4 ***********************************************
+*
+*   NAME
+*       dist4() -- Measure distance between 12-bit RGB colors.
+*
+*   SYNOPSIS
+*       static int dist4 (LONG rgb1, LONG rgb2);
+*
+*   FUNCTION
+*       Sum the absolute differences of the three four-bit color components.
+*
+*   INPUTS
+*       rgb1, rgb2 - Packed 12-bit RGB color values.
+*
+*   RESULT
+*       Component-distance sum.
+*
+****************************************************************************
+*
+*/
+
 static int dist4 (LONG rgb1, LONG rgb2) /* computes distance very quickly */
 {
     int d = 0, t;
@@ -3345,6 +5257,28 @@ static int dist4 (LONG rgb1, LONG rgb2) /* computes distance very quickly */
 #define d_dst (00000+(UBYTE*)cidx) /* let's use cidx as a buffer */
 #define d_cmd (16384+(UBYTE*)cidx)
 #define h_buf (32768+(UBYTE*)cidx)
+
+/****i* januae-ami-win/init_ham ********************************************
+*
+*   NAME
+*       init_ham() -- Prepare Hold-And-Modify lookup tables.
+*
+*   SYNOPSIS
+*       static int init_ham (void);
+*
+*   FUNCTION
+*       Precompute palette and component-adjustment costs for conversion
+*       from packed RGB colors into HAM pixels.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Returns 1.
+*
+****************************************************************************
+*
+*/
 
 static int init_ham (void)
 {
@@ -3382,6 +5316,29 @@ static int init_ham (void)
 
 /* great algorithm: convert trucolor into ham using precalc buffers */
 #undef USE_BITFIELDS
+/****i* januae-ami-win/ham_conv ********************************************
+*
+*   NAME
+*       ham_conv() -- Convert packed RGB pixels to HAM codes.
+*
+*   SYNOPSIS
+*       static void ham_conv (UWORD *src, UBYTE *buf, UWORD len);
+*
+*   FUNCTION
+*       Convert the specified source pixels into HAM command bytes using the
+*       precomputed conversion and history tables.
+*
+*   INPUTS
+*       src - Packed RGB source. buf - HAM destination buffer. len - Pixel
+*       count.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void ham_conv (UWORD *src, UBYTE *buf, UWORD len)
 {
     /* A good compiler (ie. gcc :) will use bfext/bfins instructions */
@@ -3425,6 +5382,29 @@ static void ham_conv (UWORD *src, UBYTE *buf, UWORD len)
 
 /****************************************************************************/
 
+/****i* januae-ami-win/check_prefs_changed_gfx *****************************
+*
+*   NAME
+*       check_prefs_changed_gfx() -- Report pending graphics preference
+*       changes.
+*
+*   SYNOPSIS
+*       int check_prefs_changed_gfx (void);
+*
+*   FUNCTION
+*       Provide a fixed no-change result without comparing graphics
+*       preferences.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Always returns 0.
+*
+****************************************************************************
+*
+*/
+
 int check_prefs_changed_gfx (void)
 {
    return 0;
@@ -3432,19 +5412,104 @@ int check_prefs_changed_gfx (void)
 
 /****************************************************************************/
 
+/****i* januae-ami-win/is_fullscreen ***************************************
+*
+*   NAME
+*       is_fullscreen() -- Report fullscreen status.
+*
+*   SYNOPSIS
+*       int is_fullscreen (void);
+*
+*   FUNCTION
+*       Return a fixed disabled-fullscreen indication.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Always returns 0.
+*
+****************************************************************************
+*
+*/
+
 int is_fullscreen (void)
 {
     return 0;
 }
+
+/****i* januae-ami-win/is_vsync ********************************************
+*
+*   NAME
+*       is_vsync() -- Report vertical-sync status.
+*
+*   SYNOPSIS
+*       int is_vsync (void);
+*
+*   FUNCTION
+*       Return a fixed disabled-vertical-sync indication.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Always returns 0.
+*
+****************************************************************************
+*
+*/
 
 int is_vsync (void)
 {
     return 0;
 }
    
+/****i* januae-ami-win/toggle_fullscreen ***********************************
+*
+*   NAME
+*       toggle_fullscreen() -- Handle a fullscreen toggle request.
+*
+*   SYNOPSIS
+*       void toggle_fullscreen (void);
+*
+*   FUNCTION
+*       Perform no operation; fullscreen toggling is not implemented.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void toggle_fullscreen (void)
 {
 }
+
+/****i* januae-ami-win/screenshot ******************************************
+*
+*   NAME
+*       screenshot() -- Handle a screenshot request.
+*
+*   SYNOPSIS
+*       void screenshot (int type);
+*
+*   FUNCTION
+*       Log that screenshot capture is not implemented; do not create an
+*       image.
+*
+*   INPUTS
+*       type - Requested screenshot type; unused.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void screenshot (int type)
 {
@@ -3459,6 +5524,28 @@ void screenshot (int type)
 
 static const char *screen_type[] = { "custom", "public", "ask", 0 };
 
+/****i* januae-ami-win/gfx_default_options *********************************
+*
+*   NAME
+*       gfx_default_options() -- Initialize graphics configuration defaults.
+*
+*   SYNOPSIS
+*       void gfx_default_options (struct uae_prefs *p);
+*
+*   FUNCTION
+*       Select public-screen output, enable dithering and clear the
+*       public-screen name and grayscale setting.
+*
+*   INPUTS
+*       p - Preferences to initialize.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void gfx_default_options (struct uae_prefs *p)
 {
     p->amiga_screen_type     = UAESCREENTYPE_PUBLIC;
@@ -3467,6 +5554,28 @@ void gfx_default_options (struct uae_prefs *p)
     p->amiga_use_grey        = 0;
 }
 
+/****i* januae-ami-win/gfx_save_options ************************************
+*
+*   NAME
+*       gfx_save_options() -- Write Amiga graphics preferences.
+*
+*   SYNOPSIS
+*       void gfx_save_options (FILE *f, const struct uae_prefs *p);
+*
+*   FUNCTION
+*       Serialize the screen type, public-screen name, dithering and
+*       grayscale settings to the configuration stream.
+*
+*   INPUTS
+*       f - Output stream. p - Preferences to save.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void gfx_save_options (FILE *f, const struct uae_prefs *p)
 {
     cfgfile_write (f, GFX_NAME ".screen_type=%s\n",  screen_type[p->amiga_screen_type]);
@@ -3474,6 +5583,30 @@ void gfx_save_options (FILE *f, const struct uae_prefs *p)
     cfgfile_write (f, GFX_NAME ".use_dither=%s\n",   p->amiga_use_dither ? "true" : "false");
     cfgfile_write (f, GFX_NAME ".use_grey=%s\n",     p->amiga_use_grey ? "true" : "false");
 }
+
+/****i* januae-ami-win/gfx_parse_option ************************************
+*
+*   NAME
+*       gfx_parse_option() -- Parse an Amiga graphics configuration option.
+*
+*   SYNOPSIS
+*       int gfx_parse_option (struct uae_prefs *p, const char *option, const
+*       char *value);
+*
+*   FUNCTION
+*       Recognize and update the screen type, public-screen name, dithering
+*       and grayscale preferences.
+*
+*   INPUTS
+*       p - Preferences to update. option - Option key. value - Option
+*       value.
+*
+*   RESULT
+*       Nonzero when a recognized option is consumed; otherwise zero.
+*
+****************************************************************************
+*
+*/
 
 int gfx_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
