@@ -38,7 +38,7 @@ target_triplet = i386-pc-aros
 subdir = .
 DIST_COMMON = $(am__configure_deps) $(dist_noinst_SCRIPTS) \
 	$(srcdir)/Makefile.am $(srcdir)/Makefile.in \
-	$(top_srcdir)/configure COPYING ChangeLog config.guess \
+	$(top_srcdir)/configure COPYING config.guess \
 	config.sub depcomp install-sh missing mkinstalldirs
 ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
 am__aclocal_m4_deps = $(top_srcdir)/m4/acx_pthread.m4 \
@@ -258,7 +258,7 @@ top_build_prefix =
 top_builddir = .
 top_srcdir = .
 ACLOCAL_AMFLAGS = -I m4
-EXTRA_DIST = m4 amiga docs CHANGES README
+EXTRA_DIST = m4 amiga docs README.md
 SUBDIRS = src
 dist_noinst_SCRIPTS = bootstrap.sh
 all: all-recursive
