@@ -27,6 +27,31 @@
 
 #define M68K_DEBUG 1
 
+/****i* januae/ad_debug ****************************************************
+*
+*   NAME
+*       ad_debug() -- Forward guest diagnostics to the host.
+*
+*   SYNOPSIS
+*       uae_u32 ad_debug(ULONG *m68k_results);
+*
+*   FUNCTION
+*       Resolve a guest text pointer and write the message to the AROS
+*       debugging console with an m68k prefix.
+*
+*   INPUTS
+*       m68k_results - Guest address of a zero-terminated diagnostic string.
+*
+*   RESULT
+*       TRUE.
+*
+*   NOTES
+*       The routine expects guest text to be accessible as a host string.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_debug(ULONG *m68k_results) {
 
 //#if M68K_DEBUG

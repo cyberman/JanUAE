@@ -24,6 +24,32 @@
 //#define JWTRACING_ENABLED 1
 #include "j.h"
 
+/****i* januae/j_shutdown_all **********************************************
+*
+*   NAME
+*       j_shutdown_all() -- Clear guest integration state.
+*
+*   SYNOPSIS
+*       static void j_shutdown_all(void);
+*
+*   FUNCTION
+*       Close cloned guest windows and screens, uninstall the clipboard
+*       hook, clear registered guest daemon tasks and signals, and request
+*       CLI proxy termination.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The Workbench launch proxy is left running.
+*
+****************************************************************************
+*
+*/
+
 static void j_shutdown_all(void) {
 
   JWLOG("unregister all daemons\n");
@@ -67,6 +93,28 @@ static void j_shutdown_all(void) {
  * The cli thread must die, it is only running, if
  * launchd is running.
  ********************************************************/
+/****i* januae/j_reset *****************************************************
+*
+*   NAME
+*       j_reset() -- Handle a guest reset.
+*
+*   SYNOPSIS
+*       void j_reset(void);
+*
+*   FUNCTION
+*       Shut down guest integration state and unlock the JanUAE graphical
+*       interface after a guest reset.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void j_reset(void) {
 
   JWLOG("j_reset\n");
@@ -78,6 +126,28 @@ void j_reset(void) {
 
   JWLOG("j_reset => done\n");
 }
+
+/****i* januae/j_quit ******************************************************
+*
+*   NAME
+*       j_quit() -- End guest integration.
+*
+*   SYNOPSIS
+*       void j_quit(void);
+*
+*   FUNCTION
+*       Release the registered guest integration state through
+*       j_shutdown_all.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void j_quit(void) {
 

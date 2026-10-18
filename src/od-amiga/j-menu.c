@@ -33,6 +33,27 @@ static STRPTR parse_label(UWORD flags, uaecptr intuitextptr);
 static STRPTR parse_key(UWORD flags, uaecptr keytext);
 
 /* gadtools uses inverted flags as intuition */
+/****i* januae/swap_enabled ************************************************
+*
+*   NAME
+*       swap_enabled() -- Invert a menu-item enabled flag.
+*
+*   SYNOPSIS
+*       static WORD swap_enabled(WORD flags);
+*
+*   FUNCTION
+*       Toggle ITEMENABLED while preserving the remaining flag bits.
+*
+*   INPUTS
+*       flags - Source menu-item flags.
+*
+*   RESULT
+*       Flags with ITEMENABLED toggled.
+*
+****************************************************************************
+*
+*/
+
 static WORD swap_enabled(WORD flags) {
 
   if(flags & ITEMENABLED) {
@@ -45,6 +66,28 @@ static WORD swap_enabled(WORD flags) {
 }
 
 /* clear all non gadtools flags out of intuition flags */
+/****i* januae/parse_flags *************************************************
+*
+*   NAME
+*       parse_flags() -- Convert guest menu-item flags.
+*
+*   SYNOPSIS
+*       static WORD parse_flags(WORD aos3flags);
+*
+*   FUNCTION
+*       Keep supported Intuition menu-item flags and invert the ITEMENABLED
+*       bit for the GadTools representation.
+*
+*   INPUTS
+*       aos3flags - Guest menu-item flags.
+*
+*   RESULT
+*       Converted menu-item flags.
+*
+****************************************************************************
+*
+*/
+
 static WORD parse_flags(WORD aos3flags) {
   WORD arosflags;
 
@@ -69,6 +112,33 @@ static WORD parse_flags(WORD aos3flags) {
  * can't detect (?). So we abuse HIGHNONE, as no "real" item
  * uses this anyways (hopefully)
  */
+/****i* januae/parse_label *************************************************
+*
+*   NAME
+*       parse_label() -- Resolve a guest menu-item label.
+*
+*   SYNOPSIS
+*       static STRPTR parse_label(UWORD flags, uaecptr intuitextptr);
+*
+*   FUNCTION
+*       Return NM_BARLABEL for entries identified as separators, or resolve
+*       the guest IntuiText string address.
+*
+*   INPUTS
+*       flags - Converted item flags. intuitextptr - Address of guest
+*       IntuiText data.
+*
+*   RESULT
+*       A GadTools separator marker or a pointer into guest text memory.
+*
+*   NOTES
+*       The returned text is not copied. HIGHNONE is treated as a separator
+*       marker.
+*
+****************************************************************************
+*
+*/
+
 static STRPTR parse_label(UWORD flags, uaecptr intuitextptr) {
 
   if((flags & HIGHFLAGS)==HIGHNONE) {
@@ -82,6 +152,27 @@ static STRPTR parse_label(UWORD flags, uaecptr intuitextptr) {
 }
 
 /* return command key or NULL*/
+/****i* januae/parse_key ***************************************************
+*
+*   NAME
+*       parse_key() -- Resolve a menu command key.
+*
+*   SYNOPSIS
+*       static STRPTR parse_key(UWORD flags, uaecptr keytext);
+*
+*   FUNCTION
+*       Expose the guest command-key address when COMMSEQ is set.
+*
+*   INPUTS
+*       flags - Menu-item flags. keytext - Guest command-key address.
+*
+*   RESULT
+*       A key pointer, or NULL when COMMSEQ is absent.
+*
+****************************************************************************
+*
+*/
+
 static STRPTR parse_key(UWORD flags, uaecptr keytext) {
 
   if(flags & COMMSEQ) {
@@ -91,6 +182,28 @@ static STRPTR parse_key(UWORD flags, uaecptr keytext) {
 }
 
 /* count required number of gadtools rows */
+/****i* januae/count_items *************************************************
+*
+*   NAME
+*       count_items() -- Count flattened menu entries.
+*
+*   SYNOPSIS
+*       static ULONG count_items(uaecptr menu);
+*
+*   FUNCTION
+*       Traverse guest menu, item and subitem chains and count entries
+*       needed for the GadTools menu array, including its terminator.
+*
+*   INPUTS
+*       menu - Guest Menu linked-list address.
+*
+*   RESULT
+*       Required entry count including NM_END.
+*
+****************************************************************************
+*
+*/
+
 static ULONG count_items(uaecptr menu) {
   uaecptr item;
   uaecptr sub;
@@ -117,6 +230,27 @@ static ULONG count_items(uaecptr menu) {
   return i;
 }
 
+/****i* januae/get_aos3_menustrip ******************************************
+*
+*   NAME
+*       get_aos3_menustrip() -- Read a guest window menu strip.
+*
+*   SYNOPSIS
+*       uaecptr get_aos3_menustrip(uaecptr aos3win);
+*
+*   FUNCTION
+*       Read the menu-strip pointer from the guest window structure.
+*
+*   INPUTS
+*       aos3win - Guest window address.
+*
+*   RESULT
+*       Guest menu-strip address, or zero if no menu strip exists.
+*
+****************************************************************************
+*
+*/
+
 uaecptr get_aos3_menustrip(uaecptr aos3win) {
   uaecptr aos3menustrip;
 
@@ -136,6 +270,33 @@ uaecptr get_aos3_menustrip(uaecptr aos3win) {
  * take the menu tree from aos3
  * and add it to aros window
  ********************************/
+/****i* januae/clone_menu **************************************************
+*
+*   NAME
+*       clone_menu() -- Install a host copy of a guest menu.
+*
+*   SYNOPSIS
+*       void clone_menu(JanusWin *jwin);
+*
+*   FUNCTION
+*       Translate guest menus, items and subitems into GadTools NewMenu
+*       entries, create and lay out a host menu, and install it on the
+*       corresponding AROS window.
+*
+*   INPUTS
+*       jwin - Janus window containing the guest and host window state.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The translation uses guest label addresses directly and replaces the
+*       host menu strip when one is already present.
+*
+****************************************************************************
+*
+*/
+
 void clone_menu(JanusWin *jwin) {
   struct Window   *aroswin=jwin->aroswin;
   uaecptr          aos3win=(uaecptr) jwin->aos3win;
@@ -279,6 +440,30 @@ void clone_menu(JanusWin *jwin) {
  *
  * Timeout, if it did not open
  ******************************/
+/****i* januae/wait_menu_shown *********************************************
+*
+*   NAME
+*       wait_menu_shown() -- Wait for a guest menu to be drawn.
+*
+*   SYNOPSIS
+*       static BOOL wait_menu_shown(uaecptr menu_flags);
+*
+*   FUNCTION
+*       Poll MIDRAWN in guest menu flags with bounded delays.
+*
+*   INPUTS
+*       menu_flags - Guest menu flag word address.
+*
+*   RESULT
+*       TRUE if MIDRAWN is observed; otherwise FALSE after 20 attempts.
+*
+*   NOTES
+*       Each unsuccessful attempt delays for five ticks.
+*
+****************************************************************************
+*
+*/
+
 static BOOL wait_menu_shown(uaecptr menu_flags) {
   ULONG i;
   UWORD flags;
@@ -307,6 +492,32 @@ static BOOL wait_menu_shown(uaecptr menu_flags) {
  * wait until all menus windows of this window are closed,
  * so it is safe, to sync windows again, for example
  */
+/****i* januae/wait_window_menu_closed *************************************
+*
+*   NAME
+*       wait_window_menu_closed() -- Wait for menu dismissal.
+*
+*   SYNOPSIS
+*       void wait_window_menu_closed(JanusWin *jwin);
+*
+*   FUNCTION
+*       Poll the guest menu strip until MIDRAWN clears, or stop after a
+*       bounded number of attempts.
+*
+*   INPUTS
+*       jwin - Janus window whose guest menu is being inspected.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The function returns immediately for a missing guest window or menu
+*       strip.
+*
+****************************************************************************
+*
+*/
+
 void wait_window_menu_closed(JanusWin *jwin) {
   uaecptr          aos3win;
   uaecptr          aos3menustrip;
@@ -342,6 +553,27 @@ void wait_window_menu_closed(JanusWin *jwin) {
   JWLOG("could not wait unti menu for aos3 window %lx was closed, sorry.\n",aos3win);
 }
 
+/****i* januae/wait_menuitem_shown *****************************************
+*
+*   NAME
+*       wait_menuitem_shown() -- Wait for a guest menu item to appear.
+*
+*   SYNOPSIS
+*       static BOOL wait_menuitem_shown(uaecptr menu_flags);
+*
+*   FUNCTION
+*       Poll the ISDRAWN flag in guest menu-item state.
+*
+*   INPUTS
+*       menu_flags - Guest menu-item flag word address.
+*
+*   RESULT
+*       TRUE when the item is drawn; FALSE after 20 attempts.
+*
+****************************************************************************
+*
+*/
+
 static BOOL wait_menuitem_shown(uaecptr menu_flags) {
   ULONG i;
   UWORD flags;
@@ -366,6 +598,30 @@ static BOOL wait_menuitem_shown(uaecptr menu_flags) {
  * as the janusd can not move the mouse at once, we have to wait
  * until the mouse is on position. Use Delay() to not busy wait.
  *****************************************************************/
+/****i* januae/wait_menu_mouse_pos *****************************************
+*
+*   NAME
+*       wait_menu_mouse_pos() -- Wait for a guest pointer position.
+*
+*   SYNOPSIS
+*       static BOOL wait_menu_mouse_pos(JanusWin *jwin, WORD MouseX, WORD
+*       MouseY);
+*
+*   FUNCTION
+*       Poll guest screen pointer coordinates until they equal the requested
+*       location.
+*
+*   INPUTS
+*       jwin - Janus window owning the guest screen. MouseX, MouseY - Target
+*       guest pointer coordinates.
+*
+*   RESULT
+*       TRUE when both coordinates match; FALSE after 20 attempts.
+*
+****************************************************************************
+*
+*/
+
 static BOOL wait_menu_mouse_pos(JanusWin *jwin, WORD MouseX, WORD MouseY) {
   ULONG i;
   uaecptr scr;
@@ -403,6 +659,34 @@ static BOOL wait_menu_mouse_pos(JanusWin *jwin, WORD MouseX, WORD MouseY) {
  * After that, we switch on mouse/updates again and nobody
  * has noticed it (hopefully ;)). Perfect illusion, or David?
  */
+/****i* januae/click_menu **************************************************
+*
+*   NAME
+*       click_menu() -- Drive a guest menu selection.
+*
+*   SYNOPSIS
+*       void click_menu(JanusWin *jwin, WORD menu, WORD item, WORD sub);
+*
+*   FUNCTION
+*       Locate the requested guest menu and item, submit intermediate
+*       pointer coordinates through menux and menuy, and wait for menu
+*       drawing and pointer movement.
+*
+*   INPUTS
+*       jwin - Janus window. menu, item, sub - Zero-based menu indices; -1
+*       skips the item or subitem level.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Pointer movement is performed by the guest mouse synchronization
+*       path. Selection is abandoned if a required wait fails.
+*
+****************************************************************************
+*
+*/
+
 void click_menu(JanusWin *jwin, WORD menu, WORD item, WORD sub) {
   uaecptr          aos3win;
   uaecptr          aos3screen;
@@ -533,6 +817,31 @@ void click_menu(JanusWin *jwin, WORD menu, WORD item, WORD sub) {
     aos3menustrip=get_long(aos3menustrip); /* NextMenu */
   }
 }
+
+/****i* januae/process_menu ************************************************
+*
+*   NAME
+*       process_menu() -- Decode an AROS menu choice.
+*
+*   SYNOPSIS
+*       void process_menu(JanusWin *jwin, UWORD selection);
+*
+*   FUNCTION
+*       Decode menu, item and subitem indices from an Intuition selection
+*       value and forward valid selections to click_menu.
+*
+*   INPUTS
+*       jwin - Janus window. selection - Encoded menu selection.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       NOMENU and NOITEM selections are ignored; NOSUB is mapped to -1.
+*
+****************************************************************************
+*
+*/
 
 void process_menu(JanusWin *jwin, UWORD selection) {
   WORD menu, item, sub;

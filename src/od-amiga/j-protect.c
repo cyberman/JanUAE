@@ -34,6 +34,31 @@ extern BOOL init_done;
  * likely is no need, to protect W access.
  * But I'll leave it there, just in case..
  *****************************************************/
+/****i* januae/obtain_W ****************************************************
+*
+*   NAME
+*       obtain_W() -- Enter the legacy main-window access helper.
+*
+*   SYNOPSIS
+*       void obtain_W(void);
+*
+*   FUNCTION
+*       Return without changing synchronization state.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The former semaphore acquisition is commented out, including after
+*       init_done becomes true.
+*
+****************************************************************************
+*
+*/
+
 void obtain_W(void) {
   if(!init_done) {
     return;
@@ -41,6 +66,31 @@ void obtain_W(void) {
 //  ObtainSemaphore(&sem_janus_access_W);
   return;
 }
+
+/****i* januae/release_W ***************************************************
+*
+*   NAME
+*       release_W() -- Leave the legacy main-window access helper.
+*
+*   SYNOPSIS
+*       void release_W(void);
+*
+*   FUNCTION
+*       Return without changing synchronization state.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The former semaphore release is commented out, including after
+*       init_done becomes true.
+*
+****************************************************************************
+*
+*/
 
 void release_W(void) {
   if(!init_done) {

@@ -42,6 +42,32 @@ LONG invalidate_lasty=0;
  * to be a bug somewhere, but I am not willing to hunt it
  * down ;). This fixes it.
  */
+/****i* januae/invalidate **************************************************
+*
+*   NAME
+*       invalidate() -- Mark the old guest pointer area dirty.
+*
+*   SYNOPSIS
+*       static void invalidate(LONG y);
+*
+*   FUNCTION
+*       Invalidate a 30-line band at the previous pointer position when the
+*       reported vertical coordinate changes.
+*
+*   INPUTS
+*       y - New guest pointer vertical coordinate.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Negative coordinates are ignored. The remembered coordinate is
+*       updated after invalidation.
+*
+****************************************************************************
+*
+*/
+
 static void invalidate(LONG y) {
 
   JWLOG("invalidate(%d)\n",y);
@@ -71,6 +97,33 @@ static void invalidate(LONG y) {
  *
  ***********************************************************************/
 #define BIT(n) (1<<n)
+
+/****i* januae/nonP96 ******************************************************
+*
+*   NAME
+*       nonP96() -- Compute legacy non-P96 mouse coordinates.
+*
+*   SYNOPSIS
+*       static uae_u32 nonP96(struct Screen *screen, ULONG *m68k_results);
+*
+*   FUNCTION
+*       Calculate the guest pointer position using legacy viewport and
+*       window offsets and write two coordinates to guest command memory.
+*
+*   INPUTS
+*       screen - Source host screen. m68k_results - Writable guest command
+*       buffer.
+*
+*   RESULT
+*       TRUE.
+*
+*   NOTES
+*       This helper is present in the source but is not called by the active
+*       mouse command path.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 nonP96(struct Screen *screen, ULONG *m68k_results) {
 
@@ -127,6 +180,37 @@ WORD manual_mouse_x=0;
 WORD manual_mouse_y=0;
 
 /* as return values seem to cause probles, return TRUE/FALSE in mousebuffer[9] */
+/****i* januae/ad_job_get_mouse ********************************************
+*
+*   NAME
+*       ad_job_get_mouse() -- Transfer host mouse state to the guest.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_get_mouse(ULONG *m68k_results);
+*
+*   FUNCTION
+*       Apply coherence and active-window eligibility checks, then encode
+*       host mouse coordinates, display geometry and synchronization flags
+*       into the guest result buffer.
+*
+*   INPUTS
+*       m68k_results - Guest command buffer holding display-mode input and
+*       receiving mouse state.
+*
+*   RESULT
+*       TRUE for handled or enabled transfers; FALSE when synchronization is
+*       disabled.
+*
+*   NOTES
+*       The result buffer uses offsets 0 through 9. Slot 8 signals
+*       suppression, and slot 9 reports the enabled state on the normal
+*       transfer path. Synthetic menu coordinates override host pointer
+*       input.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_get_mouse(ULONG *m68k_results) {
   struct Screen *screen;
   ULONG modeID;
