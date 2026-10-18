@@ -36,6 +36,29 @@ signed long pissoff = 0;
 struct ev eventtab[ev_max];
 
 
+/****i* januae-events/init_eventtab ****************************************
+*
+*   NAME
+*       init_eventtab() -- Initialize the emulator cycle-event scheduler.
+*
+*   SYNOPSIS
+*       void init_eventtab (void);
+*
+*   FUNCTION
+*       Reset event timing, register the CIA, horizontal sync, copper,
+*       blitter, disk and audio handlers, enable the first horizontal-sync
+*       event and schedule the next deadline.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void init_eventtab (void)
 {
     int i;
@@ -67,6 +90,28 @@ void init_eventtab (void)
 /*
  * Determine next event pending
  */
+/****i* januae-events/events_schedule **************************************
+*
+*   NAME
+*       events_schedule() -- Select the next scheduled emulator event.
+*
+*   SYNOPSIS
+*       void events_schedule (void);
+*
+*   FUNCTION
+*       Examine active event entries and set the global next-event cycle to
+*       the earliest pending deadline.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void events_schedule (void)
 {
     int i;
@@ -85,6 +130,29 @@ void events_schedule (void)
 /*
  * Handle all events due at current time
  */
+/****i* januae-events/handle_active_events *********************************
+*
+*   NAME
+*       handle_active_events() -- Dispatch events due at the current
+*       emulator cycle.
+*
+*   SYNOPSIS
+*       void handle_active_events (void);
+*
+*   FUNCTION
+*       Invoke the handler of every active event whose scheduled cycle
+*       equals the current cycle.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void handle_active_events (void)
 {
     int i;

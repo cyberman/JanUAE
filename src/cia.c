@@ -95,6 +95,28 @@ static int tod_hack, tod_hack_delay;
 static uae_u8 serbits;
 static int warned = 10;
 
+/****i* januae-cia/setclr **************************************************
+*
+*   NAME
+*       setclr() -- Apply CIA interrupt-mask set or clear semantics.
+*
+*   SYNOPSIS
+*       static void setclr (unsigned int *p, unsigned int val);
+*
+*   FUNCTION
+*       Set the selected low seven bits when the high control bit is
+*       present; otherwise clear the bits indicated by the value.
+*
+*   INPUTS
+*       p - Mask word to update; val - CIA set/clear mask.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void setclr (unsigned int *p, unsigned int val)
 {
     if (val & 0x80) {
@@ -106,6 +128,29 @@ static void setclr (unsigned int *p, unsigned int val)
 
 #include "newcpu.h"
 
+/****i* januae-cia/RethinkICRA *********************************************
+*
+*   NAME
+*       RethinkICRA() -- Update the CIA-A interrupt request.
+*
+*   SYNOPSIS
+*       static void RethinkICRA (void);
+*
+*   FUNCTION
+*       Assert the CIA-A pending indicator and request the corresponding
+*       emulator interrupt if a latched source is enabled; otherwise clear
+*       the pending indicator.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void RethinkICRA (void)
 {
     if (ciaaimask & ciaaicr) {
@@ -115,6 +160,29 @@ static void RethinkICRA (void)
 	ciaaicr &= 0x7F;
     }
 }
+
+/****i* januae-cia/RethinkICRB *********************************************
+*
+*   NAME
+*       RethinkICRB() -- Update the CIA-B interrupt request.
+*
+*   SYNOPSIS
+*       static void RethinkICRB (void);
+*
+*   FUNCTION
+*       Assert the CIA-B pending indicator and request the corresponding
+*       emulator interrupt if a latched source is enabled; otherwise clear
+*       the pending indicator.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void RethinkICRB (void)
 {
@@ -126,6 +194,28 @@ static void RethinkICRB (void)
     }
 }
 
+/****i* januae-cia/rethink_cias ********************************************
+*
+*   NAME
+*       rethink_cias() -- Reevaluate both CIA interrupt lines.
+*
+*   SYNOPSIS
+*       void rethink_cias (void);
+*
+*   FUNCTION
+*       Recompute interrupt-pending state for CIA A and CIA B from their
+*       latched events and interrupt masks.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void rethink_cias (void)
 {
     RethinkICRA ();
@@ -134,6 +224,29 @@ void rethink_cias (void)
 
 /* Figure out how many CIA timer cycles have passed for each timer since the
    last call of CIA_calctimers.  */
+
+/****i* januae-cia/compute_passed_time *************************************
+*
+*   NAME
+*       compute_passed_time() -- Calculate elapsed ticks for running CIA
+*       timers.
+*
+*   SYNOPSIS
+*       static void compute_passed_time (void);
+*
+*   FUNCTION
+*       Convert elapsed emulator cycles into CIA timer clocks and record
+*       elapsed counts for independently clocked timers on both chips.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void compute_passed_time (void)
 {
@@ -166,6 +279,29 @@ static void compute_passed_time (void)
 /* Called to advance all CIA timers to the current time.  This expects that
    one of the timer values will be modified, and CIA_calctimers will be called
    in the same cycle.  */
+
+/****i* januae-cia/CIA_update **********************************************
+*
+*   NAME
+*       CIA_update() -- Advance CIA timers and latch their interrupt events.
+*
+*   SYNOPSIS
+*       static void CIA_update (void);
+*
+*   FUNCTION
+*       Account for elapsed CIA clocks, handle timer underflows and
+*       serial-output completion, reload timer latches and update interrupt
+*       requests.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void CIA_update (void)
 {
@@ -246,6 +382,32 @@ static void CIA_update (void)
 
 /* Call this only after CIA_update has been called in the same cycle.  */
 
+/****i* januae-cia/CIA_calctimers ******************************************
+*
+*   NAME
+*       CIA_calctimers() -- Schedule the next CIA timer event.
+*
+*   SYNOPSIS
+*       static void CIA_calctimers (void);
+*
+*   FUNCTION
+*       Derive the next expiration from enabled timer modes, including
+*       cascaded Timer B clocks, update the CIA event deadline and
+*       reschedule emulator events.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Call after CIA_update() in the same emulator cycle.
+*
+****************************************************************************
+*
+*/
+
 static void CIA_calctimers (void)
 {
     unsigned long int ciaatimea = ~0L, ciaatimeb = ~0L, ciabtimea = ~0L, ciabtimeb = ~0L;
@@ -305,11 +467,55 @@ static void CIA_calctimers (void)
     events_schedule();
 }
 
+/****i* januae-cia/CIA_handler *********************************************
+*
+*   NAME
+*       CIA_handler() -- Service the scheduled CIA timer event.
+*
+*   SYNOPSIS
+*       void CIA_handler (void);
+*
+*   FUNCTION
+*       Advance all running CIA timers to the current cycle and schedule
+*       their next expiration.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void CIA_handler (void)
 {
     CIA_update ();
     CIA_calctimers ();
 }
+
+/****i* januae-cia/cia_diskindex *******************************************
+*
+*   NAME
+*       cia_diskindex() -- Latch a CIA-B disk index interrupt.
+*
+*   SYNOPSIS
+*       void cia_diskindex (void);
+*
+*   FUNCTION
+*       Set the disk index interrupt source in CIA B and reevaluate the
+*       CIA-B interrupt request.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void cia_diskindex (void)
 {
@@ -317,11 +523,59 @@ void cia_diskindex (void)
     RethinkICRB();
 }
 
+/****i* januae-cia/cia_parallelack *****************************************
+*
+*   NAME
+*       cia_parallelack() -- Latch a CIA-A parallel acknowledgement
+*       interrupt.
+*
+*   SYNOPSIS
+*       static void cia_parallelack (void);
+*
+*   FUNCTION
+*       Set the parallel-port acknowledgement interrupt source and
+*       reevaluate the CIA-A interrupt request.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void cia_parallelack (void)
 {
     ciaaicr |= 0x10;
     RethinkICRA ();
 }
+
+/****i* januae-cia/checkalarm **********************************************
+*
+*   NAME
+*       checkalarm() -- Compare a time-of-day counter with its alarm.
+*
+*   SYNOPSIS
+*       static int checkalarm (unsigned long tod, unsigned long alarm, int
+*       inc);
+*
+*   FUNCTION
+*       Check for an exact alarm match and optionally recognize the
+*       intermediate counter transition used by the emulated TOD middle
+*       digit.
+*
+*   INPUTS
+*       tod - Current counter; alarm - Alarm value; inc - Nonzero when the
+*       counter has advanced.
+*
+*   RESULT
+*       One if the alarm condition matches; zero otherwise.
+*
+****************************************************************************
+*
+*/
 
 static int checkalarm (unsigned long tod, unsigned long alarm, int inc)
 {
@@ -340,6 +594,28 @@ static int checkalarm (unsigned long tod, unsigned long alarm, int inc)
     return 0;
 }
 
+/****i* januae-cia/ciab_checkalarm *****************************************
+*
+*   NAME
+*       ciab_checkalarm() -- Update the CIA-B time-of-day alarm interrupt.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void ciab_checkalarm (int inc);
+*
+*   FUNCTION
+*       Test the CIA-B time-of-day counter against its alarm and latch the
+*       corresponding interrupt source on a match.
+*
+*   INPUTS
+*       inc - Nonzero when called after incrementing the counter.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 STATIC_INLINE void ciab_checkalarm (int inc)
 {
     if (checkalarm (ciabtod, ciabalarm, inc)) {
@@ -348,6 +624,28 @@ STATIC_INLINE void ciab_checkalarm (int inc)
     }
 }
 
+/****i* januae-cia/ciaa_checkalarm *****************************************
+*
+*   NAME
+*       ciaa_checkalarm() -- Update the CIA-A time-of-day alarm interrupt.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void ciaa_checkalarm (int inc);
+*
+*   FUNCTION
+*       Test the CIA-A time-of-day counter against its alarm and latch the
+*       corresponding interrupt source on a match.
+*
+*   INPUTS
+*       inc - Nonzero when called after incrementing the counter.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 STATIC_INLINE void ciaa_checkalarm (int inc)
 {
     if (checkalarm (ciaatod, ciaaalarm, inc)) {
@@ -355,6 +653,30 @@ STATIC_INLINE void ciaa_checkalarm (int inc)
 	RethinkICRA ();
     }
 }
+
+/****i* januae-cia/CIA_hsync_handler ***************************************
+*
+*   NAME
+*       CIA_hsync_handler() -- Advance horizontal-sync CIA and keyboard
+*       activity.
+*
+*   SYNOPSIS
+*       void CIA_hsync_handler (void);
+*
+*   FUNCTION
+*       Advance CIA-B time of day while running, check its alarm, and
+*       process the CIA-A serial keyboard handshake at horizontal-sync
+*       intervals.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void CIA_hsync_handler (void)
 {
@@ -404,6 +726,31 @@ void CIA_hsync_handler (void)
 }
 
 #ifdef TOD_HACK
+/****i* januae-cia/tod_hack_reset ******************************************
+*
+*   NAME
+*       tod_hack_reset() -- Rebase the optional TOD clock to host time.
+*
+*   SYNOPSIS
+*       static void tod_hack_reset (void);
+*
+*   FUNCTION
+*       Compute the current host-time counter offset using the selected PAL
+*       or NTSC rate and initialize a delayed recalibration interval.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Compiled only with TOD_HACK support.
+*
+****************************************************************************
+*
+*/
+
 static void tod_hack_reset (void)
 {
     struct timeval tv;
@@ -414,6 +761,29 @@ static void tod_hack_reset (void)
     tod_hack_delay = 10 * 50;
 }
 #endif
+
+/****i* januae-cia/CIA_vsync_handler ***************************************
+*
+*   NAME
+*       CIA_vsync_handler() -- Advance vertical-sync CIA time of day.
+*
+*   SYNOPSIS
+*       void CIA_vsync_handler ();
+*
+*   FUNCTION
+*       Advance CIA-A time of day and test its alarm; when enabled, the
+*       optional host-clock synchronization path derives the counter from
+*       wall time.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void CIA_vsync_handler ()
 {
@@ -450,6 +820,29 @@ void CIA_vsync_handler ()
     }
 }
 
+/****i* januae-cia/bfe001_change *******************************************
+*
+*   NAME
+*       bfe001_change() -- Apply CIA-A port A changes to system controls.
+*
+*   SYNOPSIS
+*       static void bfe001_change (void);
+*
+*   FUNCTION
+*       Resolve the effective output-pin levels, propagate the emulated
+*       power LED state and adjust the chip-memory overlay mapping as
+*       applicable.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void bfe001_change (void)
 {
     uae_u8 v = ciaapra;
@@ -473,6 +866,29 @@ static void bfe001_change (void)
 	}
     }
 }
+
+/****i* januae-cia/ReadCIAA ************************************************
+*
+*   NAME
+*       ReadCIAA() -- Read a selected CIA-A register.
+*
+*   SYNOPSIS
+*       static uae_u8 ReadCIAA (unsigned int addr);
+*
+*   FUNCTION
+*       Decode the register index and return the corresponding port, timer,
+*       TOD, alarm, serial, interrupt or control value, including any
+*       read-side effects.
+*
+*   INPUTS
+*       addr - CIA-A register selector.
+*
+*   RESULT
+*       Eight-bit register value.
+*
+****************************************************************************
+*
+*/
 
 static uae_u8 ReadCIAA (unsigned int addr)
 {
@@ -590,6 +1006,29 @@ static uae_u8 ReadCIAA (unsigned int addr)
     return 0;
 }
 
+/****i* januae-cia/ReadCIAB ************************************************
+*
+*   NAME
+*       ReadCIAB() -- Read a selected CIA-B register.
+*
+*   SYNOPSIS
+*       static uae_u8 ReadCIAB (unsigned int addr);
+*
+*   FUNCTION
+*       Decode the register index and return the corresponding port, timer,
+*       TOD, alarm, serial, interrupt or control value, including any
+*       read-side effects.
+*
+*   INPUTS
+*       addr - CIA-B register selector.
+*
+*   RESULT
+*       Eight-bit register value.
+*
+****************************************************************************
+*
+*/
+
 static uae_u8 ReadCIAB (unsigned int addr)
 {
     unsigned int tmp;
@@ -685,6 +1124,28 @@ static uae_u8 ReadCIAB (unsigned int addr)
     }
     return 0;
 }
+
+/****i* januae-cia/WriteCIAA ***********************************************
+*
+*   NAME
+*       WriteCIAA() -- Write a selected CIA-A register.
+*
+*   SYNOPSIS
+*       static void WriteCIAA (uae_u16 addr,uae_u8 val);
+*
+*   FUNCTION
+*       Apply port, timer, TOD, serial, interrupt-mask or control-register
+*       updates and propagate dependent input, LED and timer state.
+*
+*   INPUTS
+*       addr - CIA-A register selector; val - Eight-bit register value.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void WriteCIAA (uae_u16 addr,uae_u8 val)
 {
@@ -837,6 +1298,28 @@ static void WriteCIAA (uae_u16 addr,uae_u8 val)
     }
 }
 
+/****i* januae-cia/WriteCIAB ***********************************************
+*
+*   NAME
+*       WriteCIAB() -- Write a selected CIA-B register.
+*
+*   SYNOPSIS
+*       static void WriteCIAB (uae_u16 addr,uae_u8 val);
+*
+*   FUNCTION
+*       Apply port, timer, TOD, serial, interrupt-mask or control-register
+*       updates and propagate dependent disk, serial and timer state.
+*
+*   INPUTS
+*       addr - CIA-B register selector; val - Eight-bit register value.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void WriteCIAB (uae_u16 addr,uae_u8 val)
 {
 #ifdef CIA_DEBUG_W
@@ -971,10 +1454,55 @@ static void WriteCIAB (uae_u16 addr,uae_u8 val)
     }
 }
 
+/****i* januae-cia/CIA_inprec_prepare **************************************
+*
+*   NAME
+*       CIA_inprec_prepare() -- Reset CIA keyboard input-recording cadence.
+*
+*   SYNOPSIS
+*       void CIA_inprec_prepare (void);
+*
+*   FUNCTION
+*       Clear the keyboard serial handshake pacing counter used during input
+*       recording.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void CIA_inprec_prepare (void)
 {
     sleepyhead = 0;
 }
+
+/****i* januae-cia/CIA_reset ***********************************************
+*
+*   NAME
+*       CIA_reset() -- Initialize CIA register and peripheral state.
+*
+*   SYNOPSIS
+*       void CIA_reset (void);
+*
+*   FUNCTION
+*       Reset keyboard and port state, initialize the CIA timers and
+*       interrupts when not restoring state, reschedule timer events and
+*       update attached hardware state.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void CIA_reset (void)
 {
@@ -1025,6 +1553,28 @@ void CIA_reset (void)
 #endif
 }
 
+/****i* januae-cia/dumpcia *************************************************
+*
+*   NAME
+*       dumpcia() -- Write CIA register and timer diagnostics.
+*
+*   SYNOPSIS
+*       void dumpcia (void);
+*
+*   FUNCTION
+*       Log the control, interrupt, timer, time-of-day and alarm values of
+*       both emulated CIA chips.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void dumpcia (void)
 {
     write_log ("A: CRA %02x CRB %02x ICR %02x IM %02x TA %04x (%04x) TB %04x (%04x)\n",
@@ -1067,6 +1617,28 @@ extern void akiko_lput (uaecptr addr, uae_u32 value) REGPARAM;
  */
 #define ECLOCK_DATA_CYCLE 4
 
+/****i* januae-cia/cia_wait_pre ********************************************
+*
+*   NAME
+*       cia_wait_pre() -- Align the next CIA bus access to an E-clock phase.
+*
+*   SYNOPSIS
+*       static void cia_wait_pre (void);
+*
+*   FUNCTION
+*       Advance emulator cycles to the next CIA data-transfer phase when
+*       detailed custom-chip timing is enabled.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void cia_wait_pre (void)
 {
 #ifndef CUSTOM_SIMPLE
@@ -1084,10 +1656,54 @@ static void cia_wait_pre (void)
 #endif
 }
 
+/****i* januae-cia/cia_wait_post *******************************************
+*
+*   NAME
+*       cia_wait_post() -- Account for the trailing CIA bus-access cycles.
+*
+*   SYNOPSIS
+*       static void cia_wait_post (void);
+*
+*   FUNCTION
+*       Advance the emulator cycle counter by the post-access timing
+*       increment.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void cia_wait_post (void)
 {
     do_cycles (2 * CYCLE_UNIT / 2);
 }
+
+/****i* januae-cia/cia_bget ************************************************
+*
+*   NAME
+*       cia_bget() -- Read one byte from the CIA address space.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 cia_bget (uaecptr addr);
+*
+*   FUNCTION
+*       Select the addressed CIA register, apply access timing and return
+*       its byte value, or delegate to the optional CD32 device window.
+*
+*   INPUTS
+*       addr - Guest-visible CIA address.
+*
+*   RESULT
+*       Read byte value.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 REGPARAM2 cia_bget (uaecptr addr)
 {
@@ -1126,6 +1742,29 @@ uae_u32 REGPARAM2 cia_bget (uaecptr addr)
     return v;
 }
 
+/****i* januae-cia/cia_wget ************************************************
+*
+*   NAME
+*       cia_wget() -- Read one word from the CIA address space.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 cia_wget (uaecptr addr);
+*
+*   FUNCTION
+*       Combine the addressed CIA register bytes using the emulator bus
+*       mapping and access timing, or delegate to the optional CD32 device
+*       window.
+*
+*   INPUTS
+*       addr - Guest-visible CIA address.
+*
+*   RESULT
+*       Read 16-bit value.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 cia_wget (uaecptr addr)
 {
     int r = (addr & 0xf00) >> 8;
@@ -1163,6 +1802,28 @@ uae_u32 REGPARAM2 cia_wget (uaecptr addr)
     return v;
 }
 
+/****i* januae-cia/cia_lget ************************************************
+*
+*   NAME
+*       cia_lget() -- Read one longword from the CIA address space.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 cia_lget (uaecptr addr);
+*
+*   FUNCTION
+*       Compose a 32-bit value from two word reads, or delegate to the
+*       optional CD32 device window.
+*
+*   INPUTS
+*       addr - Guest-visible CIA address.
+*
+*   RESULT
+*       Read 32-bit value.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 cia_lget (uaecptr addr)
 {
     uae_u32 v;
@@ -1177,6 +1838,29 @@ uae_u32 REGPARAM2 cia_lget (uaecptr addr)
     v |= cia_wget (addr + 2);
     return v;
 }
+
+/****i* januae-cia/cia_bput ************************************************
+*
+*   NAME
+*       cia_bput() -- Write one byte to the CIA address space.
+*
+*   SYNOPSIS
+*       void REGPARAM2 cia_bput (uaecptr addr, uae_u32 value);
+*
+*   FUNCTION
+*       Decode the addressed CIA register selection, perform the
+*       corresponding byte writes with access timing, or delegate to the
+*       optional CD32 device window.
+*
+*   INPUTS
+*       addr - Guest-visible CIA address; value - Byte to write.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void REGPARAM2 cia_bput (uaecptr addr, uae_u32 value)
 {
@@ -1203,6 +1887,29 @@ void REGPARAM2 cia_bput (uaecptr addr, uae_u32 value)
     cia_wait_post ();
 }
 
+/****i* januae-cia/cia_wput ************************************************
+*
+*   NAME
+*       cia_wput() -- Write one word to the CIA address space.
+*
+*   SYNOPSIS
+*       void REGPARAM2 cia_wput (uaecptr addr, uae_u32 value);
+*
+*   FUNCTION
+*       Dispatch the upper and lower byte lanes to the addressed CIA
+*       registers with access timing, or delegate to the optional CD32
+*       device window.
+*
+*   INPUTS
+*       addr - Guest-visible CIA address; value - Word to write.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 cia_wput (uaecptr addr, uae_u32 value)
 {
     int r = (addr & 0xf00) >> 8;
@@ -1227,6 +1934,28 @@ void REGPARAM2 cia_wput (uaecptr addr, uae_u32 value)
     cia_wait_post ();
 }
 
+/****i* januae-cia/cia_lput ************************************************
+*
+*   NAME
+*       cia_lput() -- Write one longword to the CIA address space.
+*
+*   SYNOPSIS
+*       void REGPARAM2 cia_lput (uaecptr addr, uae_u32 value);
+*
+*   FUNCTION
+*       Split the value into two word writes, or delegate to the optional
+*       CD32 device window.
+*
+*   INPUTS
+*       addr - Guest-visible CIA address; value - Longword to write.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 cia_lput (uaecptr addr, uae_u32 value)
 {
 #ifdef JIT
@@ -1250,6 +1979,31 @@ static uae_u8 cdtv_battram[4096];
 #define CDTV_NVRAM_SIZE 2048
 int cdtv_enabled;
 
+/****i* januae-cia/cdtv_battram_reset **************************************
+*
+*   NAME
+*       cdtv_battram_reset() -- Load optional CDTV nonvolatile memory.
+*
+*   SYNOPSIS
+*       static void cdtv_battram_reset (void);
+*
+*   FUNCTION
+*       Read the supported CDTV battery-backed memory range from the
+*       configured flash image when it can be opened.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Compiled only with CDTV support.
+*
+****************************************************************************
+*
+*/
+
 static void cdtv_battram_reset (void)
 {
     struct zfile *f = zfile_fopen (currprefs.flashfile,"rb");
@@ -1258,6 +2012,32 @@ static void cdtv_battram_reset (void)
     zfile_fread (cdtv_battram, CDTV_NVRAM_SIZE,1 ,f);
     zfile_fclose (f);
 }
+
+/****i* januae-cia/cdtv_battram_write **************************************
+*
+*   NAME
+*       cdtv_battram_write() -- Update a CDTV nonvolatile-memory byte.
+*
+*   SYNOPSIS
+*       static void cdtv_battram_write (int addr, int v);
+*
+*   FUNCTION
+*       Ignore out-of-range or unchanged bytes; otherwise update the memory
+*       image and write the modified byte to the configured flash file when
+*       accessible.
+*
+*   INPUTS
+*       addr - Guest nonvolatile-memory address; v - New byte value.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Compiled only with CDTV support.
+*
+****************************************************************************
+*
+*/
 
 static void cdtv_battram_write (int addr, int v)
 {
@@ -1275,6 +2055,31 @@ static void cdtv_battram_write (int addr, int v)
     zfile_fwrite (cdtv_battram + offset, 1, 1, f);
     zfile_fclose (f);
 }
+
+/****i* januae-cia/cdtv_battram_read ***************************************
+*
+*   NAME
+*       cdtv_battram_read() -- Read a CDTV nonvolatile-memory byte.
+*
+*   SYNOPSIS
+*       static uae_u8 cdtv_battram_read (int addr);
+*
+*   FUNCTION
+*       Return the byte stored at the masked battery-backed memory address,
+*       or zero outside the supported range.
+*
+*   INPUTS
+*       addr - Guest nonvolatile-memory address.
+*
+*   RESULT
+*       Stored byte or zero for an unsupported offset.
+*
+*   NOTES
+*       Compiled only with CDTV support.
+*
+****************************************************************************
+*
+*/
 
 static uae_u8 cdtv_battram_read (int addr)
 {
@@ -1303,15 +2108,80 @@ addrbank clock_bank = {
     default_xlate, default_check, NULL
 };
 
+/****i* januae-cia/clock_lget **********************************************
+*
+*   NAME
+*       clock_lget() -- Read a longword from the battery clock.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 clock_lget (uaecptr addr);
+*
+*   FUNCTION
+*       Combine two consecutive word accesses to the emulated battery clock.
+*
+*   INPUTS
+*       addr - Guest battery-clock address.
+*
+*   RESULT
+*       Combined 32-bit value.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 clock_lget (uaecptr addr)
 {
     return (clock_wget (addr) << 16) | clock_wget (addr + 2);
 }
 
+/****i* januae-cia/clock_wget **********************************************
+*
+*   NAME
+*       clock_wget() -- Read a word from the battery clock.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 clock_wget (uaecptr addr);
+*
+*   FUNCTION
+*       Combine two consecutive byte accesses to the emulated battery clock.
+*
+*   INPUTS
+*       addr - Guest battery-clock address.
+*
+*   RESULT
+*       Combined 16-bit value.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 clock_wget (uaecptr addr)
 {
     return (clock_bget (addr) << 8) | clock_bget (addr + 1);
 }
+
+/****i* januae-cia/clock_bget **********************************************
+*
+*   NAME
+*       clock_bget() -- Read the battery-clock time or control register.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 clock_bget (uaecptr addr);
+*
+*   FUNCTION
+*       Return a decimal clock digit derived from local host time or a
+*       stored clock-control nibble, with optional CDTV nonvolatile-memory
+*       routing.
+*
+*   INPUTS
+*       addr - Guest battery-clock address.
+*
+*   RESULT
+*       Selected clock digit, control value or zero for unmapped registers.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 REGPARAM2 clock_bget (uaecptr addr)
 {
@@ -1347,17 +2217,84 @@ uae_u32 REGPARAM2 clock_bget (uaecptr addr)
     return 0;
 }
 
+/****i* januae-cia/clock_lput **********************************************
+*
+*   NAME
+*       clock_lput() -- Write a longword to the battery-clock interface.
+*
+*   SYNOPSIS
+*       void REGPARAM2 clock_lput (uaecptr addr, uae_u32 value);
+*
+*   FUNCTION
+*       Forward the upper and lower halves of the value as consecutive word
+*       writes.
+*
+*   INPUTS
+*       addr - Guest battery-clock address; value - Longword value.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 clock_lput (uaecptr addr, uae_u32 value)
 {
     clock_wput (addr, value >> 16);
     clock_wput (addr + 2, value);
 }
 
+/****i* januae-cia/clock_wput **********************************************
+*
+*   NAME
+*       clock_wput() -- Write a word to the battery-clock interface.
+*
+*   SYNOPSIS
+*       void REGPARAM2 clock_wput (uaecptr addr, uae_u32 value);
+*
+*   FUNCTION
+*       Forward the high and low bytes as consecutive battery-clock byte
+*       writes.
+*
+*   INPUTS
+*       addr - Guest battery-clock address; value - Word value.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 clock_wput (uaecptr addr, uae_u32 value)
 {
     clock_bput (addr, value >> 8);
     clock_bput (addr + 1, value);
 }
+
+/****i* januae-cia/clock_bput **********************************************
+*
+*   NAME
+*       clock_bput() -- Write a battery-clock control register.
+*
+*   SYNOPSIS
+*       void REGPARAM2 clock_bput (uaecptr addr, uae_u32 value);
+*
+*   FUNCTION
+*       Update writable control-register state or route writes to the
+*       optional CDTV nonvolatile-memory area; time digits are not modified
+*       by this implementation.
+*
+*   INPUTS
+*       addr - Guest battery-clock address; value - Byte value.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void REGPARAM2 clock_bput (uaecptr addr, uae_u32 value)
 {
@@ -1380,6 +2317,31 @@ void REGPARAM2 clock_bput (uaecptr addr, uae_u32 value)
 #ifdef SAVESTATE
 
 /* CIA-A and CIA-B save/restore code */
+
+/****i* januae-cia/restore_cia *********************************************
+*
+*   NAME
+*       restore_cia() -- Restore one saved CIA register image.
+*
+*   SYNOPSIS
+*       const uae_u8 *restore_cia (unsigned int num, const uae_u8 *src);
+*
+*   FUNCTION
+*       Read the serialized port, timer, interrupt, alarm, TOD, serial and
+*       control state into the selected CIA chip.
+*
+*   INPUTS
+*       num - CIA selector; src - Serialized state cursor.
+*
+*   RESULT
+*       Advanced source cursor.
+*
+*   NOTES
+*       Compiled only with SAVESTATE support.
+*
+****************************************************************************
+*
+*/
 
 const uae_u8 *restore_cia (unsigned int num, const uae_u8 *src)
 {
@@ -1442,6 +2404,34 @@ const uae_u8 *restore_cia (unsigned int num, const uae_u8 *src)
     if (num) ciabsdr_cnt = b; else ciaasdr_cnt = b;
     return src;
 }
+
+/****i* januae-cia/save_cia ************************************************
+*
+*   NAME
+*       save_cia() -- Serialize one CIA register image.
+*
+*   SYNOPSIS
+*       uae_u8 *save_cia (unsigned int num, uae_u32 *len, uae_u8 *dstptr);
+*
+*   FUNCTION
+*       Write the selected chip register values, timer counters, interrupt
+*       state, TOD, alarm and serial state to a supplied or newly allocated
+*       buffer.
+*
+*   INPUTS
+*       num - CIA selector; len - Output serialized byte count; dstptr -
+*       Optional caller-provided destination.
+*
+*   RESULT
+*       Destination buffer containing the serialized state.
+*
+*   NOTES
+*       Compiled only with SAVESTATE support. Without dstptr, the caller
+*       receives an allocated buffer.
+*
+****************************************************************************
+*
+*/
 
 uae_u8 *save_cia (unsigned int num, uae_u32 *len, uae_u8 *dstptr)
 {
