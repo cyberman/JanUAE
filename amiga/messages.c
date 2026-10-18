@@ -108,6 +108,36 @@ void closewin(struct Window *w) {
 #endif
 
 
+/****i* januae/closewin ****************************************************
+*
+*   NAME
+*       closewin() -- Request guest window closure.
+*
+*   SYNOPSIS
+*       void closewin(struct Window *w);
+*
+*   FUNCTION
+*       Request closure of an existing guest window.
+*
+*   INPUTS
+*       w - Window to request closure for.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       On AROS, WindowActionTags issues WAC_SENDIDCMPCLOSE. On AmigaOS, the
+*       function verifies the window under LockIBase, then injects mouse
+*       button events at the close gadget.
+*
+*   BUGS
+*       The disabled alternative that constructs an IDCMP close message is
+*       not compiled.
+*
+****************************************************************************
+*
+*/
+
 #ifndef __AROS__
 /* just "press" the button */
 void closewin(struct Window *w) {
@@ -172,6 +202,36 @@ void closewin(struct Window *w) {
  * amigaOS windows are waiting and send
  * them to the right message ports.
  *****************************************/
+/****i* januae/forward_messages ********************************************
+*
+*   NAME
+*       forward_messages() -- Dispatch queued window messages.
+*
+*   SYNOPSIS
+*       void forward_messages();
+*
+*   FUNCTION
+*       Drain queued host-to-guest window messages and dispatch supported
+*       operations.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The function repeatedly requests AD_GET_JOB_MESSAGES until the
+*       returned message type is zero. J_MSG_CLOSE invokes closewin.
+*
+*   BUGS
+*       The temporary command-buffer allocation result is not checked before
+*       dereferencing.
+*
+****************************************************************************
+*
+*/
+
 void forward_messages() {
   ULONG *command_mem;
   UBYTE  done;

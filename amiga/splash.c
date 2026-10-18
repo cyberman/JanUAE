@@ -51,6 +51,28 @@ ULONG (*calltrap)(ULONG __asm("d0"),
 		  APTR  __asm("a0")) = (APTR) AROSTRAPBASE;
 
 
+/****i* januae/usage *******************************************************
+*
+*   NAME
+*       usage() -- Print splash command usage.
+*
+*   SYNOPSIS
+*       void usage();
+*
+*   FUNCTION
+*       Print the supported splash-command invocation forms to standard
+*       error.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void usage() {
     fprintf(stderr, "usage: janus-splash <time in seconds> <text message> \n");
     fprintf(stderr, "       janus-splash close\n");
@@ -70,6 +92,38 @@ void usage() {
  *
  */
   
+/****i* januae/main ********************************************************
+*
+*   NAME
+*       main() -- Send a guest splash request.
+*
+*   SYNOPSIS
+*       int main(int argc, char **argv);
+*
+*   FUNCTION
+*       Parse a splash display or close request, build an AD_GET_JOB_SPLASH
+*       command, and send it through the guest trap.
+*
+*   INPUTS
+*       argc - Number of command-line arguments. argv - Arguments describing
+*       the request.
+*
+*   RESULT
+*       No defined return value is provided at the end of the function.
+*
+*   NOTES
+*       The one-argument form recognizes close; multiargument forms
+*       interpret argv[1] as a numeric duration and argv[2] as display text.
+*
+*   BUGS
+*       The usage text advertises a display subcommand that is not parsed;
+*       the display-text buffer is allocated and written before its length
+*       is bounded or its allocation result is checked.
+*
+****************************************************************************
+*
+*/
+
 int main (int argc, char **argv) {
 
   ULONG *command_mem=NULL;

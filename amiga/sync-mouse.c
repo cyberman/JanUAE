@@ -92,6 +92,35 @@ struct IOStdReq       *InputIO;
 
 BOOL sync_mouse_device_open=FALSE;
 
+/****i* januae/free_sync_mouse *********************************************
+*
+*   NAME
+*       free_sync_mouse() -- Release input synchronization resources.
+*
+*   SYNOPSIS
+*       void free_sync_mouse();
+*
+*   FUNCTION
+*       Release input-device requests, synthetic event buffers, pointer
+*       storage, and the reply port.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Closes input.device only if the device was previously opened.
+*
+*   BUGS
+*       The separately allocated mousebuffer used by sync_mouse is not
+*       released here.
+*
+****************************************************************************
+*
+*/
+
 void free_sync_mouse() {
 
   ENTER
@@ -127,6 +156,32 @@ void free_sync_mouse() {
 
   LEAVE
 }
+
+/****i* januae/init_sync_mouse *********************************************
+*
+*   NAME
+*       init_sync_mouse() -- Initialize the guest input device.
+*
+*   SYNOPSIS
+*       BOOL init_sync_mouse();
+*
+*   FUNCTION
+*       Allocate input-event resources and open input.device for synthetic
+*       pointer updates.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       TRUE when the input device opens; otherwise FALSE.
+*
+*   NOTES
+*       On failure, free_sync_mouse releases resources allocated during the
+*       attempt.
+*
+****************************************************************************
+*
+*/
 
 BOOL init_sync_mouse() {
 
@@ -168,6 +223,34 @@ BOOL init_sync_mouse() {
  * 
  * not tested, not used. Might work.
  */
+/****i* januae/MouseClick **************************************************
+*
+*   NAME
+*       MouseClick() -- Send a raw mouse button event.
+*
+*   SYNOPSIS
+*       void MouseClick(struct Screen *screen, UWORD button, BOOL click,
+*       BOOL release);
+*
+*   FUNCTION
+*       Submit a synthetic raw-mouse button event to input.device.
+*
+*   INPUTS
+*       screen - Required screen pointer. button - Raw mouse event code.
+*       click - Request button-down. release - Request button-up.
+*
+*   RESULT
+*       No value is returned. Missing input resources, a NULL screen, no
+*       requested action, or IECODE_NOBUTTON suppresses the request.
+*
+*   NOTES
+*       When click and release are both TRUE, the function emits the
+*       button-down code only. It does not report DoIO failures.
+*
+****************************************************************************
+*
+*/
+
 void MouseClick(struct Screen *screen, UWORD button,BOOL click, BOOL release) {
 
   if(!NeoPix || !FakeClickEvent || !InputIO || !screen) {
@@ -204,6 +287,36 @@ void MouseClick(struct Screen *screen, UWORD button,BOOL click, BOOL release) {
 /* SetMouse is based on SetMouse (Freeware)
  * (C) 1994,1995, Ketil Hunn
  */
+/****i* januae/SetMouse ****************************************************
+*
+*   NAME
+*       SetMouse() -- Update pointer position and button state.
+*
+*   SYNOPSIS
+*       void SetMouse(struct Screen *screen, WORD x, WORD y, UWORD button,
+*       BOOL click, BOOL release);
+*
+*   FUNCTION
+*       Submit a new pointer position and optionally a raw-mouse button
+*       event to input.device.
+*
+*   INPUTS
+*       screen - Target screen. x, y - Pixel coordinates. button - Raw mouse
+*       event code. click, release - Optional button-state flags.
+*
+*   RESULT
+*       No value is returned. Missing input resources or a NULL screen
+*       suppress the request.
+*
+*   NOTES
+*       The button event is sent only when button is not IECODE_NOBUTTON and
+*       at least one flag is set. When both flags are TRUE, the release code
+*       is retained.
+*
+****************************************************************************
+*
+*/
+
 void SetMouse(struct Screen *screen, WORD x, WORD y, UWORD button, 
                                      BOOL click, BOOL release) {
 
@@ -262,6 +375,28 @@ void SetMouse(struct Screen *screen, WORD x, WORD y, UWORD button,
  *
  * The ViewPort is relative to the view.
  **********************************************************/
+/****i* januae/no_p96_fix_overscan *****************************************
+*
+*   NAME
+*       no_p96_fix_overscan() -- Adjust viewport overscan offsets.
+*
+*   SYNOPSIS
+*       void no_p96_fix_overscan(struct Screen *screen, WORD *x, WORD *y);
+*
+*   FUNCTION
+*       Subtract viewport offsets from non-Picasso96 pointer coordinates.
+*
+*   INPUTS
+*       screen - Screen whose viewport offsets are read. x, y - Coordinates
+*       adjusted in place.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void no_p96_fix_overscan(struct Screen *screen, WORD *x, WORD *y) {
 
   DebOut("no_p96_fix_overscan(%d, %d)\n", *x, *y);
@@ -282,6 +417,32 @@ void no_p96_fix_overscan(struct Screen *screen, WORD *x, WORD *y) {
  *
  * only for non Picasso 96 screens
  **********************************************************/
+/****i* januae/no_p96_fix_resolution ***************************************
+*
+*   NAME
+*       no_p96_fix_resolution() -- Convert pointer resolution.
+*
+*   SYNOPSIS
+*       void no_p96_fix_resolution(struct Screen *screen, WORD *x, WORD *y);
+*
+*   FUNCTION
+*       Scale pointer coordinates for the guest display mode.
+*
+*   INPUTS
+*       screen - Screen whose viewport mode is inspected. x, y - Coordinates
+*       adjusted in place.
+*
+*   RESULT
+*       No value is returned. INVALID_ID leaves both coordinates unchanged.
+*
+*   NOTES
+*       SUPERHIRES doubles x; low resolution halves x. Non-interlaced modes
+*       halve y.
+*
+****************************************************************************
+*
+*/
+
 void no_p96_fix_resolution(struct Screen *screen, WORD *x, WORD *y) {
 
   ULONG modeID;
@@ -322,6 +483,29 @@ void no_p96_fix_resolution(struct Screen *screen, WORD *x, WORD *y) {
  * should correct the centering etc. inside the AROS UAE
  * main window / screen.
  **********************************************************/
+/****i* januae/no_p96_fix_left *********************************************
+*
+*   NAME
+*       no_p96_fix_left() -- Adjust the horizontal pointer offset.
+*
+*   SYNOPSIS
+*       void no_p96_fix_left(struct Screen *screen, WORD *x, WORD *y, LONG
+*       left);
+*
+*   FUNCTION
+*       Increase the horizontal pointer coordinate by 2 * (left + 2).
+*
+*   INPUTS
+*       screen - Currently unused. x - Horizontal coordinate updated in
+*       place. y - Currently unused. left - Horizontal offset.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void no_p96_fix_left(struct Screen *screen, WORD *x, WORD *y, LONG left) {
 
   DebOut("no_p96_fix_left(%d, %d, left %d)\n", *x, *y, left);
@@ -329,6 +513,34 @@ void no_p96_fix_left(struct Screen *screen, WORD *x, WORD *y, LONG left) {
 //  *x=*x + ( 2 * 108); /* 108? why, I don't know ;) */
   *x=*x + ( 2 * (left+2)); 
 }
+
+/****i* januae/no_p96_fix_center *******************************************
+*
+*   NAME
+*       no_p96_fix_center() -- Apply host rendering offsets.
+*
+*   SYNOPSIS
+*       void no_p96_fix_center(struct Screen *screen, WORD *x, WORD *y,
+*       ULONG gfx_xcenter, ULONG gfx_ycenter, ULONG aros_width, ULONG
+*       aros_height, LONG XOffset, LONG YOffset);
+*
+*   FUNCTION
+*       Subtract host rendering offsets from guest pointer coordinates.
+*
+*   INPUTS
+*       screen - Unused by active code. x, y - Coordinates updated in place.
+*       gfx_xcenter, gfx_ycenter, aros_width, aros_height - Unused by active
+*       code. XOffset, YOffset - Offsets to subtract.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The historical centering calculations are compiled out.
+*
+****************************************************************************
+*
+*/
 
 void no_p96_fix_center(struct Screen *screen, 
                        WORD *x, WORD *y, 
@@ -393,6 +605,31 @@ void no_p96_fix_center(struct Screen *screen,
  * 0,0 point in distance to the upper left monitor
  * corner. Those are always lores points (?).
  **********************************************************/
+/****i* januae/no_p96_fix_viewoffset ***************************************
+*
+*   NAME
+*       no_p96_fix_viewoffset() -- Apply graphics view offsets.
+*
+*   SYNOPSIS
+*       void no_p96_fix_viewoffset(struct Screen *screen, WORD *x, WORD *y);
+*
+*   FUNCTION
+*       Apply the current graphics View offsets and legacy coordinate
+*       constants.
+*
+*   INPUTS
+*       screen - Unused by active code. x, y - Coordinates updated in place.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       x is reduced by twice (DxOffset - 107); y by twice (DyOffset - 27).
+*
+****************************************************************************
+*
+*/
+
 void no_p96_fix_viewoffset(struct Screen *screen, WORD *x, WORD *y) {
   struct View          *view;
 
@@ -414,6 +651,31 @@ void no_p96_fix_viewoffset(struct Screen *screen, WORD *x, WORD *y) {
  *
  * return, if screen is a Picasso Screen
  ***************************************/
+/****i* januae/is_cyber ****************************************************
+*
+*   NAME
+*       is_cyber() -- Identify a CyberGraphX display mode.
+*
+*   SYNOPSIS
+*       BOOL is_cyber(struct Screen *screen);
+*
+*   FUNCTION
+*       Determine whether the screen uses a valid CyberGraphX display mode.
+*
+*   INPUTS
+*       screen - Screen whose viewport mode is inspected.
+*
+*   RESULT
+*       TRUE if the mode is valid and IsCyberModeID recognizes it; otherwise
+*       FALSE.
+*
+*   NOTES
+*       On AmigaOS, an unavailable CyberGfxBase also yields FALSE.
+*
+****************************************************************************
+*
+*/
+
 BOOL is_cyber(struct Screen *screen) {
   ULONG modeID;
 
@@ -446,6 +708,38 @@ BOOL is_cyber(struct Screen *screen) {
  * we check the aros mouse coords and
  * place ours accordingly
  ***************************************/
+/****i* januae/sync_mouse **************************************************
+*
+*   NAME
+*       sync_mouse() -- Synchronize the guest pointer.
+*
+*   SYNOPSIS
+*       void sync_mouse();
+*
+*   FUNCTION
+*       Request host mouse coordinates, convert non-Picasso96 coordinates,
+*       and update the guest pointer when needed.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned. A missing frontmost screen or a disabled host
+*       mouse request ends the operation.
+*
+*   NOTES
+*       The shared command buffer is allocated lazily. Non-Picasso96
+*       coordinates pass through centering, view, resolution, and overscan
+*       adjustments.
+*
+*   BUGS
+*       The lazily allocated command buffer is not checked before use and is
+*       not released by free_sync_mouse.
+*
+****************************************************************************
+*
+*/
+
 void sync_mouse() {
   struct Screen        *screen;
   ULONG                 result;

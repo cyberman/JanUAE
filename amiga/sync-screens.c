@@ -39,6 +39,30 @@ extern struct IntuitionBase* IntuitionBase;
 /* ATTENTION: janus-daemon.c does not check for errors, so if you 
  * generate an error here, check it there!
  */
+/****i* januae/init_sync_screens *******************************************
+*
+*   NAME
+*       init_sync_screens() -- Initialize screen synchronization.
+*
+*   SYNOPSIS
+*       BOOL init_sync_screens();
+*
+*   FUNCTION
+*       Initialize the screen synchronization entry point.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       TRUE.
+*
+*   NOTES
+*       No initialization operations are currently performed.
+*
+****************************************************************************
+*
+*/
+
 BOOL init_sync_screens() {
   ENTER
 
@@ -49,6 +73,34 @@ BOOL init_sync_screens() {
   return TRUE;
 }
 
+
+/****i* januae/screen_test *************************************************
+*
+*   NAME
+*       screen_test() -- Test the screen trap service.
+*
+*   SYNOPSIS
+*       void screen_test();
+*
+*   FUNCTION
+*       Issue an AD_TEST request to the host using a temporary command
+*       buffer.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The trap result is not inspected.
+*
+*   BUGS
+*       The AllocVec result is used without testing for allocation failure.
+*
+****************************************************************************
+*
+*/
 
 void screen_test() {
   ULONG *command_mem;
@@ -75,6 +127,37 @@ void screen_test() {
  * AD_GET_JOB_TOP_SCREEN returns NULL, if the first
  * AROS screen is a pure native AROS screen.
  ****************************************************/
+/****i* januae/update_top_screen *******************************************
+*
+*   NAME
+*       update_top_screen() -- Synchronize top-screen ordering.
+*
+*   SYNOPSIS
+*       void update_top_screen();
+*
+*   FUNCTION
+*       Synchronize the guest top-screen ordering with the host when
+*       supported.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       On AmigaOS, the host selects a guest screen and the function uses
+*       ScreenDepth to bring it to front when necessary. On AROS, the
+*       operation is not implemented.
+*
+*   BUGS
+*       The AROS branch contains a ScreenDepth TODO and does not perform the
+*       requested synchronization.
+*
+****************************************************************************
+*
+*/
+
 void update_top_screen() {
 #ifndef __AROS__
   struct Screen *screen;
@@ -110,6 +193,34 @@ void update_top_screen() {
 
   LEAVE
 }
+
+/****i* januae/screen_fix_resolution ***************************************
+*
+*   NAME
+*       screen_fix_resolution() -- Scale guest screen dimensions.
+*
+*   SYNOPSIS
+*       static void screen_fix_resolution(ULONG modeID, WORD *x, WORD *y);
+*
+*   FUNCTION
+*       Convert non-CyberGraphX screen dimensions to the coordinate system
+*       used for host synchronization.
+*
+*   INPUTS
+*       modeID - Guest display mode identifier. x, y - Dimensions updated in
+*       place.
+*
+*   RESULT
+*       No value is returned. The dimensions are left unchanged for
+*       INVALID_ID.
+*
+*   NOTES
+*       SUPERHIRES halves x; low resolution doubles x. Non-interlaced modes
+*       double y.
+*
+****************************************************************************
+*
+*/
 
 static void screen_fix_resolution(ULONG modeID, WORD *x, WORD *y) {
 
@@ -155,6 +266,39 @@ static void screen_fix_resolution(ULONG modeID, WORD *x, WORD *y) {
  *
  * This function also gets called from Open/CloseScreen patches!
  ***********************************************************************/
+/****i* januae/update_screens **********************************************
+*
+*   NAME
+*       update_screens() -- Report guest screens to the host.
+*
+*   SYNOPSIS
+*       void update_screens();
+*
+*   FUNCTION
+*       Collect the guest screen list and send its pointers, depth, public
+*       names, and overscan dimensions to the host.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned. The operation ends without a trap call when no
+*       screen is present.
+*
+*   NOTES
+*       Each screen occupies five ULONG entries in a single AD__MAXMEM
+*       command buffer.
+*
+*   BUGS
+*       The code does not check the buffer allocation result or bound the
+*       number of screens before writing entries. QueryOverscan failure with
+*       INVALID_ID can leave the overscan rectangle without a verified
+*       value.
+*
+****************************************************************************
+*
+*/
+
 void update_screens() {
   ULONG *command_mem;
   ULONG  i;

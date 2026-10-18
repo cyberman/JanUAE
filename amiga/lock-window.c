@@ -41,6 +41,33 @@ extern struct IntuitionBase* IntuitionBase;
  *
  * ATT: you have to call LockIBase yourself!!
  ****************************************************/
+/****i* januae/assert_window_on_screen *************************************
+*
+*   NAME
+*       assert_window_on_screen() -- Find a window on one screen.
+*
+*   SYNOPSIS
+*       static BOOL assert_window_on_screen(struct Screen *screen, struct
+*       Window *window);
+*
+*   FUNCTION
+*       Determine whether a window is present in one screen's window list.
+*
+*   INPUTS
+*       screen - Screen whose FirstWindow chain is inspected. window -
+*       Window pointer to match.
+*
+*   RESULT
+*       TRUE if the pointer appears in the list; otherwise FALSE.
+*
+*   NOTES
+*       The caller must already hold the appropriate Intuition base lock.
+*       The routine does not acquire a lock.
+*
+****************************************************************************
+*
+*/
+
 static BOOL assert_window_on_screen(struct Screen *screen, struct Window *window) {
 
   struct Window *i;
@@ -69,6 +96,36 @@ static BOOL assert_window_on_screen(struct Screen *screen, struct Window *window
  *
  * ATT: you have to call LockIBase yourself!!
  ****************************************************/
+/****i* januae/assert_window ***********************************************
+*
+*   NAME
+*       assert_window() -- Find a window on any screen.
+*
+*   SYNOPSIS
+*       BOOL assert_window(struct Window *window);
+*
+*   FUNCTION
+*       Check whether a window pointer occurs on any currently linked guest
+*       screen.
+*
+*   INPUTS
+*       window - Window pointer to search for.
+*
+*   RESULT
+*       TRUE if a matching window is found; otherwise FALSE.
+*
+*   NOTES
+*       The caller must hold the Intuition base lock; this function does not
+*       acquire it.
+*
+*   BUGS
+*       The result is not a safe lifetime guarantee once the caller releases
+*       its lock.
+*
+****************************************************************************
+*
+*/
+
 BOOL assert_window(struct Window *window) {
 
   struct Screen *i;

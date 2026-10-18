@@ -37,6 +37,37 @@
  *
  * write formatted string to AROS debug console
  ************************************************/
+/****i* januae/PrintOut ****************************************************
+*
+*   NAME
+*       PrintOut() -- Forward a formatted diagnostic.
+*
+*   SYNOPSIS
+*       void PrintOut(const char *file, unsigned int line, const char *func,
+*       const char *format, ...);
+*
+*   FUNCTION
+*       Format a diagnostic message with its source location and forward it
+*       through the guest debug trap.
+*
+*   INPUTS
+*       file - Source filename. line - Source line number. func - Function
+*       name. format, ... - printf-style message and arguments.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Output is limited to the AD__MAXMEM-sized command buffer.
+*
+*   BUGS
+*       The command-buffer allocation result is not checked before
+*       formatting into it.
+*
+****************************************************************************
+*
+*/
+
 void PrintOut(const char *file, unsigned int line, const char *func, const char *format, ...) {
   char *command_mem;
   va_list args;

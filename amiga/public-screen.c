@@ -44,6 +44,33 @@
  * but LockIntuition is just one ObtainSemaphore, maybe we can live with that.
  */
 
+/****i* januae/get_public_screen_name **************************************
+*
+*   NAME
+*       get_public_screen_name() -- Locate a public screen name.
+*
+*   SYNOPSIS
+*       char *get_public_screen_name(struct Screen *scr);
+*
+*   FUNCTION
+*       Find the name of the public screen whose screen pointer matches scr.
+*
+*   INPUTS
+*       scr - Screen to find in the locked public-screen list.
+*
+*   RESULT
+*       The matching PubScreenNode name pointer, or NULL when the screen is
+*       not found or the list cannot be locked.
+*
+*   NOTES
+*       The public-screen list is unlocked before the returned name is used;
+*       the caller must not assume that the returned pointer remains valid
+*       indefinitely.
+*
+****************************************************************************
+*
+*/
+
 char *get_public_screen_name(struct Screen *scr) {
   struct List          *public_screen_list;
   struct PubScreenNode *public_screen_node;
