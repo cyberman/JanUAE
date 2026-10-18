@@ -53,11 +53,56 @@ static UWORD estimated_border_right=25;
 void setbuttonstateall (struct uae_input_device *id, struct uae_input_device2 *id2, int button, int state);
 
 /* this should go somewhere else.. */
+/****i* januae-j-win-thread/my_setmousebuttonstate *************************
+*
+*   NAME
+*       my_setmousebuttonstate() -- Update emulated mouse buttons.
+*
+*   SYNOPSIS
+*       void my_setmousebuttonstate(int mouse, int button, int state);
+*
+*   FUNCTION
+*       Set an emulated mouse button state through the shared input-device
+*       state updater.
+*
+*   INPUTS
+*       mouse - Emulated mouse index. button - Button index. state - Pressed
+*       or released state.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void my_setmousebuttonstate(int mouse, int button, int state) {
   setbuttonstateall (&mice[mouse], &mice2[mouse], button, state);
 }
 
 /* we need to get a useable accurancy here */
+/****i* januae-j-win-thread/olisecs ****************************************
+*
+*   NAME
+*       olisecs() -- Convert event timestamps.
+*
+*   SYNOPSIS
+*       static ULONG olisecs(ULONG s, ULONG m);
+*
+*   FUNCTION
+*       Convert seconds and microseconds to a centisecond-like integer time
+*       value used for menu timing.
+*
+*   INPUTS
+*       s - Seconds. m - Microseconds.
+*
+*   RESULT
+*       s * 100 + m / 10000.
+*
+****************************************************************************
+*
+*/
+
 static ULONG olisecs(ULONG s, ULONG m) {
 
   return s*100 + m/10000;
@@ -69,6 +114,32 @@ static ULONG olisecs(ULONG s, ULONG m) {
  *
  * start automatic active refreshes
  ***********************************************************/
+/****i* januae-j-win-thread/activate_ticks *********************************
+*
+*   NAME
+*       activate_ticks() -- Schedule temporary refresh ticks.
+*
+*   SYNOPSIS
+*       static void activate_ticks(JanusWin *jwin, ULONG speed);
+*
+*   FUNCTION
+*       Initialize the mapped window refresh-tick counters and scheduling
+*       interval.
+*
+*   INPUTS
+*       jwin - Host window mapping. speed - Tick skip rate.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Sets an initial skip of ten ticks and a limit of fifteen refresh
+*       cycles.
+*
+****************************************************************************
+*
+*/
+
 static void activate_ticks(JanusWin *jwin, ULONG speed) {
 
   /* some 10 per second arrive, refresh twice a second */
@@ -80,6 +151,31 @@ static void activate_ticks(JanusWin *jwin, ULONG speed) {
 /**************************************************************************
  * force refresh of our contents from our amigaOS brother
  **************************************************************************/
+/****i* januae-j-win-thread/refresh_content ********************************
+*
+*   NAME
+*       refresh_content() -- Invalidate a window display region.
+*
+*   SYNOPSIS
+*       static void refresh_content(JanusWin *jwin);
+*
+*   FUNCTION
+*       Invalidate the visible vertical extent of a mapped host window for
+*       redrawing.
+*
+*   INPUTS
+*       jwin - Window mapping with an open AROS window.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Clamps the invalidated range to the screen height.
+*
+****************************************************************************
+*
+*/
+
 static void refresh_content(JanusWin *jwin) {
 
   LONG start=0;
@@ -120,6 +216,36 @@ static void refresh_content(JanusWin *jwin) {
  * part of the window list. win is NULL, so TAKE CARE of such conditions!
  **************************************************************************/
 static void handle_input(struct Window *win, JanusWin *jwin, ULONG class, UWORD code, int qualifier, struct Process *thread);
+/****i* januae-j-win-thread/handle_input ***********************************
+*
+*   NAME
+*       handle_input() -- Dispatch shared window input.
+*
+*   SYNOPSIS
+*       static void handle_input(struct Window *win, JanusWin *jwin, ULONG
+*       class, UWORD code, int qualifier, struct Process *thread);
+*
+*   FUNCTION
+*       Forward supported keyboard and mouse events to UAE and maintain
+*       active-window input and clipboard state.
+*
+*   INPUTS
+*       win - Host window, or NULL for a custom-screen dispatch. jwin -
+*       Mapping or dummy mapping. class, code, qualifier - IDCMP event
+*       fields. thread - Calling process.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Key repeats are suppressed. Activation releases stale key state;
+*       loss of focus releases acquired input and may copy clipboard content
+*       back to AROS.
+*
+****************************************************************************
+*
+*/
+
 static void handle_input(struct Window *win, JanusWin *jwin, ULONG class, UWORD code, int qualifier, struct Process *thread) {
 
   UWORD selection;
@@ -247,6 +373,34 @@ static void handle_input(struct Window *win, JanusWin *jwin, ULONG class, UWORD 
 BOOL  pointer_is_hidden=FALSE;
 ULONG pointer_skip=0;
 
+/****i* januae-j-win-thread/hide_or_show_pointer ***************************
+*
+*   NAME
+*       hide_or_show_pointer() -- Synchronize pointer visibility.
+*
+*   SYNOPSIS
+*       static void hide_or_show_pointer(struct Process *thread, JanusWin
+*       *jwin);
+*
+*   FUNCTION
+*       Hide the host pointer while it is over a cloned window and restore
+*       it when no mapped window covers the pointer.
+*
+*   INPUTS
+*       thread - Calling process. jwin - Window mapping whose screen is
+*       inspected.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Custom-screen windows are not processed. Layer queries and the
+*       global window registry determine pointer visibility.
+*
+****************************************************************************
+*
+*/
+
 static void hide_or_show_pointer(struct Process *thread, JanusWin *jwin) {
   struct Layer  *layer;
   struct Screen *scr = jwin->aroswin->WScreen;
@@ -308,6 +462,40 @@ static void hide_or_show_pointer(struct Process *thread, JanusWin *jwin) {
 }
 
 void wait_window_menu_closed(JanusWin *jwin);
+
+/****i* januae-j-win-thread/handle_msg *************************************
+*
+*   NAME
+*       handle_msg() -- Dispatch host window events.
+*
+*   SYNOPSIS
+*       static void handle_msg(struct Message *msg, struct Window *win,
+*       JanusWin *jwin, ULONG class, UWORD code, int dmx, int dmy, WORD mx,
+*       WORD my, int qualifier, struct Process *thread, ULONG secs, ULONG
+*       micros, BOOL *done);
+*
+*   FUNCTION
+*       Dispatch mapped-window IDCMP events, including gadget input, close
+*       requests, geometry changes, pointer updates, refreshes and guest
+*       menu mirroring.
+*
+*   INPUTS
+*       msg - Incoming Intuition message. win, jwin - Host window and
+*       mapping. class, code, dmx, dmy, mx, my, qualifier - Event fields.
+*       thread - Worker process. secs, micros - Event timestamp. done - Loop
+*       termination state.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       A host close request is queued for the guest rather than directly
+*       closing its proxy. Menu verification temporarily suspends mouse and
+*       window mirroring until menu selection completes.
+*
+****************************************************************************
+*
+*/
 
 static void handle_msg(struct Message *msg, struct Window *win, JanusWin *jwin, ULONG class, UWORD code, int dmx, int dmy, WORD mx, WORD my, int qualifier, struct Process *thread, ULONG secs, ULONG micros, BOOL *done) {
 
@@ -661,6 +849,34 @@ JWLOG("class: %lx\n", class);
  * to open an according AROS window and
  * to report size changes, keystrokes etc. to AOS3
  ***********************************************************/  
+
+/****i* januae-j-win-thread/aros_win_thread ********************************
+*
+*   NAME
+*       aros_win_thread() -- Run a mapped host window.
+*
+*   SYNOPSIS
+*       static void aros_win_thread(void);
+*
+*   FUNCTION
+*       Create and manage the AROS window corresponding to one guest window,
+*       process its event queue and release window-associated resources
+*       during shutdown.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The process locates its JanusWin mapping in the global registry and
+*       handles guest-dependent border gadgets, window geometry and input
+*       events.
+*
+****************************************************************************
+*
+*/
 
 static void aros_win_thread (void) {
 
@@ -1356,6 +1572,32 @@ EXIT:
 
   LEAVE
 }
+
+/****i* januae-j-win-thread/aros_win_start_thread **************************
+*
+*   NAME
+*       aros_win_start_thread() -- Start a mapped window worker.
+*
+*   SYNOPSIS
+*       int aros_win_start_thread(JanusWin *jwin);
+*
+*   FUNCTION
+*       Create the host window process and wait for its AROS window pointer
+*       to become available.
+*
+*   INPUTS
+*       jwin - Mapping receiving its process name and task pointer.
+*
+*   RESULT
+*       FALSE if process creation fails; TRUE after a process was created.
+*
+*   NOTES
+*       The wait for window creation is bounded, but a missing AROS window
+*       after that wait does not change the TRUE return value.
+*
+****************************************************************************
+*
+*/
 
 int aros_win_start_thread (JanusWin *jwin) {
   ULONG wait;

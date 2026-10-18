@@ -41,6 +41,28 @@ BOOL vert_prop_active=FALSE;
  * compare two JanusGadgets, so that they are sorted 
  * according to their x (and second y) coordinates
  ********************************************************/
+/****i* januae-j-win-thread-gadgets/xy_compare *****************************
+*
+*   NAME
+*       xy_compare() -- Order guest gadgets by position.
+*
+*   SYNOPSIS
+*       static gint xy_compare(gconstpointer a, gconstpointer b);
+*
+*   FUNCTION
+*       Compare two mapped gadgets by horizontal position and then by
+*       vertical position.
+*
+*   INPUTS
+*       a, b - JanusGadget pointers.
+*
+*   RESULT
+*       Negative, zero or positive ordering value.
+*
+****************************************************************************
+*
+*/
+
 static gint xy_compare(gconstpointer a, gconstpointer b) {
 
   if( ((JanusGadget *)a)->x < ((JanusGadget *)b)->x) {
@@ -69,6 +91,34 @@ static gint xy_compare(gconstpointer a, gconstpointer b) {
  * the amigaos gadget, update/replace the 
  * janusgadget struct
  ********************************************************/
+/****i* januae-j-win-thread-gadgets/change_gadget **************************
+*
+*   NAME
+*       change_gadget() -- Update a border gadget mapping.
+*
+*   SYNOPSIS
+*       static ULONG change_gadget(struct Process *thread, JanusWin *jwin,
+*       ULONG type, ULONG gadget);
+*
+*   FUNCTION
+*       Replace or clear one mapped border gadget when the guest gadget
+*       address changes.
+*
+*   INPUTS
+*       thread - Calling process. jwin - Window mapping. type - Border
+*       gadget slot. gadget - Guest gadget address, or zero to remove it.
+*
+*   RESULT
+*       TRUE for a changed mapping; FALSE for an unchanged mapping.
+*
+*   NOTES
+*       Mapped gadget records are allocated and released from the window
+*       memory pool.
+*
+****************************************************************************
+*
+*/
+
 static ULONG change_gadget(struct Process *thread, JanusWin *jwin, ULONG type, ULONG gadget) {
 
   ENTER
@@ -115,6 +165,33 @@ static ULONG change_gadget(struct Process *thread, JanusWin *jwin, ULONG type, U
  * if old and new differ, free old and link new
  * supply new==NULL to free a gadget
  ********************************************************/
+/****i* januae-j-win-thread-gadgets/change_j_gadget ************************
+*
+*   NAME
+*       change_j_gadget() -- Replace a selected gadget mapping.
+*
+*   SYNOPSIS
+*       static ULONG change_j_gadget(JanusWin *jwin, ULONG type, JanusGadget
+*       *new);
+*
+*   FUNCTION
+*       Install a selected gadget mapping or replace its previous slot
+*       value.
+*
+*   INPUTS
+*       jwin - Window mapping. type - Border gadget slot. new - Replacement
+*       mapping or NULL.
+*
+*   RESULT
+*       TRUE if the slot changes; otherwise FALSE.
+*
+*   NOTES
+*       A replaced mapping is released through the window memory pool.
+*
+****************************************************************************
+*
+*/
+
 static ULONG change_j_gadget(JanusWin *jwin, ULONG type, JanusGadget *new) {
 
   ENTER
@@ -163,6 +240,33 @@ static ULONG change_j_gadget(JanusWin *jwin, ULONG type, JanusGadget *new) {
  * I have no idea, why this happens.
  *
  ********************************************************/
+/****i* januae-j-win-thread-gadgets/init_border_gadgets ********************
+*
+*   NAME
+*       init_border_gadgets() -- Discover guest border gadgets.
+*
+*   SYNOPSIS
+*       ULONG init_border_gadgets(struct Process *thread, JanusWin *jwin);
+*
+*   FUNCTION
+*       Inspect guest system and proportional gadgets, identify scrollbars
+*       and arrow gadgets, and update the mapped border gadget slots.
+*
+*   INPUTS
+*       thread - Calling process. jwin - Window mapping with guest gadget
+*       list and memory pool.
+*
+*   RESULT
+*       Nonzero if a border gadget mapping changes; zero otherwise.
+*
+*   NOTES
+*       Coordinates are used to distinguish adjacent arrow gadgets; the
+*       window gadget registry is protected during updates.
+*
+****************************************************************************
+*
+*/
+
 ULONG init_border_gadgets(struct Process *thread, JanusWin *jwin) {
   ULONG gadget;
   ULONG specialinfo;
@@ -379,6 +483,32 @@ ULONG init_border_gadgets(struct Process *thread, JanusWin *jwin) {
  * move the (amigaos) horizontal slider to the same position, as the
  * AROS slider is at the moment
  ********************************************************************/
+/****i* januae-j-win-thread-gadgets/move_horiz_prop_gadget *****************
+*
+*   NAME
+*       move_horiz_prop_gadget() -- Control a horizontal scrollbar.
+*
+*   SYNOPSIS
+*       void move_horiz_prop_gadget(struct Process *thread, JanusWin *jwin);
+*
+*   FUNCTION
+*       Translate horizontal proportional-gadget interaction into guest
+*       mouse movement and button input.
+*
+*   INPUTS
+*       thread - Calling process. jwin - Mapping with a horizontal
+*       proportional gadget.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Uses guest gadget geometry and the manual mouse-position exchange.
+*
+****************************************************************************
+*
+*/
+
 void move_horiz_prop_gadget(struct Process *thread, JanusWin *jwin) {
   UWORD x;
   ULONG t;
@@ -452,6 +582,32 @@ void move_horiz_prop_gadget(struct Process *thread, JanusWin *jwin) {
  *
  * same for vertiacl slider
  ********************************************************************/
+/****i* januae-j-win-thread-gadgets/move_vert_prop_gadget ******************
+*
+*   NAME
+*       move_vert_prop_gadget() -- Control a vertical scrollbar.
+*
+*   SYNOPSIS
+*       void move_vert_prop_gadget(struct Process *thread, JanusWin *jwin);
+*
+*   FUNCTION
+*       Translate vertical proportional-gadget interaction into guest mouse
+*       movement and button input.
+*
+*   INPUTS
+*       thread - Calling process. jwin - Mapping with a vertical
+*       proportional gadget.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The manual mouse-position exchange uses a bounded wait.
+*
+****************************************************************************
+*
+*/
+
 void move_vert_prop_gadget(struct Process *thread, JanusWin *jwin) {
   UWORD y;
   ULONG t;
@@ -546,6 +702,33 @@ void move_vert_prop_gadget(struct Process *thread, JanusWin *jwin) {
  *
  * gadid must be valid!
  ********************************************************/
+/****i* januae-j-win-thread-gadgets/handle_gadget **************************
+*
+*   NAME
+*       handle_gadget() -- Translate a border gadget event.
+*
+*   SYNOPSIS
+*       void handle_gadget(struct Process *thread, JanusWin *jwin, UWORD
+*       gadid);
+*
+*   FUNCTION
+*       Dispatch host scrollbar and arrow gadget activation to the
+*       corresponding guest gadget or emulate its mouse interaction.
+*
+*   INPUTS
+*       thread - Calling process. jwin - Window mapping. gadid - Host border
+*       gadget identifier.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Window gadget metadata is synchronized through jwin->gadget_access.
+*
+****************************************************************************
+*
+*/
+
 void handle_gadget(struct Process *thread, JanusWin *jwin, UWORD gadid) {
   UWORD x,y;
   ULONG t;
@@ -658,6 +841,31 @@ EXIT:
   LEAVE
 }
 
+/****i* januae-j-win-thread-gadgets/dump_prop_gadget ***********************
+*
+*   NAME
+*       dump_prop_gadget() -- Inspect guest proportional gadget data.
+*
+*   SYNOPSIS
+*       void dump_prop_gadget(struct Process *thread, ULONG gadget);
+*
+*   FUNCTION
+*       Log the guest proportional-gadget geometry and flags for a supplied
+*       guest gadget.
+*
+*   INPUTS
+*       thread - Calling process. gadget - Guest gadget address.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       This is a diagnostic helper; it does not modify the mapped window.
+*
+****************************************************************************
+*
+*/
+
 void dump_prop_gadget(struct Process *thread, ULONG gadget) {
   UWORD  gadget_type;
   ULONG  specialinfo;
@@ -695,6 +903,34 @@ void dump_prop_gadget(struct Process *thread, ULONG gadget) {
  *
  * create border gadgets
  ***********************************************************/
+/****i* januae-j-win-thread-gadgets/make_gadgets ***************************
+*
+*   NAME
+*       make_gadgets() -- Build host border gadgets.
+*
+*   SYNOPSIS
+*       struct Gadget *make_gadgets(struct Process *thread, JanusWin* jwin);
+*
+*   FUNCTION
+*       Construct the host border gadget objects and connect them into the
+*       mapped window gadget list.
+*
+*   INPUTS
+*       thread - Calling process. jwin - Mapping containing detected guest
+*       border gadgets.
+*
+*   RESULT
+*       First constructed host Gadget pointer, or NULL when construction is
+*       unsuccessful or no usable gadget exists.
+*
+*   NOTES
+*       Creates the required proportional and arrow objects for available
+*       guest mappings.
+*
+****************************************************************************
+*
+*/
+
 struct Gadget *make_gadgets(struct Process *thread, JanusWin* jwin) {
   IPTR imagew[NUM_IMAGES], imageh[NUM_IMAGES];
   WORD v_offset, h_offset, btop, i;
@@ -871,6 +1107,31 @@ struct Gadget *make_gadgets(struct Process *thread, JanusWin* jwin) {
  * de_init_border_gadgets(jwin)
  *
  ***********************************************************/
+/****i* januae-j-win-thread-gadgets/de_init_border_gadgets *****************
+*
+*   NAME
+*       de_init_border_gadgets() -- Release guest gadget mappings.
+*
+*   SYNOPSIS
+*       void de_init_border_gadgets(struct Process *thread, JanusWin *jwin);
+*
+*   FUNCTION
+*       Release all guest border-gadget mapping records owned by the window.
+*
+*   INPUTS
+*       thread - Calling process. jwin - Window mapping with gadget records
+*       allocated from its memory pool.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Resets each mapping slot to NULL after release.
+*
+****************************************************************************
+*
+*/
+
 void de_init_border_gadgets(struct Process *thread, JanusWin *jwin) {
   ULONG i;
 
@@ -912,6 +1173,33 @@ void de_init_border_gadgets(struct Process *thread, JanusWin *jwin) {
   LEAVE
 }
 
+/****i* januae-j-win-thread-gadgets/remove_gadgets *************************
+*
+*   NAME
+*       remove_gadgets() -- Remove constructed host gadgets.
+*
+*   SYNOPSIS
+*       void remove_gadgets(struct Process *thread, JanusWin* jwin);
+*
+*   FUNCTION
+*       Detach the host border gadget list and dispose of its constructed
+*       gadget objects.
+*
+*   INPUTS
+*       thread - Calling process. jwin - Window mapping with an open AROS
+*       window and gadget list.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Does nothing when the host window or its first gadget is
+*       unavailable.
+*
+****************************************************************************
+*
+*/
+
 void remove_gadgets(struct Process *thread, JanusWin* jwin) {
   ULONG i;
   UWORD result;
@@ -952,6 +1240,28 @@ void remove_gadgets(struct Process *thread, JanusWin* jwin) {
  * and does nothing for a GTYP_CUSTOMGADGET.
  *
  */
+/****i* januae-j-win-thread-gadgets/SetGadgetType **************************
+*
+*   NAME
+*       SetGadgetType() -- Change a gadget type.
+*
+*   SYNOPSIS
+*       UWORD SetGadgetType(struct Gadget *gad, UWORD type);
+*
+*   FUNCTION
+*       Replace the gadget type bits while preserving unrelated GadgetType
+*       flags.
+*
+*   INPUTS
+*       gad - Mutable host Gadget. type - Replacement gadget type bits.
+*
+*   RESULT
+*       Previous GadgetType value.
+*
+****************************************************************************
+*
+*/
+
 UWORD SetGadgetType(struct Gadget *gad, UWORD type) {
   UWORD oldtype;
 
@@ -974,6 +1284,33 @@ UWORD SetGadgetType(struct Gadget *gad, UWORD type) {
  *
  * can safley be called from different threads/traps
  */
+/****i* januae-j-win-thread-gadgets/update_gadgets *************************
+*
+*   NAME
+*       update_gadgets() -- Reconcile mapped border gadgets.
+*
+*   SYNOPSIS
+*       ULONG update_gadgets(struct Process *thread, JanusWin *jwin);
+*
+*   FUNCTION
+*       Reconcile the guest border gadget list with AROS objects, rebuilding
+*       the gadget strip when its mappings change.
+*
+*   INPUTS
+*       thread - Calling process. jwin - Window mapping with a valid AROS
+*       window.
+*
+*   RESULT
+*       TRUE.
+*
+*   NOTES
+*       Uses jwin->gadget_access for serialized updates and redraws the host
+*       frame if removed gadgets remain visible.
+*
+****************************************************************************
+*
+*/
+
 ULONG update_gadgets(struct Process *thread, JanusWin *jwin) {
 
   BOOL need_refresh=FALSE;
@@ -1029,6 +1366,32 @@ ULONG update_gadgets(struct Process *thread, JanusWin *jwin) {
  * It is safe to travel the gadget list during this call, as the amigsOS
  * function gets blocked until we are done.
  */
+/****i* januae-j-win-thread-gadgets/ad_job_update_gadgets ******************
+*
+*   NAME
+*       ad_job_update_gadgets() -- Handle a guest gadget update.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_update_gadgets(ULONG aos3win);
+*
+*   FUNCTION
+*       Update the host border gadgets after a guest gadget-list
+*       notification.
+*
+*   INPUTS
+*       aos3win - Guest window address.
+*
+*   RESULT
+*       TRUE when no guest window or ready mapping is available; otherwise
+*       the update_gadgets result.
+*
+*   NOTES
+*       The guest trap waits for the synchronous update before returning.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_update_gadgets(ULONG aos3win) {
   struct Process *thread  =(struct Process *) 0x68000; /* dummy thread, we are from m68k .. */
   JanusWin       *jwin;

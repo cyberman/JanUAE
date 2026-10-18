@@ -40,6 +40,31 @@ static void new_aos3window(ULONG aos3win);
  * this is called at janus-daemon startup once
  *
  *********************************************************/
+/****i* januae-j-win/ad_job_update_janus_windows ***************************
+*
+*   NAME
+*       ad_job_update_janus_windows() -- Register initial guest windows.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_update_janus_windows(ULONG *m68k_results);
+*
+*   FUNCTION
+*       Register each guest window address in the zero-terminated startup
+*       list.
+*
+*   INPUTS
+*       m68k_results - Guest array of window addresses.
+*
+*   RESULT
+*       TRUE.
+*
+*   NOTES
+*       Registration skips windows not eligible for cloning.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_update_janus_windows(ULONG *m68k_results) {
   ULONG i;
 
@@ -89,6 +114,33 @@ static int is_in_results(ULONG *m68k_results, gconstpointer w) {
  * If the amigaos3 window is already in the
  * janus_windows list, do nothing.
  ********************************************************/
+/****i* januae-j-win/new_aos3window ****************************************
+*
+*   NAME
+*       new_aos3window() -- Create a host window proxy.
+*
+*   SYNOPSIS
+*       static void new_aos3window(ULONG aos3win);
+*
+*   FUNCTION
+*       Add an eligible guest window to the host window registry and start
+*       its AROS window worker.
+*
+*   INPUTS
+*       aos3win - Guest window address.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Ignores null addresses, open menus, custom-screen windows, existing
+*       registrations and windows whose guest screen has not been mapped.
+*       The mapping owns a memory pool.
+*
+****************************************************************************
+*
+*/
+
 static void new_aos3window(ULONG aos3win) {
   JanusWin    *jwin;
   JanusScreen *jscreen;
@@ -186,6 +238,31 @@ static void new_aos3window(ULONG aos3win) {
  * so you have to pass a **win to the calltrap function
  * from the m68k side
  **********************************************************/
+/****i* januae-j-win/ad_job_active_window **********************************
+*
+*   NAME
+*       ad_job_active_window() -- Read the active guest window.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_active_window(ULONG *m68k_results);
+*
+*   FUNCTION
+*       Return the guest address corresponding to the active host window.
+*
+*   INPUTS
+*       m68k_results - Writable guest result location.
+*
+*   RESULT
+*       TRUE.
+*
+*   NOTES
+*       Writes zero if there is no active mapped window. Access to the
+*       active mapping uses sem_janus_active_win.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_active_window(ULONG *m68k_results) {
   ULONG win;
 
@@ -219,6 +296,28 @@ uae_u32 ad_job_active_window(ULONG *m68k_results) {
  * window has been opened.
  *
  **********************************************************/
+/****i* januae-j-win/ad_job_new_window *************************************
+*
+*   NAME
+*       ad_job_new_window() -- Register a newly opened window.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_new_window(ULONG aos3win);
+*
+*   FUNCTION
+*       Register a newly opened guest window by passing it to the host
+*       window creation path.
+*
+*   INPUTS
+*       aos3win - Newly opened guest window address.
+*
+*   RESULT
+*       TRUE.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_new_window(ULONG aos3win) {
   uae_u32 win;
 
@@ -256,6 +355,30 @@ uae_u32 ad_job_new_window(ULONG aos3win) {
  *
  * first pointer is the actual os3screen
  ***************************************************/
+/****i* januae-j-win/is_orphan_window **************************************
+*
+*   NAME
+*       is_orphan_window() -- Detect a missing guest window.
+*
+*   SYNOPSIS
+*       static BOOL is_orphan_window(ULONG *m68k_results, ULONG win);
+*
+*   FUNCTION
+*       Check whether a mapped guest window is absent from a screen window
+*       report.
+*
+*   INPUTS
+*       m68k_results - Screen address followed by five-ULONG window records.
+*       win - Guest window address.
+*
+*   RESULT
+*       TRUE when the address does not occur in the records; otherwise
+*       FALSE.
+*
+****************************************************************************
+*
+*/
+
 static BOOL is_orphan_window(ULONG *m68k_results, ULONG win) {
   ULONG i;
 
@@ -289,6 +412,35 @@ static BOOL is_orphan_window(ULONG *m68k_results, ULONG win) {
  * on screen aos3screen. So if a JanusWin is on
  * a different screen, we ignore it here.
  *******************************************************/
+/****i* januae-j-win/fix_orphan_windows ************************************
+*
+*   NAME
+*       fix_orphan_windows() -- Close orphaned window proxies.
+*
+*   SYNOPSIS
+*       static void fix_orphan_windows(ULONG aos3screen, ULONG
+*       *m68k_results);
+*
+*   FUNCTION
+*       Mark and signal live host window mappings whose guest windows are
+*       missing from the current screen report.
+*
+*   INPUTS
+*       aos3screen - Guest screen being reported. m68k_results - Its
+*       reported window records.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Only processes matching non-custom mappings that have not already
+*       been marked dead. Window list access is serialized by
+*       sem_janus_window_list.
+*
+****************************************************************************
+*
+*/
+
 static void fix_orphan_windows(ULONG aos3screen, ULONG *m68k_results) {
   struct Window  *aroswin;
   JanusWin       *win;
@@ -336,6 +488,35 @@ static void fix_orphan_windows(ULONG aos3screen, ULONG *m68k_results) {
  * window has been resized by its owner task in
  * aos3. It updates the according AROS window.
  ***************************************************/
+
+/****i* januae-j-win/ad_job_report_uae_windows *****************************
+*
+*   NAME
+*       ad_job_report_uae_windows() -- Apply guest window geometry.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_report_uae_windows(ULONG *m68k_results);
+*
+*   FUNCTION
+*       Apply guest window position and client-size changes to host windows,
+*       then identify orphan mappings for the reported screen.
+*
+*   INPUTS
+*       m68k_results - Screen address followed by five-ULONG records
+*       containing a guest window address, packed position, packed size and
+*       two reserved values.
+*
+*   RESULT
+*       TRUE.
+*
+*   NOTES
+*       Skips custom, missing, dead or temporarily delayed mappings, and
+*       suppresses updates while a guest menu is shown. Host geometry
+*       includes window borders and extra dimensions.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 ad_job_report_uae_windows(ULONG *m68k_results) {
 
@@ -534,6 +715,33 @@ NEXT:
  * ad_job_report_uae_windows, so automatic changes
  * win over user changes.
  ***************************************************/
+/****i* januae-j-win/ad_job_report_host_windows ****************************
+*
+*   NAME
+*       ad_job_report_host_windows() -- Report host window geometry.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_report_host_windows(ULONG *m68k_results);
+*
+*   FUNCTION
+*       Collect moved or resized host windows and serialize the new guest
+*       client geometry into five-ULONG records.
+*
+*   INPUTS
+*       m68k_results - Writable, zero-terminated guest result array.
+*
+*   RESULT
+*       TRUE.
+*
+*   NOTES
+*       Only windows on the frontmost host screen are considered. A
+*       per-window delay avoids immediately echoing guest-originated
+*       geometry changes.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_report_host_windows(ULONG *m68k_results) {
 
   struct Layer  *layer;
@@ -709,6 +917,33 @@ NEXT:
  * the window before it is really closed.
  * So we mark it DEAD!
  ***************************************************/
+/****i* januae-j-win/ad_job_mark_window_dead *******************************
+*
+*   NAME
+*       ad_job_mark_window_dead() -- Begin guest window teardown.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_mark_window_dead(ULONG aos_window);
+*
+*   FUNCTION
+*       Mark a guest window mapping dead before guest-side CloseWindow
+*       completes.
+*
+*   INPUTS
+*       aos_window - Guest window address being closed.
+*
+*   RESULT
+*       TRUE if no mapping is found or the mapping was handled; FALSE on an
+*       invalid mapping or an uncompleted bounded close wait.
+*
+*   NOTES
+*       For an AmigaOS guest, signals its host window task and polls for
+*       mapping removal before returning.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_mark_window_dead(ULONG aos_window) {
   GSList        *list_win=NULL;
   JanusWin      *jwin    =NULL;
@@ -806,6 +1041,29 @@ uae_u32 ad_job_mark_window_dead(ULONG aos_window) {
  * been closed. janusd tells us the guest window 
  * in aos_window
  ***************************************************/
+/****i* januae-j-win/ad_job_window_closed **********************************
+*
+*   NAME
+*       ad_job_window_closed() -- Finish guest window teardown.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_window_closed(ULONG aos_window);
+*
+*   FUNCTION
+*       Mark a completed guest window closure and signal the associated host
+*       window worker to stop.
+*
+*   INPUTS
+*       aos_window - Closed guest window address.
+*
+*   RESULT
+*       TRUE when the notification is accepted or no mapping exists; FALSE
+*       if the list entry has no mapping data.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_window_closed(ULONG aos_window) {
   GSList        *list_win;
   JanusWin      *jwin;
@@ -858,6 +1116,28 @@ uae_u32 ad_job_window_closed(ULONG aos_window) {
 
 
  
+/****i* januae-j-win/ad_job_switch_uae_window ******************************
+*
+*   NAME
+*       ad_job_switch_uae_window() -- Control the emulator window.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_switch_uae_window(ULONG *m68k_results);
+*
+*   FUNCTION
+*       Toggle the main emulator window or set its enabled state explicitly.
+*
+*   INPUTS
+*       m68k_results - Zero in the first entry requests a toggle; otherwise
+*       the second entry selects enabled or disabled.
+*
+*   RESULT
+*       TRUE.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_switch_uae_window(ULONG *m68k_results) {
 
   ENTER
@@ -902,6 +1182,33 @@ uae_u32 ad_job_switch_uae_window(ULONG *m68k_results) {
  * open/close windows, while they hold sem_janus_window_list.
  * So you run in a deadlock sooner or later.
  */
+
+/****i* januae-j-win/ad_job_sync_windows ***********************************
+*
+*   NAME
+*       ad_job_sync_windows() -- Read host window stacking order.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_sync_windows(ULONG *m68k_results);
+*
+*   FUNCTION
+*       Report the front-to-back order of mapped guest windows from the
+*       frontmost host screen layer list.
+*
+*   INPUTS
+*       m68k_results - Writable array of guest window addresses.
+*
+*   RESULT
+*       TRUE when a frontmost screen with layers is available; otherwise
+*       FALSE.
+*
+*   NOTES
+*       Excludes custom and dead mappings. Takes sem_janus_window_list
+*       before LockIBase.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 ad_job_sync_windows(ULONG *m68k_results) {
 
@@ -1006,6 +1313,32 @@ uae_u32 ad_job_sync_windows(ULONG *m68k_results) {
  * send a CTRL-C to all aros janus tasks, so that they
  * close their window and free their resources.
  ***********************************************************/
+/****i* januae-j-win/close_all_janus_windows *******************************
+*
+*   NAME
+*       close_all_janus_windows() -- Signal window workers to close.
+*
+*   SYNOPSIS
+*       void close_all_janus_windows(void);
+*
+*   FUNCTION
+*       Mark every mapped guest window dead and signal each existing host
+*       window worker for shutdown.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Returns without action when the guest daemon has never registered;
+*       does not wait for task termination.
+*
+****************************************************************************
+*
+*/
+
 void close_all_janus_windows() {
   GSList   *list_win;
   JanusWin *win;
@@ -1043,6 +1376,32 @@ void close_all_janus_windows() {
  * wait until all windows are closed
  ***********************************************************/
 #define CLOSE_WAIT_SECS 2
+
+/****i* januae-j-win/close_all_janus_windows_wait **************************
+*
+*   NAME
+*       close_all_janus_windows_wait() -- Wait for window workers to close.
+*
+*   SYNOPSIS
+*       void close_all_janus_windows_wait(void);
+*
+*   FUNCTION
+*       Request shutdown of all mapped windows and wait for the window
+*       registry to become empty.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Polling is bounded by CLOSE_WAIT_SECS. Remaining window mappings are
+*       logged.
+*
+****************************************************************************
+*
+*/
 
 void close_all_janus_windows_wait() {
   unsigned int i;
@@ -1134,6 +1493,31 @@ void uae_main_window_open() {
  * not used at the moment, as we open all windows
  * with the same IDCMP flags anyways
  *********************************************************/
+/****i* januae-j-win/ad_job_modify_idcmp ***********************************
+*
+*   NAME
+*       ad_job_modify_idcmp() -- Acknowledge an IDCMP change.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_modify_idcmp(ULONG aos3win, ULONG flags);
+*
+*   FUNCTION
+*       Acknowledge a guest ModifyIDCMP notification without changing the
+*       host window event mask.
+*
+*   INPUTS
+*       aos3win - Guest window address. flags - New IDCMP flags.
+*
+*   RESULT
+*       TRUE.
+*
+*   NOTES
+*       Host windows currently use a fixed IDCMP mask.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_modify_idcmp(ULONG aos3win, ULONG flags) {
   JWLOG("ad_job_modify_idcmp(aos3win %lx, flags %lx) not done yet\n", aos3win, flags);
 
@@ -1145,6 +1529,33 @@ uae_u32 ad_job_modify_idcmp(ULONG aos3win, ULONG flags) {
  *
  * update window titles
  *********************************************************/
+/****i* januae-j-win/set_window_titles *************************************
+*
+*   NAME
+*       set_window_titles() -- Synchronize window titles.
+*
+*   SYNOPSIS
+*       void set_window_titles(struct Process *thread, JanusWin *jwin);
+*
+*   FUNCTION
+*       Copy a live guest window title and optional screen title to the
+*       mapped AROS window.
+*
+*   INPUTS
+*       thread - Calling process context. jwin - Guest-to-host window
+*       mapping.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Returns without updating titles after the window has been marked
+*       dead.
+*
+****************************************************************************
+*
+*/
+
 void set_window_titles(struct Process *thread, JanusWin *jwin) {
   UBYTE *window_title;
   UBYTE *screen_title;
@@ -1192,6 +1603,33 @@ void set_window_titles(struct Process *thread, JanusWin *jwin) {
  *
  * If window is on a custom screen, return NULL
  *********************************************************/
+/****i* januae-j-win/get_jwin_from_aos3win_safe ****************************
+*
+*   NAME
+*       get_jwin_from_aos3win_safe() -- Find a ready window proxy.
+*
+*   SYNOPSIS
+*       JanusWin *get_jwin_from_aos3win_safe(struct Process *thread, ULONG
+*       aos3win);
+*
+*   FUNCTION
+*       Find the host mapping for a guest window and wait briefly for its
+*       AROS window to be created.
+*
+*   INPUTS
+*       thread - Calling process context. aos3win - Guest window address.
+*
+*   RESULT
+*       Mapped JanusWin pointer with an opened AROS window, or NULL.
+*
+*   NOTES
+*       Custom-screen windows are excluded. The lookup releases the
+*       window-list semaphore before any delay.
+*
+****************************************************************************
+*
+*/
+
 JanusWin *get_jwin_from_aos3win_safe(struct Process *thread, ULONG aos3win) {
 
   GSList         *list_win=NULL;
@@ -1264,6 +1702,28 @@ JanusWin *get_jwin_from_aos3win_safe(struct Process *thread, ULONG aos3win) {
  *
  * call set_window_titles
  *********************************************************/
+/****i* januae-j-win/ad_job_set_window_titles ******************************
+*
+*   NAME
+*       ad_job_set_window_titles() -- Handle a guest title update.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_set_window_titles(ULONG aos3win);
+*
+*   FUNCTION
+*       Locate a mapped window and copy its current guest titles to the AROS
+*       window.
+*
+*   INPUTS
+*       aos3win - Guest window address.
+*
+*   RESULT
+*       TRUE, including when no ready host mapping exists.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_set_window_titles(ULONG aos3win) {
 
   JanusWin       *jwin    =NULL;
@@ -1293,6 +1753,33 @@ uae_u32 ad_job_set_window_titles(ULONG aos3win) {
  *
  * call WindowLimits
  *********************************************************/
+/****i* januae-j-win/ad_job_window_limits **********************************
+*
+*   NAME
+*       ad_job_window_limits() -- Handle guest size constraints.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_window_limits(ULONG aos3win, WORD MinWidth, WORD
+*       MinHeight, UWORD MaxWidth, UWORD MaxHeight);
+*
+*   FUNCTION
+*       Forward guest WindowLimits constraints to a ready, live AROS window.
+*
+*   INPUTS
+*       aos3win - Guest window address. MinWidth, MinHeight, MaxWidth,
+*       MaxHeight - Requested window size limits.
+*
+*   RESULT
+*       TRUE, including when the target mapping is missing or dead.
+*
+*   NOTES
+*       The returned value does not reflect the result of the host
+*       WindowLimits call.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_window_limits (ULONG aos3win, WORD MinWidth, WORD MinHeight, UWORD MaxWidth, UWORD MaxHeight) {
 
   JanusWin       *jwin    =NULL;
@@ -1333,6 +1820,28 @@ uae_u32 ad_job_window_limits (ULONG aos3win, WORD MinWidth, WORD MinHeight, UWOR
  *
  * returns former setting
  *********************************************************/
+/****i* januae-j-win/ad_job_window_gfx_update ******************************
+*
+*   NAME
+*       ad_job_window_gfx_update() -- Control window graphics copying.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_window_gfx_update(ULONG enable);
+*
+*   FUNCTION
+*       Enable or suppress copying guest window graphics to host windows.
+*
+*   INPUTS
+*       enable - Nonzero enables drawing updates; zero suppresses them.
+*
+*   RESULT
+*       Previous value of j_stop_window_update, which is a suppression flag
+*       rather than an enable flag.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_window_gfx_update(ULONG enable) {
   ULONG old=j_stop_window_update;
 
