@@ -125,6 +125,32 @@ APTR           old_WindowLimits;
  * AD_GET_JOB_WINDOW_CLOSED 24 (d1)
  * window is already in a0
  *********************************************************************************/
+/****i* januae/my_CloseWindow_SetFunc **************************************
+*
+*   NAME
+*       my_CloseWindow_SetFunc() -- Track window closure.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_CloseWindow_SetFunc (AmigaOS Intuition vector
+*       ABI).
+*
+*   FUNCTION
+*       Intercept CloseWindow before and after the original call.
+*
+*   INPUTS
+*       The A0 register carries the guest window address.
+*
+*   RESULT
+*       The original CloseWindow operation is invoked.
+*
+*   NOTES
+*       With the daemon active, sends jobs 7 and 24 around the original
+*       call. This symbol is defined only for the AmigaOS guest.
+*
+****************************************************************************
+*
+*/
+
 __asm__("_my_CloseWindow_SetFunc:\n"
 	"cmp.l #1,_state\n"
 	"blt close_patch_disabled\n"
@@ -164,6 +190,33 @@ __asm__("_my_CloseWindow_SetFunc:\n"
  * AD_GET_JOB_NEW_WINDOW 11 (d1)
  * new window in a0
  *********************************************************************************/
+/****i* januae/my_OpenWindow_SetFunc ***************************************
+*
+*   NAME
+*       my_OpenWindow_SetFunc() -- Track window creation.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_OpenWindow_SetFunc (AmigaOS Intuition vector
+*       ABI).
+*
+*   FUNCTION
+*       Notify the host around an OpenWindow call.
+*
+*   INPUTS
+*       The original OpenWindow vector registers, including A0.
+*
+*   RESULT
+*       The original OpenWindow result is returned.
+*
+*   NOTES
+*       With the daemon active, refreshes screens before opening and sends
+*       job 11 after the call. This symbol is defined only for the AmigaOS
+*       guest.
+*
+****************************************************************************
+*
+*/
+
 __asm__("_my_OpenWindow_SetFunc:\n"
 /*
 	"movem.l d4/a4,-(SP)\n"
@@ -200,6 +253,32 @@ __asm__("_my_OpenWindow_SetFunc:\n"
 /*********************************************************************************
  * _my_OpenWindowTagList_SetFunc
  *********************************************************************************/
+/****i* januae/my_OpenWindowTagList_SetFunc ********************************
+*
+*   NAME
+*       my_OpenWindowTagList_SetFunc() -- Track tagged window creation.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_OpenWindowTagList_SetFunc (AmigaOS Intuition
+*       vector ABI).
+*
+*   FUNCTION
+*       Notify the host around an OpenWindowTagList call.
+*
+*   INPUTS
+*       The original OpenWindowTagList vector registers.
+*
+*   RESULT
+*       The original OpenWindowTagList result is returned.
+*
+*   NOTES
+*       With the daemon active, refreshes screens before opening and sends
+*       job 11 afterward. This symbol is defined only for the AmigaOS guest.
+*
+****************************************************************************
+*
+*/
+
 __asm__("_my_OpenWindowTagList_SetFunc:\n"
 	"cmp.l #1,_state\n"
 	"blt openwintag_patch_disabled1\n"
@@ -237,6 +316,31 @@ struct TagItem       taglist_mytags[2]={ { SA_Draggable, FALSE}, { TAG_DONE, TAG
  *
  * set SA_Draggable to FALSE, AROS has no screen dragging ;)
  *********************************************************************************/
+/****i* januae/remove_dragging *********************************************
+*
+*   NAME
+*       remove_dragging() -- Prepare a non-draggable screen.
+*
+*   SYNOPSIS
+*       ULONG remove_dragging(struct NewScreen *newscreen);
+*
+*   FUNCTION
+*       Prepare a copy of a screen descriptor with SA_Draggable disabled.
+*
+*   INPUTS
+*       newscreen - Existing screen descriptor.
+*
+*   RESULT
+*       Address of the shared modified ExtNewScreen descriptor.
+*
+*   NOTES
+*       AmigaOS guest build only. The result points to static storage; it
+*       must not be freed or retained across another call.
+*
+****************************************************************************
+*
+*/
+
 #ifndef __AROS__
 ULONG remove_dragging (struct NewScreen *newscreen __asm("a0")) {
 #else
@@ -308,6 +412,31 @@ ULONG remove_dragging (struct NewScreen *newscreen) {
  * use taglist_mytags_linked here and not mytags_linked, as OpenScreen might call
  * OpenScreenTagList.. and so we would cause wrong links 
  */
+/****i* januae/remove_dragging_TagList *************************************
+*
+*   NAME
+*       remove_dragging_TagList() -- Prepend screen attributes.
+*
+*   SYNOPSIS
+*       ULONG remove_dragging_TagList(struct TagItem *original_tags);
+*
+*   FUNCTION
+*       Prepend a non-draggable screen attribute to a tag list.
+*
+*   INPUTS
+*       original_tags - Original attribute list or NULL.
+*
+*   RESULT
+*       Address of the shared replacement tag list.
+*
+*   NOTES
+*       AmigaOS guest build only. The returned tag arrays have static
+*       storage and are reused.
+*
+****************************************************************************
+*
+*/
+
 #ifndef __AROS__
 ULONG remove_dragging_TagList (struct TagItem *original_tags __asm("a1")) {
 #else
@@ -330,6 +459,30 @@ ULONG remove_dragging_TagList (struct TagItem *original_tags) {
   taglist_mytags_linked[1].ti_Data=(ULONG) original_tags;
   return (ULONG) taglist_mytags_linked;
 }
+
+/****i* januae/do_update_screens *******************************************
+*
+*   NAME
+*       do_update_screens() -- Refresh the guest screen inventory.
+*
+*   SYNOPSIS
+*       void do_update_screens(void);
+*
+*   FUNCTION
+*       Forward an Intuition screen-change event to update_screens.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       AmigaOS guest build only; called by the OpenWindow assembler hooks.
+*
+****************************************************************************
+*
+*/
 
 void do_update_screens (void) {
   update_screens();
@@ -366,6 +519,34 @@ void do_update_screens (void) {
  *
  *********************************************************************************/
 #ifndef __AROS__
+/****i* januae/my_OpenScreen_SetFunc ***************************************
+*
+*   NAME
+*       my_OpenScreen_SetFunc() -- Process screen creation.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_OpenScreen_SetFunc (AmigaOS Intuition vector
+*       ABI).
+*
+*   FUNCTION
+*       Apply screen drag policy and report new screens.
+*
+*   INPUTS
+*       The original OpenScreen descriptor in A0 and vector register
+*       arguments.
+*
+*   RESULT
+*       Returns from the original OpenScreen call.
+*
+*   NOTES
+*       When patch_draggable is enabled, substitutes a copy of the
+*       descriptor. With the daemon active, refreshes the screen list. This
+*       symbol is defined only for the AmigaOS guest.
+*
+****************************************************************************
+*
+*/
+
 __asm__("_my_OpenScreen_SetFunc:\n"
         PUSHA0
 	"cmp.l #1,_patch_draggable\n"
@@ -415,6 +596,33 @@ __asm__("_my_OpenScreen_SetFunc:\n"
  *
  * AD_GET_JOB_OPEN_CUSTOM_SCREEN is not used anymore
  *********************************************************************************/
+/****i* januae/my_OpenScreenTagList_SetFunc ********************************
+*
+*   NAME
+*       my_OpenScreenTagList_SetFunc() -- Process tagged screen creation.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_OpenScreenTagList_SetFunc (AmigaOS Intuition
+*       vector ABI).
+*
+*   FUNCTION
+*       Apply screen tag policy and report new screens.
+*
+*   INPUTS
+*       The original OpenScreenTagList arguments, including A1.
+*
+*   RESULT
+*       Returns from the original OpenScreenTagList call.
+*
+*   NOTES
+*       Prepends SA_Draggable=FALSE to the tag list and refreshes screens
+*       when the daemon is active. This symbol is defined only for the
+*       AmigaOS guest.
+*
+****************************************************************************
+*
+*/
+
 __asm__("_my_OpenScreenTagList_SetFunc:\n"
         "move.l  a0,-(SP)\n"             /* backup struct NewScreen   */
         "movem.l d0-d7/a2-a6,-(SP)\n"    /* backup everything but A1  */
@@ -458,6 +666,32 @@ __asm__("_my_OpenScreenTagList_SetFunc:\n"
  * AD_GET_JOB_CLOSE_SCREEN 14 (d1)
  * screen is already in a0
  *********************************************************************************/
+/****i* januae/my_CloseScreen_SetFunc **************************************
+*
+*   NAME
+*       my_CloseScreen_SetFunc() -- Track screen closure.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_CloseScreen_SetFunc (AmigaOS Intuition vector
+*       ABI).
+*
+*   FUNCTION
+*       Notify the host before closing a guest screen.
+*
+*   INPUTS
+*       A0 contains the screen address.
+*
+*   RESULT
+*       Invokes the saved original CloseScreen vector.
+*
+*   NOTES
+*       With the daemon active, sends AD_GET_JOB_CLOSE_SCREEN (14) before
+*       closing. This symbol is defined only for the AmigaOS guest.
+*
+****************************************************************************
+*
+*/
+
 __asm__("_my_CloseScreen_SetFunc:\n"
 	"cmp.l #1,_state\n"
 	"blt close_screen_patch_disabled\n"
@@ -495,6 +729,34 @@ __asm__("_my_CloseScreen_SetFunc:\n"
  * screen is already in a0
  * send flags in d3, as d0 is used for AD_GET_JOB
  *********************************************************************************/
+/****i* januae/my_ScreenDepth_SetFunc **************************************
+*
+*   NAME
+*       my_ScreenDepth_SetFunc() -- Dispatch eligible depth changes.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_ScreenDepth_SetFunc (AmigaOS Intuition vector
+*       ABI).
+*
+*   FUNCTION
+*       Dispatch eligible guest ScreenDepth requests to the host.
+*
+*   INPUTS
+*       Original ScreenDepth arguments in Intuition vector registers.
+*
+*   RESULT
+*       Uses the original path except when a qualifying request takes the
+*       host path.
+*
+*   NOTES
+*       With state active, A1 other than 666, and D0 equal to 1, issues job
+*       16; A1=666 bypasses the host path. This symbol is defined only for
+*       the AmigaOS guest.
+*
+****************************************************************************
+*
+*/
+
 __asm__("_my_ScreenDepth_SetFunc:\n"
 	"cmp.l #1,_state\n"
 	"blt call_old_ScreenDepth\n"
@@ -532,6 +794,34 @@ __asm__("_my_ScreenDepth_SetFunc:\n"
  * new IDCMP flags (d3)
  * window (a0)
  *********************************************************************************/
+/****i* januae/my_ModifyIDCMP_SetFunc **************************************
+*
+*   NAME
+*       my_ModifyIDCMP_SetFunc() -- Observe IDCMP changes.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_ModifyIDCMP_SetFunc (AmigaOS Intuition vector
+*       ABI).
+*
+*   FUNCTION
+*       Forward IDCMP changes before the original call.
+*
+*   INPUTS
+*       Window pointer and IDCMP arguments in their original vector
+*       registers.
+*
+*   RESULT
+*       Invokes the saved original ModifyIDCMP vector.
+*
+*   NOTES
+*       Issues AD_GET_JOB_MODIFY_IDCMP (17). Its SetFunction registration is
+*       disabled in patch_functions. This symbol is defined only for the
+*       AmigaOS guest.
+*
+****************************************************************************
+*
+*/
+
 __asm__("_my_ModifyIDCMP_SetFunc:\n"
 	PUSHFULLSTACK
 	"move.l d0,d3\n"
@@ -562,6 +852,32 @@ __asm__("_my_ModifyIDCMP_SetFunc:\n"
  * AD_GET_JOB_UPDATE_GADGETS 18 (d1)
  * window is already in a0
  *********************************************************************************/
+/****i* januae/my_AddGadget_SetFunc ****************************************
+*
+*   NAME
+*       my_AddGadget_SetFunc() -- Observe gadget additions.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_AddGadget_SetFunc (AmigaOS Intuition vector
+*       ABI).
+*
+*   FUNCTION
+*       Report AddGadget updates after the original call.
+*
+*   INPUTS
+*       The original AddGadget vector arguments.
+*
+*   RESULT
+*       Invokes the saved original AddGadget vector.
+*
+*   NOTES
+*       Issues job 18 when active. Registration is disabled in
+*       patch_functions. This symbol is defined only for the AmigaOS guest.
+*
+****************************************************************************
+*
+*/
+
 __asm__("_my_AddGadget_SetFunc:\n"
 	PUSHA0
 	PUSHA3
@@ -581,6 +897,32 @@ __asm__("_my_AddGadget_SetFunc:\n"
 	"addgadget_patch_disabled:\n"
 
         "rts\n");
+
+/****i* januae/my_AddGList_SetFunc *****************************************
+*
+*   NAME
+*       my_AddGList_SetFunc() -- Observe gadget-list additions.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_AddGList_SetFunc (AmigaOS Intuition vector
+*       ABI).
+*
+*   FUNCTION
+*       Report AddGList updates after the original call.
+*
+*   INPUTS
+*       The original AddGList vector arguments.
+*
+*   RESULT
+*       Invokes the saved original AddGList vector.
+*
+*   NOTES
+*       Issues job 18 when active. Registration is disabled in
+*       patch_functions. This symbol is defined only for the AmigaOS guest.
+*
+****************************************************************************
+*
+*/
 
 __asm__("_my_AddGList_SetFunc:\n"
 	PUSHA0
@@ -602,6 +944,32 @@ __asm__("_my_AddGList_SetFunc:\n"
 
         "rts\n");
 
+/****i* januae/my_RemoveGadget_SetFunc *************************************
+*
+*   NAME
+*       my_RemoveGadget_SetFunc() -- Observe gadget removals.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_RemoveGadget_SetFunc (AmigaOS Intuition vector
+*       ABI).
+*
+*   FUNCTION
+*       Report RemoveGadget updates after the original call.
+*
+*   INPUTS
+*       The original RemoveGadget vector arguments.
+*
+*   RESULT
+*       Invokes the saved original RemoveGadget vector.
+*
+*   NOTES
+*       Issues job 18 when active. Registration is disabled in
+*       patch_functions. This symbol is defined only for the AmigaOS guest.
+*
+****************************************************************************
+*
+*/
+
 __asm__("_my_RemoveGadget_SetFunc:\n"
 	PUSHA0
 	PUSHA3
@@ -621,6 +989,32 @@ __asm__("_my_RemoveGadget_SetFunc:\n"
 	"removegadget_patch_disabled:\n"
 
         "rts\n");
+
+/****i* januae/my_RemoveGList_SetFunc **************************************
+*
+*   NAME
+*       my_RemoveGList_SetFunc() -- Observe gadget-list removals.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_RemoveGList_SetFunc (AmigaOS Intuition vector
+*       ABI).
+*
+*   FUNCTION
+*       Report RemoveGList updates after the original call.
+*
+*   INPUTS
+*       The original RemoveGList vector arguments.
+*
+*   RESULT
+*       Invokes the saved original RemoveGList vector.
+*
+*   NOTES
+*       Issues job 18 when active. Registration is disabled in
+*       patch_functions. This symbol is defined only for the AmigaOS guest.
+*
+****************************************************************************
+*
+*/
 
 __asm__("_my_RemoveGList_SetFunc:\n"
 	PUSHA0
@@ -642,6 +1036,32 @@ __asm__("_my_RemoveGList_SetFunc:\n"
 
         "rts\n");
 
+/****i* januae/my_RefreshGList_SetFunc *************************************
+*
+*   NAME
+*       my_RefreshGList_SetFunc() -- Observe gadget-list refreshes.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_RefreshGList_SetFunc (AmigaOS Intuition vector
+*       ABI).
+*
+*   FUNCTION
+*       Report RefreshGList updates after the original call.
+*
+*   INPUTS
+*       The original RefreshGList vector arguments.
+*
+*   RESULT
+*       Invokes the saved original RefreshGList vector.
+*
+*   NOTES
+*       Issues job 18 when active; the refresh hooks are registered by
+*       patch_functions. This symbol is defined only for the AmigaOS guest.
+*
+****************************************************************************
+*
+*/
+
 __asm__("_my_RefreshGList_SetFunc:\n"
 	"movem.l a0/a1/a3,-(SP)\n"  
 	"move.l _old_RefreshGList, a3\n"
@@ -660,6 +1080,32 @@ __asm__("_my_RefreshGList_SetFunc:\n"
 	"refreshglist_patch_disabled:\n"
 
         "rts\n");
+
+/****i* januae/my_RefreshGadgets_SetFunc ***********************************
+*
+*   NAME
+*       my_RefreshGadgets_SetFunc() -- Observe gadget refreshes.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_RefreshGadgets_SetFunc (AmigaOS Intuition
+*       vector ABI).
+*
+*   FUNCTION
+*       Report RefreshGadgets updates after the original call.
+*
+*   INPUTS
+*       The original RefreshGadgets vector arguments.
+*
+*   RESULT
+*       Invokes the saved original RefreshGadgets vector.
+*
+*   NOTES
+*       Issues job 18 when active; the refresh hooks are registered by
+*       patch_functions. This symbol is defined only for the AmigaOS guest.
+*
+****************************************************************************
+*
+*/
 
 __asm__("_my_RefreshGadgets_SetFunc:\n"
 	"movem.l a0/a1/a3,-(SP)\n"  
@@ -695,6 +1141,33 @@ __asm__("_my_RefreshGadgets_SetFunc:\n"
  * AD_GET_JOB_SET_WINDOW_TITLES 19 (d1)
  * window is already in a0, we don't need the rest
  *********************************************************************************/
+
+/****i* januae/my_SetWindowTitles_SetFunc **********************************
+*
+*   NAME
+*       my_SetWindowTitles_SetFunc() -- Observe window title changes.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_SetWindowTitles_SetFunc (AmigaOS Intuition
+*       vector ABI).
+*
+*   FUNCTION
+*       Report relevant guest title changes after setting titles.
+*
+*   INPUTS
+*       The original SetWindowTitles vector arguments.
+*
+*   RESULT
+*       Calls the original SetWindowTitles vector.
+*
+*   NOTES
+*       When active, compares the requested title pointers before the
+*       original call and dispatches job 19 if the helper indicates a
+*       change. This symbol is defined only for the AmigaOS guest.
+*
+****************************************************************************
+*
+*/
 
 __asm__("_my_SetWindowTitles_SetFunc:\n"
 
@@ -751,6 +1224,33 @@ __asm__("_my_SetWindowTitles_SetFunc:\n"
  * we store the return code of the original WindowLimits function in d6, to
  * return it later on
  *********************************************************************************/
+
+/****i* januae/my_WindowLimits_SetFunc *************************************
+*
+*   NAME
+*       my_WindowLimits_SetFunc() -- Observe window limit changes.
+*
+*   SYNOPSIS
+*       Assembler entry: _my_WindowLimits_SetFunc (AmigaOS Intuition vector
+*       ABI).
+*
+*   FUNCTION
+*       Report window limit changes while preserving the original result.
+*
+*   INPUTS
+*       Window in A0; limits in D0 through D3.
+*
+*   RESULT
+*       Restores the original WindowLimits result in D0.
+*
+*   NOTES
+*       When active, passes the limits to job 20 in D2 through D5 without
+*       replacing the original return value. This symbol is defined only for
+*       the AmigaOS guest.
+*
+****************************************************************************
+*
+*/
 
 __asm__("_my_WindowLimits_SetFunc:\n"
 	/* we trash d6 to store the amigaOS result, so back it up */
@@ -814,6 +1314,37 @@ void my_RefreshGList_SetFunc();
  * automatically  and also takes care of the code 
  * cache itself."
  */
+/****i* januae/patch_functions *********************************************
+*
+*   NAME
+*       patch_functions() -- Install legacy Intuition hooks.
+*
+*   SYNOPSIS
+*       void patch_functions(void);
+*
+*   FUNCTION
+*       Install the AmigaOS Intuition vector hooks used by guest
+*       integration.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       AmigaOS guest build only. The implementation installs window/screen,
+*       title, limit and refresh hooks. ModifyIDCMP and gadget
+*       insertion/removal registrations are disabled.
+*
+*   BUGS
+*       Hook installation return values are not validated and partial
+*       installation has no recovery path.
+*
+****************************************************************************
+*
+*/
+
 void patch_functions() {
 
   ENTER
@@ -901,6 +1432,35 @@ void patch_functions() {
 }
 
 /* TODO: unsafe! */
+/****i* januae/unpatch_functions *******************************************
+*
+*   NAME
+*       unpatch_functions() -- Restore the CloseWindow hook.
+*
+*   SYNOPSIS
+*       void unpatch_functions(void);
+*
+*   FUNCTION
+*       Restore the saved CloseWindow vector.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       AmigaOS guest build only. The routine does not restore the other
+*       vectors installed by patch_functions.
+*
+*   BUGS
+*       Teardown is explicitly marked unsafe in the source; this is not a
+*       complete or safe hook removal operation.
+*
+****************************************************************************
+*
+*/
+
 void unpatch_functions() {
 
   ENTER
