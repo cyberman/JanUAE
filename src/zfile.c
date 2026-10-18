@@ -35,6 +35,30 @@ struct zfile {
 static struct zfile *zlist = 0;
 int is_zlib;
 
+/****i* januae-zfile/zlib_test *********************************************
+*
+*   NAME
+*       zlib_test() -- Check availability of the compression runtime.
+*
+*   SYNOPSIS
+*       static int zlib_test (void);
+*
+*   FUNCTION
+*       Return whether compression support is available. The Windows build
+*       without MinGW uses the runtime availability flag and reports a
+*       missing zlib DLL once.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       One when the compression runtime is considered available; zero
+*       otherwise.
+*
+****************************************************************************
+*
+*/
+
 static int zlib_test (void)
 {
 #if defined WIN32 && !defined __MINGW32__
@@ -53,6 +77,28 @@ static int zlib_test (void)
 #endif
 }
 
+/****i* januae-zfile/zfile_create ******************************************
+*
+*   NAME
+*       zfile_create() -- Create a tracked zfile handle.
+*
+*   SYNOPSIS
+*       static struct zfile *zfile_create (void);
+*
+*   FUNCTION
+*       Allocate a zero-initialized zfile and link it at the head of the
+*       active zfile list.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       A new zfile handle, or NULL when allocation fails.
+*
+****************************************************************************
+*
+*/
+
 static struct zfile *zfile_create (void)
 {
     struct zfile *z;
@@ -65,6 +111,29 @@ static struct zfile *zfile_create (void)
     zlist = z;
     return z;
 }
+
+/****i* januae-zfile/zfile_free ********************************************
+*
+*   NAME
+*       zfile_free() -- Release the resources owned by a zfile.
+*
+*   SYNOPSIS
+*       static void zfile_free (struct zfile *f);
+*
+*   FUNCTION
+*       Close an open standard file, remove an owned temporary file when
+*       requested, and release the stored filename, memory buffer and
+*       handle.
+*
+*   INPUTS
+*       f - zfile handle whose resources are to be released.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void zfile_free (struct zfile *f)
 {
@@ -79,6 +148,28 @@ static void zfile_free (struct zfile *f)
     free (f);
 }
 
+/****i* januae-zfile/zfile_exit ********************************************
+*
+*   NAME
+*       zfile_exit() -- Close every tracked zfile.
+*
+*   SYNOPSIS
+*       void zfile_exit (void);
+*
+*   FUNCTION
+*       Walk the active zfile list and release each entry, leaving the list
+*       empty.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void zfile_exit (void)
 {
     struct zfile *l;
@@ -87,6 +178,31 @@ void zfile_exit (void)
 	zfile_free (l);
     }
 }
+
+/****i* januae-zfile/zfile_fclose ******************************************
+*
+*   NAME
+*       zfile_fclose() -- Close and unlink a tracked zfile.
+*
+*   SYNOPSIS
+*       void zfile_fclose (struct zfile *f);
+*
+*   FUNCTION
+*       Find the supplied handle in the active list, release its owned
+*       resources and remove it from the list.
+*
+*   INPUTS
+*       f - Tracked handle to close; NULL is ignored.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       An unknown non-NULL handle is reported and left unchanged.
+*
+****************************************************************************
+*
+*/
 
 void zfile_fclose (struct zfile *f)
 {
@@ -115,6 +231,30 @@ void zfile_fclose (struct zfile *f)
 }
 
 static uae_u8 exeheader[]={0x00,0x00,0x03,0xf3,0x00,0x00,0x00,0x00};
+/****i* januae-zfile/zfile_gettype *****************************************
+*
+*   NAME
+*       zfile_gettype() -- Identify the stored file category.
+*
+*   SYNOPSIS
+*       int zfile_gettype (struct zfile *z);
+*
+*   FUNCTION
+*       Classify recognized filename extensions as disk images, ROMs, saved
+*       states, keys, nonvolatile data or configurations; otherwise inspect
+*       the initial executable header for a disk-image signature.
+*
+*   INPUTS
+*       z - Open zfile to classify.
+*
+*   RESULT
+*       A ZFILE_* type constant, or ZFILE_UNKNOWN for an unrecognized or
+*       NULL handle.
+*
+****************************************************************************
+*
+*/
+
 int zfile_gettype (struct zfile *z)
 {
     uae_u8 buf[8];
@@ -226,6 +366,34 @@ static struct zfile *updateoutputfile (struct zfile *z)
 
 static struct zfile *zuncompress (struct zfile *z);
 
+/****i* januae-zfile/gunzip ************************************************
+*
+*   NAME
+*       gunzip() -- Attempt gzip stream expansion.
+*
+*   SYNOPSIS
+*       static struct zfile *gunzip (struct zfile *z);
+*
+*   FUNCTION
+*       Check compression support, interpret gzip header fields and inflate
+*       a raw deflate payload into an in-memory zfile when the non-GTKMUI
+*       implementation is enabled.
+*
+*   INPUTS
+*       z - Source zfile containing the candidate gzip data.
+*
+*   RESULT
+*       An expanded zfile after successful inflation; otherwise the original
+*       handle.
+*
+*   NOTES
+*       With GTKMUI defined, this routine returns the original handle
+*       without expansion.
+*
+****************************************************************************
+*
+*/
+
 static struct zfile *gunzip (struct zfile *z)
 {
     uae_u8 header[2 + 1 + 1 + 4 + 1 + 1];
@@ -315,15 +483,82 @@ static struct zfile *gunzip (struct zfile *z)
 }
 
 
+/****i* januae-zfile/bunzip ************************************************
+*
+*   NAME
+*       bunzip() -- Pass through the requested bzip2 stream.
+*
+*   SYNOPSIS
+*       static struct zfile *bunzip (const char *decompress, struct zfile
+*       *z);
+*
+*   FUNCTION
+*       Return the supplied zfile without performing decompression.
+*
+*   INPUTS
+*       decompress - Requested decompression command; z - Source zfile.
+*
+*   RESULT
+*       The original zfile handle.
+*
+****************************************************************************
+*
+*/
+
 static struct zfile *bunzip (const char *decompress, struct zfile *z)
 {
     return z;
 }
 
+/****i* januae-zfile/lha ***************************************************
+*
+*   NAME
+*       lha() -- Pass through an LHA archive.
+*
+*   SYNOPSIS
+*       static struct zfile *lha (struct zfile *z);
+*
+*   FUNCTION
+*       Return the supplied archive handle without extracting its contents.
+*
+*   INPUTS
+*       z - Source zfile.
+*
+*   RESULT
+*       The original zfile handle.
+*
+****************************************************************************
+*
+*/
+
 static struct zfile *lha (struct zfile *z)
 {
     return z;
 }
+
+/****i* januae-zfile/dms ***************************************************
+*
+*   NAME
+*       dms() -- Expand a DMS disk image into a memory-backed disk.
+*
+*   SYNOPSIS
+*       static struct zfile *dms (struct zfile *z);
+*
+*   FUNCTION
+*       Allocate a disk-image-sized memory zfile and invoke DMS_Process_File
+*       to unpack the input stream. On a successful DMS status, close the
+*       input handle and return the output.
+*
+*   INPUTS
+*       z - DMS input zfile.
+*
+*   RESULT
+*       The expanded image on a successful unpack; otherwise the original
+*       input handle.
+*
+****************************************************************************
+*
+*/
 
 static struct zfile *dms (struct zfile *z)
 {
@@ -361,6 +596,29 @@ static const char *ignoreextensions[] =
 static const char *diskimageextensions[] =
     { ".adf", ".adz", ".ipf", ".fdi", 0 };
 
+/****i* januae-zfile/isdiskimage *******************************************
+*
+*   NAME
+*       isdiskimage() -- Recognize supported disk-image filename suffixes.
+*
+*   SYNOPSIS
+*       static int isdiskimage (char *name);
+*
+*   FUNCTION
+*       Compare the final four characters of the filename against the
+*       configured ADF, ADZ, IPF and FDI extensions without case
+*       sensitivity.
+*
+*   INPUTS
+*       name - Filename to examine.
+*
+*   RESULT
+*       One for a recognized image suffix; zero otherwise.
+*
+****************************************************************************
+*
+*/
+
 static int isdiskimage (char *name)
 {
     int i;
@@ -373,6 +631,34 @@ static int isdiskimage (char *name)
     }
     return 0;
 }
+
+/****i* januae-zfile/unzip *************************************************
+*
+*   NAME
+*       unzip() -- Select and extract an archive member.
+*
+*   SYNOPSIS
+*       static struct zfile *unzip (struct zfile *z);
+*
+*   FUNCTION
+*       Enumerate ZIP members, ignore configured auxiliary extensions, and
+*       extract a selected member into an in-memory zfile. The selection
+*       considers an explicit member name, a numbered selector or the first
+*       recognized file type.
+*
+*   INPUTS
+*       z - Input archive handle; its optional zipname selects a member.
+*
+*   RESULT
+*       The selected extracted zfile when available; otherwise the original
+*       archive handle.
+*
+*   NOTES
+*       Disk-image member names may be sent to the disk history list.
+*
+****************************************************************************
+*
+*/
 
 static struct zfile *unzip (struct zfile *z)
 {
@@ -462,6 +748,29 @@ static struct zfile *unzip (struct zfile *z)
     return z;
 }
 
+/****i* januae-zfile/zuncompress *******************************************
+*
+*   NAME
+*       zuncompress() -- Dispatch automatic compressed-file handling.
+*
+*   SYNOPSIS
+*       static struct zfile *zuncompress (struct zfile *z);
+*
+*   FUNCTION
+*       Inspect recognized filename extensions and, for other extensions,
+*       initial magic bytes to select ZIP, gzip, DMS or LHA processing.
+*
+*   INPUTS
+*       z - Source zfile opened for inspection.
+*
+*   RESULT
+*       The resulting zfile handle; handlers may return the original handle
+*       unchanged.
+*
+****************************************************************************
+*
+*/
+
 static struct zfile *zuncompress (struct zfile *z)
 {
     char *name = z->name;
@@ -497,6 +806,33 @@ static struct zfile *zuncompress (struct zfile *z)
     return z;
 }
 
+/****i* januae-zfile/openzip ***********************************************
+*
+*   NAME
+*       openzip() -- Open a ZIP container named within a path.
+*
+*   SYNOPSIS
+*       static FILE *openzip (char *name, char *zippath);
+*
+*   FUNCTION
+*       Inspect path separators for a preceding .zip component and open that
+*       container for reading when found.
+*
+*   INPUTS
+*       name - Mutable path inspected for an embedded ZIP filename; zippath
+*       - Optional output buffer for the path within the archive.
+*
+*   RESULT
+*       An open standard FILE handle for the ZIP container, or NULL.
+*
+*   NOTES
+*       The routine temporarily terminates the candidate container prefix
+*       while probing.
+*
+****************************************************************************
+*
+*/
+
 static FILE *openzip (char *name, char *zippath)
 {
     int i;
@@ -526,6 +862,32 @@ static FILE *openzip (char *name, char *zippath)
 
 #ifdef SINGLEFILE
 extern uae_u8 singlefile_data[];
+
+/****i* januae-zfile/zfile_opensinglefile **********************************
+*
+*   NAME
+*       zfile_opensinglefile() -- Resolve an embedded single-file payload.
+*
+*   SYNOPSIS
+*       static struct zfile *zfile_opensinglefile (struct zfile *l);
+*
+*   FUNCTION
+*       Search the compiled-in singlefile_data index for the requested
+*       basename and bind the matching payload to the supplied memory-backed
+*       zfile.
+*
+*   INPUTS
+*       l - zfile whose name identifies the embedded payload.
+*
+*   RESULT
+*       The supplied zfile when found; otherwise NULL.
+*
+*   NOTES
+*       Compiled only when SINGLEFILE is defined.
+*
+****************************************************************************
+*
+*/
 
 static struct zfile *zfile_opensinglefile (struct zfile *l)
 {
@@ -564,6 +926,33 @@ static struct zfile *zfile_opensinglefile (struct zfile *l)
 /*
  * fopen() for a compressed file
  */
+/****i* januae-zfile/zfile_fopen *******************************************
+*
+*   NAME
+*       zfile_fopen() -- Open a file with optional archive-member expansion.
+*
+*   SYNOPSIS
+*       struct zfile *zfile_fopen (const char *name, const char *mode);
+*
+*   FUNCTION
+*       Allocate a tracked zfile, attempt to open an embedded ZIP container
+*       or ordinary file, and pass the opened handle to the automatic
+*       decompression dispatcher.
+*
+*   INPUTS
+*       name - File path, optionally naming an archive member; mode -
+*       Standard file opening mode.
+*
+*   RESULT
+*       An open zfile handle, or NULL when opening fails.
+*
+*   NOTES
+*       Embedded ZIP members are accepted only when mode is rb.
+*
+****************************************************************************
+*
+*/
+
 struct zfile *zfile_fopen (const char *name, const char *mode)
 {
     struct zfile *l;
@@ -599,6 +988,28 @@ struct zfile *zfile_fopen (const char *name, const char *mode)
     return l;
 }
 
+/****i* januae-zfile/zfile_exists ******************************************
+*
+*   NAME
+*       zfile_exists() -- Test file or ZIP-container path availability.
+*
+*   SYNOPSIS
+*       int zfile_exists (const char *name);
+*
+*   FUNCTION
+*       Try to open a named ZIP container prefix or the ordinary path in
+*       read-binary mode, then close the probe handle.
+*
+*   INPUTS
+*       name - Path to test.
+*
+*   RESULT
+*       One if a container or ordinary file can be opened; zero otherwise.
+*
+****************************************************************************
+*
+*/
+
 int zfile_exists (const char *name)
 {
     char fname[2000];
@@ -614,10 +1025,55 @@ int zfile_exists (const char *name)
     return 1;
 }
 
+/****i* januae-zfile/zfile_iscompressed ************************************
+*
+*   NAME
+*       zfile_iscompressed() -- Identify a memory-backed zfile.
+*
+*   SYNOPSIS
+*       int zfile_iscompressed (struct zfile *z);
+*
+*   FUNCTION
+*       Check whether the handle stores file contents in its data buffer
+*       rather than through a standard FILE stream.
+*
+*   INPUTS
+*       z - Open zfile to inspect.
+*
+*   RESULT
+*       One for an in-memory handle; zero for a FILE-backed handle.
+*
+****************************************************************************
+*
+*/
+
 int zfile_iscompressed (struct zfile *z)
 {
     return z->data ? 1 : 0;
 }
+
+/****i* januae-zfile/zfile_fopen_empty *************************************
+*
+*   NAME
+*       zfile_fopen_empty() -- Allocate a zero-filled in-memory zfile.
+*
+*   SYNOPSIS
+*       struct zfile *zfile_fopen_empty (const char *name, int size);
+*
+*   FUNCTION
+*       Create a tracked zfile with a copy of the supplied name and a
+*       zero-initialized memory buffer of the requested size.
+*
+*   INPUTS
+*       name - Logical name for the buffer; size - Requested buffer size in
+*       bytes.
+*
+*   RESULT
+*       A newly created zfile handle with memory-backed storage.
+*
+****************************************************************************
+*
+*/
 
 struct zfile *zfile_fopen_empty (const char *name, int size)
 {
@@ -630,12 +1086,62 @@ struct zfile *zfile_fopen_empty (const char *name, int size)
     return l;
 }
 
+/****i* januae-zfile/zfile_ftell *******************************************
+*
+*   NAME
+*       zfile_ftell() -- Report the current zfile position.
+*
+*   SYNOPSIS
+*       long zfile_ftell (struct zfile *z);
+*
+*   FUNCTION
+*       Return the internal offset for a memory-backed zfile or delegate to
+*       ftell for an ordinary file.
+*
+*   INPUTS
+*       z - Open zfile.
+*
+*   RESULT
+*       Current memory offset, or the result of ftell on the backing file.
+*
+****************************************************************************
+*
+*/
+
 long zfile_ftell (struct zfile *z)
 {
     if (z->data)
 	return z->seek;
     return ftell (z->f);
 }
+
+/****i* januae-zfile/zfile_fseek *******************************************
+*
+*   NAME
+*       zfile_fseek() -- Move the current zfile position.
+*
+*   SYNOPSIS
+*       int zfile_fseek (struct zfile *z, long offset, int mode);
+*
+*   FUNCTION
+*       Update and clamp the memory offset for SEEK_SET, SEEK_CUR or
+*       SEEK_END; for a file-backed handle, delegate to fseek.
+*
+*   INPUTS
+*       z - Open zfile; offset - Requested displacement; mode - SEEK_*
+*       origin selector.
+*
+*   RESULT
+*       For an in-memory handle, the prior offset; for a file-backed handle,
+*       the fseek status.
+*
+*   NOTES
+*       The in-memory SEEK_END calculation subtracts offset from the buffer
+*       size.
+*
+****************************************************************************
+*
+*/
 
 int zfile_fseek (struct zfile *z, long offset, int mode)
 {
@@ -659,6 +1165,30 @@ int zfile_fseek (struct zfile *z, long offset, int mode)
     return fseek (z->f, offset, mode);
 }
 
+/****i* januae-zfile/zfile_fread *******************************************
+*
+*   NAME
+*       zfile_fread() -- Read bytes or records from a zfile.
+*
+*   SYNOPSIS
+*       size_t zfile_fread (void *b, size_t l1, size_t l2, struct zfile *z);
+*
+*   FUNCTION
+*       Copy up to the remaining in-memory bytes and advance the memory
+*       offset, or delegate the read to fread for a standard file.
+*
+*   INPUTS
+*       b - Destination buffer; l1 - Record size; l2 - Record count; z -
+*       Source zfile.
+*
+*   RESULT
+*       For memory storage, the number of bytes copied; for file storage,
+*       the number of complete records read.
+*
+****************************************************************************
+*
+*/
+
 size_t zfile_fread  (void *b, size_t l1, size_t l2, struct zfile *z)
 {
     long len = l1 * l2;
@@ -672,6 +1202,31 @@ size_t zfile_fread  (void *b, size_t l1, size_t l2, struct zfile *z)
     return fread (b, l1, l2, z->f);
 }
 
+/****i* januae-zfile/zfile_fwrite ******************************************
+*
+*   NAME
+*       zfile_fwrite() -- Write bytes or records to a zfile.
+*
+*   SYNOPSIS
+*       size_t zfile_fwrite (const void *b, size_t l1, size_t l2, struct
+*       zfile *z);
+*
+*   FUNCTION
+*       Copy up to the remaining in-memory capacity and advance the offset,
+*       or delegate to fwrite for a standard file.
+*
+*   INPUTS
+*       b - Source buffer; l1 - Record size; l2 - Record count; z -
+*       Destination zfile.
+*
+*   RESULT
+*       For memory storage, the number of bytes copied; for file storage,
+*       the number of complete records written.
+*
+****************************************************************************
+*
+*/
+
 size_t zfile_fwrite  (const void *b, size_t l1, size_t l2, struct zfile *z)
 {
     long len = l1 * l2;
@@ -684,6 +1239,36 @@ size_t zfile_fwrite  (const void *b, size_t l1, size_t l2, struct zfile *z)
     }
     return fwrite (b, l1, l2, z->f);
 }
+
+/****i* januae-zfile/zfile_zuncompress *************************************
+*
+*   NAME
+*       zfile_zuncompress() -- Attempt zlib stream expansion into caller
+*       memory.
+*
+*   SYNOPSIS
+*       int zfile_zuncompress (void *dst, int dstsize, struct zfile *src,
+*       int srcsize);
+*
+*   FUNCTION
+*       When the non-GTKMUI zlib path is enabled, consume at most the
+*       requested compressed input span and inflate into the supplied output
+*       buffer.
+*
+*   INPUTS
+*       dst - Output buffer; dstsize - Output capacity; src - Compressed
+*       source zfile; srcsize - Compressed input span.
+*
+*   RESULT
+*       Zero in every compiled branch, including after the inflation
+*       attempt.
+*
+*   NOTES
+*       GTKMUI builds do not perform the inflation loop.
+*
+****************************************************************************
+*
+*/
 
 int zfile_zuncompress (void *dst, int dstsize, struct zfile *src, int srcsize)
 {
@@ -720,6 +1305,33 @@ int zfile_zuncompress (void *dst, int dstsize, struct zfile *src, int srcsize)
     return 0;
 }
 
+/****i* januae-zfile/zfile_zcompress ***************************************
+*
+*   NAME
+*       zfile_zcompress() -- Write a zlib-compressed memory region.
+*
+*   SYNOPSIS
+*       int zfile_zcompress (struct zfile *f, void *src, int size);
+*
+*   FUNCTION
+*       When compression is enabled, deflate the supplied buffer in blocks
+*       and write resulting bytes to the target zfile.
+*
+*   INPUTS
+*       f - Destination zfile; src - Source memory region; size - Source
+*       length in bytes.
+*
+*   RESULT
+*       Number of compressed bytes emitted on the active deflate path, or
+*       zero when unavailable or not initialized.
+*
+*   NOTES
+*       GTKMUI builds return zero without compressing.
+*
+****************************************************************************
+*
+*/
+
 int zfile_zcompress (struct zfile *f, void *src, int size)
 {
     int v;
@@ -751,6 +1363,30 @@ int zfile_zcompress (struct zfile *f, void *src, int size)
     return zs.total_out;
 #endif
 }
+
+/****i* januae-zfile/zfile_crc32 *******************************************
+*
+*   NAME
+*       zfile_crc32() -- Compute a zfile checksum.
+*
+*   SYNOPSIS
+*       uae_u32 zfile_crc32 (struct zfile *f);
+*
+*   FUNCTION
+*       Run get_crc32 over the in-memory payload, or read the entire backing
+*       file into a temporary buffer, restore its prior cursor position and
+*       compute the checksum.
+*
+*   INPUTS
+*       f - zfile to checksum; NULL is accepted.
+*
+*   RESULT
+*       CRC-32 of the stored data; zero for NULL input or a failed
+*       temporary-buffer allocation.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 zfile_crc32 (struct zfile *f)
 {
