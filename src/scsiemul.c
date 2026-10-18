@@ -120,10 +120,58 @@ static struct priv_devstruct pdevst[MAX_OPEN_DEVICES];
 
 static uae_sem_t change_sem;
 
+/****i* januae-scsiemul/devinfo ********************************************
+*
+*   NAME
+*       devinfo() -- Query the host device descriptor.
+*
+*   SYNOPSIS
+*       static struct device_info *devinfo (int mode, int unitnum, struct
+*       device_info *di);
+*
+*   FUNCTION
+*       Forward the selected access mode and unit number to the host
+*       command-information interface.
+*
+*   INPUTS
+*       mode - DF_SCSI or DF_IOCTL access mode; unitnum - Host device index;
+*       di - Descriptor to populate.
+*
+*   RESULT
+*       The descriptor pointer returned by sys_command_info.
+*
+****************************************************************************
+*
+*/
+
 static struct device_info *devinfo (int mode, int unitnum, struct device_info *di)
 {
     return sys_command_info (mode, unitnum, di);
 }
+
+/****i* januae-scsiemul/io_log *********************************************
+*
+*   NAME
+*       io_log() -- Trace a guest device I/O request.
+*
+*   SYNOPSIS
+*       static void io_log (const char *msg, uaecptr request);
+*
+*   FUNCTION
+*       When SCSI logging is enabled, read the request command, data
+*       address, lengths, offset and result fields from guest memory and
+*       write one diagnostic record.
+*
+*   INPUTS
+*       msg - Diagnostic operation label; request - Guest address of an I/O
+*       request.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void io_log (const char *msg, uaecptr request)
 {
@@ -133,11 +181,57 @@ static void io_log (const char *msg, uaecptr request)
 	    get_long (request + 32), get_byte (request + 31));
 }
 
+/****i* januae-scsiemul/memcpyha *******************************************
+*
+*   NAME
+*       memcpyha() -- Copy host bytes into guest memory.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void memcpyha (uae_u32 dst, const uae_u8 *src, int
+*       size);
+*
+*   FUNCTION
+*       Write each input byte through the emulated memory access function
+*       while advancing the destination address.
+*
+*   INPUTS
+*       dst - Guest destination address; src - Host source buffer; size -
+*       Number of bytes to transfer.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 STATIC_INLINE void memcpyha (uae_u32 dst, const uae_u8 *src, int size)
 {
     while (size--)
 	put_byte (dst++, *src++);
 }
+
+/****i* januae-scsiemul/getdevstruct ***************************************
+*
+*   NAME
+*       getdevstruct() -- Look up an emulated device unit.
+*
+*   SYNOPSIS
+*       STATIC_INLINE struct devstruct *getdevstruct (int unit);
+*
+*   FUNCTION
+*       Search the device table for a nonnegative logical unit number
+*       matching the registered guest unit.
+*
+*   INPUTS
+*       unit - Guest-visible unit number.
+*
+*   RESULT
+*       A pointer to the matching device record, or NULL if none matches.
+*
+****************************************************************************
+*
+*/
 
 STATIC_INLINE struct devstruct *getdevstruct (int unit)
 {
@@ -148,6 +242,30 @@ STATIC_INLINE struct devstruct *getdevstruct (int unit)
     return 0;
 }
 
+/****i* januae-scsiemul/getpdevstruct **************************************
+*
+*   NAME
+*       getpdevstruct() -- Resolve an opened guest request handle.
+*
+*   SYNOPSIS
+*       static struct priv_devstruct *getpdevstruct (uaecptr request);
+*
+*   FUNCTION
+*       Read the private handle index stored in the guest I/O request and
+*       verify that its slot is in range and in use.
+*
+*   INPUTS
+*       request - Guest address of an I/O request with a private handle
+*       index at offset 24.
+*
+*   RESULT
+*       The matching open-handle record, or NULL when its index or state is
+*       invalid.
+*
+****************************************************************************
+*
+*/
+
 static struct priv_devstruct *getpdevstruct (uaecptr request)
 {
     int i = get_long (request + 24);
@@ -157,6 +275,31 @@ static struct priv_devstruct *getpdevstruct (uaecptr request)
     }
     return &pdevst[i];
 }
+
+/****i* januae-scsiemul/getdevname *****************************************
+*
+*   NAME
+*       getdevname() -- Select an emulated device name.
+*
+*   SYNOPSIS
+*       static const char *getdevname (int type);
+*
+*   FUNCTION
+*       Map the SCSI and disk device identifiers to their registered
+*       device-name strings.
+*
+*   INPUTS
+*       type - UAEDEV_SCSI_ID or UAEDEV_DISK_ID.
+*
+*   RESULT
+*       The corresponding static name string for a recognized type.
+*
+*   NOTES
+*       An unrecognized device type terminates execution through abort.
+*
+****************************************************************************
+*
+*/
 
 static const char *getdevname (int type)
 {
@@ -171,6 +314,29 @@ static const char *getdevname (int type)
 }
 
 static void *dev_thread (void *devs);
+/****i* januae-scsiemul/start_thread ***************************************
+*
+*   NAME
+*       start_thread() -- Start a device request worker.
+*
+*   SYNOPSIS
+*       static int start_thread (struct devstruct *dev);
+*
+*   FUNCTION
+*       Leave an already running worker unchanged; otherwise initialize its
+*       message pipe and startup semaphore, start the worker and wait for
+*       its startup acknowledgement.
+*
+*   INPUTS
+*       dev - Device record owning the request pipe, semaphore and worker.
+*
+*   RESULT
+*       One when the worker reports that it is running; otherwise zero.
+*
+****************************************************************************
+*
+*/
+
 static int start_thread (struct devstruct *dev)
 {
     if (dev->thread_running)
@@ -181,6 +347,30 @@ static int start_thread (struct devstruct *dev)
     uae_sem_wait (&dev->sync_sem);
     return dev->thread_running;
 }
+
+/****i* januae-scsiemul/dev_close_3 ****************************************
+*
+*   NAME
+*       dev_close_3() -- Close the last reference to a device unit.
+*
+*   SYNOPSIS
+*       static void dev_close_3 (struct devstruct *dev, struct
+*       priv_devstruct *pdev);
+*
+*   FUNCTION
+*       Decrement the unit open count; when it reaches zero, close the
+*       selected host transports, release the private handle slot and queue
+*       a worker shutdown request.
+*
+*   INPUTS
+*       dev - Device record; pdev - Associated private open-handle record.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void dev_close_3 (struct devstruct *dev, struct priv_devstruct *pdev)
 {
@@ -195,6 +385,30 @@ static void dev_close_3 (struct devstruct *dev, struct priv_devstruct *pdev)
         write_comm_pipe_u32 (&dev->requests, 0, 1);
     }
 }
+
+/****i* januae-scsiemul/dev_close_2 ****************************************
+*
+*   NAME
+*       dev_close_2() -- Process a guest device close request.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 dev_close_2 (TrapContext *context);
+*
+*   FUNCTION
+*       Resolve the private handle from guest register A1, close the unit,
+*       clear the handle field and decrement the guest device-library open
+*       count.
+*
+*   INPUTS
+*       context - Trap context containing the I/O request in A1 and device
+*       base in A6.
+*
+*   RESULT
+*       Zero on every current path.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 REGPARAM2 dev_close_2 (TrapContext *context)
 {
@@ -215,14 +429,80 @@ static uae_u32 REGPARAM2 dev_close_2 (TrapContext *context)
     return 0;
 }
 
+/****i* januae-scsiemul/dev_close ******************************************
+*
+*   NAME
+*       dev_close() -- Close a guest SCSI device.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 dev_close (TrapContext *context);
+*
+*   FUNCTION
+*       Forward the SCSI device close trap to the common guest close
+*       handler.
+*
+*   INPUTS
+*       context - Device trap context.
+*
+*   RESULT
+*       The status returned by dev_close_2.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 dev_close (TrapContext *context)
 {
     return dev_close_2 (context);
 }
+/****i* januae-scsiemul/diskdev_close **************************************
+*
+*   NAME
+*       diskdev_close() -- Close a guest disk device.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 diskdev_close (TrapContext *context);
+*
+*   FUNCTION
+*       Forward the disk device close trap to the common guest close
+*       handler.
+*
+*   INPUTS
+*       context - Device trap context.
+*
+*   RESULT
+*       The status returned by dev_close_2.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 diskdev_close (TrapContext *context)
 {
     return dev_close_2 (context);
 }
+
+/****i* januae-scsiemul/openfail *******************************************
+*
+*   NAME
+*       openfail() -- Report a failed guest device open.
+*
+*   SYNOPSIS
+*       static int openfail (uaecptr ioreq, int error);
+*
+*   FUNCTION
+*       Clear the guest request device slot by writing minus one at offset
+*       20 and record the selected I/O error byte at offset 31.
+*
+*   INPUTS
+*       ioreq - Guest address of the I/O request; error - Device error code.
+*
+*   RESULT
+*       Minus one, represented in the function return type.
+*
+****************************************************************************
+*
+*/
 
 static int openfail (uaecptr ioreq, int error)
 {
@@ -230,6 +510,36 @@ static int openfail (uaecptr ioreq, int error)
     put_byte (ioreq + 31, error);
     return (uae_u32)-1;
 }
+
+/****i* januae-scsiemul/dev_open_2 *****************************************
+*
+*   NAME
+*       dev_open_2() -- Open a guest SCSI or disk device unit.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 dev_open_2 (TrapContext *context, int
+*       type);
+*
+*   FUNCTION
+*       Resolve the requested unit, select the appropriate host SCSI or
+*       ioctl transport, associate an open-handle record, start the unit
+*       worker and update guest request and device-library fields.
+*
+*   INPUTS
+*       context - Trap registers holding guest request, unit, flags and
+*       device base; type - Emulated SCSI or disk device selector.
+*
+*   RESULT
+*       Zero when the guest request is opened; minus one through openfail
+*       when a checked open condition fails.
+*
+*   NOTES
+*       Subsequent opens of the same unit reuse its existing private handle
+*       record.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 REGPARAM2 dev_open_2 (TrapContext *context, int type)
 {
@@ -282,23 +592,134 @@ static uae_u32 REGPARAM2 dev_open_2 (TrapContext *context, int type)
     return 0;
 }
 
+/****i* januae-scsiemul/dev_open *******************************************
+*
+*   NAME
+*       dev_open() -- Open a guest SCSI unit.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 dev_open (TrapContext *context);
+*
+*   FUNCTION
+*       Dispatch the guest SCSI OpenDevice trap through the shared open
+*       routine.
+*
+*   INPUTS
+*       context - Device trap context.
+*
+*   RESULT
+*       The status returned by dev_open_2.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 dev_open (TrapContext *context)
 {
     return dev_open_2 (context, UAEDEV_SCSI_ID);
 }
+/****i* januae-scsiemul/diskdev_open ***************************************
+*
+*   NAME
+*       diskdev_open() -- Open a guest disk unit.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 diskdev_open (TrapContext *context);
+*
+*   FUNCTION
+*       Dispatch the guest disk OpenDevice trap through the shared open
+*       routine.
+*
+*   INPUTS
+*       context - Device trap context.
+*
+*   RESULT
+*       The status returned by dev_open_2.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 diskdev_open (TrapContext *context)
 {
     return dev_open_2 (context, UAEDEV_DISK_ID);
 }
 
+/****i* januae-scsiemul/dev_expunge ****************************************
+*
+*   NAME
+*       dev_expunge() -- Handle a SCSI device expunge request.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 dev_expunge (TrapContext *context);
+*
+*   FUNCTION
+*       Return without removing the emulated device or reclaiming its
+*       resident structures.
+*
+*   INPUTS
+*       context - Device trap context; unused.
+*
+*   RESULT
+*       Zero.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 dev_expunge (TrapContext *context)
 {
     return 0;
 }
+/****i* januae-scsiemul/diskdev_expunge ************************************
+*
+*   NAME
+*       diskdev_expunge() -- Handle a disk device expunge request.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 diskdev_expunge (TrapContext *context);
+*
+*   FUNCTION
+*       Return without removing the emulated disk device or reclaiming its
+*       resident structures.
+*
+*   INPUTS
+*       context - Device trap context; unused.
+*
+*   RESULT
+*       Zero.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 diskdev_expunge (TrapContext *context)
 {
     return 0;
 }
+
+/****i* januae-scsiemul/is_async_request ***********************************
+*
+*   NAME
+*       is_async_request() -- Test whether an I/O request is registered.
+*
+*   SYNOPSIS
+*       static int is_async_request (struct devstruct *dev, uaecptr
+*       request);
+*
+*   FUNCTION
+*       Search the device asynchronous-request slots for the supplied guest
+*       request address.
+*
+*   INPUTS
+*       dev - Device record; request - Guest I/O request address.
+*
+*   RESULT
+*       One when a slot contains the request; otherwise zero.
+*
+****************************************************************************
+*
+*/
 
 static int is_async_request (struct devstruct *dev, uaecptr request)
 {
@@ -309,6 +730,30 @@ static int is_async_request (struct devstruct *dev, uaecptr request)
     }
     return 0;
 }
+
+/****i* januae-scsiemul/scsi_do_disk_change ********************************
+*
+*   NAME
+*       scsi_do_disk_change() -- Publish media-change notifications.
+*
+*   SYNOPSIS
+*       void scsi_do_disk_change (int device_id, int insert);
+*
+*   FUNCTION
+*       Under the shared change semaphore, increment the change counter for
+*       matching device identifiers and signal registered change-interrupt
+*       callbacks.
+*
+*   INPUTS
+*       device_id - Host device identifier to match; insert - Media-change
+*       indication, not consulted by this routine.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void scsi_do_disk_change (int device_id, int insert)
 {
@@ -329,6 +774,31 @@ void scsi_do_disk_change (int device_id, int insert)
     }
     uae_sem_post (&change_sem);
 }
+
+/****i* januae-scsiemul/add_async_request **********************************
+*
+*   NAME
+*       add_async_request() -- Register an asynchronous I/O request.
+*
+*   SYNOPSIS
+*       static int add_async_request (struct devstruct *dev, uaecptr
+*       request, int type, uae_u32 data);
+*
+*   FUNCTION
+*       Update an existing request slot or fill the first empty slot with a
+*       request address, request category and associated callback data.
+*
+*   INPUTS
+*       dev - Device record; request - Guest I/O request address; type -
+*       Asynchronous request category; data - Associated request data.
+*
+*   RESULT
+*       Zero when updated or inserted; minus one when all request slots are
+*       occupied.
+*
+****************************************************************************
+*
+*/
 
 static int add_async_request (struct devstruct *dev, uaecptr request, int type, uae_u32 data)
 {
@@ -358,6 +828,29 @@ static int add_async_request (struct devstruct *dev, uaecptr request, int type, 
     return -1;
 }
 
+/****i* januae-scsiemul/release_async_request ******************************
+*
+*   NAME
+*       release_async_request() -- Unregister an asynchronous I/O request.
+*
+*   SYNOPSIS
+*       static int release_async_request (struct devstruct *dev, uaecptr
+*       request);
+*
+*   FUNCTION
+*       Find the request slot, clear its address, data and category fields,
+*       and return the previous category.
+*
+*   INPUTS
+*       dev - Device record; request - Guest I/O request address.
+*
+*   RESULT
+*       The removed request category, or minus one when no slot matches.
+*
+****************************************************************************
+*
+*/
+
 static int release_async_request (struct devstruct *dev, uaecptr request)
 {
     int i = 0;
@@ -377,6 +870,34 @@ static int release_async_request (struct devstruct *dev, uaecptr request)
     return -1;
 }
 
+/****i* januae-scsiemul/abort_async ****************************************
+*
+*   NAME
+*       abort_async() -- Remove a pending asynchronous request.
+*
+*   SYNOPSIS
+*       static void abort_async (struct devstruct *dev, uaecptr request, int
+*       errcode, int type);
+*
+*   FUNCTION
+*       Wait while a matching request is marked as processing, then remove
+*       its registered request slot; optionally log the removal.
+*
+*   INPUTS
+*       dev - Device record; request - Guest I/O request address; errcode -
+*       Diagnostic error value; type - Unused request classification.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       This helper only changes the request registry; it does not directly
+*       send a completion message.
+*
+****************************************************************************
+*
+*/
+
 static void abort_async (struct devstruct *dev, uaecptr request, int errcode, int type)
 {
     int i;
@@ -394,6 +915,37 @@ static void abort_async (struct devstruct *dev, uaecptr request, int errcode, in
     if (i >= 0 && log_scsi)
 	write_log ("asyncronous request=%08.8X aborted, error=%d\n", request, errcode);
 }
+
+/****i* januae-scsiemul/command_read ***************************************
+*
+*   NAME
+*       command_read() -- Read sectors into guest memory.
+*
+*   SYNOPSIS
+*       static int command_read (int mode, struct devstruct *dev, uaecptr
+*       data, int offset, int length, uae_u32 *io_actual);
+*
+*   FUNCTION
+*       Translate the byte offset into device sectors, request each sector
+*       through the host command adapter, and copy the requested whole or
+*       partial sectors into guest memory.
+*
+*   INPUTS
+*       mode - Selected transport mode; dev - Device record; data - Guest
+*       destination address; offset - Byte offset on media; length - Number
+*       of requested bytes; io_actual - Output byte count.
+*
+*   RESULT
+*       Zero after copying all requested bytes; error code 20 if the host
+*       sector read returns no buffer.
+*
+*   NOTES
+*       The output byte count is initialized to zero and accumulates bytes
+*       copied before a failure.
+*
+****************************************************************************
+*
+*/
 
 static int command_read (int mode, struct devstruct *dev, uaecptr data, int offset, int length, uae_u32 *io_actual)
 {
@@ -430,6 +982,34 @@ static int command_read (int mode, struct devstruct *dev, uaecptr data, int offs
     }
     return 0;
 }
+
+/****i* januae-scsiemul/dev_do_io ******************************************
+*
+*   NAME
+*       dev_do_io() -- Execute a guest SCSI or disk I/O command.
+*
+*   SYNOPSIS
+*       static int dev_do_io (struct devstruct *dev, uaecptr request);
+*
+*   FUNCTION
+*       Read command and transfer fields from the guest request, dispatch
+*       supported read, status, media-change and direct-SCSI operations,
+*       then write actual length and error code back to guest memory.
+*
+*   INPUTS
+*       dev - Device record; request - Guest I/O request address.
+*
+*   RESULT
+*       One for an accepted persistent change-interrupt request; zero for
+*       synchronous completion and other paths.
+*
+*   NOTES
+*       Write and format commands report write protection; unsupported
+*       commands are assigned the current invalid-command error.
+*
+****************************************************************************
+*
+*/
 
 static int dev_do_io (struct devstruct *dev, uaecptr request)
 {
@@ -507,6 +1087,29 @@ static int dev_do_io (struct devstruct *dev, uaecptr request)
     return async;
 }
 
+/****i* januae-scsiemul/dev_can_quick **************************************
+*
+*   NAME
+*       dev_can_quick() -- Identify commands eligible for immediate
+*       completion.
+*
+*   SYNOPSIS
+*       static int dev_can_quick (uae_u32 command);
+*
+*   FUNCTION
+*       Check whether the command is among the fixed reset, start, stop and
+*       device-status operations marked for IO_QUICK.
+*
+*   INPUTS
+*       command - I/O command identifier.
+*
+*   RESULT
+*       One for a recognized immediate command; otherwise zero.
+*
+****************************************************************************
+*
+*/
+
 static int dev_can_quick (uae_u32 command)
 {
     switch (command)
@@ -523,11 +1126,61 @@ static int dev_can_quick (uae_u32 command)
     return 0;
 }
 
+/****i* januae-scsiemul/dev_canquick ***************************************
+*
+*   NAME
+*       dev_canquick() -- Check a guest request for immediate execution.
+*
+*   SYNOPSIS
+*       static int dev_canquick (struct devstruct *dev, uaecptr request);
+*
+*   FUNCTION
+*       Read the guest command identifier and forward it to the
+*       quick-command classifier.
+*
+*   INPUTS
+*       dev - Device record; unused; request - Guest I/O request address.
+*
+*   RESULT
+*       The quick-command classification returned by dev_can_quick.
+*
+****************************************************************************
+*
+*/
+
 static int dev_canquick (struct devstruct *dev, uaecptr request)
 {
     uae_u32 command = get_word (request + 28);
     return dev_can_quick (command);
 }
+
+/****i* januae-scsiemul/dev_beginio ****************************************
+*
+*   NAME
+*       dev_beginio() -- Dispatch a guest BeginIO request.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 dev_beginio (TrapContext *context);
+*
+*   FUNCTION
+*       Read the request from guest register A1, perform eligible IO_QUICK
+*       commands inline, or clear the quick flag and queue other commands on
+*       the device worker pipe.
+*
+*   INPUTS
+*       context - Trap context with the I/O request address in A1.
+*
+*   RESULT
+*       The guest I/O error byte for immediate or invalid requests; zero
+*       after an asynchronous request is queued.
+*
+*   NOTES
+*       Worker completion is delivered by a reply message unless the command
+*       registers an ongoing asynchronous operation.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 REGPARAM2 dev_beginio (TrapContext *context)
 {
@@ -554,6 +1207,33 @@ static uae_u32 REGPARAM2 dev_beginio (TrapContext *context)
 	return 0;
     }
 }
+
+/****i* januae-scsiemul/dev_thread *****************************************
+*
+*   NAME
+*       dev_thread() -- Process device requests in a worker thread.
+*
+*   SYNOPSIS
+*       static void *dev_thread (void *devs);
+*
+*   FUNCTION
+*       Open thread-local SCSI and ioctl adapters, acknowledge startup,
+*       consume queued guest requests, execute their commands and reply to
+*       completed requests until a zero-address shutdown token arrives.
+*
+*   INPUTS
+*       devs - Pointer to the owning device record.
+*
+*   RESULT
+*       Null pointer, represented as zero on worker termination.
+*
+*   NOTES
+*       The shared change semaphore protects each queued request execution
+*       path.
+*
+****************************************************************************
+*
+*/
 
 static void *dev_thread (void *devs)
 {
@@ -591,6 +1271,30 @@ static void *dev_thread (void *devs)
    return 0;
 }
 
+/****i* januae-scsiemul/dev_init_2 *****************************************
+*
+*   NAME
+*       dev_init_2() -- Initialize a guest device-library base.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 dev_init_2 (TrapContext *context, int
+*       type);
+*
+*   FUNCTION
+*       Read the device base address from guest register D0 and optionally
+*       log the selected device type.
+*
+*   INPUTS
+*       context - Trap context containing D0; type - SCSI or disk device
+*       selector.
+*
+*   RESULT
+*       The original device base address from D0.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 dev_init_2 (TrapContext *context, int type)
 {
     uae_u32 base = m68k_dreg (&context->regs,0);
@@ -599,14 +1303,82 @@ static uae_u32 REGPARAM2 dev_init_2 (TrapContext *context, int type)
     return base;
 }
 
+/****i* januae-scsiemul/dev_init *******************************************
+*
+*   NAME
+*       dev_init() -- Initialize the SCSI device library.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 dev_init (TrapContext *context);
+*
+*   FUNCTION
+*       Forward the SCSI device initialization trap to the shared
+*       initialization routine.
+*
+*   INPUTS
+*       context - Device initialization trap context.
+*
+*   RESULT
+*       The guest device base address returned by dev_init_2.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 dev_init (TrapContext *context)
 {
     return dev_init_2 (context, UAEDEV_SCSI_ID);
 }
+/****i* januae-scsiemul/diskdev_init ***************************************
+*
+*   NAME
+*       diskdev_init() -- Initialize the disk device library.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 diskdev_init (TrapContext *context);
+*
+*   FUNCTION
+*       Forward the disk device initialization trap to the shared
+*       initialization routine.
+*
+*   INPUTS
+*       context - Device initialization trap context.
+*
+*   RESULT
+*       The guest device base address returned by dev_init_2.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 diskdev_init (TrapContext *context)
 {
     return dev_init_2 (context, UAEDEV_DISK_ID);
 }
+
+/****i* januae-scsiemul/dev_abortio ****************************************
+*
+*   NAME
+*       dev_abortio() -- Handle a guest AbortIO request.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 dev_abortio (TrapContext *context);
+*
+*   FUNCTION
+*       Resolve the guest request and unit, place the aborted I/O error
+*       value in guest memory and remove the registered asynchronous
+*       request.
+*
+*   INPUTS
+*       context - Trap context containing the request address in A1.
+*
+*   RESULT
+*       Zero for a resolved request; the guest I/O error byte when its
+*       handle or unit is invalid.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 REGPARAM2 dev_abortio (TrapContext *context)
 {
@@ -635,6 +1407,33 @@ static uae_u32 REGPARAM2 dev_abortio (TrapContext *context)
 /*
  * Shut down SCSI layer
  */
+/****i* januae-scsiemul/dev_exit *******************************************
+*
+*   NAME
+*       dev_exit() -- Release registered device sessions and workers.
+*
+*   SYNOPSIS
+*       static void dev_exit (void);
+*
+*   FUNCTION
+*       For every device record, request shutdown of open workers, wait for
+*       their stop acknowledgement, close host adapters and reinitialize the
+*       record to an unused unit.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The shutdown loop also consults the pending asynchronous-request
+*       slots before closing a unit.
+*
+****************************************************************************
+*
+*/
+
 static void dev_exit (void)
 {
     int i, j;
@@ -663,6 +1462,33 @@ static void dev_exit (void)
 	dev->unitnum = dev->aunit = -1;
     }
 }
+
+/****i* januae-scsiemul/dev_reset ******************************************
+*
+*   NAME
+*       dev_reset() -- Rebuild guest-visible SCSI unit registration.
+*
+*   SYNOPSIS
+*       static void dev_reset (void);
+*
+*   FUNCTION
+*       Initialize the host SCSI adapter, release prior sessions, clear open
+*       handles and rescan host devices; assign guest unit numbers to
+*       optical drives first and other discovered devices afterwards.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Unit identity is recalculated from the device descriptors returned
+*       by the current host command adapter.
+*
+****************************************************************************
+*
+*/
 
 static void dev_reset (void)
 {
@@ -728,6 +1554,30 @@ static uaecptr ROM_diskdev_resname = 0,
     ROM_diskdev_init = 0;
 
 
+/****i* januae-scsiemul/diskdev_startup ************************************
+*
+*   NAME
+*       diskdev_startup() -- Write an emulated disk device Resident
+*       structure.
+*
+*   SYNOPSIS
+*       static uaecptr diskdev_startup (uaecptr resaddr);
+*
+*   FUNCTION
+*       Write the guest Resident match word, pointers, flags, device node
+*       fields and disk-device initialization address at the supplied guest
+*       memory location.
+*
+*   INPUTS
+*       resaddr - Guest destination address for the Resident structure.
+*
+*   RESULT
+*       The first guest address after the 26-byte Resident structure.
+*
+****************************************************************************
+*
+*/
+
 static uaecptr diskdev_startup (uaecptr resaddr)
 {
     /* Build a struct Resident. This will set up and initialize
@@ -745,6 +1595,30 @@ static uaecptr diskdev_startup (uaecptr resaddr)
     resaddr += 0x1A;
     return resaddr;
 }
+
+/****i* januae-scsiemul/scsidev_startup ************************************
+*
+*   NAME
+*       scsidev_startup() -- Write an emulated SCSI device Resident
+*       structure.
+*
+*   SYNOPSIS
+*       uaecptr scsidev_startup (uaecptr resaddr);
+*
+*   FUNCTION
+*       When SCSI support is enabled, write the guest SCSI device Resident
+*       header and initialization pointers at the provided guest address.
+*
+*   INPUTS
+*       resaddr - Guest destination address for the Resident structure.
+*
+*   RESULT
+*       The address following the 26-byte Resident structure when SCSI is
+*       enabled; otherwise the unchanged address.
+*
+****************************************************************************
+*
+*/
 
 uaecptr scsidev_startup (uaecptr resaddr)
 {
@@ -766,6 +1640,33 @@ uaecptr scsidev_startup (uaecptr resaddr)
     return resaddr;
     return diskdev_startup (resaddr);
 }
+
+/****i* januae-scsiemul/diskdev_install ************************************
+*
+*   NAME
+*       diskdev_install() -- Install guest disk device trap vectors.
+*
+*   SYNOPSIS
+*       static void diskdev_install (void);
+*
+*   FUNCTION
+*       Write the emulated disk device name, identification, trap-call
+*       stubs, function table, data table and AutoInit record into the guest
+*       ROM area.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Returns without writing the device structures when SCSI support is
+*       disabled.
+*
+****************************************************************************
+*
+*/
 
 static void diskdev_install (void)
 {
@@ -845,6 +1746,33 @@ static void diskdev_install (void)
     dl (initcode);
 }
 
+
+/****i* januae-scsiemul/scsidev_install ************************************
+*
+*   NAME
+*       scsidev_install() -- Install guest SCSI and disk device trap
+*       vectors.
+*
+*   SYNOPSIS
+*       void scsidev_install (void);
+*
+*   FUNCTION
+*       Write the emulated SCSI device trap stubs and AutoInit tables into
+*       the guest ROM area, then invoke diskdev_install for the disk-device
+*       companion.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Returns without installation when SCSI support is disabled.
+*
+****************************************************************************
+*
+*/
 
 void scsidev_install (void)
 {
@@ -926,6 +1854,29 @@ void scsidev_install (void)
     diskdev_install ();
 }
 
+/****i* januae-scsiemul/scsidev_start_threads ******************************
+*
+*   NAME
+*       scsidev_start_threads() -- Initialize SCSI change-notification
+*       synchronization.
+*
+*   SYNOPSIS
+*       void scsidev_start_threads (void);
+*
+*   FUNCTION
+*       Initialize the semaphore protecting shared SCSI change state when
+*       SCSI support is enabled.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void scsidev_start_threads (void)
 {
     if (!currprefs.scsi) /* quite useless.. */
@@ -935,12 +1886,56 @@ void scsidev_start_threads (void)
     uae_sem_init (&change_sem, 0, 1);
 }
 
+/****i* januae-scsiemul/scsidev_exit ***************************************
+*
+*   NAME
+*       scsidev_exit() -- Shut down emulated SCSI device state.
+*
+*   SYNOPSIS
+*       void scsidev_exit (void);
+*
+*   FUNCTION
+*       Release active SCSI device records and workers when SCSI support is
+*       enabled.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void scsidev_exit (void)
 {
     if (!currprefs.scsi)
 	return;
     dev_exit ();
 }
+
+/****i* januae-scsiemul/scsidev_reset **************************************
+*
+*   NAME
+*       scsidev_reset() -- Rescan and reset SCSI device state.
+*
+*   SYNOPSIS
+*       void scsidev_reset (void);
+*
+*   FUNCTION
+*       Rebuild SCSI device registration through dev_reset when SCSI support
+*       is enabled.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void scsidev_reset (void)
 {
