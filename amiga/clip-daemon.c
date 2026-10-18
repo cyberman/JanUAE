@@ -80,6 +80,28 @@ struct ClipHookMsg ClipHookMsg = {0, CMD_UPDATE, 0};
 
 struct IOClipReq *ior;
 
+/****i* januae/open_libs ***************************************************
+*
+*   NAME
+*       open_libs() -- Report clipboard daemon library initialization.
+*
+*   SYNOPSIS
+*       BOOL open_libs();
+*
+*   FUNCTION
+*       Return TRUE. The previous intuition.library opening code is disabled
+*       by a preprocessor condition.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       TRUE.
+*
+****************************************************************************
+*
+*/
+
 BOOL open_libs() {
 #if 0
    if (!(IntuitionBase=(struct IntuitionBase *) OpenLibrary("intuition.library",39))) {
@@ -93,6 +115,29 @@ BOOL open_libs() {
 /****************************************************
  * open clipboard unit 
  ****************************************************/
+/****i* januae/open_device *************************************************
+*
+*   NAME
+*       open_device() -- Open a clipboard device unit.
+*
+*   SYNOPSIS
+*       static struct IOClipReq *open_device(ULONG unit);
+*
+*   FUNCTION
+*       Create a message port and extended I/O request, then open
+*       clipboard.device at the specified unit. Release partially created
+*       resources if opening fails.
+*
+*   INPUTS
+*       unit - Clipboard device unit number.
+*
+*   RESULT
+*       An open IOClipReq pointer on success; NULL on failure.
+*
+****************************************************************************
+*
+*/
+
 static struct IOClipReq *open_device(ULONG unit) {
   struct MsgPort *mp;
   struct IORequest *ior;
@@ -118,6 +163,32 @@ static struct IOClipReq *open_device(ULONG unit) {
  *
  * tell clipboard.device, we are done
  ****************************************************/
+/****i* januae/cb_read_done ************************************************
+*
+*   NAME
+*       cb_read_done() -- Complete a clipboard read transaction.
+*
+*   SYNOPSIS
+*       void cb_read_done(struct IOClipReq *ior);
+*
+*   FUNCTION
+*       Issue further CMD_READ requests with a local buffer until no data
+*       remains or DoIO reports an error.
+*
+*   INPUTS
+*       ior - Open clipboard I/O request with a pending read transaction.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       This function belongs to the guest clipboard daemon and is
+*       independent of the host-side function of the same name.
+*
+****************************************************************************
+*
+*/
+
 void cb_read_done(struct IOClipReq *ior) {
   char buffer[256];
 
@@ -148,6 +219,34 @@ void cb_read_done(struct IOClipReq *ior) {
  * if result is TRUE, we need to run (share clipboard)
  * if result is FALSE, we need to sleep 
  ****************************************************/
+/****i* januae/setup *******************************************************
+*
+*   NAME
+*       setup() -- Register clipboard synchronization with the host.
+*
+*   SYNOPSIS
+*       int setup(struct Task *task, ULONG to_aros_signal, ULONG
+*       to_amigaos_signal, ULONG stop);
+*
+*   FUNCTION
+*       Write the task and two signal masks into the guest setup buffer,
+*       request AD_CLIP_SETUP, and return the status written by the host.
+*
+*   INPUTS
+*       task - Clipboard daemon task. to_aros_signal - Host-bound change
+*       notification. to_amigaos_signal - Guest-bound change notification.
+*       stop - 0 to query, 1 to disable, or 2 to enable synchronization.
+*
+*   RESULT
+*       The host-written status from command_mem[12].
+*
+*   BUGS
+*       The AllocVec result is dereferenced without a NULL check.
+*
+****************************************************************************
+*
+*/
+
 int setup(struct Task *task, ULONG to_aros_signal, ULONG to_amigaos_signal, ULONG stop) {
   ULONG *command_mem;
   ULONG  state;
@@ -182,6 +281,32 @@ int setup(struct Task *task, ULONG to_aros_signal, ULONG to_amigaos_signal, ULON
  *
  * get the length of the AROS clipboard
  **************************************************************/
+/****i* januae/get_aros_len ************************************************
+*
+*   NAME
+*       get_aros_len() -- Query the AROS clipboard length.
+*
+*   SYNOPSIS
+*       static ULONG get_aros_len();
+*
+*   FUNCTION
+*       Request JD_CLIP_GET_AROS_LEN and read the first field of the
+*       returned guest parameter buffer.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       The length supplied by the host dispatcher.
+*
+*   BUGS
+*       Allocation of the command buffer is not checked before accessing the
+*       returned length.
+*
+****************************************************************************
+*
+*/
+
 static ULONG get_aros_len() {
   ULONG  *command_mem;
   LONG   len;
@@ -207,6 +332,32 @@ static ULONG get_aros_len() {
  * copy amigaOS clipboard data to target buffer, which has
  * a maximum size of len
  **************************************************************/
+/****i* januae/copy_clip_from_aros *****************************************
+*
+*   NAME
+*       copy_clip_from_aros() -- Copy host clipboard data into guest memory.
+*
+*   SYNOPSIS
+*       static void copy_clip_from_aros(UBYTE *data, ULONG size);
+*
+*   FUNCTION
+*       Send the destination pointer and maximum byte count through
+*       JD_CLIP_COPY_FROM_AROS.
+*
+*   INPUTS
+*       data - Writable guest destination buffer. size - Maximum number of
+*       bytes requested.
+*
+*   RESULT
+*       No value is returned; no copy-success status is exposed.
+*
+*   BUGS
+*       The command-buffer allocation and trap result are not checked.
+*
+****************************************************************************
+*
+*/
+
 static void copy_clip_from_aros(UBYTE *data, ULONG size) {
   ULONG *command_mem;
 
@@ -236,6 +387,31 @@ static void copy_clip_from_aros(UBYTE *data, ULONG size) {
  * send amigaOS clipboard data pointer and clipboard size 
  * to UAE and invoke copy_clipboard_to_aros_real
  **************************************************************/
+/****i* januae/copy_clip_to_aros *******************************************
+*
+*   NAME
+*       copy_clip_to_aros() -- Submit guest clipboard content to the host.
+*
+*   SYNOPSIS
+*       static void copy_clip_to_aros(UBYTE *data, ULONG size);
+*
+*   FUNCTION
+*       Send a guest-data address and byte count through
+*       JD_CLIP_COPY_TO_AROS.
+*
+*   INPUTS
+*       data - Guest source buffer. size - Data length in bytes.
+*
+*   RESULT
+*       No value is returned; the host copy result is not reported.
+*
+*   BUGS
+*       The command-buffer allocation and trap result are not checked.
+*
+****************************************************************************
+*
+*/
+
 static void copy_clip_to_aros(UBYTE *data, ULONG size) {
   ULONG *command_mem;
 
@@ -265,6 +441,33 @@ static void copy_clip_to_aros(UBYTE *data, ULONG size) {
 /***************************************************
  * handle_to_aros_signal()
  ***************************************************/
+/****i* januae/handle_to_aros_signal ***************************************
+*
+*   NAME
+*       handle_to_aros_signal() -- Transfer clipboard content to AROS.
+*
+*   SYNOPSIS
+*       static void handle_to_aros_signal();
+*
+*   FUNCTION
+*       Read the guest clipboard length and content through
+*       clipboard.device, then invoke copy_clip_to_aros with the captured
+*       buffer.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   BUGS
+*       Read errors and allocation failure are not checked before the buffer
+*       is used.
+*
+****************************************************************************
+*
+*/
+
 static void handle_to_aros_signal() {
   UBYTE       *data=NULL;
   ULONG        len;
@@ -308,6 +511,36 @@ static void handle_to_aros_signal() {
 /***************************************************
  * handle_to_amigaos_signal()
  ***************************************************/
+/****i* januae/handle_to_amigaos_signal ************************************
+*
+*   NAME
+*       handle_to_amigaos_signal() -- Transfer clipboard content from AROS.
+*
+*   SYNOPSIS
+*       static void handle_to_amigaos_signal();
+*
+*   FUNCTION
+*       Retrieve the AROS clipboard length, request the payload, and write
+*       it to the guest clipboard with CMD_WRITE followed by CMD_UPDATE.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       A length of -1 is treated as an incompatible clipboard.device
+*       response.
+*
+*   BUGS
+*       An allocated destination buffer is used without a NULL check;
+*       individual DoIO failures do not prevent the update request.
+*
+****************************************************************************
+*
+*/
+
 static void handle_to_amigaos_signal() {
   BOOL         success;
   UBYTE       *data;
@@ -371,6 +604,31 @@ static void handle_to_amigaos_signal() {
  * amigaOS content to the AROS clipboard
  *
  **************************************************************/
+/****i* januae/amiga_changed ***********************************************
+*
+*   NAME
+*       amiga_changed() -- Notify the host of guest clipboard changes.
+*
+*   SYNOPSIS
+*       static void amiga_changed();
+*
+*   FUNCTION
+*       Send JD_AMIGA_CHANGED with a TRUE change indicator through the guest
+*       trap.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   BUGS
+*       The command-buffer allocation and trap result are not checked.
+*
+****************************************************************************
+*
+*/
+
 static void amiga_changed() {
   ULONG *command_mem;
 
@@ -388,6 +646,29 @@ static void amiga_changed() {
   C_LEAVE
 }
 
+
+/****i* januae/runme *******************************************************
+*
+*   NAME
+*       runme() -- Handle clipboard change signals.
+*
+*   SYNOPSIS
+*       static void runme();
+*
+*   FUNCTION
+*       Wait for transfer and clipboard-hook signals, query the host
+*       synchronization state, process enabled transfers, and forward Ctrl-C
+*       and Ctrl-D state requests.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Does not return during normal daemon operation.
+*
+****************************************************************************
+*
+*/
 
 static void runme() {
   ULONG        newsignals;
@@ -449,6 +730,30 @@ static void runme() {
  * ClipChange Hook signals the main loop, that the
  * clipboard content changed
  ***************************************************/
+/****i* januae/ClipChange **************************************************
+*
+*   NAME
+*       ClipChange() -- Signal a guest clipboard change.
+*
+*   SYNOPSIS
+*       ULONG ClipChange(struct Hook *c_hook, VOID *o, struct ClipHookMsg
+*       *msg);
+*
+*   FUNCTION
+*       Signal the clipboard daemon task to process a clipboard change
+*       notification.
+*
+*   INPUTS
+*       c_hook, o, msg - Hook callback arguments; not examined by this
+*       implementation.
+*
+*   RESULT
+*       Zero.
+*
+****************************************************************************
+*
+*/
+
 ULONG ClipChange(struct Hook *c_hook, VOID *o, struct ClipHookMsg *msg) {
 
   C_ENTER
@@ -462,6 +767,34 @@ ULONG ClipChange(struct Hook *c_hook, VOID *o, struct ClipHookMsg *msg) {
   return 0;
 }
 
+
+/****i* januae/main ********************************************************
+*
+*   NAME
+*       main() -- Initialize and run the clipboard daemon.
+*
+*   SYNOPSIS
+*       int main(int argc, char **argv);
+*
+*   FUNCTION
+*       Open clipboard.device unit zero, allocate change and transfer
+*       signals, install the clipboard change hook, register with the host,
+*       and enter the notification loop.
+*
+*   INPUTS
+*       argc - Argument count. argv - Argument vector; not used for
+*       configuration.
+*
+*   RESULT
+*       Terminates on selected startup errors; otherwise runs indefinitely.
+*
+*   BUGS
+*       Failed startup does not consistently release resources already
+*       acquired.
+*
+****************************************************************************
+*
+*/
 
 int main (int argc, char **argv) {
 

@@ -78,6 +78,28 @@ ULONG        launchsignal;
 
 struct Task *mytask = NULL;
 
+/****i* januae/open_libs ***************************************************
+*
+*   NAME
+*       open_libs() -- Open launch daemon dependencies.
+*
+*   SYNOPSIS
+*       BOOL open_libs();
+*
+*   FUNCTION
+*       Open dos.library; on AmigaOS also open wbstart.library. The AROS
+*       branch does not request wbstart.library.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       TRUE when required libraries open; FALSE if a required open fails.
+*
+****************************************************************************
+*
+*/
+
 BOOL open_libs() {
 
    if(!(DOSBase=OpenLibrary((CONST_STRPTR) "dos.library",36L))) {
@@ -106,6 +128,37 @@ BOOL open_libs() {
  * if result is TRUE, we need to run 
  * if result is FALSE, we need to sleep 
  ****************************************************/
+/****i* januae/setup *******************************************************
+*
+*   NAME
+*       setup() -- Register the launch daemon with the host.
+*
+*   SYNOPSIS
+*       int setup(struct Task *task, ULONG launch_signal, ULONG stop);
+*
+*   FUNCTION
+*       Populate the setup parameter buffer, call AD_LAUNCH_SETUP, and read
+*       the host-written status field.
+*
+*   INPUTS
+*       task - Launch daemon task. launch_signal - Signal mask for queued
+*       launch requests. stop - Requested daemon state.
+*
+*   RESULT
+*       The value written to command_mem[12] by the host.
+*
+*   NOTES
+*       The current host implementation derives this value from the
+*       clipboard preference, not an independent launch state.
+*
+*   BUGS
+*       The command buffer is dereferenced without checking AllocVec for
+*       failure.
+*
+****************************************************************************
+*
+*/
+
 int setup(struct Task *task, ULONG launch_signal, ULONG stop) {
   ULONG *command_mem;
   ULONG  state;
@@ -141,6 +194,34 @@ int setup(struct Task *task, ULONG launch_signal, ULONG stop) {
  *
  * args can be NULL, if there are no parameters
  ****************************************************************/
+/****i* januae/start_it ****************************************************
+*
+*   NAME
+*       start_it() -- Start a guest Workbench program.
+*
+*   SYNOPSIS
+*       static LONG start_it(char *path, char *filename, struct WBArg
+*       *args);
+*
+*   FUNCTION
+*       On AmigaOS, pass the directory, file name, and optional Workbench
+*       arguments to WBStartTags. The AROS branch currently returns zero
+*       without invoking a launcher.
+*
+*   INPUTS
+*       path - Program directory. filename - Program name. args - Optional
+*       terminated Workbench argument array.
+*
+*   RESULT
+*       WBStartTags result on AmigaOS; zero on AROS.
+*
+*   BUGS
+*       The AROS implementation reports zero without starting the program.
+*
+****************************************************************************
+*
+*/
+
 static LONG start_it(char *path, char *filename, struct WBArg *args) {
   LONG rc;
   ULONG nr_args;
@@ -197,6 +278,31 @@ struct WBArg {
 */
 
 
+/****i* januae/str_dup_pool ************************************************
+*
+*   NAME
+*       str_dup_pool() -- Duplicate a string in a memory pool.
+*
+*   SYNOPSIS
+*       static BYTE *str_dup_pool(void *pool, char *in);
+*
+*   FUNCTION
+*       Allocate strlen(in)+1 bytes from the supplied pool and copy the
+*       terminated source string.
+*
+*   INPUTS
+*       pool - AllocPooled memory pool. in - NUL-terminated source string.
+*
+*   RESULT
+*       Pointer to the copied string on successful allocation.
+*
+*   BUGS
+*       AllocPooled is not checked before strcpy.
+*
+****************************************************************************
+*
+*/
+
 static BYTE *str_dup_pool(void *pool, char *in) {
   char *result;
 
@@ -207,6 +313,28 @@ static BYTE *str_dup_pool(void *pool, char *in) {
 
   return (BYTE *) result;
 }
+
+/****i* januae/get_filename ************************************************
+*
+*   NAME
+*       get_filename() -- Return the file name component of a path.
+*
+*   SYNOPSIS
+*       static char *get_filename(char *in);
+*
+*   FUNCTION
+*       Use PathPart to locate the path separator and return a pointer to
+*       the following character.
+*
+*   INPUTS
+*       in - NUL-terminated path.
+*
+*   RESULT
+*       Pointer into the supplied path buffer; no allocation is performed.
+*
+****************************************************************************
+*
+*/
 
 static char *get_filename(char *in) {
   STRPTR sep;
@@ -221,6 +349,35 @@ static char *get_filename(char *in) {
 }
 
 /* WARNING: this destroys in !!*/
+/****i* januae/get_path ****************************************************
+*
+*   NAME
+*       get_path() -- Copy the directory component of a path.
+*
+*   SYNOPSIS
+*       static char *get_path(void *pool, char *in);
+*
+*   FUNCTION
+*       Temporarily terminate the input string at PathPart, duplicate the
+*       directory portion in the supplied pool, and restore the input byte.
+*
+*   INPUTS
+*       pool - AllocPooled memory pool. in - Mutable NUL-terminated path.
+*
+*   RESULT
+*       Pointer to a pooled copy of the directory component on successful
+*       allocation.
+*
+*   NOTES
+*       The input buffer is modified temporarily and must be writable.
+*
+*   BUGS
+*       The pool allocation result is not checked before strcpy.
+*
+****************************************************************************
+*
+*/
+
 static char *get_path(void *pool, char *in) {
   char *sep;
   char *res;
@@ -260,6 +417,37 @@ static char *get_path(void *pool, char *in) {
  * offset 1: string 1
  * offset 2: string 2
  */
+/****i* januae/create_wbargs ***********************************************
+*
+*   NAME
+*       create_wbargs() -- Construct Workbench launch arguments.
+*
+*   SYNOPSIS
+*       static struct WBArg *create_wbargs(void *pool, ULONG *in);
+*
+*   FUNCTION
+*       Interpret the offset table beginning at in[3], resolve each path,
+*       lock its directory, and collect successful entries into a terminated
+*       pooled WBArg array.
+*
+*   INPUTS
+*       pool - Memory pool for the array and copied names. in - Launch
+*       message containing a zero-terminated string-offset table.
+*
+*   RESULT
+*       A WBArg array, or NULL when the offset list is empty.
+*
+*   NOTES
+*       Entries whose directory cannot be locked are omitted.
+*
+*   BUGS
+*       Acquired directory locks have no corresponding release in the launch
+*       handler.
+*
+****************************************************************************
+*
+*/
+
 static struct WBArg *create_wbargs(void *pool, ULONG *in) {
   ULONG nr;
   ULONG i;
@@ -314,6 +502,36 @@ static struct WBArg *create_wbargs(void *pool, ULONG *in) {
 
   return args;
 }
+
+/****i* januae/handle_launch_signal ****************************************
+*
+*   NAME
+*       handle_launch_signal() -- Consume queued host launch requests.
+*
+*   SYNOPSIS
+*       static void handle_launch_signal(void);
+*
+*   FUNCTION
+*       Fetch queued jobs through LD_GET_JOB. For Workbench jobs, decode the
+*       path and argument array and call start_it. For CLI jobs, invoke
+*       SystemTags asynchronously.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The handler stops when the queue response type is zero.
+*
+*   BUGS
+*       Launch completion and errors are not reported through the request
+*       protocol; Workbench directory locks are not released.
+*
+****************************************************************************
+*
+*/
 
 static void handle_launch_signal(void) {
   ULONG *command_mem;
@@ -409,6 +627,33 @@ static void handle_launch_signal(void) {
   C_LEAVE
 }
 
+/****i* januae/runme *******************************************************
+*
+*   NAME
+*       runme() -- Wait for guest launch requests.
+*
+*   SYNOPSIS
+*       static void runme(void);
+*
+*   FUNCTION
+*       Register the launch daemon and process the host launch signal. Break
+*       signals are received but the intended enable/disable operations are
+*       commented out.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Does not return during normal daemon operation.
+*
+*   BUGS
+*       Ctrl-C and Ctrl-D do not currently alter the launch-processing
+*       state.
+*
+****************************************************************************
+*
+*/
+
 static void runme(void) {
   ULONG        newsignals;
   BOOL         done;
@@ -453,6 +698,30 @@ static void runme(void) {
   DebOut("launchd: try to sleep ..\n");
   C_LEAVE
 }
+
+/****i* januae/main ********************************************************
+*
+*   NAME
+*       main() -- Initialize and run the launch daemon.
+*
+*   SYNOPSIS
+*       int main(int argc, char **argv);
+*
+*   FUNCTION
+*       Open required libraries, allocate a launch signal, determine the
+*       current task, and enter the launch-service loop.
+*
+*   INPUTS
+*       argc - Argument count. argv - Argument vector; not used for
+*       configuration.
+*
+*   RESULT
+*       Terminates on library or signal initialization failure; otherwise
+*       runs indefinitely.
+*
+****************************************************************************
+*
+*/
 
 int main (int argc, char **argv) {
 

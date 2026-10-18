@@ -106,6 +106,31 @@ ULONG        intdata[2];
 struct Library *CyberGfxBase;
 #endif
 
+/****i* januae/open_libs ***************************************************
+*
+*   NAME
+*       open_libs() -- Initialize guest-side library dependencies.
+*
+*   SYNOPSIS
+*       BOOL open_libs();
+*
+*   FUNCTION
+*       On AmigaOS, open intuition.library, utility.library, and
+*       layers.library; attempt cybergraphics.library. The AROS branch
+*       performs no explicit library opens.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       TRUE on the AROS path; on AmigaOS, FALSE if a required library
+*       cannot be opened. The optional CyberGraphX open does not affect the
+*       result.
+*
+****************************************************************************
+*
+*/
+
 BOOL open_libs() {
   ENTER
 #ifndef __AROS__
@@ -146,6 +171,38 @@ BOOL open_libs() {
 UBYTE buffer[MAXPUBSCREENNAME];
 
 ULONG *setup_command_mem=NULL;
+
+/****i* januae/setup *******************************************************
+*
+*   NAME
+*       setup() -- Register the window daemon with the host.
+*
+*   SYNOPSIS
+*       int setup(struct Task *task, ULONG signal, ULONG stop);
+*
+*   FUNCTION
+*       Populate the setup buffer with the task, signal, requested coherence
+*       mode, and guest-system identifier. Invoke AD_SETUP and return the
+*       coherence state written back by the host.
+*
+*   INPUTS
+*       task - Guest daemon task. signal - Its signal mask. stop - 0 to
+*       query, 1 to disable coherence, or 2 to enable it.
+*
+*   RESULT
+*       The host-written coherence state from setup_command_mem[8].
+*
+*   NOTES
+*       The AROS branch passes guest-system identifier 1; the AmigaOS branch
+*       currently uses stop in that field.
+*
+*   BUGS
+*       The allocation result for the persistent setup buffer is not checked
+*       before dereferencing.
+*
+****************************************************************************
+*
+*/
 
 int setup(struct Task *task, ULONG signal, ULONG stop) {
 
@@ -228,6 +285,33 @@ AROS_UFP4(ULONG, vert_int,
  *
  * So we install our own INTB_VERTB.
  */
+/****i* januae/setup_vert_int **********************************************
+*
+*   NAME
+*       setup_vert_int() -- Install the vertical-blank signal server.
+*
+*   SYNOPSIS
+*       static int setup_vert_int(struct Task *task, ULONG signal);
+*
+*   FUNCTION
+*       Allocate an interrupt structure, associate the guest task and signal
+*       mask with it, and register vert_int as an INTB_VERTB server.
+*
+*   INPUTS
+*       task - Task signalled by the interrupt handler. signal - Signal mask
+*       to deliver.
+*
+*   RESULT
+*       TRUE after calling AddIntServer; FALSE if the interrupt structure
+*       cannot be allocated.
+*
+*   NOTES
+*       No removal path is invoked by this function.
+*
+****************************************************************************
+*
+*/
+
 static int setup_vert_int(struct Task *task, ULONG signal) {
   struct Interrupt *vbint;
 
@@ -261,6 +345,29 @@ static int setup_vert_int(struct Task *task, ULONG signal) {
 /***************************************
  * enable/disable uae main window
  ***************************************/
+/****i* januae/switch_uae_window *******************************************
+*
+*   NAME
+*       switch_uae_window() -- Request a guest-window switch.
+*
+*   SYNOPSIS
+*       void switch_uae_window();
+*
+*   FUNCTION
+*       Send AD_GET_JOB_SWITCH_UAE_WINDOW with operation selector zero when
+*       the shared command buffer can be allocated.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned. The trap is skipped if buffer allocation
+*       fails.
+*
+****************************************************************************
+*
+*/
+
 void switch_uae_window() {
 
   ENTER;
@@ -279,6 +386,29 @@ void switch_uae_window() {
   LEAVE
 }
 
+/****i* januae/activate_uae_window *****************************************
+*
+*   NAME
+*       activate_uae_window() -- Request guest-window activation.
+*
+*   SYNOPSIS
+*       void activate_uae_window(int status);
+*
+*   FUNCTION
+*       Send AD_GET_JOB_SWITCH_UAE_WINDOW with operation selector one and
+*       the supplied activation state.
+*
+*   INPUTS
+*       status - Requested guest-window activation state.
+*
+*   RESULT
+*       No value is returned. The trap is skipped if buffer allocation
+*       fails.
+*
+****************************************************************************
+*
+*/
+
 void activate_uae_window(int status) {
 
   ENTER
@@ -295,6 +425,34 @@ void activate_uae_window(int status) {
 
   LEAVE
 }
+
+/****i* januae/runme *******************************************************
+*
+*   NAME
+*       runme() -- Service the window daemon event loop.
+*
+*   SYNOPSIS
+*       static void runme();
+*
+*   FUNCTION
+*       Wait for the host signal, break signals, and AROS screen
+*       notifications. Synchronize guest windows, screens, pointer state,
+*       and queued messages while coherence is enabled. Ctrl-C disables and
+*       Ctrl-D re-enables coherence.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Does not return during the normal event loop.
+*
+*   NOTES
+*       On AROS, pending ScreenNotifyMessage instances are handled and
+*       replied to.
+*
+****************************************************************************
+*
+*/
 
 static void runme() {
   ULONG        newsignals;
@@ -424,6 +582,39 @@ static void runme() {
 
 /* error handling still sux (free resources TODO)*/
 
+/****i* januae/main ********************************************************
+*
+*   NAME
+*       main() -- Initialize and run the window daemon.
+*
+*   SYNOPSIS
+*       int main(int argc, char **argv);
+*
+*   FUNCTION
+*       Initialize libraries, the public-screen interaction, signals,
+*       synchronization services, host setup, function patches, and
+*       vertical-blank notification. Enter the daemon event loop.
+*
+*   INPUTS
+*       argc - Argument count. argv - Argument vector; neither is used for
+*       configuration.
+*
+*   RESULT
+*       Terminates the process on certain initialization failures; otherwise
+*       does not return from the normal service loop.
+*
+*   NOTES
+*       The cleanup sequence following the indefinite loop is unreachable in
+*       normal operation.
+*
+*   BUGS
+*       The return value of setup_vert_int is not checked before the daemon
+*       enters its event loop.
+*
+****************************************************************************
+*
+*/
+
 int main (int argc, char **argv) {
 
   ENTER
@@ -501,6 +692,35 @@ int main (int argc, char **argv) {
 
 /* intdata[0]=(ULONG) task; */
 /* intdata[1]=        signal; */
+
+/****i* januae/vert_int ****************************************************
+*
+*   NAME
+*       vert_int() -- Signal the guest window daemon on vertical blank.
+*
+*   SYNOPSIS
+*       AROS_UFH4(ULONG, vert_int, AROS_UFHA(ULONG, dummy, A0),
+*       AROS_UFHA(ULONG *, intdata, A1), AROS_UFHA(ULONG, dummy2, A5),
+*       AROS_UFHA(struct ExecBase *, SysBase, A6))
+*
+*   FUNCTION
+*       Read the task pointer and signal mask from the interrupt data array
+*       and call Signal. This is the AROS-specific interrupt entry point.
+*
+*   INPUTS
+*       intdata - Two-word array containing the target task and signal mask.
+*       Other arguments are ABI registers defined by AROS_UFH4.
+*
+*   RESULT
+*       Returns zero.
+*
+*   NOTES
+*       The AmigaOS branch supplies a separate assembly entry point with the
+*       same symbol name.
+*
+****************************************************************************
+*
+*/
 
 AROS_UFH4(ULONG, vert_int,
     AROS_UFHA(ULONG, dummy, A0),
