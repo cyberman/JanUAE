@@ -65,6 +65,34 @@ static struct scsidevdata drives[MAX_DRIVES];
 static int total_drives;
 
 
+/****i* januae-blkdev-amiga/open_iocontext *********************************
+*
+*   NAME
+*       open_iocontext() -- Create a task-local SCSI I/O context.
+*
+*   SYNOPSIS
+*       static int open_iocontext (const char *device, int unit, struct
+*       IOContext *ioc);
+*
+*   FUNCTION
+*       Create an Exec message port and standard I/O request, open the
+*       specified device unit and allocate a transfer buffer.
+*
+*   INPUTS
+*       device - Native device name. unit - Device unit. ioc - Output I/O
+*       context.
+*
+*   RESULT
+*       The OpenDevice error code or -1 if earlier setup fails.
+*
+*   NOTES
+*       A successful device open does not independently establish that the
+*       transfer-buffer allocation succeeded.
+*
+****************************************************************************
+*
+*/
+
 static int open_iocontext (const char *device, int unit, struct IOContext *ioc)
 {
     int error = -1;
@@ -99,6 +127,28 @@ static int open_iocontext (const char *device, int unit, struct IOContext *ioc)
     return error;
 }
 
+/****i* januae-blkdev-amiga/close_iocontext ********************************
+*
+*   NAME
+*       close_iocontext() -- Release a SCSI I/O context.
+*
+*   SYNOPSIS
+*       static void close_iocontext (struct IOContext *ioc);
+*
+*   FUNCTION
+*       Free the transfer buffer, close the device and dispose of its I/O
+*       request and message port when present.
+*
+*   INPUTS
+*       ioc - I/O context to release.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void close_iocontext (struct IOContext *ioc)
 {
     if (ioc->scsibuf) {
@@ -117,6 +167,32 @@ static void close_iocontext (struct IOContext *ioc)
 	ioc->msgport = 0;
     }
 }
+
+/****i* januae-blkdev-amiga/get_iocontext **********************************
+*
+*   NAME
+*       get_iocontext() -- Select the caller-owned SCSI context.
+*
+*   SYNOPSIS
+*       static struct IOContext *get_iocontext (int unitnum);
+*
+*   FUNCTION
+*       Select the main or local I/O context for a drive according to the
+*       identity of the current Exec task.
+*
+*   INPUTS
+*       unitnum - Backend drive index.
+*
+*   RESULT
+*       A pointer to the matching I/O context, or NULL for an unrecognized
+*       task.
+*
+*   NOTES
+*       Each device may be accessed through separate task-owned contexts.
+*
+****************************************************************************
+*
+*/
 
 static struct IOContext *get_iocontext (int unitnum)
 {
@@ -137,6 +213,31 @@ static struct IOContext *get_iocontext (int unitnum)
 }
 
 
+/****i* januae-blkdev-amiga/add_device *************************************
+*
+*   NAME
+*       add_device() -- Register a discovered device unit.
+*
+*   SYNOPSIS
+*       static int add_device (const char *device, int unit);
+*
+*   FUNCTION
+*       Append the native device name and unit to the backend drive array
+*       and record the registering task as its main owner.
+*
+*   INPUTS
+*       device - Device name. unit - Device unit.
+*
+*   RESULT
+*       1 if a slot is available and registration proceeds; otherwise 0.
+*
+*   NOTES
+*       The registry is bounded by MAX_DRIVES (16).
+*
+****************************************************************************
+*
+*/
+
 static int add_device (const char *device, int unit)
 {
    int result = 0;
@@ -155,6 +256,34 @@ static int add_device (const char *device, int unit)
     }
     return result;
 }
+
+/****i* januae-blkdev-amiga/execscsicmd ************************************
+*
+*   NAME
+*       execscsicmd() -- Execute a native SCSI command.
+*
+*   SYNOPSIS
+*       static int execscsicmd (struct IOContext *ioc, const uae_u8
+*       *cmd_data, int cmd_len, uae_u8 *inbuf, int inlen, int *outlen);
+*
+*   FUNCTION
+*       Populate an Exec SCSICmd request for an input or output transfer,
+*       submit HD_SCSICMD and return the device I/O completion code.
+*
+*   INPUTS
+*       ioc - Initialized I/O context. cmd_data - Command bytes. cmd_len -
+*       Command length. inbuf - Optional read buffer. inlen - Read-buffer
+*       capacity. outlen - Optional actual-length output.
+*
+*   RESULT
+*       DoIO status, or -1 if the I/O request is absent.
+*
+*   NOTES
+*       The SCSI actual data length is copied to outlen when provided.
+*
+****************************************************************************
+*
+*/
 
 static int execscsicmd (struct IOContext *ioc, const uae_u8 *cmd_data, int cmd_len,
 			uae_u8 *inbuf, int inlen, int *outlen)
@@ -201,6 +330,30 @@ static int execscsicmd (struct IOContext *ioc, const uae_u8 *cmd_data, int cmd_l
     return error;
 }
 
+/****i* januae-blkdev-amiga/execscsicmd_out ********************************
+*
+*   NAME
+*       execscsicmd_out() -- Submit a SCSI command without input data.
+*
+*   SYNOPSIS
+*       static const uae_u8 *execscsicmd_out (int unitnum, const uae_u8
+*       *cmd_data, int cmd_len);
+*
+*   FUNCTION
+*       Resolve the I/O context for the calling task and execute a SCSI
+*       command with no host receive buffer.
+*
+*   INPUTS
+*       unitnum - Backend drive index. cmd_data - Command bytes. cmd_len -
+*       Command length.
+*
+*   RESULT
+*       cmd_data on zero I/O status; otherwise NULL.
+*
+****************************************************************************
+*
+*/
+
 static const uae_u8 *execscsicmd_out (int unitnum, const uae_u8 *cmd_data, int cmd_len)
 {
     int error;
@@ -216,6 +369,35 @@ static const uae_u8 *execscsicmd_out (int unitnum, const uae_u8 *cmd_data, int c
     return 0;
 }
 
+/****i* januae-blkdev-amiga/execscsicmd_in *********************************
+*
+*   NAME
+*       execscsicmd_in() -- Execute a SCSI command with a receive buffer.
+*
+*   SYNOPSIS
+*       static const uae_u8 *execscsicmd_in (int unitnum, const uae_u8
+*       *cmd_data, int cmd_len, int *outlen);
+*
+*   FUNCTION
+*       Issue the command through the task-owned I/O context and receive
+*       response bytes into that context's shared SCSI buffer.
+*
+*   INPUTS
+*       unitnum - Backend drive index. cmd_data - Command bytes. cmd_len -
+*       Command length. outlen - Optional actual-length output.
+*
+*   RESULT
+*       Pointer to the context receive buffer on zero I/O status; otherwise
+*       NULL.
+*
+*   NOTES
+*       The result storage belongs to the I/O context and may be overwritten
+*       by later commands.
+*
+****************************************************************************
+*
+*/
+
 static const uae_u8 *execscsicmd_in (int unitnum, const uae_u8 *cmd_data, int cmd_len, int *outlen)
 {
     int error;
@@ -230,6 +412,31 @@ static const uae_u8 *execscsicmd_in (int unitnum, const uae_u8 *cmd_data, int cm
 
     return 0;
 }
+
+/****i* januae-blkdev-amiga/execscsicmd_direct *****************************
+*
+*   NAME
+*       execscsicmd_direct() -- Transfer a guest SCSI command directly.
+*
+*   SYNOPSIS
+*       static int execscsicmd_direct (int unitnum, uaecptr acmd);
+*
+*   FUNCTION
+*       Decode the guest SCSICmd layout, resolve emulated-memory addresses,
+*       execute HD_SCSICMD and write completion lengths and status into the
+*       guest structure.
+*
+*   INPUTS
+*       unitnum - Backend drive index. acmd - Guest address of an SCSICmd
+*       structure.
+*
+*   RESULT
+*       Native DoIO status, or IOERR_BADADDRESS (-5) when the guest data
+*       range fails validation.
+*
+****************************************************************************
+*
+*/
 
 static int execscsicmd_direct (int unitnum, uaecptr acmd)
 {
@@ -294,6 +501,32 @@ static int execscsicmd_direct (int unitnum, uaecptr acmd)
     return io_error;
 }
 
+/****i* januae-blkdev-amiga/check_device ***********************************
+*
+*   NAME
+*       check_device() -- Identify an optical SCSI device.
+*
+*   SYNOPSIS
+*       static int check_device (const char *device, int unit);
+*
+*   FUNCTION
+*       Open a candidate unit and issue SCSI INQUIRY to inspect its
+*       peripheral type and identification strings.
+*
+*   INPUTS
+*       device - Native device name. unit - Device unit.
+*
+*   RESULT
+*       1 when the inquiry identifies peripheral type 5 (CD-ROM); otherwise
+*       0.
+*
+*   NOTES
+*       The discovered identification is written to the emulator log.
+*
+****************************************************************************
+*
+*/
+
 static int check_device (const char *device, int unit)
 {
     int result = 0;
@@ -325,6 +558,27 @@ static int check_device (const char *device, int unit)
     return result;
 }
 
+/****i* januae-blkdev-amiga/media_check ************************************
+*
+*   NAME
+*       media_check() -- Check for accessible optical media.
+*
+*   SYNOPSIS
+*       static int media_check (int unitnum);
+*
+*   FUNCTION
+*       Issue TEST UNIT READY to the selected registered SCSI device.
+*
+*   INPUTS
+*       unitnum - Backend drive index.
+*
+*   RESULT
+*       1 when the command reports success; otherwise 0.
+*
+****************************************************************************
+*
+*/
+
 static int media_check (int unitnum)
 {
     int media;
@@ -337,6 +591,29 @@ static int media_check (int unitnum)
     return media;
 }
 
+
+/****i* januae-blkdev-amiga/open_scsi_device *******************************
+*
+*   NAME
+*       open_scsi_device() -- Open a registered SCSI device.
+*
+*   SYNOPSIS
+*       static int open_scsi_device (int unitnum);
+*
+*   FUNCTION
+*       Reuse an already opened main I/O context or open the native device
+*       in the registering task.
+*
+*   INPUTS
+*       unitnum - Backend drive index.
+*
+*   RESULT
+*       1 when the context is open or its opening reports success; otherwise
+*       0.
+*
+****************************************************************************
+*
+*/
 
 static int open_scsi_device (int unitnum)
 {
@@ -361,6 +638,28 @@ static int open_scsi_device (int unitnum)
     return result;
 }
 
+/****i* januae-blkdev-amiga/close_scsi_device ******************************
+*
+*   NAME
+*       close_scsi_device() -- Close the main SCSI device context.
+*
+*   SYNOPSIS
+*       static void close_scsi_device (int unitnum);
+*
+*   FUNCTION
+*       Release a registered device's main I/O context only when called by
+*       the task that owns it.
+*
+*   INPUTS
+*       unitnum - Backend drive index.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void close_scsi_device (int unitnum)
 {
     DEBUG_LOG ("SCSIDEV: unit=%d: close_scsi_device\n", unitnum);
@@ -373,6 +672,33 @@ static void close_scsi_device (int unitnum)
             close_iocontext (&(sdd->main_ioc));
     }
 }
+
+/****i* januae-blkdev-amiga/open_device_thread *****************************
+*
+*   NAME
+*       open_device_thread() -- Open a worker-owned device context.
+*
+*   SYNOPSIS
+*       static int open_device_thread (int unitnum);
+*
+*   FUNCTION
+*       Initialize or reuse the secondary I/O context for the current task
+*       and record that task as the local owner.
+*
+*   INPUTS
+*       unitnum - Backend drive index.
+*
+*   RESULT
+*       1 when the local context is already present or its opening reports
+*       success; otherwise 0.
+*
+*   NOTES
+*       A context belonging to another task follows the source's
+*       orphan-context replacement path.
+*
+****************************************************************************
+*
+*/
 
 static int open_device_thread (int unitnum)
 {
@@ -405,6 +731,28 @@ static int open_device_thread (int unitnum)
     return result;
 }
 
+/****i* januae-blkdev-amiga/close_device_thread ****************************
+*
+*   NAME
+*       close_device_thread() -- Release a worker-owned device context.
+*
+*   SYNOPSIS
+*       static void close_device_thread (int unitnum);
+*
+*   FUNCTION
+*       Close the secondary I/O context and clear its owner only when
+*       invoked by the task that opened it.
+*
+*   INPUTS
+*       unitnum - Backend drive index.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void close_device_thread (int unitnum)
 {
     DEBUG_LOG ("SCSIDEV: unit=%d: close_device_thread\n", unitnum);
@@ -423,12 +771,61 @@ static void close_device_thread (int unitnum)
     }
 }
 
+/****i* januae-blkdev-amiga/close_scsi_bus *********************************
+*
+*   NAME
+*       close_scsi_bus() -- End a host SCSI discovery session.
+*
+*   SYNOPSIS
+*       static void close_scsi_bus (void);
+*
+*   FUNCTION
+*       Return without changing backend state; the bus-close hook currently
+*       has no active cleanup operations.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void close_scsi_bus (void)
 {
     DEBUG_LOG ("SCSIDEV: close_scsi_bus\n");
 
     /* Not currently used */
 }
+
+/****i* januae-blkdev-amiga/find_devices ***********************************
+*
+*   NAME
+*       find_devices() -- Discover native optical-device units.
+*
+*   SYNOPSIS
+*       static int find_devices (void);
+*
+*   FUNCTION
+*       Enumerate DOS-visible device units and register units identified as
+*       CD-ROM drives by a SCSI INQUIRY.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Current count of registered drives.
+*
+*   NOTES
+*       On AmigaOS 4, probes CD0: through CD9: using GetDiskFileSystemData.
+*       The other build variant enumerates device startup entries through
+*       the DOS device list.
+*
+****************************************************************************
+*
+*/
 
 #ifdef __amigaos4__
 static int find_devices (void)
@@ -539,6 +936,28 @@ static int find_devices (void)
 }
 #endif
 
+/****i* januae-blkdev-amiga/open_scsi_bus **********************************
+*
+*   NAME
+*       open_scsi_bus() -- Discover optical drives for the backend.
+*
+*   SYNOPSIS
+*       static int open_scsi_bus (int flags);
+*
+*   FUNCTION
+*       Run native device discovery and report the resulting
+*       registered-drive count.
+*
+*   INPUTS
+*       flags - Bus-open flags; not examined by this implementation.
+*
+*   RESULT
+*       Count returned by find_devices().
+*
+****************************************************************************
+*
+*/
+
 static int open_scsi_bus (int flags)
 {
     int num_devices = 0;
@@ -551,6 +970,34 @@ static int open_scsi_bus (int flags)
 
     return num_devices;
 }
+
+/****i* januae-blkdev-amiga/info_device ************************************
+*
+*   NAME
+*       info_device() -- Return optical drive characteristics.
+*
+*   SYNOPSIS
+*       static struct device_info *info_device (int unitnum, struct
+*       device_info *di);
+*
+*   FUNCTION
+*       Populate a device_info structure with the registered device
+*       identity, media-presence state and fixed read-only CD-ROM geometry.
+*
+*   INPUTS
+*       unitnum - Backend drive index. di - Caller-supplied device_info
+*       structure.
+*
+*   RESULT
+*       di for a registered drive; otherwise NULL.
+*
+*   NOTES
+*       Reports 2048 bytes per sector, a single cylinder and INQ_ROMD device
+*       type.
+*
+****************************************************************************
+*
+*/
 
 static struct device_info *info_device (int unitnum, struct device_info *di)
 {
@@ -575,6 +1022,27 @@ static struct device_info *info_device (int unitnum, struct device_info *di)
 
     return di;
 }
+
+/****i* januae-blkdev-amiga/check_isatapi **********************************
+*
+*   NAME
+*       check_isatapi() -- Report ATAPI classification.
+*
+*   SYNOPSIS
+*       static int check_isatapi (int unitnum);
+*
+*   FUNCTION
+*       Return the backend's current fixed unsupported ATAPI classification.
+*
+*   INPUTS
+*       unitnum - Backend drive index; unused.
+*
+*   RESULT
+*       0.
+*
+****************************************************************************
+*
+*/
 
 static int check_isatapi (int unitnum)
 {

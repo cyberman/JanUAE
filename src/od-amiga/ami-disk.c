@@ -79,6 +79,33 @@ static void set_req(int ok);
 /*
  * Creates peudo DEV:DFx files.
  */
+/****i* januae-ami-disk/initpseudodevices **********************************
+*
+*   NAME
+*       initpseudodevices() -- Provide pseudo floppy-device paths.
+*
+*   SYNOPSIS
+*       void initpseudodevices(void);
+*
+*   FUNCTION
+*       Initialize the pseudo-device state. If DEV: is absent, create T:DEV
+*       and assign DEV: to that directory; then create DF0 through DF3
+*       entries for available trackdisk.device units.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Only units 0 through 3 are examined. Directory and assignment
+*       ownership is recorded for closepseudodevices().
+*
+****************************************************************************
+*
+*/
+
 void initpseudodevices(void)
 {
     ULONG lock;
@@ -126,6 +153,32 @@ void initpseudodevices(void)
 /*
  * Cleanup pseudo DEV:DFx
  */
+/****i* januae-ami-disk/closepseudodevices *********************************
+*
+*   NAME
+*       closepseudodevices() -- Release pseudo floppy-device paths.
+*
+*   SYNOPSIS
+*       void closepseudodevices(void);
+*
+*   FUNCTION
+*       Remove device entries created by initpseudodevices(), withdraw its
+*       DEV: assignment, and delete its temporary directory if it created
+*       one.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Existing DEV: assignments and directories are left in place.
+*
+****************************************************************************
+*
+*/
+
 void closepseudodevices(void)
 {
     int i;
@@ -154,6 +207,33 @@ void closepseudodevices(void)
 /*
  * Enable/Disable system requester
  */
+/****i* januae-ami-disk/set_req ********************************************
+*
+*   NAME
+*       set_req() -- Control DOS requester visibility.
+*
+*   SYNOPSIS
+*       static void set_req(int ok);
+*
+*   FUNCTION
+*       Replace the current process window pointer with the
+*       disabled-requester sentinel, or restore the previously saved
+*       pointer.
+*
+*   INPUTS
+*       ok - Nonzero to restore the saved window pointer; zero to disable
+*       requesters.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Only a task of type NT_PROCESS is modified.
+*
+****************************************************************************
+*
+*/
+
 static void set_req(int ok)
 {
     static ULONG wd = 0;
@@ -176,6 +256,28 @@ static void set_req(int ok)
 /*
  * checks if a device exists
  */
+/****i* januae-ami-disk/device_exists **************************************
+*
+*   NAME
+*       device_exists() -- Check for a native device unit.
+*
+*   SYNOPSIS
+*       static int device_exists (const char *device_name, int device_unit);
+*
+*   FUNCTION
+*       Open a named Exec device unit using a temporary message port and I/O
+*       request, then release those temporary objects.
+*
+*   INPUTS
+*       device_name - Exec device name. device_unit - Unit number.
+*
+*   RESULT
+*       1 if OpenDevice succeeds; otherwise 0.
+*
+****************************************************************************
+*
+*/
+
 static int device_exists (const char *device_name, int device_unit)
 {
     struct IOStdReq *ioreq  = NULL;
@@ -201,6 +303,35 @@ static int device_exists (const char *device_name, int device_unit)
 /*
  * extract the device and unit form a filename.
  */
+/****i* januae-ami-disk/extract_dev_unit ***********************************
+*
+*   NAME
+*       extract_dev_unit() -- Parse a native disk identifier.
+*
+*   SYNOPSIS
+*       static void extract_dev_unit(char *name, char **dev_name, int
+*       *dev_unit);
+*
+*   FUNCTION
+*       Interpret DF0 through DF3 as trackdisk.device units; otherwise split
+*       a device path at its final slash or treat the name as unit zero.
+*       Append .device when no extension exists.
+*
+*   INPUTS
+*       name - Device identifier. dev_name - Output location for an
+*       allocated device-name string. dev_unit - Output location for the
+*       unit number.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The caller owns the allocated device-name string.
+*
+****************************************************************************
+*
+*/
+
 static void extract_dev_unit(char *name, char **dev_name, int *dev_unit)
 {
     char *s;
@@ -240,6 +371,35 @@ static void extract_dev_unit(char *name, char **dev_name, int *dev_unit)
 /*
  * copy a device to a FILE*.
  */
+/****i* januae-ami-disk/raw_copy *******************************************
+*
+*   NAME
+*       raw_copy() -- Export a device as raw tracks.
+*
+*   SYNOPSIS
+*       static int raw_copy(char *dev_name, int dev_unit, FILE *dst);
+*
+*   FUNCTION
+*       Open an Exec device, check media presence, read fixed-size tracks
+*       into chip memory and write them to the destination stream. Stop the
+*       drive motor and withdraw a temporary DOS inhibit when used.
+*
+*   INPUTS
+*       dev_name - Exec device name. dev_unit - Device unit. dst - Open
+*       binary output stream.
+*
+*   RESULT
+*       1 when the export reaches its end without a reported setup, media,
+*       or stream-write failure; otherwise 0.
+*
+*   NOTES
+*       Uses 160 tracks of 11 sectors at 512 bytes per sector. Device read
+*       errors are logged but do not themselves terminate the loop.
+*
+****************************************************************************
+*
+*/
+
 static int raw_copy(char *dev_name, int dev_unit, FILE *dst)
 {
     struct MsgPort  *port   = NULL;
@@ -313,6 +473,30 @@ static int raw_copy(char *dev_name, int dev_unit, FILE *dst)
 /*
  * Copy one raw disk to a file.
  */
+/****i* januae-ami-disk/readdevice *****************************************
+*
+*   NAME
+*       readdevice() -- Copy a native device to a host file.
+*
+*   SYNOPSIS
+*       int readdevice(char *name, char *dst);
+*
+*   FUNCTION
+*       Parse the device identifier and either probe the unit or open the
+*       destination file and copy its raw tracks. Restore the prior SIGINT
+*       action when supported.
+*
+*   INPUTS
+*       name - Device identifier. dst - Destination filename, or NULL for a
+*       device-existence probe.
+*
+*   RESULT
+*       1 when the probe or raw-copy operation reports success; otherwise 0.
+*
+****************************************************************************
+*
+*/
+
 int readdevice(char *name, char *dst)
 {   /* erhm, I must admit this code is long and ugly! */
     FILE *f = NULL;
@@ -355,6 +539,33 @@ int readdevice(char *name, char *dst)
 
 /****************************************************************************/
 
+/****i* januae-ami-disk/myDoIO *********************************************
+*
+*   NAME
+*       myDoIO() -- Submit a device I/O request.
+*
+*   SYNOPSIS
+*       static void myDoIO(struct IOStdReq *ioreq, LONG CMD, LONG FLAGS,
+*       LONG OFFSET, LONG LENGTH, LONG DATA);
+*
+*   FUNCTION
+*       Update selected IOStdReq fields and submit the request synchronously
+*       with DoIO.
+*
+*   INPUTS
+*       ioreq - I/O request. CMD, FLAGS, OFFSET, LENGTH, DATA - Field
+*       replacements; a negative value preserves each field.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Command completion status remains in the I/O request.
+*
+****************************************************************************
+*
+*/
+
 static void myDoIO(struct IOStdReq *ioreq, LONG CMD, LONG FLAGS, LONG OFFSET,
                    LONG LENGTH, LONG DATA)
 {
@@ -370,6 +581,32 @@ static void myDoIO(struct IOStdReq *ioreq, LONG CMD, LONG FLAGS, LONG OFFSET,
 /*
  * Prevents DOS to access a DFx device.
  */
+/****i* januae-ami-disk/dev_inhibit ****************************************
+*
+*   NAME
+*       dev_inhibit() -- Toggle DOS device access.
+*
+*   SYNOPSIS
+*       static int dev_inhibit (char *dev, int on);
+*
+*   FUNCTION
+*       Resolve the DOS device process for a volume name and send
+*       ACTION_INHIBIT with the requested state.
+*
+*   INPUTS
+*       dev - Device name, with an optional trailing colon. on - Nonzero to
+*       inhibit the device; zero to allow access.
+*
+*   RESULT
+*       1 when an inhibit request is dispatched; otherwise 0.
+*
+*   NOTES
+*       The uninhibit path sends its DOS packet but returns zero.
+*
+****************************************************************************
+*
+*/
+
 static int dev_inhibit (char *dev, int on)
 {
     char  buff[10];
