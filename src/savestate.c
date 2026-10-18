@@ -92,6 +92,29 @@ static struct staterecord staterecords[MAX_STATERECORDS];
 /* functions for reading/writing bytes, shorts and longs in big-endian
  * format independent of host machine's endianess */
 
+/****i* januae-savestate/save_u32_func *************************************
+*
+*   NAME
+*       save_u32_func() -- Write a 32-bit value in big-endian order.
+*
+*   SYNOPSIS
+*       void save_u32_func (uae_u8 **dstp, uae_u32 v);
+*
+*   FUNCTION
+*       Store the value as four bytes, most significant first, and advance
+*       the output cursor by four bytes.
+*
+*   INPUTS
+*       dstp - Pointer to the writable output cursor; v - Unsigned 32-bit
+*       value to encode.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void save_u32_func (uae_u8 **dstp, uae_u32 v)
 {
     uae_u8 *dst = *dstp;
@@ -101,11 +124,57 @@ void save_u32_func (uae_u8 **dstp, uae_u32 v)
     *dst++ = (uae_u8)(v >> 0);
     *dstp = dst;
 }
+/****i* januae-savestate/save_u64_func *************************************
+*
+*   NAME
+*       save_u64_func() -- Write a 64-bit value in big-endian order.
+*
+*   SYNOPSIS
+*       void save_u64_func (uae_u8 **dstp, uae_u64 v);
+*
+*   FUNCTION
+*       Encode the high-order 32 bits followed by the low-order 32 bits
+*       through save_u32_func.
+*
+*   INPUTS
+*       dstp - Pointer to the writable output cursor; v - Unsigned 64-bit
+*       value to encode.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void save_u64_func (uae_u8 **dstp, uae_u64 v)
 {
     save_u32_func (dstp, (uae_u32)(v >> 32));
     save_u32_func (dstp, (uae_u32)v);
 }
+/****i* januae-savestate/save_u16_func *************************************
+*
+*   NAME
+*       save_u16_func() -- Write a 16-bit value in big-endian order.
+*
+*   SYNOPSIS
+*       void save_u16_func (uae_u8 **dstp, uae_u16 v);
+*
+*   FUNCTION
+*       Store the most significant byte before the least significant byte
+*       and advance the output cursor by two bytes.
+*
+*   INPUTS
+*       dstp - Pointer to the writable output cursor; v - Unsigned 16-bit
+*       value to encode.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void save_u16_func (uae_u8 **dstp, uae_u16 v)
 {
     uae_u8 *dst = *dstp;
@@ -113,12 +182,60 @@ void save_u16_func (uae_u8 **dstp, uae_u16 v)
     *dst++ = (uae_u8)(v >> 0);
     *dstp = dst;
 }
+/****i* januae-savestate/save_u8_func **************************************
+*
+*   NAME
+*       save_u8_func() -- Write a single state byte.
+*
+*   SYNOPSIS
+*       void save_u8_func (uae_u8 **dstp, uae_u8 v);
+*
+*   FUNCTION
+*       Store the supplied byte at the current output cursor and advance
+*       that cursor by one byte.
+*
+*   INPUTS
+*       dstp - Pointer to the writable output cursor; v - Byte to encode.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void save_u8_func (uae_u8 **dstp, uae_u8 v)
 {
     uae_u8 *dst = *dstp;
     *dst++ = v;
     *dstp = dst;
 }
+/****i* januae-savestate/save_string_func **********************************
+*
+*   NAME
+*       save_string_func() -- Encode a zero-terminated state string.
+*
+*   SYNOPSIS
+*       void save_string_func (uae_u8 **dstp, const char *from);
+*
+*   FUNCTION
+*       Copy the source characters up to the string terminator, append a
+*       zero byte and advance the output cursor past the terminator.
+*
+*   INPUTS
+*       dstp - Pointer to the writable output cursor; from - Optional
+*       zero-terminated source string.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       A NULL source is encoded as a single zero byte.
+*
+****************************************************************************
+*
+*/
+
 void save_string_func (uae_u8 **dstp, const char *from)
 {
     uae_u8 *dst = *dstp;
@@ -128,6 +245,29 @@ void save_string_func (uae_u8 **dstp, const char *from)
     *dstp = dst;
 }
 
+/****i* januae-savestate/restore_u32_func **********************************
+*
+*   NAME
+*       restore_u32_func() -- Read a big-endian 32-bit value.
+*
+*   SYNOPSIS
+*       uae_u32 restore_u32_func (const uae_u8 **dstp);
+*
+*   FUNCTION
+*       Combine four successive input bytes in most-significant-byte-first
+*       order and advance the source cursor by four bytes.
+*
+*   INPUTS
+*       dstp - Pointer to the readable source cursor, advanced after the
+*       operation.
+*
+*   RESULT
+*       The decoded unsigned 32-bit value.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 restore_u32_func (const uae_u8 **dstp)
 {
     uae_u32 v;
@@ -136,6 +276,29 @@ uae_u32 restore_u32_func (const uae_u8 **dstp)
     *dstp = dst + 4;
     return v;
 }
+/****i* januae-savestate/restore_u64_func **********************************
+*
+*   NAME
+*       restore_u64_func() -- Read a big-endian 64-bit value.
+*
+*   SYNOPSIS
+*       uae_u64 restore_u64_func (const uae_u8 **dstp);
+*
+*   FUNCTION
+*       Decode two consecutive 32-bit words, placing the first in the
+*       high-order half and the second in the low-order half.
+*
+*   INPUTS
+*       dstp - Pointer to the readable source cursor, advanced by eight
+*       bytes.
+*
+*   RESULT
+*       The decoded unsigned 64-bit value.
+*
+****************************************************************************
+*
+*/
+
 uae_u64 restore_u64_func (const uae_u8 **dstp)
 {
     uae_u64 v;
@@ -145,6 +308,29 @@ uae_u64 restore_u64_func (const uae_u8 **dstp)
     v |= restore_u32_func (dstp);
     return v;
 }
+/****i* januae-savestate/restore_u16_func **********************************
+*
+*   NAME
+*       restore_u16_func() -- Read a big-endian 16-bit value.
+*
+*   SYNOPSIS
+*       uae_u16 restore_u16_func (const uae_u8 **dstp);
+*
+*   FUNCTION
+*       Combine two successive bytes, most significant first, and advance
+*       the source cursor by two bytes.
+*
+*   INPUTS
+*       dstp - Pointer to the readable source cursor, advanced after the
+*       operation.
+*
+*   RESULT
+*       The decoded unsigned 16-bit value.
+*
+****************************************************************************
+*
+*/
+
 uae_u16 restore_u16_func (const uae_u8 **dstp)
 {
     uae_u16 v;
@@ -153,6 +339,29 @@ uae_u16 restore_u16_func (const uae_u8 **dstp)
     *dstp = dst + 2;
     return v;
 }
+/****i* januae-savestate/restore_u8_func ***********************************
+*
+*   NAME
+*       restore_u8_func() -- Read a single state byte.
+*
+*   SYNOPSIS
+*       uae_u8 restore_u8_func (const uae_u8 **dstp);
+*
+*   FUNCTION
+*       Return the byte at the current source cursor and advance that cursor
+*       by one byte.
+*
+*   INPUTS
+*       dstp - Pointer to the readable source cursor, advanced after the
+*       operation.
+*
+*   RESULT
+*       The decoded unsigned byte.
+*
+****************************************************************************
+*
+*/
+
 uae_u8 restore_u8_func (const uae_u8 **dstp)
 {
     uae_u8 v;
@@ -161,6 +370,33 @@ uae_u8 restore_u8_func (const uae_u8 **dstp)
     *dstp = dst + 1;
     return v;
 }
+/****i* januae-savestate/restore_string_func *******************************
+*
+*   NAME
+*       restore_string_func() -- Decode a zero-terminated state string.
+*
+*   SYNOPSIS
+*       char *restore_string_func (const uae_u8 **dstp);
+*
+*   FUNCTION
+*       Determine the encoded string length, allocate an independent copy
+*       including its terminator and advance the source cursor to the
+*       following byte.
+*
+*   INPUTS
+*       dstp - Pointer to the readable source cursor, advanced after the
+*       string.
+*
+*   RESULT
+*       A newly allocated zero-terminated string.
+*
+*   NOTES
+*       The caller owns the returned allocation.
+*
+****************************************************************************
+*
+*/
+
 char *restore_string_func (const uae_u8 **dstp)
 {
     int len;
@@ -180,6 +416,37 @@ char *restore_string_func (const uae_u8 **dstp)
 #ifdef SAVESTATE
 
 /* read and write IFF-style hunks */
+
+/****i* januae-savestate/save_chunk ****************************************
+*
+*   NAME
+*       save_chunk() -- Write one named state-file chunk.
+*
+*   SYNOPSIS
+*       static void save_chunk (struct zfile *f, uae_u8 *chunk, size_t len,
+*       const char *name, int compress);
+*
+*   FUNCTION
+*       Write a four-character identifier, chunk size and flags before its
+*       payload. Optionally compress the payload, record its original length
+*       and align the stored data to a four-byte boundary.
+*
+*   INPUTS
+*       f - Destination zfile; chunk - Payload bytes, or NULL to skip
+*       writing; len - Payload size; name - Four-character chunk identifier;
+*       compress - Compression selector, with negative values writing raw
+*       bytes without a chunk header.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The compressed size field is rewritten when compression succeeds;
+*       the uncompressed path writes the payload directly.
+*
+****************************************************************************
+*
+*/
 
 static void save_chunk (struct zfile *f, uae_u8 *chunk, size_t len, const char *name, int compress)
 {
@@ -242,6 +509,38 @@ static void save_chunk (struct zfile *f, uae_u8 *chunk, size_t len, const char *
     write_log ("Chunk '%s' chunk size %ld (%ld)\n", name, chunklen, len);
 }
 
+/****i* januae-savestate/restore_chunk *************************************
+*
+*   NAME
+*       restore_chunk() -- Read the next state-file chunk.
+*
+*   SYNOPSIS
+*       static uae_u8 *restore_chunk (struct zfile *f, char *name, size_t
+*       *len, size_t *totallen, size_t *filepos);
+*
+*   FUNCTION
+*       Read the chunk identifier, stored size and flags. Allocate and load
+*       non-RAM payloads; for RAM chunks, record their location and advance
+*       the file cursor without loading the payload.
+*
+*   INPUTS
+*       f - Source zfile; name - Output for a four-character identifier and
+*       terminator; len - Output stored payload length; totallen - Output
+*       uncompressed length; filepos - Output file position for deferred RAM
+*       loading.
+*
+*   RESULT
+*       An allocated payload buffer for ordinary chunks, or NULL for
+*       deferred RAM chunks and invalid short chunk headers.
+*
+*   NOTES
+*       Callers must release returned allocations; RAM data is restored
+*       separately by restore_ram.
+*
+****************************************************************************
+*
+*/
+
 static uae_u8 *restore_chunk (struct zfile *f, char *name, size_t *len, size_t *totallen, size_t *filepos)
 {
     uae_u8 tmp[4], dummy[4], *mem;
@@ -301,6 +600,34 @@ static uae_u8 *restore_chunk (struct zfile *f, char *name, size_t *len, size_t *
     return mem;
 }
 
+/****i* januae-savestate/restore_ram ***************************************
+*
+*   NAME
+*       restore_ram() -- Load saved RAM content from a deferred chunk.
+*
+*   SYNOPSIS
+*       void restore_ram (size_t filepos, uae_u8 *memory);
+*
+*   FUNCTION
+*       Seek to the recorded RAM chunk fields, inspect the compression flag
+*       and copy or decompress the saved contents into the supplied memory
+*       region.
+*
+*   INPUTS
+*       filepos - Offset of the deferred RAM chunk header fields; memory -
+*       Destination memory region.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Uses the open savestate_file and the stored uncompressed length when
+*       compression is enabled.
+*
+****************************************************************************
+*
+*/
+
 void restore_ram (size_t filepos, uae_u8 *memory)
 {
     uae_u8 tmp[8];
@@ -324,6 +651,29 @@ void restore_ram (size_t filepos, uae_u8 *memory)
     }
 }
 
+/****i* januae-savestate/restore_header ************************************
+*
+*   NAME
+*       restore_header() -- Read the state-file identification fields.
+*
+*   SYNOPSIS
+*       static void restore_header (const uae_u8 *src);
+*
+*   FUNCTION
+*       Consume the header version field and three encoded strings for the
+*       emulator name, emulator version and description, log those fields
+*       and release the allocated strings.
+*
+*   INPUTS
+*       src - Pointer to the encoded state-file header payload.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void restore_header (const uae_u8 *src)
 {
     char *emuname, *emuversion, *description;
@@ -340,6 +690,34 @@ static void restore_header (const uae_u8 *src)
 }
 
 /* restore all subsystems */
+
+/****i* januae-savestate/restore_state *************************************
+*
+*   NAME
+*       restore_state() -- Load subsystem state from an AmigaStateFile.
+*
+*   SYNOPSIS
+*       void restore_state (const char *filename);
+*
+*   FUNCTION
+*       Open the named state file, validate its ASF header, prepare restore
+*       preferences and dispatch each recognized chunk to the matching CPU,
+*       memory, chipset, disk, audio or optional subsystem restore handler.
+*
+*   INPUTS
+*       filename - Path of the state file to read.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       On successful parsing the file remains open for deferred RAM
+*       restoration until savestate_restore_finish; invalid headers and
+*       file-open failures leave restoration disabled.
+*
+****************************************************************************
+*
+*/
 
 void restore_state (const char *filename)
 {
@@ -488,6 +866,32 @@ void restore_state (const char *filename)
 	zfile_fclose (f);
 }
 
+/****i* januae-savestate/savestate_restore_finish **************************
+*
+*   NAME
+*       savestate_restore_finish() -- Complete deferred state restoration.
+*
+*   SYNOPSIS
+*       void savestate_restore_finish (void);
+*
+*   FUNCTION
+*       When the current state denotes a restore or rewind operation, close
+*       the active state file, clear the state flag and finish CPU
+*       restoration.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Other state modes return without changing the restore session.
+*
+****************************************************************************
+*
+*/
+
 void savestate_restore_finish (void)
 {
     if (savestate_state != STATE_RESTORE && savestate_state != STATE_REWIND)
@@ -499,12 +903,64 @@ void savestate_restore_finish (void)
 }
 
 /* 1=compressed,2=not compressed,3=ram dump,4=audio dump */
+/****i* januae-savestate/savestate_initsave ********************************
+*
+*   NAME
+*       savestate_initsave() -- Configure the state-file output target.
+*
+*   SYNOPSIS
+*       void savestate_initsave (const char *filename, int mode);
+*
+*   FUNCTION
+*       Copy the requested path to the active state filename and choose
+*       compression or special dump mode from the supplied mode number.
+*
+*   INPUTS
+*       filename - Destination state filename; mode - Save-mode selector,
+*       where one enables compression, three selects RAM dump and four
+*       selects audio dump.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The special-dump branch in save_state is compile-time disabled; it
+*       is not an active output format.
+*
+****************************************************************************
+*
+*/
+
 void savestate_initsave (const char *filename, int mode)
 {
     strcpy (savestate_fname, filename);
     savestate_docompress = (mode == 1) ? 1 : 0;
     savestate_specialdump = (mode == 3) ? 1 : (mode == 4) ? 2 : 0;
 }
+
+/****i* januae-savestate/save_rams *****************************************
+*
+*   NAME
+*       save_rams() -- Write RAM and graphics-memory state chunks.
+*
+*   SYNOPSIS
+*       static void save_rams (struct zfile *f, int comp);
+*
+*   FUNCTION
+*       Request memory snapshots for chip RAM and Bogo RAM, adding Fast RAM,
+*       Z3 RAM, Picasso96 memory and Picasso96 state when their respective
+*       features are compiled, then write the corresponding named chunks.
+*
+*   INPUTS
+*       f - Destination zfile; comp - Compression selector passed to
+*       save_chunk.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void save_rams (struct zfile *f, int comp)
 {
@@ -530,6 +986,35 @@ static void save_rams (struct zfile *f, int comp)
 }
 
 /* Save all subsystems */
+
+/****i* januae-savestate/save_state ****************************************
+*
+*   NAME
+*       save_state() -- Write the emulator state to an AmigaStateFile.
+*
+*   SYNOPSIS
+*       void save_state (const char *filename, const char *description);
+*
+*   FUNCTION
+*       Prepare chipset state, create the destination file, write an ASF
+*       identification chunk and serialize CPU, disk, chipset, audio, CIA
+*       and keyboard state, followed by supported optional subsystems and
+*       memory chunks. Finish with an END marker.
+*
+*   INPUTS
+*       filename - Destination filename; description - Description stored in
+*       the identification chunk.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The file is closed after writing; if the destination cannot be
+*       opened the function returns without saving.
+*
+****************************************************************************
+*
+*/
 
 void save_state (const char *filename, const char *description)
 {
@@ -686,6 +1171,34 @@ void save_state (const char *filename, const char *description)
     savestate_state = 0;
 }
 
+/****i* januae-savestate/savestate_quick ***********************************
+*
+*   NAME
+*       savestate_quick() -- Select a numbered quick-save or restore slot.
+*
+*   SYNOPSIS
+*       void savestate_quick (int slot, int save);
+*
+*   FUNCTION
+*       Rewrite the configured state filename with the requested slot
+*       suffix. Save immediately with compression when requested, or
+*       schedule a restore when the resulting file already exists.
+*
+*   INPUTS
+*       slot - Zero for the base .uss filename or a positive numbered slot;
+*       save - Nonzero to save, zero to request restoration.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Restoration is requested by setting STATE_DORESTORE; this routine
+*       does not itself load the state file.
+*
+****************************************************************************
+*
+*/
+
 void savestate_quick (int slot, int save)
 {
     int i, len = strlen (savestate_fname);
@@ -718,6 +1231,29 @@ void savestate_quick (int slot, int save)
     }
 }
 
+/****i* januae-savestate/canrewind *****************************************
+*
+*   NAME
+*       canrewind() -- Locate the current replay record.
+*
+*   SYNOPSIS
+*       static struct staterecord *canrewind (int pos);
+*
+*   FUNCTION
+*       Return the record at replaycounter when a replay buffer exists and
+*       the record has a valid start pointer.
+*
+*   INPUTS
+*       pos - Requested rewind position; the current implementation does not
+*       use this argument.
+*
+*   RESULT
+*       A pointer to the current available state record, or NULL.
+*
+****************************************************************************
+*
+*/
+
 static struct staterecord *canrewind (int pos)
 {
     int i;
@@ -732,6 +1268,29 @@ static struct staterecord *canrewind (int pos)
     return 0;
 }
 
+/****i* januae-savestate/savestate_dorewind ********************************
+*
+*   NAME
+*       savestate_dorewind() -- Request rewind to an available state record.
+*
+*   SYNOPSIS
+*       int savestate_dorewind (int pos);
+*
+*   FUNCTION
+*       Check the replay record through canrewind and set STATE_DOREWIND
+*       when a record is present.
+*
+*   INPUTS
+*       pos - Rewind-position argument passed to canrewind.
+*
+*   RESULT
+*       One when a rewind request is scheduled; zero when no current record
+*       is available.
+*
+****************************************************************************
+*
+*/
+
 int savestate_dorewind (int pos)
 {
     if (canrewind (pos)) {
@@ -740,6 +1299,29 @@ int savestate_dorewind (int pos)
     }
     return 0;
 }
+
+/****i* januae-savestate/savestate_listrewind ******************************
+*
+*   NAME
+*       savestate_listrewind() -- List recorded rewind positions.
+*
+*   SYNOPSIS
+*       void savestate_listrewind (void);
+*
+*   FUNCTION
+*       Walk backward through consecutive recorded states from
+*       replaycounter, read each saved CPU program counter and print its
+*       index and an indicator for the current program counter.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void savestate_listrewind (void)
 {
@@ -763,6 +1345,34 @@ void savestate_listrewind (void)
 	    i += MAX_STATERECORDS;
     }
 }
+
+/****i* januae-savestate/savestate_rewind **********************************
+*
+*   NAME
+*       savestate_rewind() -- Restore the most recent in-memory replay
+*       snapshot.
+*
+*   SYNOPSIS
+*       void savestate_rewind (void);
+*
+*   FUNCTION
+*       Restore CPU, optional FPU, disk, chipset, audio, CIA and supported
+*       expansion state from the selected replay record, then copy saved
+*       memory regions and retire the record.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The function requests an emulator reset if its final cursor does not
+*       match the end of the replay record.
+*
+****************************************************************************
+*
+*/
 
 void savestate_rewind (void)
 {
@@ -833,6 +1443,30 @@ void savestate_rewind (void)
 
 #define BS 10000
 
+/****i* januae-savestate/bufcheck ******************************************
+*
+*   NAME
+*       bufcheck() -- Check space remaining in the replay buffer.
+*
+*   SYNOPSIS
+*       static int bufcheck (uae_u8 **pp, int len);
+*
+*   FUNCTION
+*       Compare the prospective write extent, including the reserved slack
+*       area, against the end of the allocated replay buffer.
+*
+*   INPUTS
+*       pp - Pointer to the prospective replay write cursor; len - Number of
+*       payload bytes to be written.
+*
+*   RESULT
+*       One when the requested extent reaches or exceeds the reserved limit;
+*       otherwise zero.
+*
+****************************************************************************
+*
+*/
+
 static int bufcheck (uae_u8 **pp, int len)
 {
     uae_u8 *p = *pp;
@@ -842,6 +1476,35 @@ static int bufcheck (uae_u8 **pp, int len)
     }
     return 0;
 }
+
+/****i* januae-savestate/savestate_capture *********************************
+*
+*   NAME
+*       savestate_capture() -- Capture an in-memory state for rewind.
+*
+*   SYNOPSIS
+*       void savestate_capture (int force);
+*
+*   FUNCTION
+*       When capture is enabled or forced and a replay buffer is available,
+*       serialize CPU and supported subsystem state with selected RAM
+*       regions into the replay ring, update record boundaries and discard
+*       overlapped records.
+*
+*   INPUTS
+*       force - Nonzero to bypass the normal frame-interval capture filter.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Capture is skipped when no replay buffer is allocated, and also when
+*       FILESYS is enabled with mounted units. The writer makes at most one
+*       retry after wrapping to the beginning of the replay buffer.
+*
+****************************************************************************
+*
+*/
 
 void savestate_capture (int force)
 {
@@ -1020,11 +1683,58 @@ retry:
     goto retry2;
 }
 
+/****i* januae-savestate/savestate_free ************************************
+*
+*   NAME
+*       savestate_free() -- Release the replay capture buffer.
+*
+*   SYNOPSIS
+*       void savestate_free (void);
+*
+*   FUNCTION
+*       Free the replay buffer allocation and clear its global pointer.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void savestate_free (void)
 {
     free (replaybuffer);
     replaybuffer = 0;
 }
+
+/****i* januae-savestate/savestate_init ************************************
+*
+*   NAME
+*       savestate_init() -- Initialize the replay capture state.
+*
+*   SYNOPSIS
+*       void savestate_init (void);
+*
+*   FUNCTION
+*       Release any previous replay buffer, clear recorded state descriptors
+*       and rewind counters, and allocate a new replay buffer when capture,
+*       size and interval preferences are all enabled.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Allocation is based on the configured statecapturebuffersize.
+*
+****************************************************************************
+*
+*/
 
 void savestate_init (void)
 {
