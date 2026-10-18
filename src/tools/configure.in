@@ -2,6 +2,7 @@ dnl
 
 AC_INIT(sysconfig.h.in)
 AC_PREREQ(2.50)
+AC_CONFIG_AUX_DIR([../..])
 AC_CONFIG_HEADER(sysconfig.h)
 AC_CANONICAL_TARGET
 
@@ -56,7 +57,7 @@ fi
 
 AC_CONFIG_FILES([Makefile])
 
-AC_CONFIG_LINKS([missing.c:./missing.c])
+AC_CONFIG_LINKS([missing.c:../missing.c])
 
                   dnl writelog.c:tools/writelog.c
                   dnl readcpu.c:tools/readcpu.c

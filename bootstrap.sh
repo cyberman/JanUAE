@@ -6,4 +6,5 @@ aclocal -I m4 \
 
 cd src/tools
 aclocal
+autoheader
 autoconf
