@@ -100,6 +100,36 @@ static char **convert_tags_to_amigaos(struct TagItem *in) {
  * This is the process, which watches the CLI Execute
  * Port of J-UAE, so wanderer can send us messages.
  ***********************************************************/  
+/****i* januae/aros_cli_thread *********************************************
+*
+*   NAME
+*       aros_cli_thread() -- Receive asynchronous CLI launch requests.
+*
+*   SYNOPSIS
+*       static void aros_cli_thread(void);
+*
+*   FUNCTION
+*       Receive requests on J-UAE Run, translate accessible executable
+*       paths, enqueue CLI launch jobs, and signal the guest launch daemon.
+*
+*   INPUTS
+*       None; requests arrive on the named Exec message port.
+*
+*   RESULT
+*       Returns on CLI_TYPE_DIE or initialization failure.
+*
+*   NOTES
+*       Each received message is replied to. An inaccessible path sets
+*       ERROR_OBJECT_NOT_FOUND in the request.
+*
+*   BUGS
+*       The message-port allocation is not fully released when the thread
+*       exits.
+*
+****************************************************************************
+*
+*/
+
 static void aros_cli_thread (void) {
 
   struct Process *thread = (struct Process *) FindTask (NULL);
@@ -212,6 +242,36 @@ EXIT:
   JWLOG("aros_cli_thread[%lx]: dies..\n", thread);
 }
 
+/****i* januae/aros_cli_start_thread ***************************************
+*
+*   NAME
+*       aros_cli_start_thread() -- Create the CLI proxy when the launcher is
+*       available.
+*
+*   SYNOPSIS
+*       int aros_cli_start_thread(void);
+*
+*   FUNCTION
+*       Attempt to create the CLI proxy process if the guest launch task has
+*       registered.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Nonzero when aros_launch_task is set; zero otherwise.
+*
+*   NOTES
+*       The function stores the newly created task in aros_cli_task.
+*
+*   BUGS
+*       The return value tests aros_launch_task instead of aros_cli_task, so
+*       it does not report CLI process creation success.
+*
+****************************************************************************
+*
+*/
+
 int aros_cli_start_thread (void) {
 
   JWLOG("aros_cli_start_thread()\n");
@@ -236,6 +296,36 @@ int aros_cli_start_thread (void) {
 
   return aros_launch_task != 0;
 }
+
+/****i* januae/aros_cli_kill_thread ****************************************
+*
+*   NAME
+*       aros_cli_kill_thread() -- Send the CLI-proxy shutdown request.
+*
+*   SYNOPSIS
+*       void aros_cli_kill_thread(void);
+*
+*   FUNCTION
+*       Send a CLI_TYPE_DIE message to J-UAE Run and wait for a reply when
+*       the proxy and message port are available.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The shutdown request uses a temporary reply port; the function does
+*       not itself delete the CLI task.
+*
+*   BUGS
+*       WaitPort is called while Forbid is in effect; scheduling and
+*       shutdown behavior require separate correction review.
+*
+****************************************************************************
+*
+*/
 
 void aros_cli_kill_thread(void) {
   struct JUAE_Sync_Launch_Message  *die_msg;

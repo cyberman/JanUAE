@@ -35,6 +35,37 @@
  */
 #define NR_LONGS 4 /* status, offset of path, offset of filename and terminating 0 */
 
+/****i* januae/ld_job_get **************************************************
+*
+*   NAME
+*       ld_job_get() -- Fetch the next guest launch request.
+*
+*   SYNOPSIS
+*       uae_u32 ld_job_get(ULONG *m68k_results);
+*
+*   FUNCTION
+*       Remove the oldest pending launch request and encode its type, path,
+*       optional filename and argument offsets in the guest command buffer.
+*
+*   INPUTS
+*       m68k_results - Writable command buffer in guest-visible memory.
+*
+*   RESULT
+*       1 when a request was dequeued; 0 when the queue is empty.
+*
+*   NOTES
+*       The launch queue is protected by sem_janus_launch_list. Encoded
+*       offsets are relative to the command buffer. The request path and
+*       argument strings are released after packing.
+*
+*   BUGS
+*       The output size is not checked. The argument-string offset advances
+*       using strlen(argument + 1) rather than strlen(argument) + 1.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ld_job_get(ULONG *m68k_results) {
 
   char        *str_results;

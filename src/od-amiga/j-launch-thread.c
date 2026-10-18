@@ -59,6 +59,41 @@ struct JUAE_Launch_Message {
  ***********************************************************/
 #define MAX_PATH_LENGTH 512
 
+/****i* januae/check_and_convert_path **************************************
+*
+*   NAME
+*       check_and_convert_path() -- Translate a path under a mounted
+*       directory.
+*
+*   SYNOPSIS
+*       static char *check_and_convert_path(char *aros_exe_full_path, char
+*       *aos_device, char *aos_volume_name, char *aros_path_mounted);
+*
+*   FUNCTION
+*       Resolve both AROS paths through filesystem locks and replace a
+*       matching mounted-directory prefix with an AmigaOS volume name.
+*
+*   INPUTS
+*       aros_exe_full_path - AROS executable path. aos_device - Device
+*       identifier. aos_volume_name - Guest volume name. aros_path_mounted -
+*       Mounted host directory.
+*
+*   RESULT
+*       An AllocVec-allocated AmigaOS path, or NULL when the resolved path
+*       does not match or allocation fails.
+*
+*   NOTES
+*       The caller owns the returned string and releases it with FreeVec.
+*       The comparison is case-insensitive.
+*
+*   BUGS
+*       Lock and NameFromLock failures are not checked. The prefix
+*       comparison does not verify a directory-component boundary.
+*
+****************************************************************************
+*
+*/
+
 static char *check_and_convert_path(char *aros_exe_full_path, 
                                     char *aos_device,  
                             char *aos_volume_name,  
@@ -129,6 +164,32 @@ static char *check_and_convert_path(char *aros_exe_full_path,
  * Return result with amigaOS path. You have to FreeVec
  * the result.
  ***********************************************************/
+/****i* januae/aros_path_to_amigaos ****************************************
+*
+*   NAME
+*       aros_path_to_amigaos() -- Locate a guest-visible executable path.
+*
+*   SYNOPSIS
+*       char *aros_path_to_amigaos(char *aros_path);
+*
+*   FUNCTION
+*       Search configured UAE mount points for a directory containing the
+*       AROS path, then construct the corresponding AmigaOS volume path.
+*
+*   INPUTS
+*       aros_path - Path to translate from the AROS filesystem namespace.
+*
+*   RESULT
+*       An AllocVec-allocated guest path, or NULL when no mount matches.
+*
+*   NOTES
+*       The caller releases a non-NULL result with FreeVec. Mount paths are
+*       expanded using the configured hardfile path substitution.
+*
+****************************************************************************
+*
+*/
+
 char *aros_path_to_amigaos(char *aros_path) {
 
   char           *result;
@@ -167,6 +228,37 @@ char *aros_path_to_amigaos(char *aros_path) {
  *
  * array and strings need to be FreeVec'ed somewhere!
  ***********************************************************/
+/****i* januae/convert_tags_to_amigaos *************************************
+*
+*   NAME
+*       convert_tags_to_amigaos() -- Translate Workbench argument paths.
+*
+*   SYNOPSIS
+*       static char **convert_tags_to_amigaos(struct TagItem *in);
+*
+*   FUNCTION
+*       Collect WBOPENA_ArgName entries from an AROS tag list and translate
+*       each path into the guest filesystem namespace.
+*
+*   INPUTS
+*       in - Workbench launch tag list.
+*
+*   RESULT
+*       A NULL-terminated array of path pointers, or NULL when no tags are
+*       found.
+*
+*   NOTES
+*       The caller owns the array and all successfully converted strings.
+*       Other tag types are ignored.
+*
+*   BUGS
+*       The allocation and individual path-conversion results are not
+*       validated before being stored.
+*
+****************************************************************************
+*
+*/
+
 static char **convert_tags_to_amigaos(struct TagItem *in) {
   struct TagItem *tstate;
   struct TagItem *tag;
@@ -212,6 +304,37 @@ static char **convert_tags_to_amigaos(struct TagItem *in) {
  * This is the process, which watches the Execute
  * Port of J-UAE, so wanderer can send us messages.
  ***********************************************************/  
+/****i* januae/aros_launch_thread ******************************************
+*
+*   NAME
+*       aros_launch_thread() -- Receive asynchronous Workbench requests.
+*
+*   SYNOPSIS
+*       static void aros_launch_thread(void);
+*
+*   FUNCTION
+*       Listen on the J-UAE Execute message port, map executable and
+*       argument paths, enqueue Workbench launch requests, and signal the
+*       guest launcher.
+*
+*   INPUTS
+*       None; the task receives messages through its named Exec port.
+*
+*   RESULT
+*       Returns when the shutdown message is received or initialization
+*       fails.
+*
+*   NOTES
+*       Launch-message pools are released after processing. Missing guest
+*       launch support or unmapped paths produce user-visible errors.
+*
+*   BUGS
+*       Message-port resources are not fully released during shutdown.
+*
+****************************************************************************
+*
+*/
+
 static void aros_launch_thread (void) {
 
   struct Process *thread = (struct Process *) FindTask (NULL);
@@ -324,6 +447,29 @@ EXIT:
   JWLOG("aros_launch_thread[%lx]: dies..\n", thread);
 }
 
+/****i* januae/aros_launch_start_thread ************************************
+*
+*   NAME
+*       aros_launch_start_thread() -- Start the Workbench launch proxy.
+*
+*   SYNOPSIS
+*       int aros_launch_start_thread(void);
+*
+*   FUNCTION
+*       Create the process that receives asynchronous Wanderer launch
+*       requests.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Nonzero when process creation returns a task pointer; otherwise
+*       zero.
+*
+****************************************************************************
+*
+*/
+
 int aros_launch_start_thread (void) {
 
     JWLOG("aros_launch_start_thread()\n");
@@ -343,6 +489,32 @@ int aros_launch_start_thread (void) {
 
     return aros_launch_task != 0;
 }
+
+/****i* januae/aros_launch_kill_thread *************************************
+*
+*   NAME
+*       aros_launch_kill_thread() -- Request launch-proxy termination.
+*
+*   SYNOPSIS
+*       void aros_launch_kill_thread(void);
+*
+*   FUNCTION
+*       Send a one-way shutdown message to the J-UAE Execute port when the
+*       proxy task and port exist.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Shutdown is asynchronous. The receiver owns and deletes the message
+*       pool.
+*
+****************************************************************************
+*
+*/
 
 void aros_launch_kill_thread(void) {
   struct JUAE_Launch_Message  *die_msg;

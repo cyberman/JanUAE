@@ -36,6 +36,38 @@
 
 static char text[SPLASH_MAX_LENGTH+1];
 
+/****i* januae/ad_job_splash_screen ****************************************
+*
+*   NAME
+*       ad_job_splash_screen() -- Process a guest splash command.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_splash_screen(ULONG *m68k_results);
+*
+*   FUNCTION
+*       Read the guest command buffer to close the splash window or replace
+*       its text and timeout.
+*
+*   INPUTS
+*       m68k_results - Guest command buffer containing the close flag,
+*       timeout, text length and text address.
+*
+*   RESULT
+*       TRUE after processing the command.
+*
+*   NOTES
+*       A close flag of 1 closes the window. Other requests copy at most
+*       SPLASH_MAX_LENGTH bytes into a persistent text buffer and call
+*       do_splash.
+*
+*   BUGS
+*       The supplied text length is not used to bound the copy from guest
+*       memory.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_splash_screen(ULONG *m68k_results) {
 
   LONG time;

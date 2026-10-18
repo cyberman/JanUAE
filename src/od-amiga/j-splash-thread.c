@@ -76,6 +76,32 @@ static BOOL splash_timer_started=FALSE;
 
 static char process_name[]="j-uae splash window";
 
+/****i* januae/close_splash ************************************************
+*
+*   NAME
+*       close_splash() -- Close an existing splash process.
+*
+*   SYNOPSIS
+*       void close_splash(void);
+*
+*   FUNCTION
+*       Send SIGBREAKF_CTRL_C to the splash process and poll until the task
+*       and process name disappear.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Returns immediately if no splash task is recorded; otherwise waits
+*       for termination.
+*
+****************************************************************************
+*
+*/
+
 void close_splash(void) {
 
   JWLOG("send SIGBREAKF_CTRL_C to splash task\n");
@@ -92,6 +118,30 @@ void close_splash(void) {
     Delay(50);
   }
 }
+
+/****i* januae/show_splash *************************************************
+*
+*   NAME
+*       show_splash() -- Request that the splash window appear.
+*
+*   SYNOPSIS
+*       void show_splash(void);
+*
+*   FUNCTION
+*       Send SIGBREAKF_CTRL_D to a running splash task to open its window.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       This does not start a splash process when none exists.
+*
+****************************************************************************
+*
+*/
 
 void show_splash(void) {
 
@@ -129,6 +179,36 @@ static gint gtk_splash_timer (gpointer *task) {
 }
 #endif
 
+/****i* januae/do_splash ***************************************************
+*
+*   NAME
+*       do_splash() -- Change the splash text and expiration time.
+*
+*   SYNOPSIS
+*       void do_splash(APTR text, int time);
+*
+*   FUNCTION
+*       Update the text of a running splash application and reset its timer,
+*       or close it if the text or timeout is zero.
+*
+*   INPUTS
+*       text - New splash message. time - New timeout in seconds.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Requests have no effect when the splash task or application is
+*       absent.
+*
+*   BUGS
+*       The source identifies a race when the caller modifies the splash
+*       window from outside its task.
+*
+****************************************************************************
+*
+*/
+
 void do_splash(APTR text, int time) {
 
   JWLOG("text %s, time %d\n", text, time);
@@ -161,6 +241,32 @@ void do_splash(APTR text, int time) {
 
 }
 
+/****i* januae/set_timer ***************************************************
+*
+*   NAME
+*       set_timer() -- Schedule a splash timeout.
+*
+*   SYNOPSIS
+*       static void set_timer(struct timerequest *req, ULONG seconds);
+*
+*   FUNCTION
+*       Submit a UNIT_WAITUNTIL timer request for the current system time
+*       plus the requested seconds.
+*
+*   INPUTS
+*       req - Open timer request. seconds - Timeout interval.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Submits the request asynchronously through SendIO and marks the
+*       global timer-started flag.
+*
+****************************************************************************
+*
+*/
+
 static void set_timer(struct timerequest *req, ULONG seconds) {
   struct timeval timeval;
 
@@ -178,6 +284,32 @@ static void set_timer(struct timerequest *req, ULONG seconds) {
     JWLOG("timer set!\n");
   }
 }
+
+/****i* januae/open_timer **************************************************
+*
+*   NAME
+*       open_timer() -- Allocate a splash timer request.
+*
+*   SYNOPSIS
+*       static struct timerequest *open_timer(void);
+*
+*   FUNCTION
+*       Create an Exec message port and timer request, then open
+*       timer.device with UNIT_WAITUNTIL.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       An initialized timer request, or NULL if allocation or device
+*       opening fails.
+*
+*   NOTES
+*       Release a non-NULL result with close_timer.
+*
+****************************************************************************
+*
+*/
 
 static struct timerequest *open_timer (void) {
   struct MsgPort *port;
@@ -198,6 +330,28 @@ static struct timerequest *open_timer (void) {
   return NULL;
 }
 
+/****i* januae/close_timer *************************************************
+*
+*   NAME
+*       close_timer() -- Release the splash timer resources.
+*
+*   SYNOPSIS
+*       static void close_timer(struct timerequest *req);
+*
+*   FUNCTION
+*       Stop a timer request, close timer.device, and delete its request and
+*       reply port.
+*
+*   INPUTS
+*       req - Timer request returned by open_timer, or NULL.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void close_timer(struct timerequest *req) {
   struct MsgPort *port;
 
@@ -212,6 +366,31 @@ static void close_timer(struct timerequest *req) {
     DeleteMsgPort (port);
   }
 }
+
+/****i* januae/stop_timer **************************************************
+*
+*   NAME
+*       stop_timer() -- Cancel an outstanding splash timeout.
+*
+*   SYNOPSIS
+*       static void stop_timer(struct timerequest *req);
+*
+*   FUNCTION
+*       Abort and wait for a timer request when the global
+*       splash_timer_started flag is set.
+*
+*   INPUTS
+*       req - Timer request to stop, or NULL.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The started flag is not reset by this function.
+*
+****************************************************************************
+*
+*/
 
 static void stop_timer(struct timerequest *req) {
   BOOL done=FALSE;
@@ -237,6 +416,33 @@ static void stop_timer(struct timerequest *req) {
     JWLOG("done nothing!\n");
   }
 }
+
+/****i* januae/aros_splash_window_thread ***********************************
+*
+*   NAME
+*       aros_splash_window_thread() -- Run the splash MUI application.
+*
+*   SYNOPSIS
+*       static void aros_splash_window_thread(void);
+*
+*   FUNCTION
+*       Build a splash window, optionally displaying janus.png, process MUI
+*       input and timer signals, then dispose of application resources.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Returns after window closure, timeout, SIGBREAKF_CTRL_C, or setup
+*       failure.
+*
+*   NOTES
+*       SIGBREAKF_CTRL_D opens the window. On exit the global task pointer
+*       is cleared.
+*
+****************************************************************************
+*
+*/
 
 static void aros_splash_window_thread (void) {
 
@@ -357,6 +563,28 @@ EXIT:
   LEAVE
 }
 
+
+/****i* januae/aros_splash_start_thread ************************************
+*
+*   NAME
+*       aros_splash_start_thread() -- Start the splash window task.
+*
+*   SYNOPSIS
+*       int aros_splash_start_thread(void);
+*
+*   FUNCTION
+*       Create the splash process unless one is already recorded as running.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       TRUE when already running or successfully created; FALSE on process
+*       creation failure.
+*
+****************************************************************************
+*
+*/
 
 int aros_splash_start_thread (void) {
 
