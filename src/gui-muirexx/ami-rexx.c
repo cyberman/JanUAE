@@ -118,6 +118,29 @@ extern ULONG frame_num;                                  /* ami-win.c */
 
 /****************************************************************************/
 
+/****i* januae-ami-rexx/rexx_init ******************************************
+*
+*   NAME
+*       rexx_init() -- Install the emulator ARexx command port.
+*
+*   SYNOPSIS
+*       int rexx_init (void);
+*
+*   FUNCTION
+*       Open rexxsyslib.library, acquire an OS4 interface when required,
+*       reject an existing UAE port, create the named command port and
+*       service initially queued commands.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       1 when the UAE command port is created; otherwise 0.
+*
+****************************************************************************
+*
+*/
+
 int rexx_init (void)
 {
     RexxSysBase = (REXXBASE *) OpenLibrary ("rexxsyslib.library", 0L);
@@ -149,6 +172,29 @@ int rexx_init (void)
 }
 
 /****************************************************************************/
+
+/****i* januae-ami-rexx/rexx_exit ******************************************
+*
+*   NAME
+*       rexx_exit() -- Shut down the emulator ARexx interface.
+*
+*   SYNOPSIS
+*       void rexx_exit (void);
+*
+*   FUNCTION
+*       Optionally send the configured ON_EXIT command, reject and reply to
+*       queued messages, remove the command port, and release ARexx library
+*       resources.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void rexx_exit (void)
 {
@@ -188,6 +234,28 @@ void rexx_exit (void)
 
 /****************************************************************************/
 
+/****i* januae-ami-rexx/EJECT **********************************************
+*
+*   NAME
+*       EJECT() -- Process an ARexx floppy-eject command.
+*
+*   SYNOPSIS
+*       static int EJECT (const char *line);
+*
+*   FUNCTION
+*       Parse a drive number, eject media from an enabled drive, and place
+*       the outcome in the shared response buffer.
+*
+*   INPUTS
+*       line - Command arguments containing the drive number.
+*
+*   RESULT
+*       RC_OK for an enabled drive from 0 through 3; otherwise RC_WARN.
+*
+****************************************************************************
+*
+*/
+
 static int EJECT (const char *line)
 {
     unsigned int drive = matchnum (&line);
@@ -205,6 +273,32 @@ static int EJECT (const char *line)
 }
 
 /****************************************************************************/
+
+/****i* januae-ami-rexx/INSERT *********************************************
+*
+*   NAME
+*       INSERT() -- Process an ARexx floppy-insert request.
+*
+*   SYNOPSIS
+*       static int INSERT (const char *line);
+*
+*   FUNCTION
+*       Parse an enabled drive index and copy the supplied image filename
+*       into changed_prefs for that drive.
+*
+*   INPUTS
+*       line - Drive number followed by the floppy image path.
+*
+*   RESULT
+*       RC_OK when the drive is enabled and in range; otherwise RC_WARN.
+*
+*   NOTES
+*       Media changes are applied through preferences rather than inserted
+*       synchronously.
+*
+****************************************************************************
+*
+*/
 
 static int INSERT (const char *line)
 {
@@ -225,12 +319,59 @@ static int INSERT (const char *line)
 
 /****************************************************************************/
 
+/****i* januae-ami-rexx/QUIT ***********************************************
+*
+*   NAME
+*       QUIT() -- Request emulator termination.
+*
+*   SYNOPSIS
+*       static void QUIT (void);
+*
+*   FUNCTION
+*       Call uae_quit() to request the emulator shutdown sequence.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void QUIT (void)
 {
     uae_quit ();
 }
 
 /****************************************************************************/
+
+/****i* januae-ami-rexx/QUERY **********************************************
+*
+*   NAME
+*       QUERY() -- Read an ARexx-visible emulator property.
+*
+*   SYNOPSIS
+*       static int QUERY (const char *line);
+*
+*   FUNCTION
+*       Report selected LED and floppy filename values, display state, frame
+*       rate, frame counter or sound mode in the shared reply string.
+*
+*   INPUTS
+*       line - Property selector following QUERY.
+*
+*   RESULT
+*       RC_OK for recognized selectors; RC_ERROR for an unknown selector.
+*
+*   NOTES
+*       The FAKEJOYSTICK selector has no current value, and FRAMENUM depends
+*       on USE_AMIGA_GFX.
+*
+****************************************************************************
+*
+*/
 
 static int QUERY (const char *line)
 {
@@ -270,6 +411,28 @@ static int QUERY (const char *line)
 
 /****************************************************************************/
 
+/****i* januae-ami-rexx/FEEDBACK *******************************************
+*
+*   NAME
+*       FEEDBACK() -- Configure an ARexx feedback action.
+*
+*   SYNOPSIS
+*       static int FEEDBACK (const char *line);
+*
+*   FUNCTION
+*       Identify a supported LED, floppy-name or ON_EXIT notification slot
+*       and store its destination port and optional on/off command strings.
+*
+*   INPUTS
+*       line - Notification selector and ADDRESS or COMMAND options.
+*
+*   RESULT
+*       RC_OK for a recognized slot; otherwise RC_ERROR.
+*
+****************************************************************************
+*
+*/
+
 static int FEEDBACK (const char *line)
 {
     gui_rexx_s *gui = NULL;
@@ -303,6 +466,28 @@ static int FEEDBACK (const char *line)
 
 /****************************************************************************/
 
+/****i* januae-ami-rexx/GET_VERSION ****************************************
+*
+*   NAME
+*       GET_VERSION() -- Format requested emulator version information.
+*
+*   SYNOPSIS
+*       static int GET_VERSION (const char *line);
+*
+*   FUNCTION
+*       Write the package identification, numeric version, author, or Amiga
+*       port attribution to the shared response buffer.
+*
+*   INPUTS
+*       line - STRING, NUM, AUTHOR or PORT selector.
+*
+*   RESULT
+*       RC_OK for a recognized selector; otherwise RC_ERROR.
+*
+****************************************************************************
+*
+*/
+
 static int GET_VERSION (const char *line)
 {
     if (matchstr (&line, "STRING")) {
@@ -321,6 +506,29 @@ static int GET_VERSION (const char *line)
 
 /****************************************************************************/
 
+/****i* januae-ami-rexx/FRAMERATE ******************************************
+*
+*   NAME
+*       FRAMERATE() -- Set the pending emulator frame-rate preference.
+*
+*   SYNOPSIS
+*       static int FRAMERATE (const char *line);
+*
+*   FUNCTION
+*       Parse the requested value and assign changed_prefs.gfx_framerate
+*       when the value is between 1 and 20 inclusive.
+*
+*   INPUTS
+*       line - Decimal frame-rate argument.
+*
+*   RESULT
+*       RC_OK for an accepted value; otherwise RC_WARN with an explanatory
+*       reply.
+*
+****************************************************************************
+*
+*/
+
 static int FRAMERATE (const char *line)
 {
     int num;
@@ -336,6 +544,28 @@ static int FRAMERATE (const char *line)
 
 /****************************************************************************/
 
+/****i* januae-ami-rexx/FAKEJOYSTICK ***************************************
+*
+*   NAME
+*       FAKEJOYSTICK() -- Provide the legacy fake-joystick command.
+*
+*   SYNOPSIS
+*       static int FAKEJOYSTICK (const char *line);
+*
+*   FUNCTION
+*       Perform no joystick configuration. The former command parser is
+*       commented out.
+*
+*   INPUTS
+*       line - Ignored command arguments.
+*
+*   RESULT
+*       Always returns 0.
+*
+****************************************************************************
+*
+*/
+
 static int FAKEJOYSTICK (const char *line)
 {
 /*    if     (matchstr(&line,"ON"))     changed_prefs.fake_joystick = 2;
@@ -350,6 +580,28 @@ static int FAKEJOYSTICK (const char *line)
 
 /****************************************************************************/
 
+/****i* januae-ami-rexx/DISPLAY ********************************************
+*
+*   NAME
+*       DISPLAY() -- Control emulator frame-display inhibition.
+*
+*   SYNOPSIS
+*       static int DISPLAY (const char *line);
+*
+*   FUNCTION
+*       Interpret ON, OFF or TOGGLE and update the scroll-lock display
+*       inhibition flag.
+*
+*   INPUTS
+*       line - ON, OFF or TOGGLE argument.
+*
+*   RESULT
+*       RC_OK for a recognized argument; otherwise RC_ERROR.
+*
+****************************************************************************
+*
+*/
+
 static int DISPLAY (const char *line)
 {
     if      (matchstr (&line, "ON"))     clear_inhibit_frame (IHF_SCROLLLOCK);
@@ -360,6 +612,29 @@ static int DISPLAY (const char *line)
 }
 
 /****************************************************************************/
+
+/****i* januae-ami-rexx/SOUND **********************************************
+*
+*   NAME
+*       SOUND() -- Control the emulator sound-production mode.
+*
+*   SYNOPSIS
+*       static int SOUND (const char *line);
+*
+*   FUNCTION
+*       When sound is available, interpret ON, OFF, BEST or TOGGLE and
+*       modify currprefs.produce_sound.
+*
+*   INPUTS
+*       line - Requested sound mode.
+*
+*   RESULT
+*       RC_OK for an accepted mode, RC_WARN without sound, or RC_ERROR for
+*       an unknown mode.
+*
+****************************************************************************
+*
+*/
 
 static int SOUND (const char *line)
 {
@@ -384,6 +659,28 @@ static int SOUND (const char *line)
 
 /****************************************************************************/
 
+/****i* januae-ami-rexx/DEBUG **********************************************
+*
+*   NAME
+*       DEBUG() -- Request activation of the emulator debugger.
+*
+*   SYNOPSIS
+*       static int DEBUG (void);
+*
+*   FUNCTION
+*       Activate the debugger when compiled with DEBUGGER; otherwise leave
+*       it unchanged.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       RC_OK with DEBUGGER enabled; otherwise RC_ERROR.
+*
+****************************************************************************
+*
+*/
+
 static int DEBUG (void)
 {
 #ifdef DEBUGGER
@@ -396,6 +693,28 @@ static int DEBUG (void)
 
 /****************************************************************************/
 
+/****i* januae-ami-rexx/UAEEXE *********************************************
+*
+*   NAME
+*       UAEEXE() -- Execute an emulator-side CLI command.
+*
+*   SYNOPSIS
+*       static int UAEEXE (const char *line);
+*
+*   FUNCTION
+*       Pass the command text to uaeexe() and set a failure message when
+*       execution reports an error.
+*
+*   INPUTS
+*       line - CLI command line to execute.
+*
+*   RESULT
+*       RC_OK when uaeexe() reports success; otherwise RC_WARN.
+*
+****************************************************************************
+*
+*/
+
 static int UAEEXE (const char *line)
 {
     if (uaeexe (line)) {
@@ -406,6 +725,30 @@ static int UAEEXE (const char *line)
 }
 
 /****************************************************************************/
+
+/****i* januae-ami-rexx/process_cmd ****************************************
+*
+*   NAME
+*       process_cmd() -- Dispatch a received ARexx command.
+*
+*   SYNOPSIS
+*       static int process_cmd (const char *line);
+*
+*   FUNCTION
+*       Clear the shared result string, match supported UAE command
+*       keywords, invoke the appropriate handler, and request quit or reset
+*       for those control commands.
+*
+*   INPUTS
+*       line - Command string received through the UAE port.
+*
+*   RESULT
+*       The matched command handler status, RC_OK for quit or reset, or
+*       RC_ERROR for an unknown command.
+*
+****************************************************************************
+*
+*/
 
 static int process_cmd (const char *line)
 {
@@ -430,6 +773,33 @@ static int process_cmd (const char *line)
 
 /****************************************************************************/
 
+/****i* januae-ami-rexx/rexx_handle_events *********************************
+*
+*   NAME
+*       rexx_handle_events() -- Process messages waiting on the UAE ARexx
+*       port.
+*
+*   SYNOPSIS
+*       void rexx_handle_events (void);
+*
+*   FUNCTION
+*       Receive command messages, dispatch their first argument, attach a
+*       result string when requested and reply to the command sender.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Messages without the RXCOMM action are logged and skipped by the
+*       current implementation.
+*
+****************************************************************************
+*
+*/
+
 void rexx_handle_events (void)
 {
     struct RexxMsg *msg;
@@ -450,6 +820,29 @@ void rexx_handle_events (void)
 }
 
 /****************************************************************************/
+
+/****i* januae-ami-rexx/rexx_led *******************************************
+*
+*   NAME
+*       rexx_led() -- Update an ARexx LED and emit configured feedback.
+*
+*   SYNOPSIS
+*       void rexx_led (int led, int on);
+*
+*   FUNCTION
+*       Store one of five power/floppy LED states; when both on and off
+*       commands and a destination exist, send the selected feedback
+*       command.
+*
+*   INPUTS
+*       led - LED index from 0 through 4. on - New state.
+*
+*   RESULT
+*       No value is returned. Indices outside 0 through 4 are ignored.
+*
+****************************************************************************
+*
+*/
 
 void rexx_led (int led, int on)
 {
@@ -477,6 +870,29 @@ void rexx_led (int led, int on)
 
 /****************************************************************************/
 
+/****i* januae-ami-rexx/rexx_filename **************************************
+*
+*   NAME
+*       rexx_filename() -- Notify an ARexx receiver of a floppy filename.
+*
+*   SYNOPSIS
+*       void rexx_filename (unsigned int num, const char *filename);
+*
+*   FUNCTION
+*       For drives 0 through 3, format the configured filename feedback
+*       command with the supplied path and send it to the designated
+*       receiver.
+*
+*   INPUTS
+*       num - Floppy drive index. filename - Drive filename.
+*
+*   RESULT
+*       No value is returned. Indices above 3 are ignored.
+*
+****************************************************************************
+*
+*/
+
 void rexx_filename (unsigned int num, const char *filename)
 {
     gui_rexx_s *gui = NULL;
@@ -496,6 +912,31 @@ void rexx_filename (unsigned int num, const char *filename)
 /****************************************************************************/
 /* send a message to an AREXX port.
  */
+/****i* januae-ami-rexx/ADDRESS ********************************************
+*
+*   NAME
+*       ADDRESS() -- Send a command to a named ARexx destination.
+*
+*   SYNOPSIS
+*       static int ADDRESS (const char *hostname, const char *cmd);
+*
+*   FUNCTION
+*       Use SystemTagList() for the special COMMAND destination; otherwise
+*       locate the named port, exchange an RXCOMM message and store a
+*       returned result string.
+*
+*   INPUTS
+*       hostname - Receiver port name or COMMAND. cmd - Command text.
+*
+*   RESULT
+*       SystemTagList() status for COMMAND, the receiver response code for a
+*       completed ARexx request, or RC_WARN when exchange cannot be
+*       established.
+*
+****************************************************************************
+*
+*/
+
 static int ADDRESS (const char *hostname, const char *cmd)
 {
     struct MsgPort *RexxPort,
@@ -536,6 +977,29 @@ static int ADDRESS (const char *hostname, const char *cmd)
 /****************************************************************************/
 /* argument parsing routines
  */
+/****i* januae-ami-rexx/matchstr *******************************************
+*
+*   NAME
+*       matchstr() -- Consume a case-insensitive command token.
+*
+*   SYNOPSIS
+*       static int matchstr (const char **line, const char *pat);
+*
+*   FUNCTION
+*       Skip leading whitespace, optionally consume an opening quote,
+*       compare the requested token, and advance the input pointer only on a
+*       complete match.
+*
+*   INPUTS
+*       line - In/out command cursor. pat - Expected keyword.
+*
+*   RESULT
+*       1 on a complete match; otherwise 0.
+*
+****************************************************************************
+*
+*/
+
 static int matchstr (const char **line, const char *pat)
 {
     const char *s = *line;
@@ -559,6 +1023,31 @@ static int matchstr (const char **line, const char *pat)
 }
 
 /****************************************************************************/
+
+/****i* januae-ami-rexx/extractstr *****************************************
+*
+*   NAME
+*       extractstr() -- Copy the next command argument into a buffer.
+*
+*   SYNOPSIS
+*       static void extractstr (const char **line, char *result, unsigned
+*       int len);
+*
+*   FUNCTION
+*       Skip leading space, interpret an optional quote delimiter and quote
+*       escapes, copy at most len minus one characters, and advance the
+*       input cursor.
+*
+*   INPUTS
+*       line - In/out command cursor. result - Destination string. len -
+*       Destination capacity.
+*
+*   RESULT
+*       No value is returned. A terminating NUL is written.
+*
+****************************************************************************
+*
+*/
 
 static void extractstr (const char **line, char *result, unsigned int len)
 {
@@ -591,6 +1080,28 @@ static void extractstr (const char **line, char *result, unsigned int len)
 }
 
 /****************************************************************************/
+
+/****i* januae-ami-rexx/matchnum *******************************************
+*
+*   NAME
+*       matchnum() -- Parse a signed decimal command argument.
+*
+*   SYNOPSIS
+*       static int matchnum (const char **line);
+*
+*   FUNCTION
+*       Skip whitespace and optional quotes or sign, consume decimal digits
+*       and update the command cursor.
+*
+*   INPUTS
+*       line - In/out command cursor.
+*
+*   RESULT
+*       The parsed signed integer; returns zero when no digits are consumed.
+*
+****************************************************************************
+*
+*/
 
 static int matchnum (const char **line)
 {
@@ -629,6 +1140,31 @@ static int matchnum (const char **line)
 		    /*(l)->lh_Tail = NULL,*/ \
 		    (l)->lh_TailPred = (struct Node *)&(l)->lh_Head)
 
+/****i* januae-ami-rexx/CreatePort *****************************************
+*
+*   NAME
+*       CreatePort() -- Create an Exec message port on the PowerUP target.
+*
+*   SYNOPSIS
+*       struct MsgPort *CreatePort (STRPTR name, LONG pri);
+*
+*   FUNCTION
+*       Allocate a signal and a public message-port structure, initialize
+*       its message list, and register the port if a name was supplied.
+*
+*   INPUTS
+*       name - Optional public port name. pri - Message-port priority.
+*
+*   RESULT
+*       The created message port, or NULL on allocation failure.
+*
+*   NOTES
+*       Compiled only with POWERUP.
+*
+****************************************************************************
+*
+*/
+
 struct MsgPort *CreatePort (STRPTR name, LONG pri)
 {
     struct MsgPort *port = NULL;
@@ -654,6 +1190,31 @@ struct MsgPort *CreatePort (STRPTR name, LONG pri)
     return port;
 }
 
+/****i* januae-ami-rexx/DeletePort *****************************************
+*
+*   NAME
+*       DeletePort() -- Release a PowerUP message port.
+*
+*   SYNOPSIS
+*       void DeletePort (struct MsgPort *port);
+*
+*   FUNCTION
+*       Remove a named port from the public port list, invalidate its key
+*       fields, free its signal and release its memory.
+*
+*   INPUTS
+*       port - Message port to delete.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Compiled only with POWERUP.
+*
+****************************************************************************
+*
+*/
+
 void DeletePort (struct MsgPort *port)
 {
     int i;
@@ -667,6 +1228,31 @@ void DeletePort (struct MsgPort *port)
     PPCFreeMem (port, sizeof (struct MsgPort));
 }
 
+/****i* januae-ami-rexx/CreateExtIO ****************************************
+*
+*   NAME
+*       CreateExtIO() -- Allocate a PowerUP extended I/O request.
+*
+*   SYNOPSIS
+*       struct IORequest *CreateExtIO (struct MsgPort *port, long iosize);
+*
+*   FUNCTION
+*       Allocate public cleared request storage and populate its reply port,
+*       message type and length.
+*
+*   INPUTS
+*       port - Reply message port. iosize - Request size.
+*
+*   RESULT
+*       The new I/O request, or NULL when allocation cannot succeed.
+*
+*   NOTES
+*       Compiled only with POWERUP.
+*
+****************************************************************************
+*
+*/
+
 struct IORequest *CreateExtIO (struct MsgPort *port, long iosize)
 {
     struct IORequest *ioreq=NULL;
@@ -679,10 +1265,60 @@ struct IORequest *CreateExtIO (struct MsgPort *port, long iosize)
     return ioreq;
 }
 
+/****i* januae-ami-rexx/CreateStdIO ****************************************
+*
+*   NAME
+*       CreateStdIO() -- Allocate a standard PowerUP I/O request.
+*
+*   SYNOPSIS
+*       struct IOStdReq *CreateStdIO (struct MsgPort *port);
+*
+*   FUNCTION
+*       Call CreateExtIO() with the size of struct IOStdReq and return its
+*       result.
+*
+*   INPUTS
+*       port - Reply port for the I/O request.
+*
+*   RESULT
+*       The allocated standard I/O request or NULL.
+*
+*   NOTES
+*       Compiled only with POWERUP.
+*
+****************************************************************************
+*
+*/
+
 struct IOStdReq *CreateStdIO (struct MsgPort *port)
 {
     return (struct IOStdReq *)CreateExtIO (port, sizeof (struct IOStdReq));
 }
+
+/****i* januae-ami-rexx/DeleteExtIO ****************************************
+*
+*   NAME
+*       DeleteExtIO() -- Release a PowerUP extended I/O request.
+*
+*   SYNOPSIS
+*       void DeleteExtIO (struct IORequest *ioreq);
+*
+*   FUNCTION
+*       Invalidate the request message type, device and unit pointers, then
+*       release memory using the recorded message length.
+*
+*   INPUTS
+*       ioreq - Extended I/O request to free.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Compiled only with POWERUP.
+*
+****************************************************************************
+*
+*/
 
 void DeleteExtIO (struct IORequest *ioreq)
 {
@@ -694,6 +1330,30 @@ void DeleteExtIO (struct IORequest *ioreq)
     ioreq->io_Unit = (struct Unit *)i;
     PPCFreeMem (ioreq, ioreq->io_Message.mn_Length);
 }
+
+/****i* januae-ami-rexx/DeleteStdIO ****************************************
+*
+*   NAME
+*       DeleteStdIO() -- Release a standard PowerUP I/O request.
+*
+*   SYNOPSIS
+*       void DeleteStdIO (struct IORequest *ioreq);
+*
+*   FUNCTION
+*       Delegate to DeleteExtIO() for request invalidation and release.
+*
+*   INPUTS
+*       ioreq - Standard I/O request to free.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Compiled only with POWERUP.
+*
+****************************************************************************
+*
+*/
 
 void DeleteStdIO (struct IORequest *ioreq)
 {
