@@ -55,6 +55,29 @@ static const uae_u8 *execscsicmd_in (int unitnum, const uae_u8 *data, int len, i
  * this little piece of magic from Toni Wilen is needed to detect
  * ATAPI devices.
  */
+/****i* januae-blkdev-libscg/is_atapi_drive ********************************
+*
+*   NAME
+*       is_atapi_drive() -- Identify an ATAPI-compatible optical drive.
+*
+*   SYNOPSIS
+*       static int is_atapi_drive (int unitnum);
+*
+*   FUNCTION
+*       Issue a six-byte SCSI INQUIRY through the selected drive and inspect
+*       the returned peripheral type and response-format bits.
+*
+*   INPUTS
+*       unitnum - Index of the discovered SCSI drive.
+*
+*   RESULT
+*       One when at least two reply bytes identify a CD-ROM peripheral with
+*       response-format bits zero; otherwise zero.
+*
+****************************************************************************
+*
+*/
+
 static int is_atapi_drive (int unitnum)
 {
      static const uae_u8 cmd[6] = {0x12, 0, 0, 0, 36, 0}; /* INQUIRY */
@@ -67,6 +90,35 @@ static int is_atapi_drive (int unitnum)
 	return 1;
      return 0;
 }
+
+/****i* januae-blkdev-libscg/add_drive *************************************
+*
+*   NAME
+*       add_drive() -- Record a discovered SCSI device.
+*
+*   SYNOPSIS
+*       static int add_drive (SCSI *scgp);
+*
+*   FUNCTION
+*       Copy bus, target and logical-unit coordinates into the next drive
+*       slot, determine whether the device uses ATAPI and advance the
+*       discovered-drive count.
+*
+*   INPUTS
+*       scgp - Active libscg transport context containing the selected
+*       device address.
+*
+*   RESULT
+*       One when the drive is added; zero when the 16-slot drive registry is
+*       full.
+*
+*   NOTES
+*       If the libscg ATAPI query does not identify the device, an
+*       INQUIRY-based probe is attempted.
+*
+****************************************************************************
+*
+*/
 
 static int add_drive (SCSI *scgp)
 {
@@ -103,6 +155,30 @@ uae_sem_t scgp_sem;
 
 /********** generic SCSI stuff stolen from cdrecord and scsitransp.c *********/
 
+/****i* januae-blkdev-libscg/inquiry ***************************************
+*
+*   NAME
+*       inquiry() -- Submit a SCSI INQUIRY command.
+*
+*   SYNOPSIS
+*       static int inquiry (SCSI *scgp, void *bp, int cnt);
+*
+*   FUNCTION
+*       Clear the supplied response buffer and construct a group-zero
+*       INQUIRY request with data-in transfer, the selected LUN and a
+*       requested response length.
+*
+*   INPUTS
+*       scgp - Libscg transport context; bp - Output inquiry buffer; cnt -
+*       Requested byte count.
+*
+*   RESULT
+*       The status returned by scg_cmd.
+*
+****************************************************************************
+*
+*/
+
 static int inquiry (SCSI *scgp, void *bp, int cnt)
 {
     struct scg_cmd *scmd = scgp->scmd;
@@ -126,6 +202,28 @@ static int inquiry (SCSI *scgp, void *bp, int cnt)
     return result;
 }
 
+/****i* januae-blkdev-libscg/test_unit_ready *******************************
+*
+*   NAME
+*       test_unit_ready() -- Submit a SCSI TEST UNIT READY command.
+*
+*   SYNOPSIS
+*       static int test_unit_ready (SCSI *scgp);
+*
+*   FUNCTION
+*       Initialize a zero-length group-zero command for the selected LUN and
+*       submit it using the libscg transport.
+*
+*   INPUTS
+*       scgp - Libscg transport context for the target device.
+*
+*   RESULT
+*       The status returned by scg_cmd.
+*
+****************************************************************************
+*
+*/
+
 static int test_unit_ready (SCSI *scgp)
 {
     struct scg_cmd *scmd = scgp->scmd;
@@ -146,6 +244,34 @@ static int test_unit_ready (SCSI *scgp)
 
     return result;
 }
+
+/****i* januae-blkdev-libscg/unit_ready ************************************
+*
+*   NAME
+*       unit_ready() -- Evaluate device readiness with limited retry.
+*
+*   SYNOPSIS
+*       static int unit_ready (SCSI *scgp);
+*
+*   FUNCTION
+*       Attempt TEST UNIT READY, retry after unit attention, and retry after
+*       a busy status with a 500-millisecond delay. Interpret remaining SCSI
+*       sense information for device readiness.
+*
+*   INPUTS
+*       scgp - Libscg transport context for the target device.
+*
+*   RESULT
+*       One when the device is considered ready; zero for fatal access or
+*       not-ready conditions.
+*
+*   NOTES
+*       The final decision is based on transport status and sense
+*       information, not solely on a successful first command.
+*
+****************************************************************************
+*
+*/
 
 static int unit_ready (SCSI *scgp)
 {
@@ -176,6 +302,29 @@ static int unit_ready (SCSI *scgp)
     return (scg_sense_key (scgp) != SC_NOT_READY);
 }
 
+/****i* januae-blkdev-libscg/print_product *********************************
+*
+*   NAME
+*       print_product() -- Log SCSI inquiry identification.
+*
+*   SYNOPSIS
+*       static void print_product (const struct scsi_inquiry *ip);
+*
+*   FUNCTION
+*       Write the fixed-width vendor, product and revision fields to the
+*       log; append the CD-ROM or disk category for recognized peripheral
+*       types.
+*
+*   INPUTS
+*       ip - SCSI INQUIRY data to format.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void print_product (const struct scsi_inquiry *ip)
 {
     write_log ("'%.8s' ",  ip->vendor_info);
@@ -189,11 +338,63 @@ static void print_product (const struct scsi_inquiry *ip)
 }
 
 /* get integer value from env or return default value, if unset */
+/****i* januae-blkdev-libscg/getenvint *************************************
+*
+*   NAME
+*       getenvint() -- Read an integer-valued environment setting.
+*
+*   SYNOPSIS
+*       static int getenvint (const char *varname, int def);
+*
+*   FUNCTION
+*       Look up a named environment variable and convert its value with
+*       atoi, falling back to the supplied default when it is absent.
+*
+*   INPUTS
+*       varname - Environment variable name; def - Value to use when it is
+*       unset.
+*
+*   RESULT
+*       The parsed integer, or def when no environment value is present.
+*
+****************************************************************************
+*
+*/
+
 static int getenvint (const char *varname, int def)
 {
     const char *val = getenv (varname);
     return val ? atoi (val) : def;
 }
+
+/****i* januae-blkdev-libscg/openscsi **************************************
+*
+*   NAME
+*       openscsi() -- Open a libscg target connection.
+*
+*   SYNOPSIS
+*       static SCSI *openscsi (int scsibus, int target, int lun);
+*
+*   FUNCTION
+*       Allocate a transport context, apply SCSI diagnostic settings from
+*       environment variables, select the configured device path and target
+*       coordinates, and open the backend connection.
+*
+*   INPUTS
+*       scsibus - SCSI bus number; target - Target ID; lun - Logical unit
+*       number.
+*
+*   RESULT
+*       A live SCSI transport context, or NULL if allocation or opening
+*       fails.
+*
+*   NOTES
+*       UAE_SCSI_DEVICE overrides the configured SCSI device path when set
+*       to a nonempty string.
+*
+****************************************************************************
+*
+*/
 
 static SCSI *openscsi (int scsibus, int target, int lun)
 {
@@ -227,6 +428,27 @@ static SCSI *openscsi (int scsibus, int target, int lun)
     return scgp;
 }
 
+/****i* januae-blkdev-libscg/closescsi *************************************
+*
+*   NAME
+*       closescsi() -- Close and release a libscg connection.
+*
+*   SYNOPSIS
+*       static void closescsi (SCSI *scgp);
+*
+*   FUNCTION
+*       Close the transport connection and free its libscg context.
+*
+*   INPUTS
+*       scgp - Libscg context to close and release.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void closescsi (SCSI *scgp)
 {
     scg__close (scgp);
@@ -236,6 +458,37 @@ static void closescsi (SCSI *scgp)
 /********************* start of our own code ************************/
 
 static uae_u8 scsibuf [DEVICE_SCSI_BUFSIZE];
+
+/****i* januae-blkdev-libscg/execscsicmd ***********************************
+*
+*   NAME
+*       execscsicmd() -- Submit a SCSI command using an optional shared
+*       response buffer.
+*
+*   SYNOPSIS
+*       static int execscsicmd (int unitnum, const uae_u8 *data, int len,
+*       uae_u8 *inbuf, int inlen);
+*
+*   FUNCTION
+*       Acquire the global SCSI semaphore, populate the command descriptor,
+*       select its drive and target, optionally zero the response buffer,
+*       and submit the command through libscg.
+*
+*   INPUTS
+*       unitnum - Registered drive index; data - Command descriptor bytes;
+*       len - Descriptor length; inbuf - Optional data-in buffer; inlen -
+*       Its capacity.
+*
+*   RESULT
+*       The transfer size reported in scmd->size after command submission.
+*
+*   NOTES
+*       The return value does not separately encode the libscg command error
+*       status.
+*
+****************************************************************************
+*
+*/
 
 static int execscsicmd (int unitnum, const uae_u8 *data, int len, uae_u8 *inbuf,
 			int inlen)
@@ -286,6 +539,38 @@ static int execscsicmd (int unitnum, const uae_u8 *data, int len, uae_u8 *inbuf,
 
     return scmd->size;
 }
+
+/****i* januae-blkdev-libscg/execscsicmd_direct ****************************
+*
+*   NAME
+*       execscsicmd_direct() -- Execute a guest-provided direct SCSI
+*       request.
+*
+*   SYNOPSIS
+*       static int execscsicmd_direct (int unitnum, uaecptr acmd);
+*
+*   FUNCTION
+*       Read the guest request fields, validate its data range, prepare the
+*       libscg command and optional ATAPI adaptation, submit the command,
+*       and write actual lengths, status and sense bytes back to guest
+*       memory.
+*
+*   INPUTS
+*       unitnum - Registered drive index; acmd - Guest address of the SCSI
+*       command structure.
+*
+*   RESULT
+*       A device I/O status value: zero on the accepted transfer path, minus
+*       five for an invalid guest data range, or a nonzero error status for
+*       reported command failures.
+*
+*   NOTES
+*       Guest sense and transfer lengths are updated within the supplied
+*       command structure.
+*
+****************************************************************************
+*
+*/
 
 static int execscsicmd_direct (int unitnum, uaecptr acmd)
 {
@@ -398,6 +683,34 @@ static int execscsicmd_direct (int unitnum, uaecptr acmd)
     return io_error;
 }
 
+/****i* januae-blkdev-libscg/execscsicmd_out *******************************
+*
+*   NAME
+*       execscsicmd_out() -- Submit a SCSI command without a data-in buffer.
+*
+*   SYNOPSIS
+*       static const uae_u8 *execscsicmd_out (int unitnum, const uae_u8
+*       *data, int len);
+*
+*   FUNCTION
+*       Forward a command descriptor to execscsicmd with no response buffer.
+*
+*   INPUTS
+*       unitnum - Registered drive index; data - Command descriptor bytes;
+*       len - Descriptor length.
+*
+*   RESULT
+*       The original command buffer pointer when the reported transfer size
+*       is nonnegative; otherwise NULL.
+*
+*   NOTES
+*       A non-NULL return is not an independent test of the libscg command
+*       error field.
+*
+****************************************************************************
+*
+*/
+
 static const uae_u8 *execscsicmd_out (int unitnum, const uae_u8 *data, int len)
 {
     DEBUG_LOG ("SCSIDEV: unit=%d: execscsicmd_out\n", unitnum);
@@ -407,6 +720,36 @@ static const uae_u8 *execscsicmd_out (int unitnum, const uae_u8 *data, int len)
 
     return data;
 }
+
+/****i* januae-blkdev-libscg/execscsicmd_in ********************************
+*
+*   NAME
+*       execscsicmd_in() -- Read SCSI response data into the shared transfer
+*       buffer.
+*
+*   SYNOPSIS
+*       static const uae_u8 *execscsicmd_in (int unitnum, const uae_u8
+*       *data, int len, int *outlen);
+*
+*   FUNCTION
+*       Execute a command with the fixed-size SCSI response buffer and
+*       optionally publish the reported transfer length.
+*
+*   INPUTS
+*       unitnum - Registered drive index; data - Command descriptor bytes;
+*       len - Descriptor length; outlen - Optional destination for the
+*       reported byte count.
+*
+*   RESULT
+*       A pointer to the shared response buffer when the reported size is
+*       positive; otherwise NULL.
+*
+*   NOTES
+*       The returned storage is shared across calls and is not caller-owned.
+*
+****************************************************************************
+*
+*/
 
 static const uae_u8 *execscsicmd_in (int unitnum, const uae_u8 *data, int len, int *outlen)
 {
@@ -432,6 +775,33 @@ static const uae_u8 *execscsicmd_in (int unitnum, const uae_u8 *data, int len, i
  *
  * Based on code from cdrecord
  */
+/****i* januae-blkdev-libscg/scanscsi **************************************
+*
+*   NAME
+*       scanscsi() -- Discover CD/DVD devices on available SCSI buses.
+*
+*   SYNOPSIS
+*       static int scanscsi (SCSI *scgp);
+*
+*   FUNCTION
+*       Enumerate bus and target addresses at LUN zero, skip the initiator
+*       ID, probe responsive devices, and register those whose INQUIRY type
+*       identifies an optical drive.
+*
+*   INPUTS
+*       scgp - Open scanning transport context.
+*
+*   RESULT
+*       Zero after the scan completes.
+*
+*   NOTES
+*       The scan considers up to 16 buses and 16 target IDs per bus;
+*       discovered drives are retained in the bounded registry.
+*
+****************************************************************************
+*
+*/
+
 static int scanscsi (SCSI *scgp)
 {
     int bus;
@@ -494,6 +864,33 @@ static int scanscsi (SCSI *scgp)
     return 0;
 }
 
+/****i* januae-blkdev-libscg/open_scsi_bus *********************************
+*
+*   NAME
+*       open_scsi_bus() -- Initialize and scan the configured SCSI bus.
+*
+*   SYNOPSIS
+*       static int open_scsi_bus (int flags);
+*
+*   FUNCTION
+*       Initialize the global SCSI semaphore on first entry, open a libscg
+*       scanning context with configured diagnostics, scan accessible
+*       targets and release the scanning context.
+*
+*   INPUTS
+*       flags - Bus opening flags; not consulted by this implementation.
+*
+*   RESULT
+*       One when the scanning connection opens successfully; zero otherwise.
+*
+*   NOTES
+*       A successful result indicates that the scanning bus was opened, not
+*       that an optical drive was found.
+*
+****************************************************************************
+*
+*/
+
 static int open_scsi_bus (int flags)
 {
     int   result = 0;
@@ -531,6 +928,32 @@ static int open_scsi_bus (int flags)
     return result;
 }
 
+/****i* januae-blkdev-libscg/close_scsi_bus ********************************
+*
+*   NAME
+*       close_scsi_bus() -- Close registered libscg drive connections.
+*
+*   SYNOPSIS
+*       static void close_scsi_bus (void);
+*
+*   FUNCTION
+*       Walk the discovered-drive registry and close each stored transport
+*       context.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The routine does not reset the registry length or destroy the global
+*       semaphore.
+*
+****************************************************************************
+*
+*/
+
 static void close_scsi_bus (void)
 {
     int i;
@@ -542,6 +965,29 @@ static void close_scsi_bus (void)
 	drives[i].scgp = 0;
     }
 }
+
+/****i* januae-blkdev-libscg/open_scsi_device ******************************
+*
+*   NAME
+*       open_scsi_device() -- Open a registered SCSI device for commands.
+*
+*   SYNOPSIS
+*       static int open_scsi_device (int unitnum);
+*
+*   FUNCTION
+*       Find the registry entry and open its bus, target and LUN through
+*       libscg if no connection is already associated with it.
+*
+*   INPUTS
+*       unitnum - Registered drive index.
+*
+*   RESULT
+*       One when a connection is open or already present; zero when opening
+*       is unsuccessful or the index is not less than the drive count.
+*
+****************************************************************************
+*
+*/
 
 static int open_scsi_device (int unitnum)
 {
@@ -562,12 +1008,58 @@ static int open_scsi_device (int unitnum)
     return result;
 }
 
+/****i* januae-blkdev-libscg/close_scsi_device *****************************
+*
+*   NAME
+*       close_scsi_device() -- Retain the device connection until bus
+*       closure.
+*
+*   SYNOPSIS
+*       static void close_scsi_device (int unitnum);
+*
+*   FUNCTION
+*       Leave the registered device connection open; the bus-close operation
+*       owns its release.
+*
+*   INPUTS
+*       unitnum - Registered drive index; unused.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void close_scsi_device (int unitnum)
 {
     DEBUG_LOG ("SCSIDEV: unit=%d: close_scsi_device\n", unitnum);
 
     /* do nothing - leave devices open until the bus is closed */
 }
+
+/****i* januae-blkdev-libscg/media_check ***********************************
+*
+*   NAME
+*       media_check() -- Query whether device media is ready.
+*
+*   SYNOPSIS
+*       static int media_check (SCSI *scgp);
+*
+*   FUNCTION
+*       Acquire the global SCSI semaphore, submit TEST UNIT READY and
+*       release the semaphore.
+*
+*   INPUTS
+*       scgp - Open libscg device context.
+*
+*   RESULT
+*       One when TEST UNIT READY returns a nonnegative status; otherwise
+*       zero.
+*
+****************************************************************************
+*
+*/
 
 static int media_check (SCSI *scgp)
 {
@@ -584,6 +1076,37 @@ static int media_check (SCSI *scgp)
 
     return media;
 }
+
+/****i* januae-blkdev-libscg/info_device ***********************************
+*
+*   NAME
+*       info_device() -- Populate the emulator-facing optical device
+*       descriptor.
+*
+*   SYNOPSIS
+*       static struct device_info *info_device (int unitnum, struct
+*       device_info *di);
+*
+*   FUNCTION
+*       For a registered drive, fill its logical unit index, media-presence
+*       flag, read-only status, 2048-byte sector size, optical type,
+*       identifier and formatted physical address label.
+*
+*   INPUTS
+*       unitnum - Registered drive index; di - Caller-supplied device_info
+*       structure.
+*
+*   RESULT
+*       The supplied descriptor pointer for a registered drive, or NULL when
+*       the index is not less than the registry count.
+*
+*   NOTES
+*       Bus and LUN exposed to the emulator are zero; target is the registry
+*       index, not the physical SCSI target.
+*
+****************************************************************************
+*
+*/
 
 static struct device_info *info_device (int unitnum, struct device_info *di)
 {
@@ -608,6 +1131,27 @@ static struct device_info *info_device (int unitnum, struct device_info *di)
 
     return di;
 }
+
+/****i* januae-blkdev-libscg/check_isatapi *********************************
+*
+*   NAME
+*       check_isatapi() -- Report the saved ATAPI classification.
+*
+*   SYNOPSIS
+*       static int check_isatapi (int unitnum);
+*
+*   FUNCTION
+*       Read the ATAPI flag recorded when the SCSI drive was discovered.
+*
+*   INPUTS
+*       unitnum - Registered drive index.
+*
+*   RESULT
+*       The stored ATAPI classification value.
+*
+****************************************************************************
+*
+*/
 
 static int check_isatapi (int unitnum)
 {
