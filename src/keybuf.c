@@ -39,12 +39,62 @@ int kpb_first, kpb_last;
 
 static int keybuf[256];
 
+/****i* januae-keybuf/keys_available ***************************************
+*
+*   NAME
+*       keys_available() -- Check whether the emulator keyboard queue
+*       contains data.
+*
+*   SYNOPSIS
+*       int keys_available (void);
+*
+*   FUNCTION
+*       Compare the producer and consumer indices of the fixed-size keyboard
+*       ring buffer.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Nonzero when a queued key code is available; zero otherwise.
+*
+****************************************************************************
+*
+*/
+
 int keys_available (void)
 {
     int val;
     val = kpb_first != kpb_last;
     return val;
 }
+
+/****i* januae-keybuf/get_next_key *****************************************
+*
+*   NAME
+*       get_next_key() -- Remove the next key code from the keyboard ring
+*       buffer.
+*
+*   SYNOPSIS
+*       int get_next_key (void);
+*
+*   FUNCTION
+*       Read the entry at the consumer index and advance that index,
+*       wrapping after the last of 256 positions.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       The oldest queued key code.
+*
+*   NOTES
+*       The caller must ensure the queue is nonempty; an assertion checks
+*       this precondition.
+*
+****************************************************************************
+*
+*/
 
 int get_next_key (void)
 {
@@ -57,6 +107,34 @@ int get_next_key (void)
     return key;
 }
 
+/****i* januae-keybuf/do_fake **********************************************
+*
+*   NAME
+*       do_fake() -- Publish keyboard-derived joystick state for one
+*       emulated port.
+*
+*   SYNOPSIS
+*       static void do_fake (int nr);
+*
+*   FUNCTION
+*       Resolve the configured compatibility device and map the stored
+*       directional and three button states to joystick axis and button
+*       events.
+*
+*   INPUTS
+*       nr - Keyboard joystick state slot, zero or one.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The axis values use a magnitude of 100; opposing direction keys are
+*       resolved by the ordering in the source expression.
+*
+****************************************************************************
+*
+*/
+
 static void do_fake (int nr)
 {
     int *fake = fakestate[nr];
@@ -68,6 +146,38 @@ static void do_fake (int nr)
     setjoybuttonstate (nr, 1, fake[5]);
     setjoybuttonstate (nr, 2, fake[6]);
 }
+
+/****i* januae-keybuf/record_key *******************************************
+*
+*   NAME
+*       record_key() -- Record an emulated keyboard transition or route it
+*       to a keyboard joystick.
+*
+*   SYNOPSIS
+*       void record_key (int kc);
+*
+*   FUNCTION
+*       Reject an event when the ring buffer is full, update the selected
+*       keyboard-joystick key states, and emit joystick events in
+*       compatibility mode when applicable. Otherwise normalize the
+*       right-Control key and optionally apply X-Arcade remapping before
+*       enqueuing the key code.
+*
+*   INPUTS
+*       kc - Encoded Amiga key code, with the low bit representing the
+*       release state.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The keyboard queue uses 256 slots with one entry reserved to
+*       distinguish full from empty. X-Arcade handling is conditional on
+*       XARCADE.
+*
+****************************************************************************
+*
+*/
 
 void record_key (int kc)
 {
@@ -184,6 +294,34 @@ void record_key (int kc)
     kpb_first = kpb_next;
 }
 
+/****i* januae-keybuf/joystick_setting_changed *****************************
+*
+*   NAME
+*       joystick_setting_changed() -- Rebind keyboard emulation to the
+*       selected joystick configurations.
+*
+*   SYNOPSIS
+*       void joystick_setting_changed (void);
+*
+*   FUNCTION
+*       Clear the key-state pointers, then associate numpad, cursor-key, and
+*       alternate-key layouts with either configured compatibility port.
+*       Include the optional X-Arcade layouts when compiled in.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The function changes the active key-state destinations but does not
+*       erase their previously stored values.
+*
+****************************************************************************
+*
+*/
+
 void joystick_setting_changed (void)
 {
     fs_np = fs_ck = fs_se = 0;
@@ -219,6 +357,29 @@ void joystick_setting_changed (void)
 #endif
 }
 
+/****i* januae-keybuf/keybuf_init ******************************************
+*
+*   NAME
+*       keybuf_init() -- Reset the keyboard queue and activate the current
+*       input configuration.
+*
+*   SYNOPSIS
+*       void keybuf_init (void);
+*
+*   FUNCTION
+*       Set both queue indices to zero and ask the input-device subsystem to
+*       update its configuration from the current preferences.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void keybuf_init (void)
 {
     kpb_first = kpb_last = 0;
@@ -227,6 +388,33 @@ void keybuf_init (void)
 
 
 #ifdef SAVESTATE
+
+/****i* januae-keybuf/save_keyboard ****************************************
+*
+*   NAME
+*       save_keyboard() -- Serialize the keyboard state for an emulator save
+*       state.
+*
+*   SYNOPSIS
+*       uae_u8 *save_keyboard (uae_u32 *len);
+*
+*   FUNCTION
+*       Allocate an eight-byte record containing the caps-lock state as a
+*       32-bit value followed by a reserved zero word.
+*
+*   INPUTS
+*       len - Output location for the serialized record length.
+*
+*   RESULT
+*       Newly allocated record data; the function sets *len to eight.
+*
+*   NOTES
+*       Available only when SAVESTATE is enabled. The caller owns the
+*       allocated record.
+*
+****************************************************************************
+*
+*/
 
 uae_u8 *save_keyboard (uae_u32 *len)
 {
@@ -237,6 +425,31 @@ uae_u8 *save_keyboard (uae_u32 *len)
     *len = 8;
     return t;
 }
+
+/****i* januae-keybuf/restore_keyboard *************************************
+*
+*   NAME
+*       restore_keyboard() -- Restore the recorded keyboard caps-lock state.
+*
+*   SYNOPSIS
+*       const uae_u8 *restore_keyboard (const uae_u8 *src);
+*
+*   FUNCTION
+*       Read the serialized caps-lock word, update the host keyboard state,
+*       and consume the following reserved word.
+*
+*   INPUTS
+*       src - Serialized keyboard-state record.
+*
+*   RESULT
+*       Pointer following the consumed record.
+*
+*   NOTES
+*       Available only when SAVESTATE is enabled.
+*
+****************************************************************************
+*
+*/
 
 const uae_u8 *restore_keyboard (const uae_u8 *src)
 {

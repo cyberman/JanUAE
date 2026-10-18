@@ -154,6 +154,37 @@ static const int default_keymap[] = {
  * Build a default key translation table using the
  * specified host keymap.
  */
+/****i* januae-keymap/uaekey_make_default_kbr ******************************
+*
+*   NAME
+*       uaekey_make_default_kbr() -- Construct a keyboard translation table
+*       from a host keymap.
+*
+*   SYNOPSIS
+*       struct uae_input_device_kbr_default *uaekey_make_default_kbr (const
+*       struct uaekey_hostmap *hostkeys);
+*
+*   FUNCTION
+*       Count host key entries up to their minus-one terminator, allocate
+*       one translation entry per key plus a terminating entry, and map each
+*       host scan code through the built-in UAE-key-to-input-event table.
+*
+*   INPUTS
+*       hostkeys - Array of host scan codes and UAE key identifiers
+*       terminated by hostkey -1.
+*
+*   RESULT
+*       Newly allocated, minus-one-terminated translation table, or NULL on
+*       allocation failure.
+*
+*   NOTES
+*       The input terminator must occur within the first 256 entries;
+*       otherwise the function aborts. The caller owns the returned table.
+*
+****************************************************************************
+*
+*/
+
 struct uae_input_device_kbr_default *uaekey_make_default_kbr (const struct uaekey_hostmap *hostkeys)
 {
     int i;
