@@ -48,6 +48,27 @@ ULONG          old_MoveWindowInFront_Counter;
 /* ATTENTION: janus-daemon.c does not check for errors, so if you 
  * generate an error here, check it there!
  */
+/****i* januae/init_sync_windows *******************************************
+*
+*   NAME
+*       init_sync_windows() -- Initialize window synchronization.
+*
+*   SYNOPSIS
+*       BOOL init_sync_windows();
+*
+*   FUNCTION
+*       Reset the saved window-order comparison state.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       TRUE.
+*
+****************************************************************************
+*
+*/
+
 BOOL init_sync_windows() {
 
   ENTER
@@ -70,6 +91,37 @@ BOOL init_sync_windows() {
  * screens here. The uae side can find out, on which
  * screen the window is.
  ****************************************************/
+/****i* januae/update_windows **********************************************
+*
+*   NAME
+*       update_windows() -- Report public-screen windows.
+*
+*   SYNOPSIS
+*       void update_windows();
+*
+*   FUNCTION
+*       Enumerate windows belonging to public screens and forward their
+*       pointers to the host.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned. The operation stops if the public-screen list
+*       cannot be locked or its head is absent.
+*
+*   NOTES
+*       The function sends AD_GET_JOB_LIST_WINDOWS with a flat list of guest
+*       window addresses.
+*
+*   BUGS
+*       The command-buffer allocation is not checked and the enumeration has
+*       no AD__MAXMEM capacity bound.
+*
+****************************************************************************
+*
+*/
+
 void update_windows() {
   ULONG *command_mem;
   int    i;
@@ -121,6 +173,30 @@ void update_windows() {
 
 #ifdef DUMPWIN
 /* debug helpers */
+/****i* januae/dump_host_windows *******************************************
+*
+*   NAME
+*       dump_host_windows() -- Trace host window entries.
+*
+*   SYNOPSIS
+*       void dump_host_windows(ULONG *window);
+*
+*   FUNCTION
+*       Print window words from a host-provided buffer for diagnostics.
+*
+*   INPUTS
+*       window - Pointer to the window-word buffer.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Compiled only when DUMPWIN is defined.
+*
+****************************************************************************
+*
+*/
+
 void dump_host_windows(ULONG *window) {
   int i=0;
 
@@ -134,6 +210,32 @@ void dump_host_windows(ULONG *window) {
 
   LEAVE
 }
+
+/****i* januae/dump_uae_windows ********************************************
+*
+*   NAME
+*       dump_uae_windows() -- Trace guest window layers.
+*
+*   SYNOPSIS
+*       void dump_uae_windows(struct Screen *screen);
+*
+*   FUNCTION
+*       Walk the screen layer stack and print the windows associated with
+*       its layers.
+*
+*   INPUTS
+*       screen - Screen whose layer chain is inspected.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Compiled only when DUMPWIN is defined. The routine assumes the
+*       screen has a first window.
+*
+****************************************************************************
+*
+*/
 
 void dump_uae_windows(struct Screen *screen) {
   struct Layer *layer;
@@ -163,6 +265,35 @@ void dump_uae_windows(struct Screen *screen) {
 
   LEAVE
 }
+
+/****i* januae/need_to_sort ************************************************
+*
+*   NAME
+*       need_to_sort() -- Compare diagnostic window order.
+*
+*   SYNOPSIS
+*       ULONG need_to_sort(ULONG *host_window, struct Layer *layer);
+*
+*   FUNCTION
+*       Evaluate the first host-window word while comparing an optional
+*       layer chain.
+*
+*   INPUTS
+*       host_window - Host window-word list. layer - Current guest layer.
+*
+*   RESULT
+*       FALSE in every reachable branch.
+*
+*   NOTES
+*       Compiled only when DUMPWIN is defined.
+*
+*   BUGS
+*       An unconditional early return prevents the intended recursive layer
+*       comparison whenever a host-window word is present.
+*
+****************************************************************************
+*
+*/
 
 ULONG need_to_sort(ULONG *host_window, struct Layer *layer) {
 
@@ -219,6 +350,36 @@ ULONG need_to_sort(ULONG *host_window, struct Layer *layer) {
  * */
 
 ULONG *report_command_mem=NULL;
+
+/****i* januae/report_uae_windows ******************************************
+*
+*   NAME
+*       report_uae_windows() -- Report guest window geometry.
+*
+*   SYNOPSIS
+*       void report_uae_windows();
+*
+*   FUNCTION
+*       Collect the first guest screen and its windows, encode their
+*       interior coordinates and dimensions, and submit them to the host.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned; the operation stops if its reusable buffer
+*       cannot be allocated or no first screen exists.
+*
+*   NOTES
+*       Each window occupies five ULONG words. The buffer is reused between
+*       calls.
+*
+*   BUGS
+*       The window enumeration does not bound its writes by AD__MAXMEM.
+*
+****************************************************************************
+*
+*/
 
 void report_uae_windows() {
   struct Screen *screen =NULL;
@@ -324,12 +485,54 @@ void report_uae_windows() {
  * All values are without window borders.
  * */
 
+/****i* januae/get_hi ******************************************************
+*
+*   NAME
+*       get_hi() -- Extract a high word.
+*
+*   SYNOPSIS
+*       static UWORD get_hi(ULONG l);
+*
+*   FUNCTION
+*       Extract the upper 16 bits of a 32-bit word.
+*
+*   INPUTS
+*       l - Value containing two packed 16-bit fields.
+*
+*   RESULT
+*       The upper 16 bits as UWORD.
+*
+****************************************************************************
+*
+*/
+
 static UWORD get_hi(ULONG l) {
   ULONG t;
   t=l&0xFFFF0000;
   t=t/0x10000;
   return (UWORD) t;
 }
+
+/****i* januae/get_lo ******************************************************
+*
+*   NAME
+*       get_lo() -- Extract a low word.
+*
+*   SYNOPSIS
+*       static UWORD get_lo(ULONG l);
+*
+*   FUNCTION
+*       Extract the lower 16 bits of a 32-bit word.
+*
+*   INPUTS
+*       l - Value containing two packed 16-bit fields.
+*
+*   RESULT
+*       The lower 16 bits as UWORD.
+*
+****************************************************************************
+*
+*/
 
 static UWORD get_lo(ULONG l) {
   return (UWORD) (l&0xFFFF);
@@ -338,6 +541,32 @@ static UWORD get_lo(ULONG l) {
 /*
  * check, if at the given coordinates our window is visible 
  */
+/****i* januae/is_in_window ************************************************
+*
+*   NAME
+*       is_in_window() -- Test visible window ownership.
+*
+*   SYNOPSIS
+*       BOOL is_in_window(struct Window *win, UWORD x, UWORD y);
+*
+*   FUNCTION
+*       Resolve the layer at a screen coordinate and compare its window with
+*       the requested window.
+*
+*   INPUTS
+*       win - Window whose screen and layer are inspected. x, y - Screen
+*       coordinates.
+*
+*   RESULT
+*       TRUE if the resolved layer belongs to win; otherwise FALSE.
+*
+*   NOTES
+*       The screen layer information is locked while resolving the layer.
+*
+****************************************************************************
+*
+*/
+
 BOOL is_in_window(struct Window *win, UWORD x, UWORD y) {
   struct Layer_Info *li = &(win->WScreen->LayerInfo);
   struct Layer *layer;
@@ -375,6 +604,39 @@ BOOL is_in_window(struct Window *win, UWORD x, UWORD y) {
  *
  * I removed this hack again, as I think those crashes had other reasons.
  */
+/****i* januae/ChangeWindowBox_safe ****************************************
+*
+*   NAME
+*       ChangeWindowBox_safe() -- Apply guest window geometry.
+*
+*   SYNOPSIS
+*       static void ChangeWindowBox_safe(struct Window *win, WORD left, WORD
+*       top, WORD width, WORD height);
+*
+*   FUNCTION
+*       Check that a guest window occurs on a live screen and then request a
+*       new window rectangle.
+*
+*   INPUTS
+*       win - Window to change. left, top - Requested origin. width, height
+*       - Requested dimensions.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The existence check holds LockIBase temporarily, but ChangeWindowBox
+*       is called after unlocking. The historical mouse-driven move/resize
+*       path is disabled.
+*
+*   BUGS
+*       The window can be removed between releasing LockIBase and calling
+*       ChangeWindowBox.
+*
+****************************************************************************
+*
+*/
+
 static void ChangeWindowBox_safe(struct Window *win, WORD left, WORD top, WORD width, WORD height) {
 
   ULONG lock;
@@ -472,6 +734,37 @@ ChangeWindowBox_with_API:
 /* care for screens here ?? 
  * no, because the AROS side may only return windows on the top screen.
  */
+/****i* januae/report_host_windows *****************************************
+*
+*   NAME
+*       report_host_windows() -- Apply host-provided window rectangles.
+*
+*   SYNOPSIS
+*       void report_host_windows();
+*
+*   FUNCTION
+*       Request host window geometry and apply decoded border-adjusted
+*       rectangles to guest windows.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned; a failed command-buffer allocation cancels the
+*       operation.
+*
+*   NOTES
+*       Geometry fields use packed high and low words. Records advance in
+*       five-ULONG strides.
+*
+*   BUGS
+*       The buffer-bound check uses i * 4 rather than the five-word record
+*       extent before reading fields i+1 through i+4.
+*
+****************************************************************************
+*
+*/
+
 void report_host_windows() {
   struct Window *win;
   ULONG         *command_mem;
@@ -527,6 +820,37 @@ void report_host_windows() {
  * just do a real MoveWindowInFront, if one of
  * the parameters is new to us.
  */
+
+/****i* januae/my_MoveWindowInFrontOf **************************************
+*
+*   NAME
+*       my_MoveWindowInFrontOf() -- Update guest window stacking.
+*
+*   SYNOPSIS
+*       static void my_MoveWindowInFrontOf(struct Window *window, struct
+*       Window *behindWindow);
+*
+*   FUNCTION
+*       Move one guest window ahead of another, suppressing repeated
+*       identical requests for a limited number of calls.
+*
+*   INPUTS
+*       window - Window to raise. behindWindow - Reference window.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Both window pointers are checked under LockIBase before the
+*       Intuition move call.
+*
+*   BUGS
+*       The pointers may become invalid after releasing LockIBase and before
+*       MoveWindowInFrontOf.
+*
+****************************************************************************
+*
+*/
 
 static void my_MoveWindowInFrontOf(struct Window *window, 
                                    struct Window *behindWindow) {
@@ -599,6 +923,37 @@ EXIT:
  * to filter out double window pointer
  * here. Otherwise we get flapping windows
  *****************************************/
+/****i* januae/sync_windows ************************************************
+*
+*   NAME
+*       sync_windows() -- Synchronize guest stacking order.
+*
+*   SYNOPSIS
+*       void sync_windows();
+*
+*   FUNCTION
+*       Request the host window order and adjust at most one mismatched
+*       guest window per call.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned; empty host results or an absent associated
+*       screen end the operation.
+*
+*   NOTES
+*       Duplicate layers referring to the same window are skipped while
+*       comparing stacking order.
+*
+*   BUGS
+*       The function dereferences screen->FirstWindow and its layer without
+*       checking that FirstWindow is non-NULL.
+*
+****************************************************************************
+*
+*/
+
 void sync_windows() {
   ULONG *command_mem;
   struct Layer *layer;
@@ -696,6 +1051,32 @@ void sync_windows() {
   LEAVE
 }
 
+/****i* januae/sync_active_window ******************************************
+*
+*   NAME
+*       sync_active_window() -- Activate the host-selected guest window.
+*
+*   SYNOPSIS
+*       void sync_active_window();
+*
+*   FUNCTION
+*       Query the host active-window pointer, validate it against the guest
+*       window lists, and activate it when present.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned. An invalid or absent window is not activated.
+*
+*   NOTES
+*       The validation is made under LockIBase; the lock is released before
+*       ActivateWindow.
+*
+****************************************************************************
+*
+*/
+
 void sync_active_window() {
   struct Window *win=NULL;
   ULONG          lock;
@@ -724,6 +1105,27 @@ void sync_active_window() {
 }
 
 
+/****i* januae/is_ign ******************************************************
+*
+*   NAME
+*       is_ign() -- Recognize ignored title pointers.
+*
+*   SYNOPSIS
+*       BOOL is_ign(UBYTE *in);
+*
+*   FUNCTION
+*       Check whether a title pointer is a special ignore sentinel.
+*
+*   INPUTS
+*       in - Title pointer or sentinel to inspect.
+*
+*   RESULT
+*       TRUE for NULL or (UBYTE *)~0; otherwise FALSE.
+*
+****************************************************************************
+*
+*/
+
 BOOL is_ign(UBYTE *in) {
 
   if((in == NULL) || (in == (UBYTE *) ~0)) {
@@ -739,6 +1141,39 @@ BOOL is_ign(UBYTE *in) {
  *
  *  if the window title changed, change also the AROS title
  *********************************************************************************/
+/****i* januae/set_aros_titles *********************************************
+*
+*   NAME
+*       set_aros_titles() -- Detect pending title changes.
+*
+*   SYNOPSIS
+*       ULONG set_aros_titles(struct Window *win, UBYTE *windowtitle, UBYTE
+*       *screentitle);
+*
+*   FUNCTION
+*       Compare requested window and screen titles against the guest window
+*       title pointers and strings.
+*
+*   INPUTS
+*       win - Guest window. windowtitle - Requested window title or ignore
+*       sentinel. screentitle - Requested screen title or ignore sentinel.
+*
+*   RESULT
+*       1 if either non-ignored title differs by pointer or content;
+*       otherwise 0.
+*
+*   NOTES
+*       The AmigaOS branch declares register bindings for its arguments.
+*       This function does not update the titles itself.
+*
+*   BUGS
+*       Pointer inequality causes an early difference result even when the
+*       strings have identical content.
+*
+****************************************************************************
+*
+*/
+
 #ifndef __AROS__
 ULONG set_aros_titles (struct Window *win __asm("a0"), 
                        UBYTE *windowtitle __asm("a1"), 

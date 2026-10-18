@@ -57,6 +57,34 @@ APTR old_WindowLimits;
 /****************************************************************************
  * new SetWindowTitle function
  ****************************************************************************/
+/****i* januae/my_SetWindowTitles_SetFunc **********************************
+*
+*   NAME
+*       my_SetWindowTitles_SetFunc() -- Forward guest title changes.
+*
+*   SYNOPSIS
+*       void my_SetWindowTitles_SetFunc(struct Window *window, CONST_STRPTR
+*       windowtitle, CONST_STRPTR screentitle);
+*
+*   FUNCTION
+*       Call the original Intuition SetWindowTitles entry and notify the
+*       host when Janus synchronization is active.
+*
+*   INPUTS
+*       window - Window being updated. windowtitle - New window title.
+*       screentitle - New screen title.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       This AROS library-function wrapper uses AROS_LH3 and calls the saved
+*       original function before the host trap.
+*
+****************************************************************************
+*
+*/
+
 AROS_LH3(void, my_SetWindowTitles_SetFunc,
          AROS_LHA(struct Window *, window,      A0),
          AROS_LHA(CONST_STRPTR,    windowtitle, A1),
@@ -89,6 +117,34 @@ AROS_LH3(void, my_SetWindowTitles_SetFunc,
 /****************************************************************************
  * new WindowLimits function
  ****************************************************************************/
+/****i* januae/my_WindowLimits_SetFunc *************************************
+*
+*   NAME
+*       my_WindowLimits_SetFunc() -- Forward guest window limits.
+*
+*   SYNOPSIS
+*       BOOL my_WindowLimits_SetFunc(struct Window *window, WORD MinWidth,
+*       WORD MinHeight, UWORD MaxWidth, UWORD MaxHeight);
+*
+*   FUNCTION
+*       Call the original Intuition WindowLimits entry and forward the
+*       requested limits to the host while synchronization is active.
+*
+*   INPUTS
+*       window - Window being updated. MinWidth, MinHeight - Minimum
+*       dimensions. MaxWidth, MaxHeight - Maximum dimensions.
+*
+*   RESULT
+*       The BOOL returned by the original Intuition call.
+*
+*   NOTES
+*       This AROS library-function wrapper uses AROS_LH5; the host trap
+*       result does not replace the original result.
+*
+****************************************************************************
+*
+*/
+
 AROS_LH5(BOOL, my_WindowLimits_SetFunc,
          AROS_LHA(struct Window *, window, A0),
          AROS_LHA(WORD,            MinWidth, D0),
@@ -134,6 +190,31 @@ AROS_LH5(BOOL, my_WindowLimits_SetFunc,
  *
  * alloc notify signal
  *********************************************************************************/
+/****i* januae/setup_notify ************************************************
+*
+*   NAME
+*       setup_notify() -- Allocate the screen-notification signal.
+*
+*   SYNOPSIS
+*       static ULONG setup_notify(void);
+*
+*   FUNCTION
+*       Create the Janus notification message port and record its signal
+*       mask.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       The signal mask derived from the allocated message port.
+*
+*   NOTES
+*       The function calls exit(1) if CreateMsgPort fails.
+*
+****************************************************************************
+*
+*/
+
 static ULONG setup_notify(void) {
 
   DebOut("entered\n");
@@ -148,6 +229,35 @@ static ULONG setup_notify(void) {
 
   return notify_signal;
 }
+
+/****i* januae/do_notify ***************************************************
+*
+*   NAME
+*       do_notify() -- Register a screen notification.
+*
+*   SYNOPSIS
+*       static APTR do_notify(struct Screen *screen, struct MsgPort *port,
+*       ULONG class, ULONG thread);
+*
+*   FUNCTION
+*       Register a screen-notification class for delivery to a message port
+*       and task.
+*
+*   INPUTS
+*       screen - Ignored; the current Intuition front screen is used
+*       instead. port - Destination message port. class - Notification mask.
+*       thread - Notification task address.
+*
+*   RESULT
+*       A notification handle, or NULL if registration fails.
+*
+*   NOTES
+*       When no front screen is available, SNA_UserData is omitted. A
+*       registration failure is reported but not fatal.
+*
+****************************************************************************
+*
+*/
 
 static APTR do_notify(struct Screen *screen, struct MsgPort *port, ULONG class, ULONG thread) {
   APTR notify;
@@ -206,6 +316,36 @@ static APTR do_notify(struct Screen *screen, struct MsgPort *port, ULONG class, 
  *   it is closed.
  *
  ****************************************************/
+/****i* januae/patch_functions *********************************************
+*
+*   NAME
+*       patch_functions() -- Install AROS synchronization notifications.
+*
+*   SYNOPSIS
+*       void patch_functions(void);
+*
+*   FUNCTION
+*       Register screen and window notifications and replace the Intuition
+*       title and window-limit entry points with Janus wrappers.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       This is the AROS implementation under #if __AROS__. Registration
+*       handles are not retained.
+*
+*   BUGS
+*       Failed notification registrations do not stop subsequent setup, and
+*       the routine provides no cleanup or rollback on partial failure.
+*
+****************************************************************************
+*
+*/
+
 void patch_functions(void ) {
   ULONG thread= (ULONG) FindTask(NULL);
 
@@ -291,6 +431,32 @@ struct TagItem       taglist_mytags[2]={ { SA_Draggable, FALSE}, { TAG_DONE, TAG
  *
  * set SA_Draggable to FALSE, AROS has no screen dragging ;)
  *********************************************************************************/
+/****i* januae/remove_dragging *********************************************
+*
+*   NAME
+*       remove_dragging() -- Prepare a nondraggable screen descriptor.
+*
+*   SYNOPSIS
+*       ULONG remove_dragging(struct NewScreen *newscreen);
+*
+*   FUNCTION
+*       Copy a NewScreen descriptor into shared extended storage and attach
+*       an SA_Draggable=FALSE tag.
+*
+*   INPUTS
+*       newscreen - Screen description to copy.
+*
+*   RESULT
+*       Address of the shared extended screen description, encoded as ULONG.
+*
+*   NOTES
+*       The input description is not modified; the returned descriptor and
+*       linked tag storage are shared and overwritten on later calls.
+*
+****************************************************************************
+*
+*/
+
 #ifndef __AROS__
 ULONG remove_dragging (struct NewScreen *newscreen __asm("a0")) {
 #else
@@ -362,6 +528,31 @@ ULONG remove_dragging (struct NewScreen *newscreen) {
  * use taglist_mytags_linked here and not mytags_linked, as OpenScreen might call
  * OpenScreenTagList.. and so we would cause wrong links 
  */
+/****i* januae/remove_dragging_TagList *************************************
+*
+*   NAME
+*       remove_dragging_TagList() -- Prepare nondraggable screen tags.
+*
+*   SYNOPSIS
+*       ULONG remove_dragging_TagList(struct TagItem *original_tags);
+*
+*   FUNCTION
+*       Prepend SA_Draggable=FALSE to an existing tag list, or return a
+*       standalone default tag list.
+*
+*   INPUTS
+*       original_tags - Original tags or NULL.
+*
+*   RESULT
+*       Pointer to shared tag storage, encoded as ULONG.
+*
+*   NOTES
+*       Returned shared storage is overwritten by later calls.
+*
+****************************************************************************
+*
+*/
+
 #ifndef __AROS__
 ULONG remove_dragging_TagList (struct TagItem *original_tags __asm("a1")) {
 #else
@@ -385,9 +576,63 @@ ULONG remove_dragging_TagList (struct TagItem *original_tags) {
   return (ULONG) taglist_mytags_linked;
 }
 
+/****i* januae/do_update_screens *******************************************
+*
+*   NAME
+*       do_update_screens() -- Refresh guest screen metadata.
+*
+*   SYNOPSIS
+*       void do_update_screens(void);
+*
+*   FUNCTION
+*       Invoke update_screens to report guest screen information to the
+*       host.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void do_update_screens (void) {
   update_screens();
 }
+
+/****i* januae/handle_notify_msg *******************************************
+*
+*   NAME
+*       handle_notify_msg() -- Dispatch AROS screen notifications.
+*
+*   SYNOPSIS
+*       void handle_notify_msg(ULONG notify_class, ULONG notify_object);
+*
+*   FUNCTION
+*       Forward supported Intuition window and screen notifications to their
+*       corresponding Janus host services.
+*
+*   INPUTS
+*       notify_class - Intuition notification class. notify_object -
+*       Affected screen or window address.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Notifications are processed only when the daemon state is active.
+*       Window open/close, screen open/close and screen-depth services are
+*       recognized.
+*
+*   BUGS
+*       The SNOTIFY_SCREENDEPTH handler is present but its notification
+*       registration is commented out.
+*
+****************************************************************************
+*
+*/
 
 void handle_notify_msg(ULONG notify_class, ULONG notify_object) {
 
