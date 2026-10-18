@@ -82,6 +82,30 @@ struct ProxyMsg {
 /* Proxy replies to message sender with this signal */
 #define PROXY_MSG_REPLY_SIG		SIGBREAKF_CTRL_F
 
+/****i* januae-thread/init_proxy_msg ***************************************
+*
+*   NAME
+*       init_proxy_msg() -- Initialize a semaphore-proxy message.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void init_proxy_msg (struct ProxyMsg *msg,
+*       ProxyMsgType type, struct PSemaphore *sem);
+*
+*   FUNCTION
+*       Clear a proxy message and populate its length, command, target
+*       semaphore and originating task.
+*
+*   INPUTS
+*       msg - Message to initialize. type - Proxy command. sem - Target
+*       semaphore.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 STATIC_INLINE void init_proxy_msg (struct ProxyMsg *msg, ProxyMsgType type, struct PSemaphore *sem)
 {
     memset (msg, 0, sizeof (struct ProxyMsg));
@@ -92,10 +116,53 @@ STATIC_INLINE void init_proxy_msg (struct ProxyMsg *msg, ProxyMsgType type, stru
     msg->reply_task    = FindTask (NULL);
 }
 
+/****i* januae-thread/put_proxy_msg ****************************************
+*
+*   NAME
+*       put_proxy_msg() -- Send a message to the semaphore proxy.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void put_proxy_msg (struct ProxyMsg *msg);
+*
+*   FUNCTION
+*       Queue the supplied message on the shared proxy message port.
+*
+*   INPUTS
+*       msg - Initialized proxy message.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 STATIC_INLINE void put_proxy_msg (struct ProxyMsg *msg)
 {
     PutMsg (proxy_msgport, (struct Message *)msg);
 }
+
+/****i* januae-thread/wait_proxy_reply *************************************
+*
+*   NAME
+*       wait_proxy_reply() -- Wait for a semaphore-proxy reply signal.
+*
+*   SYNOPSIS
+*       STATIC_INLINE BOOL wait_proxy_reply (void);
+*
+*   FUNCTION
+*       Wait for SIGBREAKF_CTRL_F and test whether the reply signal was
+*       received.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       TRUE if the reply signal is present; otherwise FALSE.
+*
+****************************************************************************
+*
+*/
 
 STATIC_INLINE BOOL wait_proxy_reply (void)
 {
@@ -113,6 +180,28 @@ STATIC_INLINE BOOL wait_proxy_reply (void)
 /*
  * Do proxy's reply to a semaphore message
  */
+/****i* januae-thread/do_proxy_reply ***************************************
+*
+*   NAME
+*       do_proxy_reply() -- Reply to a pending proxy message.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void do_proxy_reply (struct ProxyMsg *msg);
+*
+*   FUNCTION
+*       Reply to the Exec message and signal its originating task with
+*       SIGBREAKF_CTRL_F.
+*
+*   INPUTS
+*       msg - Message whose sender is to be awakened.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 STATIC_INLINE void do_proxy_reply (struct ProxyMsg *msg)
 {
    ReplyMsg ((struct Message *)msg);
@@ -125,6 +214,29 @@ STATIC_INLINE void do_proxy_reply (struct ProxyMsg *msg)
 /*
  * Block current process on semaphore
  */
+/****i* januae-thread/BlockMe **********************************************
+*
+*   NAME
+*       BlockMe() -- Block the current task on a semaphore.
+*
+*   SYNOPSIS
+*       static int BlockMe (struct PSemaphore *psem);
+*
+*   FUNCTION
+*       Send a block request to the proxy and wait for its reply signal; if
+*       the wait does not report the reply signal, remove the pending
+*       request from its queue.
+*
+*   INPUTS
+*       psem - Semaphore on which to block.
+*
+*   RESULT
+*       0 on receipt of a proxy reply; otherwise -1.
+*
+****************************************************************************
+*
+*/
+
 static int BlockMe (struct PSemaphore *psem)
 {
     int result = -1;
@@ -152,6 +264,28 @@ static int BlockMe (struct PSemaphore *psem)
 /*
  * Unblock one process blocked on semaphore
  */
+/****i* januae-thread/UnblockOne *******************************************
+*
+*   NAME
+*       UnblockOne() -- Request release of one blocked task.
+*
+*   SYNOPSIS
+*       static void UnblockOne (struct PSemaphore *psem);
+*
+*   FUNCTION
+*       Send an unblock command for the semaphore and wait for the proxy
+*       acknowledgement.
+*
+*   INPUTS
+*       psem - Semaphore whose waiting queue is to be serviced.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void UnblockOne (struct PSemaphore *psem)
 {
     struct ProxyMsg msg;
@@ -165,6 +299,28 @@ static void UnblockOne (struct PSemaphore *psem)
 /*
  * Destroy the semaphore block
  */
+/****i* januae-thread/Destroy **********************************************
+*
+*   NAME
+*       Destroy() -- Request cancellation of semaphore waiters.
+*
+*   SYNOPSIS
+*       static void Destroy (struct PSemaphore *psem);
+*
+*   FUNCTION
+*       Send the semaphore destruction command to the proxy and wait for its
+*       acknowledgement.
+*
+*   INPUTS
+*       psem - Semaphore whose blocked tasks are to be signalled.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void Destroy (struct PSemaphore *psem)
 {
     struct ProxyMsg msg;
@@ -181,12 +337,62 @@ static void Destroy (struct PSemaphore *psem)
  ** Proxy thread
  **/
 
+/****i* januae-thread/handle_startup_msg ***********************************
+*
+*   NAME
+*       handle_startup_msg() -- Acknowledge the proxy process startup
+*       message.
+*
+*   SYNOPSIS
+*       static void handle_startup_msg (void);
+*
+*   FUNCTION
+*       Wait for a startup message on the current process port and reply to
+*       it.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void handle_startup_msg (void)
 {
     struct Process *self = (struct Process*) FindTask (NULL);
     WaitPort (&self->pr_MsgPort);
     ReplyMsg (GetMsg (&self->pr_MsgPort));
 }
+
+/****i* januae-thread/proxy_thread_main ************************************
+*
+*   NAME
+*       proxy_thread_main() -- Run the semaphore message dispatcher.
+*
+*   SYNOPSIS
+*       static void proxy_thread_main (void);
+*
+*   FUNCTION
+*       Create the proxy port; queue block requests, release one waiter for
+*       unblock requests, signal all waiters for destruction requests, and
+*       exit on SIGBREAKF_CTRL_C.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Unanswered messages are replied to during shutdown, and the shared
+*       proxy-task and port pointers are cleared.
+*
+****************************************************************************
+*
+*/
 
 static void proxy_thread_main (void) {
 
@@ -296,6 +502,28 @@ static void proxy_thread_main (void) {
   DEBUG_LOG("semaphore thread exit\n");
 }
 
+/****i* januae-thread/stop_proxy_thread ************************************
+*
+*   NAME
+*       stop_proxy_thread() -- Request proxy-process termination.
+*
+*   SYNOPSIS
+*       void stop_proxy_thread (void);
+*
+*   FUNCTION
+*       Signal the active semaphore proxy process with SIGBREAKF_CTRL_C when
+*       it exists.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void stop_proxy_thread (void) {
   if (proxy_thread)
     Signal ((struct Task *)proxy_thread, SIGBREAKF_CTRL_C);
@@ -304,6 +532,29 @@ void stop_proxy_thread (void) {
 /*
  * Start proxy thread
  */
+/****i* januae-thread/start_proxy_thread ***********************************
+*
+*   NAME
+*       start_proxy_thread() -- Create and synchronize the semaphore proxy.
+*
+*   SYNOPSIS
+*       static int start_proxy_thread (void);
+*
+*   FUNCTION
+*       Start an AmigaOS process for proxy_thread_main(), exchange its
+*       startup acknowledgement, save its task pointer and register a
+*       process-exit stop request.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       0 when the proxy process starts; otherwise -1.
+*
+****************************************************************************
+*
+*/
+
 static int start_proxy_thread (void) {
   int result = -1;
   struct MsgPort *replyport = CreateMsgPort();
@@ -339,6 +590,31 @@ static int start_proxy_thread (void) {
  ** (or, at least, UAE's version thereof).
  **/
 
+/****i* januae-thread/uae_sem_init *****************************************
+*
+*   NAME
+*       uae_sem_init() -- Initialize a UAE semaphore.
+*
+*   SYNOPSIS
+*       int uae_sem_init (uae_sem_t *sem, int pshared, unsigned int value);
+*
+*   FUNCTION
+*       Initialize the mutex and waiting list, set the initial count and
+*       live flag, and start the shared proxy when creating the first
+*       semaphore.
+*
+*   INPUTS
+*       sem - Semaphore to initialize. pshared - Unused. value - Initial
+*       semaphore count.
+*
+*   RESULT
+*       0 on successful initialization; -1 if starting the first proxy
+*       fails.
+*
+****************************************************************************
+*
+*/
+
 int uae_sem_init (uae_sem_t *sem, int pshared, unsigned int value)
 {
     int result = 0;
@@ -356,6 +632,29 @@ int uae_sem_init (uae_sem_t *sem, int pshared, unsigned int value)
 
     return result;
 }
+
+/****i* januae-thread/uae_sem_destroy **************************************
+*
+*   NAME
+*       uae_sem_destroy() -- Deactivate a UAE semaphore.
+*
+*   SYNOPSIS
+*       int uae_sem_destroy (uae_sem_t *sem);
+*
+*   FUNCTION
+*       Mark the semaphore inactive, request cancellation of its waiters,
+*       decrement the active-semaphore count and signal the proxy to stop
+*       when the final semaphore is destroyed.
+*
+*   INPUTS
+*       sem - Semaphore to deactivate.
+*
+*   RESULT
+*       Always returns 0.
+*
+****************************************************************************
+*
+*/
 
 int uae_sem_destroy (uae_sem_t *sem)
 {
@@ -376,6 +675,29 @@ int uae_sem_destroy (uae_sem_t *sem)
 
   return 0;
 }
+
+/****i* januae-thread/uae_sem_wait *****************************************
+*
+*   NAME
+*       uae_sem_wait() -- Wait for a semaphore value.
+*
+*   SYNOPSIS
+*       int uae_sem_wait (uae_sem_t *sem);
+*
+*   FUNCTION
+*       Under the semaphore mutex, consume an available count or ask the
+*       proxy to block the current task; on successful wake-up decrement the
+*       count.
+*
+*   INPUTS
+*       sem - Initialized semaphore.
+*
+*   RESULT
+*       0 if the count was acquired; otherwise -1.
+*
+****************************************************************************
+*
+*/
 
 int uae_sem_wait (uae_sem_t *sem)
 {
@@ -405,6 +727,28 @@ int uae_sem_wait (uae_sem_t *sem)
     return result;
 }
 
+/****i* januae-thread/uae_sem_trywait **************************************
+*
+*   NAME
+*       uae_sem_trywait() -- Acquire a semaphore without blocking.
+*
+*   SYNOPSIS
+*       int uae_sem_trywait (uae_sem_t *sem);
+*
+*   FUNCTION
+*       Decrement the count only if the semaphore is live and its value is
+*       positive.
+*
+*   INPUTS
+*       sem - Initialized semaphore.
+*
+*   RESULT
+*       0 if the count was acquired; otherwise -1.
+*
+****************************************************************************
+*
+*/
+
 int uae_sem_trywait (uae_sem_t *sem)
 {
     int result = -1;
@@ -421,6 +765,27 @@ int uae_sem_trywait (uae_sem_t *sem)
     return result;
 }
 
+/****i* januae-thread/uae_sem_get_value ************************************
+*
+*   NAME
+*       uae_sem_get_value() -- Read the stored semaphore count.
+*
+*   SYNOPSIS
+*       int uae_sem_get_value (uae_sem_t *sem);
+*
+*   FUNCTION
+*       Read the value while holding the semaphore mutex.
+*
+*   INPUTS
+*       sem - Initialized semaphore.
+*
+*   RESULT
+*       The current stored count.
+*
+****************************************************************************
+*
+*/
+
 int uae_sem_get_value (uae_sem_t *sem)
 {
     int value;
@@ -431,6 +796,28 @@ int uae_sem_get_value (uae_sem_t *sem)
 
     return value;
 }
+
+/****i* januae-thread/uae_sem_post *****************************************
+*
+*   NAME
+*       uae_sem_post() -- Increment a semaphore and wake a waiter.
+*
+*   SYNOPSIS
+*       int uae_sem_post (uae_sem_t *sem);
+*
+*   FUNCTION
+*       Increase the count of a live semaphore and request one proxy wake-up
+*       when the value changes from zero to one.
+*
+*   INPUTS
+*       sem - Initialized semaphore.
+*
+*   RESULT
+*       0 if posted to a live semaphore; otherwise -1.
+*
+****************************************************************************
+*
+*/
 
 int uae_sem_post (uae_sem_t *sem)
 {
@@ -465,6 +852,28 @@ struct startupmsg
     void           *arg;
 };
 
+/****i* januae-thread/do_thread ********************************************
+*
+*   NAME
+*       do_thread() -- Run the entry point of a new UAE process.
+*
+*   SYNOPSIS
+*       static void do_thread (void);
+*
+*   FUNCTION
+*       Receive the startup message, save its function and argument,
+*       acknowledge the sender and invoke the supplied function.
+*
+*   INPUTS
+*       None; the function and argument arrive in the startup message.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void do_thread (void)
 {
    struct Process *pr = (struct Process *) FindTask (NULL);
@@ -480,6 +889,34 @@ static void do_thread (void)
 
    func (arg);
 }
+
+/****i* januae-thread/uae_start_thread *************************************
+*
+*   NAME
+*       uae_start_thread() -- Create an AmigaOS process for a UAE thread.
+*
+*   SYNOPSIS
+*       int uae_start_thread (void *(*f) (void *), void *arg, uae_thread_id
+*       *foo, char *name);
+*
+*   FUNCTION
+*       Create a process running do_thread(), pass the supplied function and
+*       argument through a startup message and wait for its acknowledgement.
+*
+*   INPUTS
+*       f - Thread entry point. arg - Entry argument. foo - Storage for the
+*       task identifier. name - Optional process name.
+*
+*   RESULT
+*       Nonzero if the resulting task identifier is nonzero; otherwise zero.
+*
+*   NOTES
+*       If the reply port cannot be created, this function does not
+*       initialize the supplied task-identifier storage.
+*
+****************************************************************************
+*
+*/
 
 int uae_start_thread (void *(*f) (void *), void *arg, uae_thread_id *foo, char *name) {
   struct MsgPort *replyport = CreateMsgPort();
@@ -518,6 +955,27 @@ int uae_start_thread (void *(*f) (void *), void *arg, uae_thread_id *foo, char *
 
   return *foo!=0;
 }
+
+/****i* januae-thread/uae_set_thread_priority ******************************
+*
+*   NAME
+*       uae_set_thread_priority() -- Set the current task priority.
+*
+*   SYNOPSIS
+*       extern void uae_set_thread_priority (int pri);
+*
+*   FUNCTION
+*       Apply the requested priority to the calling AmigaOS task.
+*
+*   INPUTS
+*       pri - New priority.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 extern void uae_set_thread_priority (int pri)
 {

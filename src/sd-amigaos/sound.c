@@ -64,11 +64,59 @@ int period;
 
 
 
+/****i* januae-sound/setup_sound *******************************************
+*
+*   NAME
+*       setup_sound() -- Advertise sound-driver availability.
+*
+*   SYNOPSIS
+*       int setup_sound (void);
+*
+*   FUNCTION
+*       Mark the host sound backend available without opening an audio
+*       device.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Always returns 1.
+*
+****************************************************************************
+*
+*/
+
 int setup_sound (void)
 {
     sound_available = 1;
     return 1;
 }
+
+/****i* januae-sound/open_AHI **********************************************
+*
+*   NAME
+*       open_AHI() -- Open the optional AHI output device.
+*
+*   SYNOPSIS
+*       static const char *open_AHI (void);
+*
+*   FUNCTION
+*       Create a message port and the first AHI request, open ahi.device,
+*       and allocate a copy of the request for double-buffered output when
+*       AHI support is enabled.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       The AHI device name on success; otherwise NULL.
+*
+*   NOTES
+*       Without USE_AHIDEVICE, this function always returns NULL.
+*
+****************************************************************************
+*
+*/
 
 static const char *open_AHI (void)
 {
@@ -91,6 +139,32 @@ static const char *open_AHI (void)
     return NULL;
 }
 
+/****i* januae-sound/close_AHI *********************************************
+*
+*   NAME
+*       close_AHI() -- Release the AHI audio resources.
+*
+*   SYNOPSIS
+*       static void close_AHI (void);
+*
+*   FUNCTION
+*       Wait for outstanding AHI requests, close the device, free both
+*       requests and delete the message port; reset the stored AHI request
+*       pointers.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The resource-release sequence is compiled only with USE_AHIDEVICE.
+*
+****************************************************************************
+*
+*/
+
 static void close_AHI (void)
 {
 #ifdef USE_AHIDEVICE
@@ -111,6 +185,29 @@ static void close_AHI (void)
 #endif
 }
 
+/****i* januae-sound/get_clockval ******************************************
+*
+*   NAME
+*       get_clockval() -- Determine the host audio reference clock.
+*
+*   SYNOPSIS
+*       static int get_clockval (void);
+*
+*   FUNCTION
+*       Read the graphics.library display flags and select the PAL or NTSC
+*       reference frequency.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       3546895 for PAL, 3579545 for NTSC, or 0 if graphics.library cannot
+*       be opened.
+*
+****************************************************************************
+*
+*/
+
 static int get_clockval (void)
 {
     struct GfxBase *GB;
@@ -127,6 +224,33 @@ static int get_clockval (void)
     }
     return clk;
 }
+
+/****i* januae-sound/init_sound ********************************************
+*
+*   NAME
+*       init_sound() -- Initialize Amiga audio output and mixing buffers.
+*
+*   SYNOPSIS
+*       int init_sound (void);
+*
+*   FUNCTION
+*       Derive the sample period from the host clock, prefer AHI when
+*       available, otherwise open audio.device in eight-bit mono mode,
+*       allocate two buffers and select the matching sample handler.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       1 when device and buffers are initialized; otherwise 0.
+*
+*   NOTES
+*       The buffer size has an 8192-byte minimum. Registers close_sound()
+*       with atexit.
+*
+****************************************************************************
+*
+*/
 
 int init_sound (void)
 {
@@ -238,6 +362,30 @@ fail:
     return 0;
 }
 
+/****i* januae-sound/close_sound *******************************************
+*
+*   NAME
+*       close_sound() -- Release audio output and its buffers.
+*
+*   SYNOPSIS
+*       void close_sound (void);
+*
+*   FUNCTION
+*       Close the active AHI or audio.device connection, release requests
+*       and message ports, free both sample buffers and clear sound
+*       availability; restore the hardware LED state on applicable classic
+*       hosts.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void close_sound (void)
 {
 #ifdef USE_AHIDEVICE
@@ -274,17 +422,105 @@ void close_sound (void)
     }
 }
 
+/****i* januae-sound/pause_sound *******************************************
+*
+*   NAME
+*       pause_sound() -- Provide the sound pause entry point.
+*
+*   SYNOPSIS
+*       void pause_sound (void);
+*
+*   FUNCTION
+*       Perform no operation. Pausing the host audio stream is not
+*       implemented.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void pause_sound (void)
 {
 }
+
+/****i* januae-sound/resume_sound ******************************************
+*
+*   NAME
+*       resume_sound() -- Provide the sound resume entry point.
+*
+*   SYNOPSIS
+*       void resume_sound (void);
+*
+*   FUNCTION
+*       Perform no operation. Resuming the host audio stream is not
+*       implemented.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void resume_sound (void)
 {
 }
 
+/****i* januae-sound/reset_sound *******************************************
+*
+*   NAME
+*       reset_sound() -- Provide the sound reset entry point.
+*
+*   SYNOPSIS
+*       void reset_sound (void);
+*
+*   FUNCTION
+*       Perform no operation. Resetting the host audio stream is not
+*       implemented.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void reset_sound (void)
 {
 }
+
+/****i* januae-sound/sound_volume ******************************************
+*
+*   NAME
+*       sound_volume() -- Provide the sound-volume entry point.
+*
+*   SYNOPSIS
+*       void sound_volume (int dir);
+*
+*   FUNCTION
+*       Ignore the requested volume direction; volume adjustment is not
+*       implemented.
+*
+*   INPUTS
+*       dir - Requested adjustment direction; unused.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 void sound_volume (int dir)
 {
@@ -293,13 +529,80 @@ void sound_volume (int dir)
 /*
  * Handle audio specific cfgfile options
  */
+/****i* januae-sound/audio_default_options *********************************
+*
+*   NAME
+*       audio_default_options() -- Provide the audio-preference default
+*       hook.
+*
+*   SYNOPSIS
+*       void audio_default_options (struct uae_prefs *p);
+*
+*   FUNCTION
+*       Leave the supplied preferences unchanged.
+*
+*   INPUTS
+*       p - Preferences structure; unused.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void audio_default_options (struct uae_prefs *p)
 {
 }
 
+/****i* januae-sound/audio_save_options ************************************
+*
+*   NAME
+*       audio_save_options() -- Provide the audio-preference save hook.
+*
+*   SYNOPSIS
+*       void audio_save_options (FILE *f, const struct uae_prefs *p);
+*
+*   FUNCTION
+*       Write no audio-specific options.
+*
+*   INPUTS
+*       f - Output file; unused. p - Preferences; unused.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 void audio_save_options (FILE *f, const struct uae_prefs *p)
 {
 }
+
+/****i* januae-sound/audio_parse_option ************************************
+*
+*   NAME
+*       audio_parse_option() -- Provide the audio-preference parsing hook.
+*
+*   SYNOPSIS
+*       int audio_parse_option (struct uae_prefs *p, const char *option,
+*       const char *value);
+*
+*   FUNCTION
+*       Accept no audio-specific option names and leave the preferences
+*       unchanged.
+*
+*   INPUTS
+*       p - Preferences; unused. option - Option name; unused. value -
+*       Option value; unused.
+*
+*   RESULT
+*       Always returns 0.
+*
+****************************************************************************
+*
+*/
 
 int audio_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
