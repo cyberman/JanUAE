@@ -17,7 +17,7 @@ bindir          = @bindir@
 libdir          = @libdir@
 sysconfdir      = @sysconfdir@
 
-VPATH = @top_srcdir@
+VPATH = @top_srcdir@/..
 
 .SUFFIXES: .o .c .h .m .i .S
 
@@ -27,6 +27,7 @@ all: gencpu gencomp build68k genblitter genlinetoscr
 
 install:
 
+installdirs:
 
 clean:
 	-rm -f *.o
@@ -54,7 +55,7 @@ custom.o: blit.h
 drawing.o: linetoscr.c
 
 cpudefs.c: build68k @top_srcdir@/table68k
-	./build68k <@top_srcdir@/table68k >cpudefs.c
+	./build68k <@top_srcdir@/../table68k >cpudefs.c
 
 .c.o:
 	$(CC) $(INCLUDES) -c $(INCDIRS) $(CFLAGS) $(X_CFLAGS) $(DEBUGFLAGS) $(CFLAGS_$@) $< -o $@
