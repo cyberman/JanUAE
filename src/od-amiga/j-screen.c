@@ -37,6 +37,27 @@ extern struct BitMap    *BitMap;
 /************************************************************************
  * aos3screen_is_custom
  ************************************************************************/
+/****i* januae-j-screen/aos3screen_is_custom *******************************
+*
+*   NAME
+*       aos3screen_is_custom() -- Identify a guest custom screen.
+*
+*   SYNOPSIS
+*       BOOL aos3screen_is_custom(uaecptr aos3screen);
+*
+*   FUNCTION
+*       Read the guest screen type bits and compare them with CUSTOMSCREEN.
+*
+*   INPUTS
+*       aos3screen - Guest screen address.
+*
+*   RESULT
+*       TRUE for a custom screen; otherwise FALSE.
+*
+****************************************************************************
+*
+*/
+
 BOOL aos3screen_is_custom(uaecptr aos3screen) {
   UWORD          flags;
 
@@ -61,6 +82,32 @@ BOOL aos3screen_is_custom(uaecptr aos3screen) {
  *
  * open new aros screen for aos3 screen
  ************************************************************************/
+/****i* januae-j-screen/new_aros_cust_screen *******************************
+*
+*   NAME
+*       new_aros_cust_screen() -- Start a custom screen proxy.
+*
+*   SYNOPSIS
+*       static void new_aros_cust_screen(JanusScreen *jscreen, uaecptr
+*       aos3screen);
+*
+*   FUNCTION
+*       Mark the host screen as pending and start the custom screen process.
+*
+*   INPUTS
+*       jscreen - Screen mapping to initialize. aos3screen - Guest screen
+*       address.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The process is responsible for setting jscreen->arosscreen.
+*
+****************************************************************************
+*
+*/
+
 static void new_aros_cust_screen(JanusScreen *jscreen, uaecptr aos3screen) {
 
   struct Screen *arosscr;
@@ -85,6 +132,34 @@ static void new_aros_cust_screen(JanusScreen *jscreen, uaecptr aos3screen) {
  * - if yes, return that one
  * - if not, open new one
  ************************************************************************/
+/****i* januae-j-screen/new_aros_pub_screen ********************************
+*
+*   NAME
+*       new_aros_pub_screen() -- Resolve a public screen proxy.
+*
+*   SYNOPSIS
+*       static void new_aros_pub_screen(JanusScreen *jscreen, uaecptr
+*       aos3screen);
+*
+*   FUNCTION
+*       Check for an existing AROS public screen of the configured name and
+*       start a public-screen process only when none is found.
+*
+*   INPUTS
+*       jscreen - Screen mapping with a public name. aos3screen - Guest
+*       screen address.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       An existing screen is unlocked and the function returns without
+*       assigning jscreen->arosscreen.
+*
+****************************************************************************
+*
+*/
+
 static void new_aros_pub_screen(JanusScreen *jscreen, uaecptr aos3screen) {
 
   struct Screen *pub;
@@ -134,6 +209,33 @@ static void new_aros_pub_screen(JanusScreen *jscreen, uaecptr aos3screen) {
  * If it can't create a new screen, it has to ensure, that jscreen
  * gets removed/freed from the list again!
  ************************************************************************/
+/****i* januae-j-screen/new_aros_screen ************************************
+*
+*   NAME
+*       new_aros_screen() -- Select the host screen mapping.
+*
+*   SYNOPSIS
+*       static void new_aros_screen(JanusScreen *jscreen);
+*
+*   FUNCTION
+*       Dispatch custom and public guest screens to their worker processes.
+*       For a Workbench screen, find the corresponding host Workbench screen
+*       and check its dimensions.
+*
+*   INPUTS
+*       jscreen - New guest-to-host screen mapping.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       A Workbench dimension mismatch disables coherent display mode.
+*       Unsupported or failed mappings do not establish a valid host screen.
+*
+****************************************************************************
+*
+*/
+
 static void new_aros_screen(JanusScreen *jscreen) {
   struct Screen *arosscr=NULL;
   UWORD flags;
@@ -249,6 +351,34 @@ EXIT:
  * - link wanderer <-> wb screen
  * - open a new screen for every other aos3 screen
  **********************************************************/
+/****i* januae-j-screen/ad_job_list_screens ********************************
+*
+*   NAME
+*       ad_job_list_screens() -- Register the reported guest screens.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_list_screens(ULONG *m68k_results);
+*
+*   FUNCTION
+*       Read a five-ULONG record for each guest screen, skip mappings
+*       already present and create host screen mappings for newly reported
+*       screens.
+*
+*   INPUTS
+*       m68k_results - Zero-terminated guest screen records containing the
+*       screen address, depth, public name and maximum dimensions.
+*
+*   RESULT
+*       TRUE.
+*
+*   NOTES
+*       The mapping list is protected by sem_janus_screen_list; new screen
+*       processes own subsequent initialization.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_list_screens(ULONG *m68k_results) {
   uae_u32 win;
   ULONG   i;
@@ -324,6 +454,32 @@ uae_u32 ad_job_list_screens(ULONG *m68k_results) {
  *
  * It seems, we need an own thread here, too.
  **********************************************************/
+/****i* januae-j-screen/ad_job_open_custom_screen **************************
+*
+*   NAME
+*       ad_job_open_custom_screen() -- Acknowledge a custom screen request.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_open_custom_screen(ULONG aos3screen);
+*
+*   FUNCTION
+*       Acknowledge the request without creating a screen; screen-list
+*       synchronization handles creation.
+*
+*   INPUTS
+*       aos3screen - Guest screen address.
+*
+*   RESULT
+*       TRUE.
+*
+*   NOTES
+*       The former direct screen creation implementation is disabled in the
+*       source.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_open_custom_screen(ULONG aos3screen) {
 
   ENTER
@@ -547,6 +703,31 @@ uae_u32 ad_job_open_custom_screen(ULONG aos3screen) {
 #endif
 }
 
+/****i* januae-j-screen/ad_job_close_screen ********************************
+*
+*   NAME
+*       ad_job_close_screen() -- Request shutdown of a screen process.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_close_screen(ULONG aos3screen);
+*
+*   FUNCTION
+*       Find the guest screen mapping and signal its host process to close.
+*
+*   INPUTS
+*       aos3screen - Guest screen address.
+*
+*   RESULT
+*       TRUE when the request is accepted or no mapping exists; FALSE if the
+*       mapping lacks a host screen or process.
+*
+*   NOTES
+*       The function signals termination; it does not wait for completion.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_close_screen(ULONG aos3screen) {
   GSList        *list_screen;
   JanusScreen   *jscreen;
@@ -611,6 +792,32 @@ uae_u32 ad_job_close_screen(ULONG aos3screen) {
  *
  * gets curent aos3 top screen as parameter
  **********************************************************/
+/****i* januae-j-screen/ad_job_top_screen **********************************
+*
+*   NAME
+*       ad_job_top_screen() -- Report the active custom screen.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_top_screen(ULONG *m68k_results);
+*
+*   FUNCTION
+*       Remember the guest frontmost screen and return the guest address of
+*       the active AROS custom screen, if any.
+*
+*   INPUTS
+*       m68k_results - Guest buffer containing the current top-screen
+*       address.
+*
+*   RESULT
+*       Guest screen address, or zero if no custom screen is active.
+*
+*   NOTES
+*       The active mapping is read under sem_janus_active_custom_screen.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_top_screen(ULONG *m68k_results) {
   uae_u32 screen;
 
@@ -646,6 +853,32 @@ uae_u32 ad_job_top_screen(ULONG *m68k_results) {
  * and hope, that the janusd will then switch the 
  * amigaOS screen correctly.
  ***********************************************************/
+/****i* januae-j-screen/ad_job_screen_depth ********************************
+*
+*   NAME
+*       ad_job_screen_depth() -- Mirror a screen depth request.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_screen_depth(ULONG aos3screen, ULONG flags);
+*
+*   FUNCTION
+*       Move the active host custom screen to the back when the
+*       corresponding guest requests SDEPTH_TOBACK.
+*
+*   INPUTS
+*       aos3screen - Guest screen address. flags - Screen depth operation.
+*
+*   RESULT
+*       TRUE.
+*
+*   NOTES
+*       Front and family depth operations are currently acknowledged without
+*       performing a corresponding change.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 ad_job_screen_depth (ULONG aos3screen, ULONG flags) {
 
   ENTER
@@ -689,6 +922,32 @@ uae_u32 ad_job_screen_depth (ULONG aos3screen, ULONG flags) {
  * send a CTRL-C to all aros janus tasks, so that they
  * close their screen and free their resources.
  ***********************************************************/
+/****i* januae-j-screen/close_all_janus_screens ****************************
+*
+*   NAME
+*       close_all_janus_screens() -- Signal all guest screen proxies to
+*       close.
+*
+*   SYNOPSIS
+*       void close_all_janus_screens(void);
+*
+*   FUNCTION
+*       Send SIGBREAKF_CTRL_C to mapped screen processes and remove mappings
+*       that have no process.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The function does not wait for signalled processes to exit.
+*
+****************************************************************************
+*
+*/
+
 void close_all_janus_screens() {
   GSList      *list_screen;
   JanusScreen *jscreen;
@@ -736,6 +995,31 @@ void close_all_janus_screens() {
  * close their screen and free their resources.
  * wait until all are dead
  ***********************************************************/
+/****i* januae-j-screen/close_all_janus_screens_wait ***********************
+*
+*   NAME
+*       close_all_janus_screens_wait() -- Wait for screen proxy shutdown.
+*
+*   SYNOPSIS
+*       void close_all_janus_screens_wait(void);
+*
+*   FUNCTION
+*       Request closure of all screen proxies and poll for their removal up
+*       to the configured deadline.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The function logs when mappings remain after the bounded wait.
+*
+****************************************************************************
+*
+*/
+
 void close_all_janus_screens_wait() {
   unsigned int i;
 
@@ -766,6 +1050,32 @@ void close_all_janus_screens_wait() {
  * so AROS/m68k can sync the resolution.
  *
  **********************************************************/
+
+/****i* januae-j-screen/get_host_resolution ********************************
+*
+*   NAME
+*       get_host_resolution() -- Read the host display geometry.
+*
+*   SYNOPSIS
+*       void get_host_resolution(LONG *width, LONG *height, LONG *depth);
+*
+*   FUNCTION
+*       Lock the default public screen and obtain the mode width, height and
+*       depth from its display ID.
+*
+*   INPUTS
+*       width, height, depth - Output locations for display attributes.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       All three outputs are zero if the screen cannot be locked or its
+*       display ID is invalid.
+*
+****************************************************************************
+*
+*/
 
 void get_host_resolution(LONG *width, LONG *height, LONG  *depth) {
   struct Screen   *scr;
@@ -807,6 +1117,31 @@ EXIT:
   }
   LEAVE
 }
+
+/****i* januae-j-screen/ad_job_host_data ***********************************
+*
+*   NAME
+*       ad_job_host_data() -- Return the host display geometry.
+*
+*   SYNOPSIS
+*       uae_u32 ad_job_host_data(ULONG *m68k_results);
+*
+*   FUNCTION
+*       Write the host width, height and depth to the guest result buffer.
+*
+*   INPUTS
+*       m68k_results - Writable guest buffer with at least three ULONG
+*       entries.
+*
+*   RESULT
+*       TRUE when a nonzero width is available; otherwise FALSE.
+*
+*   NOTES
+*       Failure writes -1 to the first result entry.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 ad_job_host_data(ULONG *m68k_results) {
   struct Screen   *scr;

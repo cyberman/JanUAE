@@ -33,6 +33,31 @@ static UWORD estimated_border_bottom=25;
 static UWORD estimated_border_left=25;
 static UWORD estimated_border_right=25;
 
+/****i* januae-j-screen-thread/handle_msg **********************************
+*
+*   NAME
+*       handle_msg() -- Handle public-screen window events.
+*
+*   SYNOPSIS
+*       static void handle_msg(struct Window *win, ULONG class, UWORD code,
+*       int dmx, int dmy, WORD mx, WORD my, int qualifier, struct Process
+*       *thread, BOOL *done);
+*
+*   FUNCTION
+*       Handle input and window notifications delivered to the public screen
+*       worker, forwarding supported guest input and window state changes.
+*
+*   INPUTS
+*       win - Host window. class, code, dmx, dmy, mx, my, qualifier - Event
+*       details. thread - Worker process. done - Loop termination flag.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void handle_msg(struct Window *win, ULONG class, UWORD code, int dmx, int dmy, WORD mx, WORD my, int qualifier, struct Process *thread, BOOL *done) {
 
   GSList *list_win;
@@ -197,6 +222,35 @@ static void handle_msg(struct Window *win, ULONG class, UWORD code, int dmx, int
  * - if yes, return that one
  * - if not, open new one
  ************************************************************************/
+/****i* januae-j-screen-thread/new_aros_pub_screen *************************
+*
+*   NAME
+*       new_aros_pub_screen() -- Open the mapped public screen.
+*
+*   SYNOPSIS
+*       static struct Screen *new_aros_pub_screen(JanusScreen *jscreen,
+*       uaecptr aos3screen, struct Process *thread, BYTE signal);
+*
+*   FUNCTION
+*       Choose a compatible RTG display mode and open an AROS public screen
+*       with the guest title and mapped public name.
+*
+*   INPUTS
+*       jscreen - Screen mapping. aos3screen - Guest screen address. thread
+*       - Owning process. signal - Public-screen notification signal bit.
+*
+*   RESULT
+*       Opened screen pointer, or NULL when no compatible mode or screen is
+*       available.
+*
+*   NOTES
+*       The opened screen is assigned public-screen ownership to the worker
+*       process.
+*
+****************************************************************************
+*
+*/
+
 static struct Screen *new_aros_pub_screen(JanusScreen *jscreen, 
                                           uaecptr aos3screen,
 					  struct Process *thread,
@@ -268,6 +322,33 @@ static struct Screen *new_aros_pub_screen(JanusScreen *jscreen,
 /***********************************************************
  * every AOS3 screen gets its own process
  ***********************************************************/  
+
+/****i* januae-j-screen-thread/aros_screen_thread **************************
+*
+*   NAME
+*       aros_screen_thread() -- Manage a public screen process.
+*
+*   SYNOPSIS
+*       static void aros_screen_thread(void);
+*
+*   FUNCTION
+*       Resolve the screen mapping for the current process, open its host
+*       public screen, wait for close notifications and release the
+*       process-owned screen and mapping.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       SIGBREAKF_CTRL_C requests that the screen become private; the worker
+*       exits when its public-screen signal arrives.
+*
+****************************************************************************
+*
+*/
 
 static void aros_screen_thread (void) {
 
@@ -399,6 +480,28 @@ EXIT:
 
   JWLOG("aros_scr_thread[%lx]: dies..\n", thread);
 }
+
+/****i* januae-j-screen-thread/aros_screen_start_thread ********************
+*
+*   NAME
+*       aros_screen_start_thread() -- Create a public screen process.
+*
+*   SYNOPSIS
+*       int aros_screen_start_thread(JanusScreen *screen);
+*
+*   FUNCTION
+*       Name the screen worker from its guest address and start the
+*       public-screen process under the thread-start semaphore.
+*
+*   INPUTS
+*       screen - Mapping receiving the new process identity and name.
+*
+*   RESULT
+*       Nonzero when a process was created; zero otherwise.
+*
+****************************************************************************
+*
+*/
 
 int aros_screen_start_thread (JanusScreen *screen) {
 

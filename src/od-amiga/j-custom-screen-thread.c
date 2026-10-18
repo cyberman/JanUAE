@@ -45,6 +45,33 @@
  * So we try to catch a correct tofront with all
  * eventual possibilities..
  ***********************************************************/
+/****i* januae-j-custom-screen-thread/handle_msg ***************************
+*
+*   NAME
+*       handle_msg() -- Synchronize a custom screen depth change.
+*
+*   SYNOPSIS
+*       static void handle_msg(JanusScreen *jscreen, ULONG notify_class,
+*       ULONG notify_code, ULONG notify_screen, struct Process *thread);
+*
+*   FUNCTION
+*       Update the active custom screen mapping and display state in
+*       response to host screen-depth notifications.
+*
+*   INPUTS
+*       jscreen - Custom screen mapping. notify_class, notify_code,
+*       notify_screen - Notification details. thread - Owning process.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       Host drawing is suspended while the transition is processed.
+*
+****************************************************************************
+*
+*/
+
 static void handle_msg(JanusScreen *jscreen, 
                        ULONG notify_class, ULONG notify_code, ULONG notify_screen,
 		       struct Process *thread) {
@@ -160,6 +187,33 @@ void handle_input(struct Window *win, JanusWin *jwin, ULONG class, UWORD code, i
 /***********************************************************
  * event handler for custom screen
  ***********************************************************/  
+/****i* januae-j-custom-screen-thread/handle_custom_events_S ***************
+*
+*   NAME
+*       handle_custom_events_S() -- Process custom screen notifications.
+*
+*   SYNOPSIS
+*       static void handle_custom_events_S(JanusScreen *jscreen, struct
+*       Process *thread);
+*
+*   FUNCTION
+*       Register a screen-depth notification, dispatch received messages and
+*       terminate on SIGBREAKF_CTRL_C.
+*
+*   INPUTS
+*       jscreen - Mapped custom screen. thread - Owning process.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The notification is ended and its message port is deleted before
+*       return.
+*
+****************************************************************************
+*
+*/
+
 static void handle_custom_events_S(JanusScreen *jscreen, struct Process *thread) {
 
   struct Screen              *screen;
@@ -269,6 +323,34 @@ static void handle_custom_events_S(JanusScreen *jscreen, struct Process *thread)
  * This function must not return, until both screen and window are
  * opened. Wait for screen and window task to complete init
  ************************************************************************/
+/****i* januae-j-custom-screen-thread/new_aros_custom_screen ***************
+*
+*   NAME
+*       new_aros_custom_screen() -- Create the host custom screen.
+*
+*   SYNOPSIS
+*       static struct Screen *new_aros_custom_screen(JanusScreen *jscreen,
+*       uaecptr aos3screen, struct Process *thread);
+*
+*   FUNCTION
+*       Select a host display mode, open the custom screen and set up its
+*       associated host window and active screen mapping.
+*
+*   INPUTS
+*       jscreen - Screen mapping. aos3screen - Guest screen address. thread
+*       - Owning process.
+*
+*   RESULT
+*       New AROS screen pointer, or NULL on an unsuccessful creation path.
+*
+*   NOTES
+*       The function updates the emulator display preferences during screen
+*       initialization.
+*
+****************************************************************************
+*
+*/
+
 static struct Screen *new_aros_custom_screen(JanusScreen *jscreen, 
                                              uaecptr aos3screen,
 				  	     struct Process *thread) {
@@ -432,6 +514,33 @@ static struct Screen *new_aros_custom_screen(JanusScreen *jscreen,
 /***********************************************************
  * every AOS3 custom screen gets its own process
  ***********************************************************/  
+/****i* januae-j-custom-screen-thread/aros_custom_screen_thread ************
+*
+*   NAME
+*       aros_custom_screen_thread() -- Manage a custom screen process.
+*
+*   SYNOPSIS
+*       static void aros_custom_screen_thread(void);
+*
+*   FUNCTION
+*       Open the mapped custom screen, handle its notifications, restore
+*       main-window display state and shut down the associated window and
+*       screen.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The worker waits for the associated window mapping to disappear
+*       before completing screen closure.
+*
+****************************************************************************
+*
+*/
+
 static void aros_custom_screen_thread (void) {
 
   struct Process *thread = (struct Process *) FindTask (NULL);
@@ -564,6 +673,28 @@ EXIT:
 
   JWLOG("aros_cscr_thread[%lx]: dies..\n", thread);
 }
+
+/****i* januae-j-custom-screen-thread/aros_custom_screen_start_thread *******
+*
+*   NAME
+*       aros_custom_screen_start_thread() -- Create a custom screen process.
+*
+*   SYNOPSIS
+*       int aros_custom_screen_start_thread(JanusScreen *screen);
+*
+*   FUNCTION
+*       Allocate a worker name and create the custom screen process under
+*       the thread-start semaphore.
+*
+*   INPUTS
+*       screen - Mapping receiving the process name and task pointer.
+*
+*   RESULT
+*       Nonzero when the process was created; zero otherwise.
+*
+****************************************************************************
+*
+*/
 
 int aros_custom_screen_start_thread (JanusScreen *screen) {
 
