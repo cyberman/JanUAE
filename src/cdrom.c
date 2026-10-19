@@ -118,6 +118,30 @@ static uae_u8 DP[2][24] = {
 #define L2_P   (43*2*2)
 #define RS_L12_BITS 8
 
+/****i* januae-cdrom/build_edc ************************************************
+*
+*   NAME
+*       build_edc() -- Calculate a CD sector error-detection value.
+*
+*   SYNOPSIS
+*       static uae_u32 build_edc (const uae_u8 *inout, int from, int upto);
+*
+*   FUNCTION
+*       Apply the EDC lookup table to the inclusive byte range from through
+*       upto.
+*
+*   INPUTS
+*       inout - Input sector buffer.
+*       from - First byte offset.
+*       upto - Last byte offset, inclusive.
+*
+*   RESULT
+*       Calculated 32-bit EDC value.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 build_edc (const uae_u8 *inout, int from, int upto)
 {
     const uae_u8 *p = inout + from;
@@ -126,6 +150,29 @@ static uae_u32 build_edc (const uae_u8 *inout, int from, int upto)
 	result = EDC_crctable[(result ^ *p++) & 0xff] ^ (result >> 8);
     return result;
 }
+
+/****i* januae-cdrom/encode_L2_Q **********************************************
+*
+*   NAME
+*       encode_L2_Q() -- Generate Q parity bytes for a Mode 1 sector.
+*
+*   SYNOPSIS
+*       static void encode_L2_Q(uae_u8 *inout);
+*
+*   FUNCTION
+*       Clear the Q-parity area and calculate the two Reed-Solomon Q parity
+*       streams from the current sector contents.
+*
+*   INPUTS
+*       inout - Writable sector bytes beginning after the twelve-byte
+*       synchronization field.
+*
+*   RESULT
+*       None.
+*
+****************************************************************************
+*
+*/
 
 static void encode_L2_Q(uae_u8 *inout)
 {
@@ -167,6 +214,29 @@ static void encode_L2_Q(uae_u8 *inout)
 	Q += 2;
     }
 }
+
+/****i* januae-cdrom/encode_L2_P **********************************************
+*
+*   NAME
+*       encode_L2_P() -- Generate P parity bytes for a Mode 1 sector.
+*
+*   SYNOPSIS
+*       static void encode_L2_P(uae_u8 inout[4 + L2_RAW + 4 + 8 + L2_P]);
+*
+*   FUNCTION
+*       Clear the P-parity area and calculate both Reed-Solomon P parity
+*       streams.
+*
+*   INPUTS
+*       inout - Writable sector bytes beginning after the twelve-byte
+*       synchronization field.
+*
+*   RESULT
+*       None.
+*
+****************************************************************************
+*
+*/
 
 static void encode_L2_P(uae_u8 inout[4 + L2_RAW + 4 + 8 + L2_P])
 {
@@ -210,10 +280,62 @@ static void encode_L2_P(uae_u8 inout[4 + L2_RAW + 4 + 8 + L2_P])
     }
 }
 
+/****i* januae-cdrom/tobcd ****************************************************
+*
+*   NAME
+*       tobcd() -- Encode a decimal value as packed BCD.
+*
+*   SYNOPSIS
+*       static uae_u8 tobcd (uae_u8 v);
+*
+*   FUNCTION
+*       Place the tens digit in the high nibble and the units digit in the
+*       low nibble.
+*
+*   INPUTS
+*       v - Value to encode.
+*
+*   RESULT
+*       Packed binary-coded decimal value.
+*
+****************************************************************************
+*
+*/
+
 static uae_u8 tobcd (uae_u8 v)
 {
     return ((v / 10) << 4) | (v % 10);
 }
+
+/****i* januae-cdrom/encode_l2 ************************************************
+*
+*   NAME
+*       encode_l2() -- Complete a raw Mode 1 CD sector.
+*
+*   SYNOPSIS
+*       void encode_l2 (uae_u8 *p, int address);
+*
+*   FUNCTION
+*       Write synchronization bytes and a BCD minute/second/frame header,
+*       then calculate the EDC, reserved bytes and P/Q parity for the
+*       existing 2048-byte payload.
+*
+*   INPUTS
+*       p - Writable 2352-byte raw sector containing the payload at offset
+*       16.
+*       address - Sector address in absolute CD frames, including any
+*       caller-supplied lead-in offset.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       This operation overwrites the sector header and trailing EDC/ECC
+*       fields but leaves its 2048-byte payload in place.
+*
+****************************************************************************
+*
+*/
 
 void encode_l2 (uae_u8 *p, int address)
 {
