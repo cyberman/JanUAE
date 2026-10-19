@@ -10,6 +10,23 @@
 /* Stop OS X linker complaing about an empty linker object */
 void thread_dummy (void);
 
+/****i* januae-thread/thread_dummy *****************************************
+*
+*   NAME
+*       thread_dummy()
+*
+*   SYNOPSIS
+*       void thread_dummy (void);
+*
+*   FUNCTION
+*       Provide an otherwise empty SDL thread-backend object for the linker.
+*
+*   NOTES
+*       Does not create threads or synchronize data.
+*
+****************************************************************************
+*
+*/
 void thread_dummy (void)
 {
 }

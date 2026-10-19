@@ -21,10 +21,33 @@
 
 frame_time_t timebase;
 
-/*
- * Get PPC timebase frequency from OF device tree on Linux
- */
 #ifdef __linux__
+/****i* januae-machine/find_timebase ***************************************
+*
+*   NAME
+*       find_timebase()
+*
+*   SYNOPSIS
+*       static uae_u32 find_timebase (const char *path);
+*
+*   FUNCTION
+*       Read a PowerPC timebase-frequency property from an Open Firmware
+*       device-tree directory.
+*
+*   INPUTS
+*       path - Directory containing a PowerPC device node.
+*
+*   RESULT
+*       Raw frequency value read from timebase-frequency, or zero when not
+*       found.
+*
+*   NOTES
+*       Selects the first entry beginning with PowerPC,. The read count and
+*       byte ordering are not validated.
+*
+****************************************************************************
+*
+*/
 static uae_u32 find_timebase (const char *path)
 {
     const char ppc_device_node[] = "PowerPC,";
@@ -73,6 +96,27 @@ static uae_u32 find_timebase (const char *path)
     return tbc_freq;
 }
 
+/****i* januae-machine/machdep_linux_gettimebase ***************************
+*
+*   NAME
+*       machdep_linux_gettimebase()
+*
+*   SYNOPSIS
+*       static frame_time_t machdep_linux_gettimebase (void);
+*
+*   FUNCTION
+*       Look up the PowerPC timebase frequency in the Linux Open Firmware
+*       tree.
+*
+*   RESULT
+*       Frequency from the first matching device-tree lookup, or zero.
+*
+*   NOTES
+*       Tries /proc/device-tree/ and then /proc/device-tree/cpus/.
+*
+****************************************************************************
+*
+*/
 static frame_time_t machdep_linux_gettimebase (void)
 {
     uae_u32 tbc_freq = 0;
@@ -85,12 +129,30 @@ static frame_time_t machdep_linux_gettimebase (void)
 }
 #endif
 
-/*
- * Get PPC timebase frequency from Mach kernel.
- */
 #ifdef __MACH__
 # include <mach/mach_time.h>
 
+/****i* januae-machine/machdep_mach_gettimebase ****************************
+*
+*   NAME
+*       machdep_mach_gettimebase()
+*
+*   SYNOPSIS
+*       static frame_time_t machdep_mach_gettimebase (void);
+*
+*   FUNCTION
+*       Convert the Mach timebase ratio to counter ticks per second.
+*
+*   RESULT
+*       One billion times denom divided by numer.
+*
+*   NOTES
+*       Available only with __MACH__; the Mach API return status is not
+*       checked.
+*
+****************************************************************************
+*
+*/
 static frame_time_t machdep_mach_gettimebase (void)
 {
     struct mach_timebase_info tbinfo;
@@ -107,14 +169,32 @@ static frame_time_t machdep_mach_gettimebase (void)
 #endif /* __MACH__ */
 
 
-/*
- * Get PPC timebase frequency from AmigaOS4 timer.device on the AmigaONE.
- */
 #ifdef __amigaos4__
 # include <proto/timer.h>
 # include <proto/expansion.h>
 # include <expansion/expansion.h>
 
+/****i* januae-machine/machdep_amigaos4_gettimebase ************************
+*
+*   NAME
+*       machdep_amigaos4_gettimebase()
+*
+*   SYNOPSIS
+*       static frame_time_t machdep_amigaos4_gettimebase (void);
+*
+*   FUNCTION
+*       Obtain the AmigaONE E-clock frequency through AmigaOS4 timer
+*       services.
+*
+*   RESULT
+*       Clock frequency for MACHINETYPE_AMIGAONE; otherwise zero.
+*
+*   NOTES
+*       Available only with __amigaos4__.
+*
+****************************************************************************
+*
+*/
 static frame_time_t machdep_amigaos4_gettimebase (void)
 {
     uae_u32 result = 0;
@@ -135,6 +215,26 @@ static frame_time_t machdep_amigaos4_gettimebase (void)
 #ifdef __MORPHOS__
 # include <proto/timer.h>
 
+/****i* januae-machine/machdep_morphos_gettimebase *************************
+*
+*   NAME
+*       machdep_morphos_gettimebase()
+*
+*   SYNOPSIS
+*       static frame_time_t machdep_morphos_gettimebase (void);
+*
+*   FUNCTION
+*       Read the processor clock frequency through MorphOS timer services.
+*
+*   RESULT
+*       Value returned by ReadCPUClock().
+*
+*   NOTES
+*       Available only with __MORPHOS__.
+*
+****************************************************************************
+*
+*/
 static frame_time_t machdep_morphos_gettimebase (void)
 {
     UQUAD cputime;
@@ -146,10 +246,27 @@ static frame_time_t machdep_morphos_gettimebase (void)
 #endif /* __MORPHOS__ */
 
 
-/*
- * Calibrate PPC timebase frequency the hard way...
- * This is still dumb and horribly inefficient.
- */
+/****i* januae-machine/machdep_calibrate_timebase **************************
+*
+*   NAME
+*       machdep_calibrate_timebase()
+*
+*   SYNOPSIS
+*       static frame_time_t machdep_calibrate_timebase (void);
+*
+*   FUNCTION
+*       Estimate counter ticks per second across five one-second sleeps.
+*
+*   RESULT
+*       Elapsed counter ticks divided by five.
+*
+*   NOTES
+*       Fallback for unavailable platform timebase sources; the measurement
+*       is approximate.
+*
+****************************************************************************
+*
+*/
 static frame_time_t machdep_calibrate_timebase (void)
 {
     const int num_loops = 5;
@@ -169,6 +286,28 @@ static frame_time_t machdep_calibrate_timebase (void)
     return best_time / num_loops;
 }
 
+/****i* januae-machine/machdep_inithrtimer *********************************
+*
+*   NAME
+*       machdep_inithrtimer()
+*
+*   SYNOPSIS
+*       int machdep_inithrtimer (void);
+*
+*   FUNCTION
+*       Initialize the PowerPC high-resolution timer frequency.
+*
+*   RESULT
+*       Always one.
+*
+*   NOTES
+*       Selects the platform-specific timebase source, falling back to a
+*       five-second calibration when the result is zero. Subsequent calls
+*       reuse the cached value.
+*
+****************************************************************************
+*
+*/
 int machdep_inithrtimer (void)
 {
     static int done = 0;
@@ -194,28 +333,130 @@ int machdep_inithrtimer (void)
     return 1;
 }
 
+/****i* januae-machine/machdep_gethrtimebase *******************************
+*
+*   NAME
+*       machdep_gethrtimebase()
+*
+*   SYNOPSIS
+*       frame_time_t machdep_gethrtimebase (void);
+*
+*   FUNCTION
+*       Return the cached PowerPC timebase frequency.
+*
+*   RESULT
+*       Current timebase value.
+*
+*   NOTES
+*       Returns the current global timebase, including zero before
+*       initialization.
+*
+****************************************************************************
+*
+*/
 frame_time_t machdep_gethrtimebase (void)
 {
     return timebase;
 }
 
+/****i* januae-machine/machdep_init ****************************************
+*
+*   NAME
+*       machdep_init()
+*
+*   SYNOPSIS
+*       void machdep_init (void);
+*
+*   FUNCTION
+*       Perform machine-dependent startup initialization.
+*
+*   NOTES
+*       No initialization is performed.
+*
+****************************************************************************
+*
+*/
 void machdep_init (void)
 {
 }
 
-/*
- * Handle processor-specific cfgfile options
- */
+/****i* januae-machine/machdep_save_options ********************************
+*
+*   NAME
+*       machdep_save_options()
+*
+*   SYNOPSIS
+*       void machdep_save_options (FILE *f, const struct uae_prefs *p);
+*
+*   FUNCTION
+*       Write the PowerPC timebase preference to the configuration file.
+*
+*   INPUTS
+*       f - Configuration output stream.
+*       p - Emulator preferences.
+*
+*   NOTES
+*       Writes the MACHDEP_NAME-prefixed use_tbc option.
+*
+****************************************************************************
+*
+*/
 void machdep_save_options (FILE *f, const struct uae_prefs *p)
 {
     cfgfile_write (f, MACHDEP_NAME ".use_tbc=%s\n", p->use_processor_clock ? "yes" : "no");
 }
 
+/****i* januae-machine/machdep_parse_option ********************************
+*
+*   NAME
+*       machdep_parse_option()
+*
+*   SYNOPSIS
+*       int machdep_parse_option (struct uae_prefs *p, const char *option,
+*       const char *value);
+*
+*   FUNCTION
+*       Parse the PowerPC timebase configuration option.
+*
+*   INPUTS
+*       p - Preferences to update.
+*       option - Configuration key.
+*       value - Value to parse.
+*
+*   RESULT
+*       Return value from cfgfile_yesno().
+*
+*   NOTES
+*       Recognizes use_tbc through cfgfile_yesno().
+*
+****************************************************************************
+*
+*/
 int machdep_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     return cfgfile_yesno (option, value, "use_tbc", &p->use_processor_clock);
 }
 
+/****i* januae-machine/machdep_default_options *****************************
+*
+*   NAME
+*       machdep_default_options()
+*
+*   SYNOPSIS
+*       void machdep_default_options (struct uae_prefs *p);
+*
+*   FUNCTION
+*       Enable PowerPC timebase timing in default preferences.
+*
+*   INPUTS
+*       p - Preferences to initialize.
+*
+*   NOTES
+*       Sets use_processor_clock to 1.
+*
+****************************************************************************
+*
+*/
 void machdep_default_options (struct uae_prefs *p)
 {
     p->use_processor_clock = 1;

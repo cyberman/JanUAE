@@ -20,6 +20,33 @@
 
 #ifdef USE_NAMED_SEMAPHORES
 
+/****i* januae-thread/uae_sem_init *****************************************
+*
+*   NAME
+*       uae_sem_init()
+*
+*   SYNOPSIS
+*       int uae_sem_init (uae_sem_t *sem, int pshared, unsigned int value);
+*
+*   FUNCTION
+*       Create and immediately unlink a named POSIX semaphore.
+*
+*   INPUTS
+*       sem - Semaphore wrapper to initialize.
+*       pshared - Unused by this implementation.
+*       value - Initial count.
+*
+*   RESULT
+*       Zero on success; -1 if sem_open fails.
+*
+*   NOTES
+*       Compiled only with USE_NAMED_SEMAPHORES. Names include the process
+*       ID and an incrementing static serial number. On failure sem->sem is
+*       set to zero.
+*
+****************************************************************************
+*
+*/
 int uae_sem_init (uae_sem_t *sem, int pshared, unsigned int value)
 {
     char name[32];
@@ -42,6 +69,23 @@ int uae_sem_init (uae_sem_t *sem, int pshared, unsigned int value)
 /* Satisfy those linkers that complain about empty linker libs */
 void thread_dummy (void);
 
+/****i* januae-thread/thread_dummy *****************************************
+*
+*   NAME
+*       thread_dummy()
+*
+*   SYNOPSIS
+*       void thread_dummy (void);
+*
+*   FUNCTION
+*       Provide a linker-visible stub when named semaphores are disabled.
+*
+*   NOTES
+*       Compiled only when USE_NAMED_SEMAPHORES is not defined.
+*
+****************************************************************************
+*
+*/
 void thread_dummy (void)
 {
 }
