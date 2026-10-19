@@ -103,6 +103,28 @@ extern a_inode *fsdb_lookup_aino_aname (a_inode *base, const char *);
 extern a_inode *fsdb_lookup_aino_nname (a_inode *base, const char *);
 extern int fsdb_exists (char *nname);
 
+/****i* januae-fsdb/same_aname ***********************************************
+*
+*   NAME
+*       same_aname() -- Compare two Amiga filenames without case sensitivity.
+*
+*   SYNOPSIS
+*       STATIC_INLINE int same_aname (const char *an1, const char *an2);
+*
+*   FUNCTION
+*       Compare the supplied zero-terminated names using strcasecmp().
+*
+*   INPUTS
+*       an1 - First Amiga filename.
+*       an2 - Second Amiga filename.
+*
+*   RESULT
+*       One when the names compare equal; zero otherwise.
+*
+****************************************************************************
+*
+*/
+
 STATIC_INLINE int same_aname (const char *an1, const char *an2)
 {
     return strcasecmp (an1, an2) == 0;

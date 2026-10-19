@@ -20,6 +20,31 @@
 #define TRACE(x)
 #endif
 
+/****i* januae-fsdb/dos_errno ************************************************
+*
+*   NAME
+*       dos_errno() -- Translate the current host error to a guest DOS error.
+*
+*   SYNOPSIS
+*       int dos_errno (void);
+*
+*   FUNCTION
+*       Map supported errno values to their AmigaDOS-style error constants.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Mapped guest error code, or ERROR_NOT_IMPLEMENTED for an unmapped
+*       errno value.
+*
+*   NOTES
+*       The current errno value is read; it is not cleared.
+*
+****************************************************************************
+*
+*/
+
 int dos_errno (void)
 {
     int e = errno;
@@ -50,7 +75,31 @@ int dos_errno (void)
     }
 }
 
-/* Return nonzero for any name we can't create on the native filesystem.  */
+/****i* januae-fsdb/fsdb_name_invalid ****************************************
+*
+*   NAME
+*       fsdb_name_invalid() -- Reject names reserved by the Unix filesystem adapter.
+*
+*   SYNOPSIS
+*       int fsdb_name_invalid (const char *n);
+*
+*   FUNCTION
+*       Check for the FSDB_FILE metadata filename and the special directory
+*       names "." and "..".
+*
+*   INPUTS
+*       n - Zero-terminated filename to check.
+*
+*   RESULT
+*       One for a reserved name; zero otherwise.
+*
+*   NOTES
+*       The FSDB_FILE comparison is case-sensitive.
+*
+****************************************************************************
+*
+*/
+
 int fsdb_name_invalid (const char *n)
 {
     if (strcmp (n, FSDB_FILE) == 0)
@@ -62,6 +111,27 @@ int fsdb_name_invalid (const char *n)
     return n[1] == '.' && n[2] == '\0';
 }
 
+/****i* januae-fsdb/fsdb_exists **********************************************
+*
+*   NAME
+*       fsdb_exists() -- Test whether a native filesystem object can be statted.
+*
+*   SYNOPSIS
+*       int fsdb_exists (char *nname);
+*
+*   FUNCTION
+*       Call stat() on the supplied native pathname.
+*
+*   INPUTS
+*       nname - Native pathname to query.
+*
+*   RESULT
+*       One if stat() succeeds; zero otherwise.
+*
+****************************************************************************
+*
+*/
+
 int fsdb_exists (char *nname)
 {
     struct stat statbuf;
@@ -69,8 +139,32 @@ int fsdb_exists (char *nname)
     return (stat (nname, &statbuf) != -1);
 }
 
-/* For an a_inode we have newly created based on a filename we found on the
- * native fs, fill in information about this file/directory.  */
+/****i* januae-fsdb/fsdb_fill_file_attrs *************************************
+*
+*   NAME
+*       fsdb_fill_file_attrs() -- Populate inode attributes from the host filesystem.
+*
+*   SYNOPSIS
+*       int fsdb_fill_file_attrs (a_inode *base, a_inode *aino);
+*
+*   FUNCTION
+*       Read the native file type and owner permission bits, mapping missing
+*       owner permissions to Amiga protection bits.
+*
+*   INPUTS
+*       base - Unused parent-inode argument.
+*       aino - Inode whose native pathname and attributes are used.
+*
+*   RESULT
+*       One after a successful stat(); zero if stat() fails.
+*
+*   NOTES
+*       On failure, the inode fields are not updated.
+*
+****************************************************************************
+*
+*/
+
 int fsdb_fill_file_attrs (a_inode *base, a_inode *aino)
 {
     struct stat statbuf;
@@ -83,6 +177,35 @@ int fsdb_fill_file_attrs (a_inode *base, a_inode *aino)
 			  | (S_IRUSR & statbuf.st_mode ? 0 : A_FIBF_READ));
     return 1;
 }
+
+/****i* januae-fsdb/fsdb_set_file_attrs **************************************
+*
+*   NAME
+*       fsdb_set_file_attrs() -- Apply Amiga protection bits to Unix owner permissions.
+*
+*   SYNOPSIS
+*       int fsdb_set_file_attrs (a_inode *aino);
+*
+*   FUNCTION
+*       Read the current native mode and, for a nondirectory inode, attempt
+*       to update the owner read, write and execute bits. Mark the inode
+*       metadata dirty.
+*
+*   INPUTS
+*       aino - Inode containing the native pathname and requested Amiga
+*       protection bits.
+*
+*   RESULT
+*       ERROR_OBJECT_NOT_AROUND if stat() fails; zero otherwise.
+*
+*   NOTES
+*       Directory permissions are not changed. chmod() failure is not
+*       checked and zero does not prove the host permission update
+*       succeeded.
+*
+****************************************************************************
+*
+*/
 
 int fsdb_set_file_attrs (a_inode *aino)
 {
@@ -119,14 +242,63 @@ int fsdb_set_file_attrs (a_inode *aino)
     return 0;
 }
 
-/* Return nonzero if we can represent the amigaos_mode of AINO within the
- * native FS.  Return zero if that is not possible.  */
+/****i* januae-fsdb/fsdb_mode_representable_p ********************************
+*
+*   NAME
+*       fsdb_mode_representable_p() -- Check whether an Amiga protection mode needs separate metadata.
+*
+*   SYNOPSIS
+*       int fsdb_mode_representable_p (const a_inode *aino);
+*
+*   FUNCTION
+*       Accept only a zero mode for directories; for other entries, reject
+*       modes requiring DELETE, SCRIPT or PURE bits.
+*
+*   INPUTS
+*       aino - Inode whose protection mode is checked.
+*
+*   RESULT
+*       Nonzero if the mode is representable by this adapter; zero
+*       otherwise.
+*
+****************************************************************************
+*
+*/
+
 int fsdb_mode_representable_p (const a_inode *aino)
 {
     if (aino->dir)
 	return aino->amigaos_mode == 0;
     return (aino->amigaos_mode & (A_FIBF_DELETE | A_FIBF_SCRIPT | A_FIBF_PURE)) == 0;
 }
+
+/****i* januae-fsdb/fsdb_create_unique_nname *********************************
+*
+*   NAME
+*       fsdb_create_unique_nname() -- Choose a native pathname for an Amiga entry.
+*
+*   SYNOPSIS
+*       char *fsdb_create_unique_nname (a_inode *base, const char *suggestion);
+*
+*   FUNCTION
+*       Try a reserved prefix and a truncated suggestion, then randomized
+*       eight-character prefixes, returning the first candidate for which
+*       access(R_OK) fails with ENOENT.
+*
+*   INPUTS
+*       base - Directory used for the generated native pathname.
+*       suggestion - Proposed filename, truncated to 240 characters.
+*
+*   RESULT
+*       Newly allocated full native pathname. The caller must free it.
+*
+*   NOTES
+*       The search retries without a fixed limit and does not reserve the
+*       returned pathname against concurrent creation.
+*
+****************************************************************************
+*
+*/
 
 char *fsdb_create_unique_nname (a_inode *base, const char *suggestion)
 {

@@ -41,6 +41,28 @@
 #endif
 
 
+/****i* januae-fsdb/nname_begin **********************************************
+*
+*   NAME
+*       nname_begin() -- Return the final component of a native filesystem path.
+*
+*   SYNOPSIS
+*       char *nname_begin (char *nname);
+*
+*   FUNCTION
+*       Find the last FSDB_DIR_SEPARATOR and return the following character,
+*       or the beginning of the string when no separator is present.
+*
+*   INPUTS
+*       nname - Writable, zero-terminated native path.
+*
+*   RESULT
+*       Pointer into nname; no new storage is allocated.
+*
+****************************************************************************
+*
+*/
+
 char *nname_begin (char *nname)
 {
     char *p = strrchr (nname, FSDB_DIR_SEPARATOR);
@@ -49,12 +71,36 @@ char *nname_begin (char *nname)
     return nname;
 }
 
+/****i* januae-fsdb/fsdb_search_dir ******************************************
+*
+*   NAME
+*       fsdb_search_dir() -- Find a directory entry matching an Amiga filename.
+*
+*   SYNOPSIS
+*       char *fsdb_search_dir (const char *dirname, char *rel);
+*
+*   FUNCTION
+*       Return the first directory entry encountered whose name matches rel
+*       exactly or without regard to case.
+*
+*   INPUTS
+*       dirname - Native directory to search.
+*       rel - Requested entry name.
+*
+*   RESULT
+*       rel for an exact match, a newly allocated name for a
+*       case-insensitive match, or NULL if none is found or the directory
+*       cannot be opened.
+*
+*   NOTES
+*       The caller must free only a newly allocated result. The AROS and
+*       non-AROS builds use different native directory APIs.
+*
+****************************************************************************
+*
+*/
+
 #ifndef __AROS__  //ndef _WIN32
-/* Find the name REL in directory DIRNAME.  If we find a file that
- * has exactly the same name, return REL.  If we find a file that
- * has the same name when compared case-insensitively, return a
- * malloced string that contains the name we found.  If no file
- * exists that compares equal to REL, return 0.  */
 char *fsdb_search_dir (const char *dirname, char *rel)
 {
     char *p = 0;
@@ -113,6 +159,29 @@ char *fsdb_search_dir (const char *dirname, char *rel) {
 }
 #endif
 
+/****i* januae-fsdb/get_fsdb *************************************************
+*
+*   NAME
+*       get_fsdb() -- Open a directory metadata file.
+*
+*   SYNOPSIS
+*       static FILE *get_fsdb (a_inode *dir, const char *mode);
+*
+*   FUNCTION
+*       Build the native path to FSDB_FILE beneath dir and open it in the
+*       requested stdio mode.
+*
+*   INPUTS
+*       dir - Directory whose metadata is requested.
+*       mode - Mode string passed to fopen().
+*
+*   RESULT
+*       Open FILE pointer, or NULL on failure. The caller owns the stream.
+*
+****************************************************************************
+*
+*/
+
 static FILE *get_fsdb (a_inode *dir, const char *mode)
 {
     char *n;
@@ -124,12 +193,67 @@ static FILE *get_fsdb (a_inode *dir, const char *mode)
     return f;
 }
 
+/****i* januae-fsdb/kill_fsdb ************************************************
+*
+*   NAME
+*       kill_fsdb() -- Remove a directory metadata file.
+*
+*   SYNOPSIS
+*       static void kill_fsdb (a_inode *dir);
+*
+*   FUNCTION
+*       Build the path to FSDB_FILE in dir, attempt to unlink it, and
+*       release the temporary pathname.
+*
+*   INPUTS
+*       dir - Directory whose metadata file is removed.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       The unlink result is not reported.
+*
+****************************************************************************
+*
+*/
+
 static void kill_fsdb (a_inode *dir)
 {
     char *n = build_nname (dir->nname, FSDB_FILE);
     unlink (n);
     free (n);
 }
+
+/****i* januae-fsdb/fsdb_fixup ***********************************************
+*
+*   NAME
+*       fsdb_fixup() -- Invalidate a metadata entry whose native file is missing.
+*
+*   SYNOPSIS
+*       static void fsdb_fixup (FILE *f, char *buf, int size, a_inode *base);
+*
+*   FUNCTION
+*       For an active record, resolve its stored native basename below base
+*       and clear its valid byte when the corresponding host pathname cannot
+*       be found.
+*
+*   INPUTS
+*       f - Unused stream argument.
+*       buf - Writable fixed-size metadata record.
+*       size - Unused record-size argument.
+*       base - Directory used to resolve the stored filename.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       Only the in-memory valid byte is changed; the caller controls any
+*       later file rewrite.
+*
+****************************************************************************
+*
+*/
 
 static void fsdb_fixup (FILE *f, char *buf, int size, a_inode *base)
 {
@@ -150,7 +274,33 @@ static void fsdb_fixup (FILE *f, char *buf, int size, a_inode *base)
     free (nname);
 }
 
-/* Prune the db file the first time this directory is opened in a session.  */
+/****i* januae-fsdb/fsdb_clean_dir *******************************************
+*
+*   NAME
+*       fsdb_clean_dir() -- Discard metadata entries for missing native files.
+*
+*   SYNOPSIS
+*       void fsdb_clean_dir (a_inode *dir);
+*
+*   FUNCTION
+*       Read fixed-size FSDB records, retain records whose native files
+*       exist, compact them toward the beginning of the metadata file, and
+*       truncate the file to the retained length.
+*
+*   INPUTS
+*       dir - Directory whose FSDB_FILE is cleaned.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       If the metadata file cannot be opened for update, the operation
+*       returns without changing it. I/O errors are not returned.
+*
+****************************************************************************
+*
+*/
+
 void fsdb_clean_dir (a_inode *dir)
 {
     char buf[1 + 4 + 257 + 257 + 81];
@@ -181,6 +331,36 @@ void fsdb_clean_dir (a_inode *dir)
     free (n);
 }
 
+/****i* januae-fsdb/aino_from_buf ********************************************
+*
+*   NAME
+*       aino_from_buf() -- Reconstruct an inode from a metadata record.
+*
+*   SYNOPSIS
+*       static a_inode *aino_from_buf (a_inode *base, char *buf, long off);
+*
+*   FUNCTION
+*       Allocate an a_inode, decode its stored Amiga protection mode, names
+*       and optional comment, populate native filesystem attributes, and
+*       bind it to the record offset.
+*
+*   INPUTS
+*       base - Parent directory for the native pathname.
+*       buf - Metadata record containing the mode, names and comment.
+*       off - Byte offset of the record in FSDB_FILE.
+*
+*   RESULT
+*       New a_inode with separately allocated name and optional comment
+*       strings.
+*
+*   NOTES
+*       The object remains marked as database-backed even if the native
+*       attribute lookup fails.
+*
+****************************************************************************
+*
+*/
+
 static a_inode *aino_from_buf (a_inode *base, char *buf, long off)
 {
     uae_u32 mode;
@@ -200,6 +380,33 @@ static a_inode *aino_from_buf (a_inode *base, char *buf, long off)
     aino->db_offset = off;
     return aino;
 }
+
+/****i* januae-fsdb/fsdb_lookup_aino_aname ***********************************
+*
+*   NAME
+*       fsdb_lookup_aino_aname() -- Look up a recorded Amiga filename.
+*
+*   SYNOPSIS
+*       a_inode *fsdb_lookup_aino_aname (a_inode *base, const char *aname);
+*
+*   FUNCTION
+*       Scan valid directory metadata records for a case-insensitive
+*       Amiga-name match and reconstruct the corresponding inode.
+*
+*   INPUTS
+*       base - Directory containing the metadata file.
+*       aname - Amiga filename to find.
+*
+*   RESULT
+*       Newly allocated a_inode on a match; NULL if none is found or the
+*       metadata file cannot be opened.
+*
+*   NOTES
+*       The returned inode and its allocated fields are owned by the caller.
+*
+****************************************************************************
+*
+*/
 
 a_inode *fsdb_lookup_aino_aname (a_inode *base, const char *aname)
 {
@@ -222,6 +429,33 @@ a_inode *fsdb_lookup_aino_aname (a_inode *base, const char *aname)
     return 0;
 }
 
+/****i* januae-fsdb/fsdb_lookup_aino_nname ***********************************
+*
+*   NAME
+*       fsdb_lookup_aino_nname() -- Look up a recorded native basename.
+*
+*   SYNOPSIS
+*       a_inode *fsdb_lookup_aino_nname (a_inode *base, const char *nname);
+*
+*   FUNCTION
+*       Scan valid directory metadata records for an exact match against the
+*       stored native basename.
+*
+*   INPUTS
+*       base - Directory containing the metadata file.
+*       nname - Native basename to match, not a full path.
+*
+*   RESULT
+*       Newly allocated a_inode on a match; NULL if none is found or the
+*       metadata file cannot be opened.
+*
+*   NOTES
+*       The returned inode and its allocated fields are owned by the caller.
+*
+****************************************************************************
+*
+*/
+
 a_inode *fsdb_lookup_aino_nname (a_inode *base, const char *nname)
 {
     FILE *f = get_fsdb (base, "r+b");
@@ -242,6 +476,30 @@ a_inode *fsdb_lookup_aino_nname (a_inode *base, const char *nname)
     fclose (f);
     return 0;
 }
+
+/****i* januae-fsdb/fsdb_used_as_nname ***************************************
+*
+*   NAME
+*       fsdb_used_as_nname() -- Check whether a native basename has a metadata entry.
+*
+*   SYNOPSIS
+*       int fsdb_used_as_nname (a_inode *base, const char *nname);
+*
+*   FUNCTION
+*       Scan active records in the directory metadata file for an exact
+*       match of the native basename.
+*
+*   INPUTS
+*       base - Directory containing the metadata file.
+*       nname - Native basename to search for.
+*
+*   RESULT
+*       One if an active record matches; zero otherwise, including when the
+*       file cannot be opened.
+*
+****************************************************************************
+*
+*/
 
 int fsdb_used_as_nname (a_inode *base, const char *nname)
 {
@@ -264,6 +522,29 @@ int fsdb_used_as_nname (a_inode *base, const char *nname)
     return 0;
 }
 
+/****i* januae-fsdb/needs_dbentry ********************************************
+*
+*   NAME
+*       needs_dbentry() -- Determine whether an inode requires stored metadata.
+*
+*   SYNOPSIS
+*       static int needs_dbentry (a_inode *aino);
+*
+*   FUNCTION
+*       Request a record for a nondeleted inode when its protection mode is
+*       not natively representable, it has a comment, or its native basename
+*       differs from its Amiga name.
+*
+*   INPUTS
+*       aino - Inode to examine.
+*
+*   RESULT
+*       Nonzero if a metadata record is required; zero otherwise.
+*
+****************************************************************************
+*
+*/
+
 static int needs_dbentry (a_inode *aino)
 {
     const char *nn_begin;
@@ -277,6 +558,33 @@ static int needs_dbentry (a_inode *aino)
     nn_begin = nname_begin (aino->nname);
     return strcmp (nn_begin, aino->aname) != 0;
 }
+
+/****i* januae-fsdb/write_aino ***********************************************
+*
+*   NAME
+*       write_aino() -- Serialize an inode as a metadata record.
+*
+*   SYNOPSIS
+*       static void write_aino (FILE *f, a_inode *aino);
+*
+*   FUNCTION
+*       Write the active flag, encoded protection mode, bounded Amiga and
+*       native names, and optional comment to the stream at its current
+*       position.
+*
+*   INPUTS
+*       f - Writable metadata stream positioned at the target record.
+*       aino - Inode whose metadata is serialized.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       Sets db_offset and has_dbentry without checking the fwrite() result.
+*
+****************************************************************************
+*
+*/
 
 static void write_aino (FILE *f, a_inode *aino)
 {
@@ -295,7 +603,33 @@ static void write_aino (FILE *f, a_inode *aino)
     TRACE (("%d '%s' '%s' written\n", aino->db_offset, aino->aname, aino->nname));
 }
 
-/* Write back the db file for a directory.  */
+/****i* januae-fsdb/fsdb_dir_writeback ***************************************
+*
+*   NAME
+*       fsdb_dir_writeback() -- Write pending directory metadata changes.
+*
+*   SYNOPSIS
+*       void fsdb_dir_writeback (a_inode *dir);
+*
+*   FUNCTION
+*       Determine which children need FSDB records, remove the metadata file
+*       when no records are needed, and update or append records for dirty
+*       children when a write is required.
+*
+*   INPUTS
+*       dir - Directory whose child metadata is to be synchronized.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       A disabled FSDB preference suppresses creation when no metadata file
+*       exists. Stream and allocation failures are not consistently reported
+*       to callers.
+*
+****************************************************************************
+*
+*/
 
 void fsdb_dir_writeback (a_inode *dir)
 {
