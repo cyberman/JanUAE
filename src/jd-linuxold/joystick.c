@@ -67,6 +67,29 @@ struct joy_range
 } range0, range1;
 
 
+/****i* januae-jd-linuxold/read_joy ****************************************
+*
+*   NAME
+*       read_joy() -- Poll a legacy joystick.
+*
+*   SYNOPSIS
+*       static void read_joy (unsigned int nr);
+*
+*   FUNCTION
+*       Read one joystick state record, update the observed axis extrema and
+*       midpoint, and submit axis and button state to the emulator.
+*
+*   INPUTS
+*       nr - Device index selecting the first or second file descriptor.
+*
+*   NOTES
+*       An incomplete or failed read sends no input. This backend uses the
+*       obsolete 0.x joystick API; a missing first device is not represented
+*       as a vacant index.
+*
+****************************************************************************
+*
+*/
 static void read_joy (unsigned int nr)
 {
     uae_joystick_t buffer;
@@ -111,6 +134,29 @@ static void read_joy (unsigned int nr)
 #endif
 }
 
+/****i* januae-jd-linuxold/init_joysticks **********************************
+*
+*   NAME
+*       init_joysticks() -- Open legacy joystick devices.
+*
+*   SYNOPSIS
+*       static int init_joysticks(void);
+*
+*   FUNCTION
+*       Try the first two device nodes for the selected platform; on Linux,
+*       retry in /dev/input if neither primary node opens. Reset the
+*       observed range estimates.
+*
+*   RESULT
+*       Always 1, including when no device opens.
+*
+*   NOTES
+*       Only two devices and two axes per device are supported; the
+*       enumeration count does not preserve missing device indices.
+*
+****************************************************************************
+*
+*/
 static int init_joysticks(void)
 {
     char js_path[JS_MAXPATHLEN]; // temporary buffer for device name
@@ -160,6 +206,23 @@ static int init_joysticks(void)
     return 1;
 }
 
+/****i* januae-jd-linuxold/close_joysticks *********************************
+*
+*   NAME
+*       close_joysticks() -- Close legacy joystick descriptors.
+*
+*   SYNOPSIS
+*       static void close_joysticks(void);
+*
+*   FUNCTION
+*       Close either device descriptor when it is nonnegative.
+*
+*   NOTES
+*       The saved descriptor numbers and device count are not reset.
+*
+****************************************************************************
+*
+*/
 static void close_joysticks(void)
 {
     if (js0 >= 0)
@@ -168,20 +231,95 @@ static void close_joysticks(void)
 	close (js1);
 }
 
+/****i* januae-jd-linuxold/get_joystick_num ********************************
+*
+*   NAME
+*       get_joystick_num() -- Get the legacy joystick count.
+*
+*   SYNOPSIS
+*       static unsigned int get_joystick_num (void);
+*
+*   FUNCTION
+*       Return the number of device opens counted by the last
+*       initialization.
+*
+*   RESULT
+*       Detected device count, at most two.
+*
+****************************************************************************
+*
+*/
 static unsigned int get_joystick_num (void)
 {
     return nr_joysticks;
 }
 
+/****i* januae-jd-linuxold/acquire_joy *************************************
+*
+*   NAME
+*       acquire_joy() -- Accept a legacy joystick acquisition.
+*
+*   SYNOPSIS
+*       static int acquire_joy (unsigned int num, int flags);
+*
+*   FUNCTION
+*       Return success without opening a descriptor or checking the
+*       requested index.
+*
+*   INPUTS
+*       num - Ignored.
+*       flags - Ignored.
+*
+*   RESULT
+*       Always 1.
+*
+****************************************************************************
+*
+*/
 static int acquire_joy (unsigned int num, int flags)
 {
     return 1;
 }
 
+/****i* januae-jd-linuxold/unacquire_joy ***********************************
+*
+*   NAME
+*       unacquire_joy() -- Release a legacy joystick acquisition.
+*
+*   SYNOPSIS
+*       static void unacquire_joy (unsigned int num);
+*
+*   FUNCTION
+*       Perform no operation; file descriptors are closed by
+*       close_joysticks().
+*
+*   INPUTS
+*       num - Ignored.
+*
+****************************************************************************
+*
+*/
 static void unacquire_joy (unsigned int num)
 {
 }
 
+/****i* januae-jd-linuxold/read_joysticks **********************************
+*
+*   NAME
+*       read_joysticks() -- Poll legacy joysticks.
+*
+*   SYNOPSIS
+*       static void read_joysticks (void);
+*
+*   FUNCTION
+*       Attempt one state read for each counted joystick.
+*
+*   NOTES
+*       Read errors are ignored by the poll loop.
+*
+****************************************************************************
+*
+*/
 static void read_joysticks (void)
 {
     unsigned int i;
@@ -189,6 +327,30 @@ static void read_joysticks (void)
 	read_joy (i);
 }
 
+/****i* januae-jd-linuxold/get_joystick_name *******************************
+*
+*   NAME
+*       get_joystick_name() -- Format a legacy joystick name.
+*
+*   SYNOPSIS
+*       static const char *get_joystick_name (unsigned int joy);
+*
+*   FUNCTION
+*       Format a one-based label and the selected device-node path in a
+*       shared static character buffer.
+*
+*   INPUTS
+*       joy - Zero-based joystick index.
+*
+*   RESULT
+*       Pointer to a static buffer, overwritten by the next call.
+*
+*   NOTES
+*       The function does not check that the selected device was opened.
+*
+****************************************************************************
+*
+*/
 static const char *get_joystick_name (unsigned int joy)
 {
     static char name[100];
@@ -196,11 +358,59 @@ static const char *get_joystick_name (unsigned int joy)
     return name;
 }
 
+/****i* januae-jd-linuxold/get_joystick_widget_num *************************
+*
+*   NAME
+*       get_joystick_widget_num() -- Get the legacy widget count.
+*
+*   SYNOPSIS
+*       static unsigned int get_joystick_widget_num (unsigned int joy);
+*
+*   FUNCTION
+*       Report the fixed two-axis, two-button widget layout.
+*
+*   INPUTS
+*       joy - Ignored.
+*
+*   RESULT
+*       4.
+*
+****************************************************************************
+*
+*/
 static unsigned int get_joystick_widget_num (unsigned int joy)
 {
     return MAX_AXLES + MAX_BUTTONS;
 }
 
+/****i* januae-jd-linuxold/get_joystick_widget_type ************************
+*
+*   NAME
+*       get_joystick_widget_type() -- Classify a legacy joystick widget.
+*
+*   SYNOPSIS
+*       static int get_joystick_widget_type (unsigned int joy, unsigned int
+*       num, char *name, uae_u32 *dummy);
+*
+*   FUNCTION
+*       Interpret indices zero and one as axes and indices two and three as
+*       buttons; optionally write a label.
+*
+*   INPUTS
+*       joy - Ignored.
+*       num - Widget index.
+*       name - Optional writable buffer for the formatted label.
+*       dummy - Unused.
+*
+*   RESULT
+*       IDEV_WIDGET_AXIS, IDEV_WIDGET_BUTTON, or IDEV_WIDGET_NONE.
+*
+*   NOTES
+*       The label buffer size is not checked.
+*
+****************************************************************************
+*
+*/
 static int get_joystick_widget_type (unsigned int joy, unsigned int num, char *name, uae_u32 *dummy)
 {
     if (num >= MAX_AXLES && num < MAX_AXLES+MAX_BUTTONS) {
@@ -215,6 +425,27 @@ static int get_joystick_widget_type (unsigned int joy, unsigned int num, char *n
     return IDEV_WIDGET_NONE;
 }
 
+/****i* januae-jd-linuxold/get_joystick_widget_first ***********************
+*
+*   NAME
+*       get_joystick_widget_first() -- Find the first legacy widget of a kind.
+*
+*   SYNOPSIS
+*       static int get_joystick_widget_first (unsigned int joy, int type);
+*
+*   FUNCTION
+*       Return the fixed index of the first axis or button.
+*
+*   INPUTS
+*       joy - Ignored.
+*       type - IDEV_WIDGET_AXIS or IDEV_WIDGET_BUTTON.
+*
+*   RESULT
+*       0 for axes, 2 for buttons, or -1 for an unsupported type.
+*
+****************************************************************************
+*
+*/
 static int get_joystick_widget_first (unsigned int joy, int type)
 {
     switch (type) {
@@ -240,9 +471,29 @@ struct inputdevice_functions inputdevicefunc_joystick = {
     get_joystick_widget_first
 };
 
-/*
- * Set default inputdevice config for joysticks
- */
+/****i* januae-jd-linuxold/input_get_default_joystick **********************
+*
+*   NAME
+*       input_get_default_joystick() -- Set default legacy joystick mappings.
+*
+*   SYNOPSIS
+*       void input_get_default_joystick (struct uae_input_device *uid);
+*
+*   FUNCTION
+*       Map two axes and three button events for each counted joystick to
+*       alternating emulated ports, then enable entry zero.
+*
+*   INPUTS
+*       uid - Writable input-device configuration array with at least one
+*       entry.
+*
+*   NOTES
+*       The third button mapping is configured even though the backend
+*       reports only two physical buttons.
+*
+****************************************************************************
+*
+*/
 void input_get_default_joystick (struct uae_input_device *uid)
 {
     unsigned int i, port;

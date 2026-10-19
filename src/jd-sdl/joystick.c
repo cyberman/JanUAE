@@ -27,6 +27,28 @@ struct joyinfo {
 static struct joyinfo joys[MAX_INPUT_DEVICES];
 
 
+/****i* januae-jd-sdl/read_joy *********************************************
+*
+*   NAME
+*       read_joy() -- Poll one SDL joystick.
+*
+*   SYNOPSIS
+*       static void read_joy (unsigned int nr);
+*
+*   FUNCTION
+*       Read all reported axes and buttons from the opened SDL handle and
+*       send their values to the emulator input layer.
+*
+*   INPUTS
+*       nr - Index of an initialized, opened SDL joystick.
+*
+*   NOTES
+*       With the default input setting, unassigned joysticks are skipped.
+*       The SDL handle is not checked for NULL here.
+*
+****************************************************************************
+*
+*/
 static void read_joy (unsigned int nr)
 {
     unsigned int num, i, axes, axis;
@@ -50,16 +72,84 @@ static void read_joy (unsigned int nr)
     }
 }
 
+/****i* januae-jd-sdl/get_joystick_num *************************************
+*
+*   NAME
+*       get_joystick_num() -- Get the SDL joystick count.
+*
+*   SYNOPSIS
+*       static unsigned int get_joystick_num (void);
+*
+*   FUNCTION
+*       Return the number of joystick slots retained after initialization.
+*
+*   RESULT
+*       Number of retained devices, limited to MAX_INPUT_DEVICES.
+*
+****************************************************************************
+*
+*/
 static unsigned int get_joystick_num (void)
 {
     return nr_joysticks;
 }
 
+/****i* januae-jd-sdl/get_joystick_widget_num ******************************
+*
+*   NAME
+*       get_joystick_widget_num() -- Get an SDL joystick widget count.
+*
+*   SYNOPSIS
+*       static unsigned int get_joystick_widget_num (unsigned int joy);
+*
+*   FUNCTION
+*       Add the axis and button counts cached during initialization.
+*
+*   INPUTS
+*       joy - Index of a retained joystick.
+*
+*   RESULT
+*       Number of axes plus buttons.
+*
+*   NOTES
+*       The index is not checked.
+*
+****************************************************************************
+*
+*/
 static unsigned int get_joystick_widget_num (unsigned int joy)
 {
     return joys[joy].axles + joys[joy].buttons;
 }
 
+/****i* januae-jd-sdl/get_joystick_widget_type *****************************
+*
+*   NAME
+*       get_joystick_widget_type() -- Identify an SDL joystick widget.
+*
+*   SYNOPSIS
+*       static int get_joystick_widget_type (unsigned int joy, unsigned int
+*       num, char *name, uae_u32 *code);
+*
+*   FUNCTION
+*       Classify an index within the axes-first, buttons-second widget
+*       sequence; optionally write a display name.
+*
+*   INPUTS
+*       joy - Index of a retained joystick.
+*       num - Widget index.
+*       name - Optional writable buffer for a formatted label.
+*       code - Unused.
+*
+*   RESULT
+*       IDEV_WIDGET_AXIS, IDEV_WIDGET_BUTTON, or IDEV_WIDGET_NONE.
+*
+*   NOTES
+*       No bounds are available for the caller-provided name buffer.
+*
+****************************************************************************
+*
+*/
 static int get_joystick_widget_type (unsigned int joy, unsigned int num, char *name, uae_u32 *code)
 {
     if (num >= joys[joy].axles && num < joys[joy].axles + joys[joy].buttons) {
@@ -74,6 +164,28 @@ static int get_joystick_widget_type (unsigned int joy, unsigned int num, char *n
     return IDEV_WIDGET_NONE;
 }
 
+/****i* januae-jd-sdl/get_joystick_widget_first ****************************
+*
+*   NAME
+*       get_joystick_widget_first() -- Find the first SDL widget of a kind.
+*
+*   SYNOPSIS
+*       static int get_joystick_widget_first (unsigned int joy, int type);
+*
+*   FUNCTION
+*       Return the first axis or button index in the SDL widget sequence.
+*
+*   INPUTS
+*       joy - Index of a retained joystick.
+*       type - IDEV_WIDGET_AXIS or IDEV_WIDGET_BUTTON.
+*
+*   RESULT
+*       Zero for axes, the cached axis count for buttons, or -1 for an
+*       unsupported type.
+*
+****************************************************************************
+*
+*/
 static int get_joystick_widget_first (unsigned int joy, int type)
 {
     switch (type) {
@@ -85,11 +197,52 @@ static int get_joystick_widget_first (unsigned int joy, int type)
     return -1;
 }
 
+/****i* januae-jd-sdl/get_joystick_name ************************************
+*
+*   NAME
+*       get_joystick_name() -- Get an SDL joystick name.
+*
+*   SYNOPSIS
+*       static const char *get_joystick_name (unsigned int joy);
+*
+*   FUNCTION
+*       Request the device name from SDL for the given joystick index.
+*
+*   INPUTS
+*       joy - SDL joystick index.
+*
+*   RESULT
+*       Name pointer returned by SDL; it is not allocated by this function.
+*
+*   NOTES
+*       No copy is made.
+*
+****************************************************************************
+*
+*/
 static const char *get_joystick_name (unsigned int joy)
 {
     return SDL_JoystickName (joy);
 }
 
+/****i* januae-jd-sdl/read_joysticks ***************************************
+*
+*   NAME
+*       read_joysticks() -- Poll the SDL joystick backend.
+*
+*   SYNOPSIS
+*       static void read_joysticks (void);
+*
+*   FUNCTION
+*       Refresh SDL joystick state and forward each retained device to
+*       read_joy().
+*
+*   NOTES
+*       No SDL update is performed when the retained joystick count is zero.
+*
+****************************************************************************
+*
+*/
 static void read_joysticks (void)
 {
     if (get_joystick_num ()) {
@@ -100,6 +253,29 @@ static void read_joysticks (void)
     }
 }
 
+/****i* januae-jd-sdl/init_joysticks ***************************************
+*
+*   NAME
+*       init_joysticks() -- Initialize SDL joystick input.
+*
+*   SYNOPSIS
+*       static int init_joysticks (void);
+*
+*   FUNCTION
+*       Initialize SDL joystick support, enumerate up to MAX_INPUT_DEVICES
+*       devices, open handles, and cache axis and button counts.
+*
+*   RESULT
+*       1 after successful first initialization; 0 if SDL initialization
+*       fails or the backend is already marked initialized.
+*
+*   NOTES
+*       SDL_JoystickOpen() and subsequent handle queries are not checked
+*       individually for failure.
+*
+****************************************************************************
+*
+*/
 static int init_joysticks (void)
 {
     int success = 0;
@@ -127,6 +303,21 @@ static int init_joysticks (void)
     return success;
 }
 
+/****i* januae-jd-sdl/close_joysticks **************************************
+*
+*   NAME
+*       close_joysticks() -- Close the SDL joystick backend.
+*
+*   SYNOPSIS
+*       static void close_joysticks (void);
+*
+*   FUNCTION
+*       Close retained SDL handles, clear the joystick count, and quit the
+*       joystick subsystem if it was initialized.
+*
+****************************************************************************
+*
+*/
 static void close_joysticks (void)
 {
     unsigned int i;
@@ -142,11 +333,51 @@ static void close_joysticks (void)
     }
 }
 
+/****i* januae-jd-sdl/acquire_joy ******************************************
+*
+*   NAME
+*       acquire_joy() -- Check SDL joystick availability.
+*
+*   SYNOPSIS
+*       static int acquire_joy (unsigned int num, int flags);
+*
+*   FUNCTION
+*       Accept a joystick index within the current retained count; no
+*       additional acquisition is performed.
+*
+*   INPUTS
+*       num - Candidate joystick index.
+*       flags - Ignored.
+*
+*   RESULT
+*       Nonzero if num is within the retained count; otherwise zero.
+*
+****************************************************************************
+*
+*/
 static int acquire_joy (unsigned int num, int flags)
 {
     return num < get_joystick_num ();
 }
 
+/****i* januae-jd-sdl/unacquire_joy ****************************************
+*
+*   NAME
+*       unacquire_joy() -- Release an SDL joystick acquisition.
+*
+*   SYNOPSIS
+*       static void unacquire_joy (unsigned int num);
+*
+*   FUNCTION
+*       Perform no operation; SDL handles remain open until
+*       close_joysticks().
+*
+*   INPUTS
+*       num - Ignored.
+*
+****************************************************************************
+*
+*/
 static void unacquire_joy (unsigned int num)
 {
 }
@@ -164,9 +395,29 @@ struct inputdevice_functions inputdevicefunc_joystick = {
     get_joystick_widget_first
 };
 
-/*
- * Set default inputdevice config for SDL joysticks
- */
+/****i* januae-jd-sdl/input_get_default_joystick ***************************
+*
+*   NAME
+*       input_get_default_joystick() -- Set default SDL joystick mappings.
+*
+*   SYNOPSIS
+*       void input_get_default_joystick (struct uae_input_device *uid);
+*
+*   FUNCTION
+*       Map up to three buttons and two axes per retained joystick to
+*       alternating emulated joystick ports; enable the first configuration
+*       entry.
+*
+*   INPUTS
+*       uid - Writable input-device configuration array with at least one
+*       entry.
+*
+*   NOTES
+*       uid[0] is enabled even if no SDL joysticks were found.
+*
+****************************************************************************
+*
+*/
 void input_get_default_joystick (struct uae_input_device *uid)
 {
     unsigned int i, port;
