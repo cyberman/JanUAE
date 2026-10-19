@@ -32,26 +32,144 @@
 
 int mountok=0;
 
+/****i* januae-tui/gui_led ***********************************************
+*
+*   NAME
+*       gui_led() -- Handle a floppy LED update.
+*
+*   SYNOPSIS
+*       void gui_led (int led, int on);
+*
+*   FUNCTION
+*       This text frontend does not display floppy LED updates.
+*
+*   INPUTS
+*       led - Floppy LED index.
+*       on - Requested LED state.
+*
+*   NOTES
+*       Both arguments are ignored.
+*
+****************************************************************************
+*
+*/
 void gui_led (int led, int on)
 {
 }
 
+/****i* januae-tui/gui_hd_led ********************************************
+*
+*   NAME
+*       gui_hd_led() -- Handle a hard-disk LED update.
+*
+*   SYNOPSIS
+*       void gui_hd_led (int led);
+*
+*   FUNCTION
+*       This text frontend does not display hard-disk LED updates.
+*
+*   INPUTS
+*       led - Hard-disk LED index.
+*
+*   NOTES
+*       The argument is ignored.
+*
+****************************************************************************
+*
+*/
 void gui_hd_led (int led)
 {
 }
 
+/****i* januae-tui/gui_filename ******************************************
+*
+*   NAME
+*       gui_filename() -- Handle a floppy image name update.
+*
+*   SYNOPSIS
+*       void gui_filename (int num, const char *name);
+*
+*   FUNCTION
+*       This text frontend does not update a filename display through this
+*       callback.
+*
+*   INPUTS
+*       num - Floppy drive index.
+*       name - Image filename.
+*
+*   NOTES
+*       Both arguments are ignored.
+*
+****************************************************************************
+*
+*/
 void gui_filename (int num, const char *name)
 {
 }
 
+/****i* januae-tui/gui_handle_events *************************************
+*
+*   NAME
+*       gui_handle_events() -- Poll frontend events.
+*
+*   SYNOPSIS
+*       void gui_handle_events (void);
+*
+*   FUNCTION
+*       This implementation performs no event polling.
+*
+****************************************************************************
+*
+*/
 void gui_handle_events (void)
 {
 }
 
+/****i* januae-tui/gui_fps ***********************************************
+*
+*   NAME
+*       gui_fps() -- Handle frame-rate reporting.
+*
+*   SYNOPSIS
+*       void gui_fps (int fps, int idle);
+*
+*   FUNCTION
+*       This implementation does not display frame-rate or idle
+*       information.
+*
+*   INPUTS
+*       fps - Reported frame rate.
+*       idle - Reported idle value.
+*
+*   NOTES
+*       Both arguments are ignored.
+*
+****************************************************************************
+*
+*/
 void gui_fps (int fps, int idle)
 {
 }
 
+/****i* januae-tui/save_settings *****************************************
+*
+*   NAME
+*       save_settings() -- Write emulator preferences to the options file.
+*
+*   SYNOPSIS
+*       static void save_settings (void);
+*
+*   FUNCTION
+*       Rename the existing options file to its backup name, then write
+*       currprefs through save_options().
+*
+*   NOTES
+*       A failed fopen() is logged and leaves the new file unwritten. The
+*       result of backup, save and close is not checked.
+*
+****************************************************************************
+*
+*/
 static void save_settings (void)
 {
     FILE *f;
@@ -65,6 +183,21 @@ static void save_settings (void)
     fclose (f);
 }
 
+/****i* januae-tui/gui_exit **********************************************
+*
+*   NAME
+*       gui_exit() -- Exit the text frontend.
+*
+*   SYNOPSIS
+*       void gui_exit();
+*
+*   FUNCTION
+*       This frontend callback performs no teardown; do_gui() closes curses
+*       itself.
+*
+****************************************************************************
+*
+*/
 void gui_exit()
 {
 }
@@ -164,6 +297,33 @@ static struct bstring hdmenu[] = {
     { NULL, -3 }
 };
 
+/****i* januae-tui/makemenu **********************************************
+*
+*   NAME
+*       makemenu() -- Open a simple text menu window.
+*
+*   SYNOPSIS
+*       static int makemenu (const char **menu, int x, int y);
+*
+*   FUNCTION
+*       Measure the supplied NULL-terminated string list and draw it in a
+*       newly created dialog window.
+*
+*   INPUTS
+*       menu - NULL-terminated array of menu label pointers.
+*       x - Left window coordinate.
+*       y - Top window coordinate.
+*
+*   RESULT
+*       Window index returned by tui_dlog().
+*
+*   NOTES
+*       The caller owns the returned dialog and must close it with
+*       tui_dlogdie(). This helper does not accept a menu-selection event.
+*
+****************************************************************************
+*
+*/
 static int makemenu (const char **menu, int x, int y)
 {
     const char **m = menu;
@@ -190,6 +350,32 @@ static int makemenu (const char **menu, int x, int y)
 
 static char tmpbuf[256];
 
+/****i* januae-tui/trimfilename ******************************************
+*
+*   NAME
+*       trimfilename() -- Fit a pathname into a display field.
+*
+*   SYNOPSIS
+*       static char *trimfilename(char *s, size_t n);
+*
+*   FUNCTION
+*       Copy a filename into the shared display buffer, abbreviating a long
+*       name from the left, and pad the field with spaces.
+*
+*   INPUTS
+*       s - NUL-terminated input filename.
+*       n - Desired display width.
+*
+*   RESULT
+*       Pointer to the shared static display buffer.
+*
+*   NOTES
+*       Widths greater than 250 are reduced to 250. Empty names become
+*       "none". The buffer is overwritten on each call.
+*
+****************************************************************************
+*
+*/
 static char *trimfilename(char *s, size_t n)
 {
     size_t i;
@@ -209,6 +395,25 @@ static char *trimfilename(char *s, size_t n)
     return tmpbuf;
 }
 
+/****i* januae-tui/print_configuration ***********************************
+*
+*   NAME
+*       print_configuration() -- Render current emulator settings.
+*
+*   SYNOPSIS
+*       static void print_configuration (void);
+*
+*   FUNCTION
+*       Clear and draw the main configuration window with selected floppy,
+*       video, CPU, memory, sound and mount settings.
+*
+*   NOTES
+*       Reads currprefs and current capability state; it does not save any
+*       settings.
+*
+****************************************************************************
+*
+*/
 static void print_configuration (void)
 {
     char tmp[256];
@@ -325,6 +530,26 @@ static void print_configuration (void)
     }
 }
 
+/****i* januae-tui/HDOptions *********************************************
+*
+*   NAME
+*       HDOptions() -- Edit host filesystem and hardfile mounts.
+*
+*   SYNOPSIS
+*       static void HDOptions (void);
+*
+*   FUNCTION
+*       Run the hard-disk menu and add or remove entries in
+*       currprefs.mountinfo based on selected actions.
+*
+*   NOTES
+*       Changes remain in the current preferences until explicitly saved.
+*       The add-volume branches do not inspect the return value of
+*       add_filesys_unit().
+*
+****************************************************************************
+*
+*/
 static void HDOptions (void)
 {
     char *buff;
@@ -384,6 +609,25 @@ static void HDOptions (void)
     }
 }
 
+/****i* januae-tui/DiskOptions *******************************************
+*
+*   NAME
+*       DiskOptions() -- Choose floppy disk images.
+*
+*   SYNOPSIS
+*       static void DiskOptions (void);
+*
+*   FUNCTION
+*       Present the four floppy slots and copy a selected image path into
+*       currprefs.df[].
+*
+*   NOTES
+*       Cancellation of the file requester leaves the selected slot
+*       unchanged.
+*
+****************************************************************************
+*
+*/
 static void DiskOptions (void)
 {
     char tmp[256];
@@ -413,6 +657,26 @@ static void DiskOptions (void)
     }
 }
 
+/****i* januae-tui/VideoOptions ******************************************
+*
+*   NAME
+*       VideoOptions() -- Edit video settings.
+*
+*   SYNOPSIS
+*       static void VideoOptions (void);
+*
+*   FUNCTION
+*       Present video size, color, centering, scaling, frame-rate and
+*       graphics-memory controls, updating currprefs.
+*
+*   NOTES
+*       Width is accepted from 320 through 1600 and height from 200 through
+*       800. The predefined-mode item is disabled when video_mode_menu is
+*       unavailable.
+*
+****************************************************************************
+*
+*/
 static void VideoOptions (void)
 {
     char tmp[256];
@@ -489,6 +753,25 @@ static void VideoOptions (void)
     }
 }
 
+/****i* januae-tui/MemoryOptions *****************************************
+*
+*   NAME
+*       MemoryOptions() -- Edit memory and ROM settings.
+*
+*   SYNOPSIS
+*       static void MemoryOptions (void);
+*
+*   FUNCTION
+*       Cycle configured chip, fast and slow memory amounts, or select a
+*       ROM image for currprefs.romfile.
+*
+*   NOTES
+*       Changing chip memory above 2 MiB clears fast memory. ROM selection
+*       is skipped when the file requester returns NULL.
+*
+****************************************************************************
+*
+*/
 static void MemoryOptions (void)
 {
     char *tmp;
@@ -535,6 +818,25 @@ static void MemoryOptions (void)
     }
 }
 
+/****i* januae-tui/CPUOptions ********************************************
+*
+*   NAME
+*       CPUOptions() -- Select the emulated CPU model.
+*
+*   SYNOPSIS
+*       static void CPUOptions (void);
+*
+*   FUNCTION
+*       Cycle currprefs.cpu_level through 68000, 68010, 68020 and
+*       68020/68881.
+*
+*   NOTES
+*       Selecting CPU level 2 clears 24-bit addressing. All nonzero CPU
+*       levels disable cpu_compatible.
+*
+****************************************************************************
+*
+*/
 static void CPUOptions (void)
 {
     char *tmp;
@@ -561,6 +863,25 @@ static void CPUOptions (void)
     }
 }
 
+/****i* januae-tui/SoundOptions ******************************************
+*
+*   NAME
+*       SoundOptions() -- Edit sound emulation settings.
+*
+*   SYNOPSIS
+*       static void SoundOptions (void);
+*
+*   FUNCTION
+*       Present sound mode, buffer size, sample width, output rate and
+*       stereo controls.
+*
+*   NOTES
+*       Accepted buffer size is 128 through 65536 bytes; sample width is 8
+*       or 16 bits; frequency is 11025 through 44100 Hz.
+*
+****************************************************************************
+*
+*/
 static void SoundOptions (void)
 {
     char tmp[256];
@@ -608,6 +929,25 @@ static void SoundOptions (void)
     }
 }
 
+/****i* januae-tui/OtherOptions ******************************************
+*
+*   NAME
+*       OtherOptions() -- Edit game ports and CPU speed.
+*
+*   SYNOPSIS
+*       static void OtherOptions (void);
+*
+*   FUNCTION
+*       Cycle joystick mappings and set currprefs.m68k_speed from the text
+*       menu.
+*
+*   NOTES
+*       Matching joystick mappings are adjusted to keep the two ports
+*       distinct. Entered CPU speed must be 1 through 20.
+*
+****************************************************************************
+*
+*/
 static void OtherOptions (void)
 {
     char tmp[256];
@@ -641,6 +981,33 @@ static void OtherOptions (void)
     }
 }
 
+/****i* januae-tui/do_gui ************************************************
+*
+*   NAME
+*       do_gui() -- Run the text-based configuration interface.
+*
+*   SYNOPSIS
+*       static int do_gui (int mode);
+*
+*   FUNCTION
+*       Initialize curses, display the appropriate configuration menu,
+*       dispatch selected editors and shut down curses on exit.
+*
+*   INPUTS
+*       mode - 1 selects the full startup menu; other values use the
+*       shorter in-emulation menu.
+*
+*   RESULT
+*       0 when the run item is selected or getcwd() fails; -2 when the menu
+*       is dismissed with Escape.
+*
+*   NOTES
+*       The current working directory is restored on the run path. The
+*       Escape path returns before the final chdir().
+*
+****************************************************************************
+*
+*/
 static int do_gui (int mode)
 {
     char cwd[1024];
@@ -691,11 +1058,46 @@ static int do_gui (int mode)
     return 0;
 }
 
+/****i* januae-tui/gui_open **********************************************
+*
+*   NAME
+*       gui_open() -- Open the startup configuration menu.
+*
+*   SYNOPSIS
+*       int gui_open (void);
+*
+*   FUNCTION
+*       Run the full text-based UAE configuration interface.
+*
+*   RESULT
+*       Return value of do_gui(1): 0 for Run or an initial getcwd()
+*       failure, -2 for Escape.
+*
+****************************************************************************
+*
+*/
 int gui_open (void)
 {
     return do_gui (1);
 }
 
+/****i* januae-tui/gui_update ********************************************
+*
+*   NAME
+*       gui_update() -- Update the frontend.
+*
+*   SYNOPSIS
+*       int gui_update (void);
+*
+*   FUNCTION
+*       This text frontend reports no pending UI update.
+*
+*   RESULT
+*       Always returns 0.
+*
+****************************************************************************
+*
+*/
 int gui_update (void)
 {
     return 0;

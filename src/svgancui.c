@@ -33,6 +33,25 @@ static WINDOW *currwin;
 static WINDOW *winstack[10]; /* more than enough */
 static int winnr = 0;
 
+/****i* januae-svgancui/tui_setup ****************************************
+*
+*   NAME
+*       tui_setup() -- Initialize the curses user interface.
+*
+*   SYNOPSIS
+*       void tui_setup(void);
+*
+*   FUNCTION
+*       Initialize curses input and display modes, install the default
+*       color pair when supported, and register stdscr as window zero.
+*
+*   NOTES
+*       Resets the ten-slot window stack and selects stdscr. Call before
+*       using other tui_* routines.
+*
+****************************************************************************
+*
+*/
 void tui_setup(void)
 {
     int i;
@@ -53,21 +72,87 @@ void tui_setup(void)
     winnr = 1;
 }
 
+/****i* januae-svgancui/tui_lines ****************************************
+*
+*   NAME
+*       tui_lines() -- Query terminal height.
+*
+*   SYNOPSIS
+*       int tui_lines (void);
+*
+*   FUNCTION
+*       Read the height reported by curses.
+*
+*   RESULT
+*       Current value of LINES.
+*
+****************************************************************************
+*
+*/
 int tui_lines (void)
 {
     return LINES;
 }
 
+/****i* januae-svgancui/tui_cols *****************************************
+*
+*   NAME
+*       tui_cols() -- Query terminal width.
+*
+*   SYNOPSIS
+*       int tui_cols (void);
+*
+*   FUNCTION
+*       Read the width reported by curses.
+*
+*   RESULT
+*       Current value of COLS.
+*
+****************************************************************************
+*
+*/
 int tui_cols (void)
 {
     return COLS;
 }
 
+/****i* januae-svgancui/tui_shutdown *************************************
+*
+*   NAME
+*       tui_shutdown() -- End the curses session.
+*
+*   SYNOPSIS
+*       void tui_shutdown (void);
+*
+*   FUNCTION
+*       Call endwin() to terminate curses display mode.
+*
+****************************************************************************
+*
+*/
 void tui_shutdown (void)
 {
     endwin ();
 }
 
+/****i* januae-svgancui/tui_refresh **************************************
+*
+*   NAME
+*       tui_refresh() -- Refresh open text windows.
+*
+*   SYNOPSIS
+*       void tui_refresh (void);
+*
+*   FUNCTION
+*       Mark each active window as changed, stage its contents and update
+*       the terminal.
+*
+*   NOTES
+*       Iterates from window zero to the current stack limit.
+*
+****************************************************************************
+*
+*/
 void tui_refresh (void)
 {
     int w;
@@ -78,61 +163,298 @@ void tui_refresh (void)
     doupdate ();
 }
 
+/****i* januae-svgancui/tui_puts *****************************************
+*
+*   NAME
+*       tui_puts() -- Write text in the selected window.
+*
+*   SYNOPSIS
+*       void tui_puts (const char *s);
+*
+*   FUNCTION
+*       Pass a NUL-terminated string to waddstr() for the current curses
+*       window.
+*
+*   INPUTS
+*       s - Text to write.
+*
+*   NOTES
+*       Curses write errors are not reported.
+*
+****************************************************************************
+*
+*/
 void tui_puts (const char *s)
 {
     waddstr (currwin, s);
 }
 
+/****i* januae-svgancui/tui_cursoff **************************************
+*
+*   NAME
+*       tui_cursoff() -- Disable the text cursor.
+*
+*   SYNOPSIS
+*       void tui_cursoff(void);
+*
+*   FUNCTION
+*       This function is a no-op in the curses frontend.
+*
+*   NOTES
+*       Cursor visibility is not changed.
+*
+****************************************************************************
+*
+*/
 void tui_cursoff(void)
 {
 }
 
+/****i* januae-svgancui/tui_curson ***************************************
+*
+*   NAME
+*       tui_curson() -- Enable the text cursor.
+*
+*   SYNOPSIS
+*       void tui_curson (void);
+*
+*   FUNCTION
+*       This function is a no-op in the curses frontend.
+*
+*   NOTES
+*       Cursor visibility is not changed.
+*
+****************************************************************************
+*
+*/
 void tui_curson (void)
 {
 }
 
+/****i* januae-svgancui/tui_putc *****************************************
+*
+*   NAME
+*       tui_putc() -- Write a character in the selected window.
+*
+*   SYNOPSIS
+*       void tui_putc(char c);
+*
+*   FUNCTION
+*       Pass one character to waddch() for the active curses window.
+*
+*   INPUTS
+*       c - Character to write.
+*
+****************************************************************************
+*
+*/
 void tui_putc(char c)
 {
     waddch (currwin, c);
 }
 
+/****i* januae-svgancui/tui_cr *******************************************
+*
+*   NAME
+*       tui_cr() -- Write a carriage return.
+*
+*   SYNOPSIS
+*       void tui_cr (void);
+*
+*   FUNCTION
+*       Pass a carriage-return character to waddch() for the current
+*       window.
+*
+****************************************************************************
+*
+*/
 void tui_cr (void)
 {
     waddch (currwin, '\r');
 }
 
+/****i* januae-svgancui/tui_getc *****************************************
+*
+*   NAME
+*       tui_getc() -- Read a terminal key.
+*
+*   SYNOPSIS
+*       char tui_getc(void);
+*
+*   FUNCTION
+*       Fetch one key with curses getch().
+*
+*   RESULT
+*       The getch() result converted to char.
+*
+*   NOTES
+*       Special curses key codes and ERR may be truncated by the char
+*       return type.
+*
+****************************************************************************
+*
+*/
 char tui_getc(void)
 {
     return getch ();
 }
 
+/****i* januae-svgancui/tui_gotoxy ***************************************
+*
+*   NAME
+*       tui_gotoxy() -- Set the current window cursor position.
+*
+*   SYNOPSIS
+*       void tui_gotoxy (int x, int y);
+*
+*   FUNCTION
+*       Position the cursor using one-based coordinates exposed by this
+*       interface.
+*
+*   INPUTS
+*       x - One-based column.
+*       y - One-based row.
+*
+*   NOTES
+*       Subtracts one from each coordinate before calling wmove().
+*
+****************************************************************************
+*
+*/
 void tui_gotoxy (int x, int y)
 {
     x--; y--;
     wmove (currwin, y, x);
 }
 
+/****i* januae-svgancui/tui_selwin ***************************************
+*
+*   NAME
+*       tui_selwin() -- Select a text window.
+*
+*   SYNOPSIS
+*       void tui_selwin (int w);
+*
+*   FUNCTION
+*       Set the current output window to the indicated window-stack entry.
+*
+*   INPUTS
+*       w - Window-stack index.
+*
+*   NOTES
+*       Does not validate the index or check whether the entry is still
+*       allocated.
+*
+****************************************************************************
+*
+*/
 void tui_selwin (int w)
 {
     currwin = winstack[w];
 }
 
+/****i* januae-svgancui/tui_clrwin ***************************************
+*
+*   NAME
+*       tui_clrwin() -- Erase a text window.
+*
+*   SYNOPSIS
+*       void tui_clrwin (int w);
+*
+*   FUNCTION
+*       Clear the contents of a window-stack entry with werase().
+*
+*   INPUTS
+*       w - Window-stack index.
+*
+****************************************************************************
+*
+*/
 void tui_clrwin (int w)
 {
     werase (winstack[w]);
 }
 
+/****i* januae-svgancui/tui_drawbox **************************************
+*
+*   NAME
+*       tui_drawbox() -- Draw a window border.
+*
+*   SYNOPSIS
+*       void tui_drawbox(int w);
+*
+*   FUNCTION
+*       Draw the default curses border around a window-stack entry.
+*
+*   INPUTS
+*       w - Window-stack index.
+*
+****************************************************************************
+*
+*/
 void tui_drawbox(int w)
 {
     wborder (winstack[w], 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
+/****i* januae-svgancui/tui_hline ****************************************
+*
+*   NAME
+*       tui_hline() -- Draw a horizontal line.
+*
+*   SYNOPSIS
+*       void tui_hline (int x1, int y1, int x2);
+*
+*   FUNCTION
+*       Draw a line in the current window from x1 through x2 at row y1.
+*
+*   INPUTS
+*       x1 - One-based start column.
+*       y1 - One-based row.
+*       x2 - One-based final column.
+*
+*   NOTES
+*       The drawn length is x2 - x1 + 1; coordinates are converted to the
+*       curses origin.
+*
+****************************************************************************
+*
+*/
 void tui_hline (int x1, int y1, int x2)
 {
     wmove (currwin, y1-1, x1-1);
     whline (currwin, 0, x2-x1+1);
 }
 
+/****i* januae-svgancui/tui_dlog *****************************************
+*
+*   NAME
+*       tui_dlog() -- Create a dialog window.
+*
+*   SYNOPSIS
+*       int tui_dlog(int x1, int y1, int x2, int y2);
+*
+*   FUNCTION
+*       Allocate a curses window at the supplied one-based rectangle and
+*       append it to the window stack.
+*
+*   INPUTS
+*       x1 - Left column.
+*       y1 - Top row.
+*       x2 - Right edge.
+*       y2 - Bottom edge.
+*
+*   RESULT
+*       Index of the newly allocated window.
+*
+*   NOTES
+*       The fixed window stack has ten entries and this function does not
+*       check capacity or newwin() failure. Close the dialog with
+*       tui_dlogdie().
+*
+****************************************************************************
+*
+*/
 int tui_dlog(int x1, int y1, int x2, int y2)
 {
     x1--; y1--;
@@ -140,6 +462,28 @@ int tui_dlog(int x1, int y1, int x2, int y2)
     return winnr++;
 }
 
+/****i* januae-svgancui/tui_dlogdie **************************************
+*
+*   NAME
+*       tui_dlogdie() -- Close a dialog window.
+*
+*   SYNOPSIS
+*       void tui_dlogdie (int w);
+*
+*   FUNCTION
+*       Delete the indicated window, shrink unused trailing stack entries
+*       and redraw surviving windows.
+*
+*   INPUTS
+*       w - Index of the dialog to close.
+*
+*   NOTES
+*       If the closed window is current, selection reverts to stdscr. Only
+*       allocated dialog indices are valid.
+*
+****************************************************************************
+*
+*/
 void tui_dlogdie (int w)
 {
     if (currwin == winstack[w])
@@ -153,6 +497,35 @@ void tui_dlogdie (int w)
 	redrawwin (winstack[w]), wrefresh (winstack[w]);
 }
 
+/****i* januae-svgancui/tui_gets *****************************************
+*
+*   NAME
+*       tui_gets() -- Read a line in a curses window.
+*
+*   SYNOPSIS
+*       int tui_gets (char *buf, int x, int y, int n);
+*
+*   FUNCTION
+*       Edit a NUL-terminated input buffer in the selected window until
+*       Return or Escape.
+*
+*   INPUTS
+*       buf - Writable buffer containing at least n bytes.
+*       x - Zero-based input column.
+*       y - Zero-based input row.
+*       n - Available input buffer length.
+*
+*   RESULT
+*       1 for carriage return; 0 for Escape.
+*
+*   NOTES
+*       Keeps at most n - 1 input characters and NUL-terminates the result.
+*       Requires n greater than zero; the editor does not handle ordinary
+*       terminal errors.
+*
+****************************************************************************
+*
+*/
 int tui_gets (char *buf, int x, int y, int n)
 {
     int i = 0;
@@ -183,6 +556,33 @@ int tui_gets (char *buf, int x, int y, int n)
     }
 }
 
+/****i* januae-svgancui/tui_wgets ****************************************
+*
+*   NAME
+*       tui_wgets() -- Prompt for a line of input.
+*
+*   SYNOPSIS
+*       int tui_wgets (char *buf, const char *title, int n);
+*
+*   FUNCTION
+*       Create a centered dialog containing a title and use tui_gets() to
+*       edit the supplied buffer.
+*
+*   INPUTS
+*       buf - Writable buffer holding at least n bytes.
+*       title - NUL-terminated dialog title.
+*       n - Input buffer length.
+*
+*   RESULT
+*       1 for Return; 0 for Escape, as returned by tui_gets().
+*
+*   NOTES
+*       The dialog is closed before returning. Callers must check the
+*       result if cancellation matters.
+*
+****************************************************************************
+*
+*/
 int tui_wgets (char *buf, const char *title, int n)
 {
     int l = strlen (title);
@@ -198,6 +598,38 @@ int tui_wgets (char *buf, const char *title, int n)
     return result;
 }
 
+/****i* januae-svgancui/tui_menubrowse ***********************************
+*
+*   NAME
+*       tui_menubrowse() -- Browse a selectable text menu.
+*
+*   SYNOPSIS
+*       int tui_menubrowse (struct bstring *menu, int xoff, int yoff, int selected, int height);
+*
+*   FUNCTION
+*       Display entries described by bstring markers, handle navigation and
+*       shortcut keys, and close the dialog after selection.
+*
+*   INPUTS
+*       menu - Array terminated by a bstring entry with val -3.
+*       xoff - Horizontal placement; nonpositive values are relative to the
+*       right edge.
+*       yoff - Vertical placement; nonpositive values are relative to the
+*       bottom edge.
+*       selected - Initial selectable item index.
+*       height - Maximum visible entry count.
+*
+*   RESULT
+*       Selected menu item index, or -1 when Escape is pressed.
+*
+*   NOTES
+*       Menu val markers define titles, disabled entries and shortcuts as
+*       specified in tui.h. Invalid menu indices and zero selectable
+*       entries are not guarded.
+*
+****************************************************************************
+*
+*/
 int tui_menubrowse (struct bstring *menu, int xoff, int yoff, int selected, int height)
 {
     int count = 0, maxsel = 0, maxw = 0;
@@ -342,6 +774,28 @@ int tui_menubrowse (struct bstring *menu, int xoff, int yoff, int selected, int 
     return -1; /* Can't get here */
 }
 
+/****i* januae-svgancui/tui_errorbox *************************************
+*
+*   NAME
+*       tui_errorbox() -- Show a blocking error dialog.
+*
+*   SYNOPSIS
+*       void tui_errorbox(const char *err);
+*
+*   FUNCTION
+*       Display the error message and wait for a carriage-return key before
+*       closing the dialog.
+*
+*   INPUTS
+*       err - NUL-terminated error text.
+*
+*   NOTES
+*       Despite the displayed prompt, keys other than carriage return do
+*       not dismiss the dialog.
+*
+****************************************************************************
+*
+*/
 void tui_errorbox(const char *err)
 {
     const char *hak = "Hit any key";
@@ -370,6 +824,31 @@ void tui_errorbox(const char *err)
 static char *pattern;
 static int maxlen;
 
+/****i* januae-svgancui/put_filename *************************************
+*
+*   NAME
+*       put_filename() -- Draw one entry in the file selector.
+*
+*   SYNOPSIS
+*       static void put_filename (char *s, int x, int y, attr_t a);
+*
+*   FUNCTION
+*       Render the selected filename, or "(none)" for the dot entry, padded
+*       to the current selector width.
+*
+*   INPUTS
+*       s - NUL-terminated filename.
+*       x - One-based column.
+*       y - One-based row.
+*       a - Curses attribute mask.
+*
+*   NOTES
+*       Uses shared maxlen and a fixed 256-byte local buffer; overlong
+*       names are not checked before copying.
+*
+****************************************************************************
+*
+*/
 static void put_filename (char *s, int x, int y, attr_t a)
 {
     char buf[256];
@@ -389,6 +868,30 @@ static void put_filename (char *s, int x, int y, attr_t a)
 
 static char fsbuf[256];
 
+/****i* januae-svgancui/selectfn *****************************************
+*
+*   NAME
+*       selectfn() -- Filter directory entries for the file selector.
+*
+*   SYNOPSIS
+*       static int selectfn (const struct dirent *de);
+*
+*   FUNCTION
+*       Exclude hidden names other than dot and dot-dot, and entries too
+*       long for the terminal; track the longest accepted name.
+*
+*   INPUTS
+*       de - Directory entry supplied by scandir().
+*
+*   RESULT
+*       1 to include the entry; 0 to reject it.
+*
+*   NOTES
+*       The stored wildcard pattern is not evaluated.
+*
+****************************************************************************
+*
+*/
 static int selectfn (const struct dirent *de)
 {
     int l1, l2;
@@ -408,12 +911,64 @@ static int selectfn (const struct dirent *de)
     return 1;
 }
 
+/****i* januae-svgancui/my_alphasort *************************************
+*
+*   NAME
+*       my_alphasort() -- Compare directory entry names.
+*
+*   SYNOPSIS
+*       static int my_alphasort (const void *a, const void *b);
+*
+*   FUNCTION
+*       Compare scandir() entry names using strcmp().
+*
+*   INPUTS
+*       a - Pointer to the first struct dirent * entry.
+*       b - Pointer to the second struct dirent * entry.
+*
+*   RESULT
+*       strcmp() ordering value.
+*
+****************************************************************************
+*
+*/
 static int my_alphasort (const void *a, const void *b)
 {
     return strcmp ((*(struct dirent **) a)->d_name,
 		   (*(struct dirent **) b)->d_name);
 }
 
+/****i* januae-svgancui/tui_filereq **************************************
+*
+*   NAME
+*       tui_filereq() -- Select a path using the text file requester.
+*
+*   SYNOPSIS
+*       char *tui_filereq(char *s, char *oldfile, const char *title);
+*
+*   FUNCTION
+*       Browse directory entries with curses, descend into directories and
+*       return an absolute path on file selection.
+*
+*   INPUTS
+*       s - Wildcard text; accepted for logging but not used to filter
+*       files.
+*       oldfile - Initial path, copied into a shared 256-byte buffer.
+*       title - Optional dialog title, or NULL.
+*
+*   RESULT
+*       Pointer to the shared static fsbuf on selection, or NULL on
+*       cancellation or certain failures.
+*
+*   NOTES
+*       The selected dot entry yields an empty string. Most exits restore
+*       the original working directory, but scandir() returning no entries
+*       exits without restoring it. Returned storage is overwritten by
+*       later requests; input length is not checked before copying.
+*
+****************************************************************************
+*
+*/
 char *tui_filereq(char *s, char *oldfile, const char *title)
 {
     char cwd[256];
@@ -568,6 +1123,28 @@ char *tui_filereq(char *s, char *oldfile, const char *title)
     return retval;
 }
 
+/****i* januae-svgancui/tui_backup_optionsfile ***************************
+*
+*   NAME
+*       tui_backup_optionsfile() -- Back up the options file.
+*
+*   SYNOPSIS
+*       int tui_backup_optionsfile (void);
+*
+*   FUNCTION
+*       Rename the file named by optionsfile to the same name with a
+*       trailing tilde.
+*
+*   RESULT
+*       Return value of rename(): zero on success, -1 on failure.
+*
+*   NOTES
+*       Uses a fixed 257-byte buffer and does not check the source path
+*       length before appending the suffix.
+*
+****************************************************************************
+*
+*/
 int tui_backup_optionsfile (void)
 {
     char tmp[257];
