@@ -22,10 +22,28 @@
 
 #include <SDL.h>
 
-/*
- * This function knows about all keys that are common
- * between different keyboard languages.
- */
+/****i* januae-sdlkeys/kc_decode **********************************************
+*
+*   NAME
+*       kc_decode() -- Translate common SDL key symbols.
+*
+*   SYNOPSIS
+*       static int kc_decode (int keysym);
+*
+*   FUNCTION
+*       Map language-independent SDL key symbols, including keypad, function
+*       and control keys, to Amiga raw key codes or emulator actions.
+*
+*   INPUTS
+*       keysym - SDL key symbol.
+*
+*   RESULT
+*       Mapped Amiga key code or emulator action; -1 when no common mapping
+*       exists.
+*
+****************************************************************************
+*
+*/
 static int kc_decode (int keysym)
 {
     switch (keysym) {
@@ -127,11 +145,30 @@ static int kc_decode (int keysym)
     }
 }
 
-/*
- * Handle keys specific to French (and Belgian) keymaps.
- *
- * Number keys are broken
- */
+/****i* januae-sdlkeys/decode_fr **********************************************
+*
+*   NAME
+*       decode_fr() -- Translate French-layout SDL keys.
+*
+*   SYNOPSIS
+*       static int decode_fr (int keysym);
+*
+*   FUNCTION
+*       Map French- and Belgian-layout character keys not handled by the
+*       common SDL mapping.
+*
+*   INPUTS
+*       keysym - SDL key symbol.
+*
+*   RESULT
+*       Mapped Amiga raw key code; -1 if not recognized.
+*
+*   NOTES
+*       Number-row handling remains incomplete in this layout table.
+*
+****************************************************************************
+*
+*/
 static int decode_fr (int keysym)
 {
     switch (keysym) {
@@ -158,9 +195,27 @@ static int decode_fr (int keysym)
     }
 }
 
-/*
- * Handle keys specific to US keymaps.
- */
+/****i* januae-sdlkeys/decode_us **********************************************
+*
+*   NAME
+*       decode_us() -- Translate US-layout SDL keys.
+*
+*   SYNOPSIS
+*       static int decode_us (int keysym);
+*
+*   FUNCTION
+*       Map punctuation and other US-layout character keys not handled by
+*       the common SDL mapping.
+*
+*   INPUTS
+*       keysym - SDL key symbol.
+*
+*   RESULT
+*       Mapped Amiga raw key code; -1 if not recognized.
+*
+****************************************************************************
+*
+*/
 static int decode_us (int keysym)
 {
     switch (keysym) {
@@ -185,9 +240,27 @@ static int decode_us (int keysym)
     }
 }
 
-/*
- * Handle keys specific to German keymaps.
- */
+/****i* januae-sdlkeys/decode_de **********************************************
+*
+*   NAME
+*       decode_de() -- Translate German-layout SDL keys.
+*
+*   SYNOPSIS
+*       static int decode_de (int keysym);
+*
+*   FUNCTION
+*       Map the German keyboard-specific letters, punctuation and SDL
+*       world-key symbols.
+*
+*   INPUTS
+*       keysym - SDL key symbol.
+*
+*   RESULT
+*       Mapped Amiga raw key code; -1 if not recognized.
+*
+****************************************************************************
+*
+*/
 static int decode_de (int keysym)
 {
     switch (keysym) {
@@ -219,13 +292,29 @@ static int decode_de (int keysym)
     }
 }
 
-/*
- * Handle keys specific to Danish keymaps.
- *
- * Incomplete. SDL (up to 1.2.6 at least) doesn't define
- * enough keysms for a complete Danish mapping.
- * Missing dead-key support for diaeresis, acute and circumflex
- */
+/****i* januae-sdlkeys/decode_dk **********************************************
+*
+*   NAME
+*       decode_dk() -- Translate Danish-layout SDL keys.
+*
+*   SYNOPSIS
+*       static int decode_dk (int keysym);
+*
+*   FUNCTION
+*       Map the Danish keys represented in the SDL keysym table.
+*
+*   INPUTS
+*       keysym - SDL key symbol.
+*
+*   RESULT
+*       Mapped Amiga raw key code; -1 if not recognized.
+*
+*   NOTES
+*       Dead-key combinations are not represented by this table.
+*
+****************************************************************************
+*
+*/
 static int decode_dk (int keysym)
 {
     switch (keysym) {
@@ -254,9 +343,26 @@ static int decode_dk (int keysym)
     }
 }
 
-/*
- * Handle keys specific to SE keymaps.
- */
+/****i* januae-sdlkeys/decode_se **********************************************
+*
+*   NAME
+*       decode_se() -- Translate Swedish-layout SDL keys.
+*
+*   SYNOPSIS
+*       static int decode_se (int keysym);
+*
+*   FUNCTION
+*       Map Swedish-layout symbols, punctuation and SDL world-key symbols.
+*
+*   INPUTS
+*       keysym - SDL key symbol.
+*
+*   RESULT
+*       Mapped Amiga raw key code; -1 if not recognized.
+*
+****************************************************************************
+*
+*/
 static int decode_se (int keysym)
 {
     switch (keysym) {
@@ -285,9 +391,26 @@ static int decode_se (int keysym)
     }
 }
 
-/*
- * Handle keys specific to Italian keymaps.
- */
+/****i* januae-sdlkeys/decode_it **********************************************
+*
+*   NAME
+*       decode_it() -- Translate Italian-layout SDL keys.
+*
+*   SYNOPSIS
+*       static int decode_it (int keysym);
+*
+*   FUNCTION
+*       Map Italian-layout symbols and punctuation to Amiga raw keys.
+*
+*   INPUTS
+*       keysym - SDL key symbol.
+*
+*   RESULT
+*       Mapped Amiga raw key code; -1 if not recognized.
+*
+****************************************************************************
+*
+*/
 static int decode_it (int keysym)
 {
     switch (keysym) {
@@ -315,9 +438,26 @@ static int decode_it (int keysym)
     }
 }
 
-/*
- * Handle keys specific to Spanish keymaps.
- */
+/****i* januae-sdlkeys/decode_es **********************************************
+*
+*   NAME
+*       decode_es() -- Translate Spanish-layout SDL keys.
+*
+*   SYNOPSIS
+*       static int decode_es (int keysym);
+*
+*   FUNCTION
+*       Map the Spanish-layout character keys represented by this SDL table.
+*
+*   INPUTS
+*       keysym - SDL key symbol.
+*
+*   RESULT
+*       Mapped Amiga raw key code; -1 if not recognized.
+*
+****************************************************************************
+*
+*/
 static int decode_es (int keysym)
 {
     switch (keysym) {
@@ -343,6 +483,31 @@ static int decode_es (int keysym)
     }
 }
 
+/****i* januae-sdlkeys/keysym2amiga *******************************************
+*
+*   NAME
+*       keysym2amiga() -- Translate an SDL keysym to an Amiga key code.
+*
+*   SYNOPSIS
+*       int keysym2amiga (int keysym);
+*
+*   FUNCTION
+*       Try the common SDL mapping first. If no mapping exists, select the
+*       language table using currprefs.keyboard_lang.
+*
+*   INPUTS
+*       keysym - SDL key symbol.
+*
+*   RESULT
+*       Mapped Amiga raw key code or emulator action; -1 for an unmapped
+*       symbol.
+*
+*   NOTES
+*       Only the FR, US, DE, DK, SE, IT and ES language cases are handled.
+*
+****************************************************************************
+*
+*/
 int keysym2amiga (int keysym)
 {
     int amiga_keycode = kc_decode (keysym);
@@ -431,6 +596,28 @@ static struct uae_hotkeyseq sdl_quartz_hotkeys[] =
     { HOTKEYS_END }
 };
 
+/****i* januae-sdlkeys/get_default_cooked_hotkeys *****************************
+*
+*   NAME
+*       get_default_cooked_hotkeys() -- Get the default SDL keyboard shortcuts.
+*
+*   SYNOPSIS
+*       struct uae_hotkeyseq *get_default_cooked_hotkeys (void);
+*
+*   FUNCTION
+*       Select the Quartz shortcut table for SDLGFX_DRIVER_QUARTZ and the
+*       regular SDL table otherwise.
+*
+*   RESULT
+*       Pointer to a static, HOTKEYS_END-terminated hotkey table.
+*
+*   NOTES
+*       Quartz uses F11 as the shortcut modifier; other SDL drivers use F12.
+*       The caller must not free the table.
+*
+****************************************************************************
+*
+*/
 struct uae_hotkeyseq *get_default_cooked_hotkeys (void)
 {
     if (get_sdlgfx_type() == SDLGFX_DRIVER_QUARTZ)
