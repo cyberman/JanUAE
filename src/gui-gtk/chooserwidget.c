@@ -165,6 +165,32 @@ void chooserwidget_set_choice (ChooserWidget *chooser, guint choice_num)
 }
 #endif
 
+/****i* januae-gui-gtk/combo_get_choice_num ********************************
+*
+*   NAME
+*       combo_get_choice_num()
+*
+*   SYNOPSIS
+*       guint combo_get_choice_num (GtkWidget *combo);
+*
+*   FUNCTION
+*       Return the zero-based position of the currently selected item in a
+*       GTK combo list.
+*
+*   INPUTS
+*       combo - GTK combo widget containing the list.
+*
+*   RESULT
+*       Selected item index, or the unsigned representation of -1 when the
+*       list or selection is absent.
+*
+*   NOTES
+*       The obsolete ChooserWidget implementation in the same file is
+*       disabled by #if 0 and is not part of this interface.
+*
+****************************************************************************
+*
+*/
 guint combo_get_choice_num (GtkWidget *combo) {
 
   GtkList *list;

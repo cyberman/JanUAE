@@ -29,6 +29,24 @@ static void led_size_request (GtkWidget *widget, GtkRequisition *requisition);
 static void led_size_allocate (GtkWidget *widget, GtkAllocation *allocation);
 
 
+/****i* januae-gui-gtk/led_get_type ****************************************
+*
+*   NAME
+*       led_get_type()
+*
+*   SYNOPSIS
+*       guint led_get_type ();
+*
+*   FUNCTION
+*       Register the custom LED widget type when first requested and return
+*       its GTK type identifier.
+*
+*   RESULT
+*       The registered LED widget type.
+*
+****************************************************************************
+*
+*/
 guint led_get_type ()
 {
     static guint led_type = 0;
@@ -51,6 +69,24 @@ guint led_get_type ()
 
 static GtkObjectClass *parent_class;
 
+/****i* januae-gui-gtk/led_class_init **************************************
+*
+*   NAME
+*       led_class_init()
+*
+*   SYNOPSIS
+*       static void led_class_init (LedClass *class);
+*
+*   FUNCTION
+*       Connect the LED widget lifecycle, exposure and geometry callbacks to
+*       its GTK class.
+*
+*   INPUTS
+*       class - GTK class being initialized.
+*
+****************************************************************************
+*
+*/
 static void led_class_init (LedClass *class)
 {
     GtkObjectClass *object_class = (GtkObjectClass *) class;
@@ -65,6 +101,24 @@ static void led_class_init (LedClass *class)
     widget_class->size_allocate = led_size_allocate;
 }
 
+/****i* januae-gui-gtk/led_init ********************************************
+*
+*   NAME
+*       led_init()
+*
+*   SYNOPSIS
+*       static void led_init (Led *theled);
+*
+*   FUNCTION
+*       Initialize the LED state to the off color; on GTKMUI builds, request
+*       a fixed 20-by-10 widget size.
+*
+*   INPUTS
+*       theled - Newly created LED widget.
+*
+****************************************************************************
+*
+*/
 static void led_init (Led *theled)
 {
   theled->color = LED_OFF;
@@ -73,11 +127,55 @@ static void led_init (Led *theled)
 #endif
 }
 
+/****i* januae-gui-gtk/led_new *********************************************
+*
+*   NAME
+*       led_new()
+*
+*   SYNOPSIS
+*       GtkWidget *led_new (void);
+*
+*   FUNCTION
+*       Allocate a widget instance of the registered LED type.
+*
+*   RESULT
+*       New GTK widget, or the result of the GTK type allocator on failure.
+*
+****************************************************************************
+*
+*/
 GtkWidget *led_new (void)
 {
   return gtk_type_new (led_get_type ());
 }
 
+/****i* januae-gui-gtk/led_expose ******************************************
+*
+*   NAME
+*       led_expose()
+*
+*   SYNOPSIS
+*       static gint led_expose (GtkWidget *w, GdkEventExpose *event);
+*
+*   FUNCTION
+*       Render the LED using either a rectangle in the normal GTK
+*       configuration or a GTKMUI flat box with the configured color.
+*
+*   INPUTS
+*       w - Widget to draw.
+*       event - Unused exposure event.
+*
+*   RESULT
+*       Always 0.
+*
+*   NOTES
+*       The normal GTK path draws using the existing graphics context
+*       without separately selecting the LED color. The GTKMUI branch
+*       attaches a copied style and does not release it here.
+*
+****************************************************************************
+*
+*/
 static gint led_expose (GtkWidget *w, GdkEventExpose *event)
 {
 #if !defined GTKMUI
@@ -98,6 +196,28 @@ static gint led_expose (GtkWidget *w, GdkEventExpose *event)
     return 0;
 }
 
+/****i* januae-gui-gtk/led_realize *****************************************
+*
+*   NAME
+*       led_realize()
+*
+*   SYNOPSIS
+*       static void led_realize (GtkWidget *widget);
+*
+*   FUNCTION
+*       Create a child GDK window and graphics context for a realized LED
+*       widget, then draw its initial appearance.
+*
+*   INPUTS
+*       widget - LED widget being realized.
+*
+*   NOTES
+*       GTK precondition macros reject a missing or wrong-type widget; GDK
+*       allocation results are not checked.
+*
+****************************************************************************
+*
+*/
 static void led_realize (GtkWidget *widget)
 {
     Led *theled;
@@ -131,6 +251,24 @@ static void led_realize (GtkWidget *widget)
     led_expose (widget, NULL);
 }
 
+/****i* januae-gui-gtk/led_unrealize ***************************************
+*
+*   NAME
+*       led_unrealize()
+*
+*   SYNOPSIS
+*       static void led_unrealize (GtkWidget *widget);
+*
+*   FUNCTION
+*       Unreference the LED graphics context, clear its pointer, and invoke
+*       the parent unrealize handler.
+*
+*   INPUTS
+*       widget - LED widget being unrealized.
+*
+****************************************************************************
+*
+*/
 static void led_unrealize (GtkWidget *widget)
 {
     Led *theled = LED (widget);
@@ -141,12 +279,51 @@ static void led_unrealize (GtkWidget *widget)
     GTK_WIDGET_CLASS (parent_class)->unrealize (widget);
 }
 
+/****i* januae-gui-gtk/led_size_request ************************************
+*
+*   NAME
+*       led_size_request()
+*
+*   SYNOPSIS
+*       static void led_size_request (GtkWidget *widget, GtkRequisition
+*       *requisition);
+*
+*   FUNCTION
+*       Request the fixed 20-by-10 natural size of an LED widget.
+*
+*   INPUTS
+*       widget - Unused GTK widget.
+*       requisition - Output size request.
+*
+****************************************************************************
+*
+*/
 static void led_size_request (GtkWidget *widget, GtkRequisition *requisition)
 {
     requisition->width  = LED_W;
     requisition->height = LED_H;
 }
 
+/****i* januae-gui-gtk/led_size_allocate ***********************************
+*
+*   NAME
+*       led_size_allocate()
+*
+*   SYNOPSIS
+*       static void led_size_allocate (GtkWidget *widget, GtkAllocation
+*       *allocation);
+*
+*   FUNCTION
+*       Store the assigned LED geometry and move or resize its GDK window if
+*       realized.
+*
+*   INPUTS
+*       widget - LED widget to size.
+*       allocation - Requested widget bounds.
+*
+****************************************************************************
+*
+*/
 static void led_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
 {
     Led *theled = LED (widget);
@@ -164,6 +341,26 @@ static void led_size_allocate (GtkWidget *widget, GtkAllocation *allocation)
      }
 }
 
+/****i* januae-gui-gtk/led_destroy *****************************************
+*
+*   NAME
+*       led_destroy()
+*
+*   SYNOPSIS
+*       static void led_destroy (GtkObject *o);
+*
+*   FUNCTION
+*       Invoke the inherited widget destroy handler after GTK type checks.
+*
+*   INPUTS
+*       o - LED object being destroyed.
+*
+*   NOTES
+*       This callback does not separately free LED-owned resources.
+*
+****************************************************************************
+*
+*/
 static void led_destroy (GtkObject *o)
 {
     g_return_if_fail (o != NULL);
@@ -174,6 +371,29 @@ static void led_destroy (GtkObject *o)
     GTK_OBJECT_CLASS (parent_class)->destroy (o);
 }
 
+/****i* januae-gui-gtk/led_set_color ***************************************
+*
+*   NAME
+*       led_set_color()
+*
+*   SYNOPSIS
+*       void led_set_color (Led *l, GdkColor col);
+*
+*   FUNCTION
+*       Update the LED color; if the widget is realized, update the graphics
+*       context on non-GTKMUI builds and redraw.
+*
+*   INPUTS
+*       l - LED widget.
+*       col - New LED color.
+*
+*   NOTES
+*       The GTKMUI branch redraws using the color in the widget without
+*       modifying its graphics context.
+*
+****************************************************************************
+*
+*/
 void led_set_color (Led *l, GdkColor col)
 {
     l->color = col;
