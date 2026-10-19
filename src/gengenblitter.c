@@ -44,10 +44,62 @@ typedef struct {
     int ntrees;
 } tree_vec;
 
+/****i* januae-gengenblitter/issrc ***************************************
+*
+*   NAME
+*       issrc() -- Identify a built-in expression leaf.
+*
+*   SYNOPSIS
+*       STATIC_INLINE int issrc (tree t);
+*
+*   FUNCTION
+*       Compare the node pointer with the six built-in source leaves.
+*
+*   INPUTS
+*       t - Expression node to inspect.
+*
+*   RESULT
+*       Nonzero for the six static source nodes; zero otherwise.
+*
+*   NOTES
+*       The test uses node identity rather than the operation field.
+*
+****************************************************************************
+*
+*/
+
 STATIC_INLINE int issrc (tree t)
 {
     return t == tree_a || t == tree_b || t == tree_c || t == tree_d || t == tree_e || t == tree_f;
 }
+
+/****i* januae-gengenblitter/new_op_tree *********************************
+*
+*   NAME
+*       new_op_tree() -- Construct an expression operation node.
+*
+*   SYNOPSIS
+*       static tree new_op_tree(enum tree_op op, tree l, tree r);
+*
+*   FUNCTION
+*       Eliminate adjacent NOT operations, or allocate an operation node
+*       that refers to the supplied operands.
+*
+*   INPUTS
+*       op - Operation for the new node.
+*       l - Left operand.
+*       r - Right operand.
+*
+*   RESULT
+*       Allocated tree node, or the inner operand when two NOT operations cancel.
+*
+*   NOTES
+*       The double-negation case frees the outer NOT node l. Other
+*       nodes are allocated with malloc without an allocation check.
+*
+****************************************************************************
+*
+*/
 
 static tree new_op_tree(enum tree_op op, tree l, tree r)
 {
@@ -63,6 +115,27 @@ static tree new_op_tree(enum tree_op op, tree l, tree r)
     t->op = op;
     return t;
 }
+
+/****i* januae-gengenblitter/opidx ***************************************
+*
+*   NAME
+*       opidx() -- Map a source leaf to its index.
+*
+*   SYNOPSIS
+*       static int opidx (tree t);
+*
+*   FUNCTION
+*       Interpret the operation code of a source leaf.
+*
+*   INPUTS
+*       t - Expression node.
+*
+*   RESULT
+*       0 through 5 for leaves A through F; -1 for other operations.
+*
+****************************************************************************
+*
+*/
 
 static int opidx (tree t)
 {
@@ -83,6 +156,35 @@ static int opidx (tree t)
 	return -1;
     }
 }
+
+/****i* januae-gengenblitter/tree_cst ************************************
+*
+*   NAME
+*       tree_cst() -- Accumulate expression operation costs.
+*
+*   SYNOPSIS
+*       static int tree_cst (tree t, unsigned int *src, unsigned int *notsrc);
+*
+*   FUNCTION
+*       Walk the expression recursively and mark direct and inverted
+*       source references while accumulating operation weights.
+*
+*   INPUTS
+*       t - Expression to examine.
+*       src - Six-element array recording direct source references.
+*       notsrc - Six-element array recording inverted source references.
+*
+*   RESULT
+*       Sum of node costs; source leaves contribute zero, NOT contributes
+*       three, and binary operations contribute four each.
+*
+*   NOTES
+*       The arrays are updated but not cleared. Unsupported node operations
+*       call abort().
+*
+****************************************************************************
+*
+*/
 
 static int tree_cst (tree t, unsigned int *src, unsigned int *notsrc)
 {
@@ -110,6 +212,32 @@ static int tree_cst (tree t, unsigned int *src, unsigned int *notsrc)
     }
 }
 
+/****i* januae-gengenblitter/tree_cost ***********************************
+*
+*   NAME
+*       tree_cost() -- Estimate the cost of a complete expression tree.
+*
+*   SYNOPSIS
+*       static int tree_cost (tree t);
+*
+*   FUNCTION
+*       Use fresh source-reference masks for one complete tree
+*       and apply a penalty for inputs used in both polarities.
+*
+*   INPUTS
+*       t - Expression tree.
+*
+*   RESULT
+*       Operation cost plus one for each source referenced both directly
+*       and inverted.
+*
+*   NOTES
+*       The direct and inverted source masks are initialized by this call.
+*
+****************************************************************************
+*
+*/
+
 static int tree_cost (tree t)
 {
     int i, cost;
@@ -123,6 +251,32 @@ static int tree_cost (tree t)
 	    cost++;
     return cost;
 }
+
+/****i* januae-gengenblitter/add_vec *************************************
+*
+*   NAME
+*       add_vec() -- Append a tree to a candidate vector.
+*
+*   SYNOPSIS
+*       static int add_vec(tree_vec *tv, tree t);
+*
+*   FUNCTION
+*       Append a node pointer, extending the vector allocation when full.
+*
+*   INPUTS
+*       tv - Candidate vector.
+*       t - Node to append.
+*
+*   RESULT
+*       Always returns 1.
+*
+*   NOTES
+*       Capacity grows by 40 entries through realloc(). Allocation failure
+*       is not handled; the vector stores the node pointer, not a copy.
+*
+****************************************************************************
+*
+*/
 
 static int add_vec(tree_vec *tv, tree t)
 {
@@ -139,11 +293,62 @@ static int add_vec(tree_vec *tv, tree t)
     return 1;
 }
 
+/****i* januae-gengenblitter/init_vec ************************************
+*
+*   NAME
+*       init_vec() -- Initialize an empty candidate vector.
+*
+*   SYNOPSIS
+*       static void init_vec(tree_vec *tv);
+*
+*   FUNCTION
+*       Reset the vector representation to its empty state.
+*
+*   INPUTS
+*       tv - Vector to initialize.
+*
+*   RESULT
+*       None. The vector pointer and both counts are reset to zero.
+*
+*   NOTES
+*       Does not release an existing allocation.
+*
+****************************************************************************
+*
+*/
+
 static void init_vec(tree_vec *tv)
 {
     tv->ntrees = tv->space = 0;
     tv->trees = NULL;
 }
+
+/****i* januae-gengenblitter/do_sprint_tree ******************************
+*
+*   NAME
+*       do_sprint_tree() -- Append an expression as C syntax.
+*
+*   SYNOPSIS
+*       static void do_sprint_tree (char *s, tree t);
+*
+*   FUNCTION
+*       Recursively render source identifiers and C bitwise operators
+*       into the existing destination string.
+*
+*   INPUTS
+*       s - NUL-terminated destination string with sufficient remaining space.
+*       t - Expression tree to print.
+*
+*   RESULT
+*       None. Appends source names and parenthesized bitwise expressions to s.
+*
+*   NOTES
+*       Uses strcat() without checking the destination capacity. Nested
+*       right-hand binary operations of the same kind are printed in sequence.
+*
+****************************************************************************
+*
+*/
 
 static void do_sprint_tree (char *s, tree t)
 {
@@ -203,6 +408,31 @@ static tree best_trees[256];
 static unsigned int best_cost[256];
 static int n_unknown;
 
+/****i* januae-gengenblitter/which_fn ************************************
+*
+*   NAME
+*       which_fn() -- Evaluate an expression as a three-input truth table.
+*
+*   SYNOPSIS
+*       static unsigned long which_fn (tree t);
+*
+*   FUNCTION
+*       Compose fixed three-input truth-table masks through
+*       the Boolean operations in the tree.
+*
+*   INPUTS
+*       t - Expression over A, B and C using AND, OR, XOR and NOT.
+*
+*   RESULT
+*       Eight-bit truth-table pattern in an unsigned long.
+*
+*   NOTES
+*       Unsupported leaf or operation types call abort().
+*
+****************************************************************************
+*
+*/
+
 static unsigned long which_fn (tree t)
 {
     switch (t->op) {
@@ -225,6 +455,30 @@ static unsigned long which_fn (tree t)
     }
 }
 
+/****i* januae-gengenblitter/tree_used_mask ******************************
+*
+*   NAME
+*       tree_used_mask() -- Find the inputs used by a Boolean expression.
+*
+*   SYNOPSIS
+*       static unsigned long tree_used_mask (tree t);
+*
+*   FUNCTION
+*       Combine input-usage bits across all tree operands.
+*
+*   INPUTS
+*       t - Expression over A, B and C.
+*
+*   RESULT
+*       Bit mask with A, B and C represented by bits 0, 1 and 2.
+*
+*   NOTES
+*       Unsupported leaf or operation types call abort().
+*
+****************************************************************************
+*
+*/
+
 static unsigned long tree_used_mask (tree t)
 {
     switch (t->op) {
@@ -245,6 +499,34 @@ static unsigned long tree_used_mask (tree t)
     }
 }
 
+/****i* januae-gengenblitter/candidate ***********************************
+*
+*   NAME
+*       candidate() -- Record a candidate expression for its truth table.
+*
+*   SYNOPSIS
+*       static void candidate (tree_vec *v, tree t);
+*
+*   FUNCTION
+*       Index the truth-table entry for t, compare estimated cost
+*       with the recorded best candidate and retain t in the vector.
+*
+*   INPUTS
+*       v - Candidate vector.
+*       t - Expression to consider.
+*
+*   RESULT
+*       None. Appends t and updates the best expression and cost for its
+*       truth-table value when the cost is lower.
+*
+*   NOTES
+*       Decrements n_unknown the first time the table value is encountered.
+*       Does not copy or release the candidate node.
+*
+****************************************************************************
+*
+*/
+
 static void candidate (tree_vec *v, tree t)
 {
     unsigned long fn = which_fn (t);
@@ -256,12 +538,65 @@ static void candidate (tree_vec *v, tree t)
     add_vec (v, t);
 }
 
+/****i* januae-gengenblitter/cand_and_not ********************************
+*
+*   NAME
+*       cand_and_not() -- Consider an expression and its complement.
+*
+*   SYNOPSIS
+*       static void cand_and_not (tree_vec *v, tree t);
+*
+*   FUNCTION
+*       Submit both t and a newly constructed complement for selection.
+*
+*   INPUTS
+*       v - Candidate vector.
+*       t - Expression to consider.
+*
+*   RESULT
+*       None. Adds t and a NOT expression constructed from t.
+*
+*   NOTES
+*       Both candidates may share operand nodes.
+*
+****************************************************************************
+*
+*/
+
 static void cand_and_not (tree_vec *v, tree t)
 {
     candidate (v, t);
     t = new_op_tree (op_not, t, 0);
     candidate (v, t);
 }
+
+/****i* januae-gengenblitter/try_tree ************************************
+*
+*   NAME
+*       try_tree() -- Discard a redundant or costly expression candidate.
+*
+*   SYNOPSIS
+*       static void try_tree (tree_vec *v, tree t);
+*
+*   FUNCTION
+*       Apply truth-table, source-use and cost rejection criteria
+*       before retaining a binary candidate.
+*
+*   INPUTS
+*       v - Candidate vector.
+*       t - Binary expression candidate.
+*
+*   RESULT
+*       None. Retained candidates and their complements are appended to v.
+*
+*   NOTES
+*       Rejects results equal to either operand, constant results, inputs
+*       outside the required mask, and candidates exceeding the current best
+*       cost by more than six. Frees only the rejected root node.
+*
+****************************************************************************
+*
+*/
 
 static void try_tree (tree_vec *v, tree t)
 {
@@ -280,6 +615,34 @@ static void try_tree (tree_vec *v, tree t)
     }
     cand_and_not (v, t);
 }
+
+/****i* januae-gengenblitter/find_best_trees *****************************
+*
+*   NAME
+*       find_best_trees() -- Select Boolean expressions for nonconstant minterms.
+*
+*   SYNOPSIS
+*       static void find_best_trees (void);
+*
+*   FUNCTION
+*       Enumerate combinations of candidate expressions by tree size
+*       and record the lowest-cost representative encountered.
+*
+*   INPUTS
+*       None. Uses the global used_mask table.
+*
+*   RESULT
+*       None. Populates best_trees and best_cost for the truth-table values
+*       encountered during the bounded candidate search.
+*
+*   NOTES
+*       The constant minterms use a sentinel instead of an expression.
+*       Candidate sizes are explored only while smaller than 20;
+*       this function does not free its candidate allocations.
+*
+****************************************************************************
+*
+*/
 
 static void find_best_trees (void)
 {
@@ -344,10 +707,62 @@ static void find_best_trees (void)
     }
 }
 
+/****i* januae-gengenblitter/bitset **************************************
+*
+*   NAME
+*       bitset() -- Test one bit of a minterm value.
+*
+*   SYNOPSIS
+*       static int bitset (int mt, int bit);
+*
+*   FUNCTION
+*       Apply a bit mask at the requested position.
+*
+*   INPUTS
+*       mt - Minterm value.
+*       bit - Bit index to inspect.
+*
+*   RESULT
+*       Masked bit value, or zero when that bit is clear.
+*
+*   NOTES
+*       The caller uses bit positions 0 through 7.
+*
+****************************************************************************
+*
+*/
+
 static int bitset (int mt, int bit)
 {
     return mt & (1 << bit);
 }
+
+/****i* januae-gengenblitter/generate_expr *******************************
+*
+*   NAME
+*       generate_expr() -- Determine the input mask needed by a minterm.
+*
+*   SYNOPSIS
+*       static unsigned int generate_expr (int minterm);
+*
+*   FUNCTION
+*       Combine covered truth-table entries into implicant groups
+*       and record which input bits are needed by those groups.
+*
+*   INPUTS
+*       minterm - Eight-bit Boolean truth-table value.
+*
+*   RESULT
+*       Mask of A, B and C inputs retained by the computed implicant
+*       groups. Returns zero for constant minterms.
+*
+*   NOTES
+*       The returned mask is used to discard candidate expressions
+*       that reference unnecessary inputs.
+*
+****************************************************************************
+*
+*/
 
 static unsigned int generate_expr (int minterm)
 {
@@ -406,12 +821,62 @@ static unsigned int generate_expr (int minterm)
     }
 }
 
+/****i* januae-gengenblitter/print_tree **********************************
+*
+*   NAME
+*       print_tree() -- Write an expression to standard output.
+*
+*   SYNOPSIS
+*       static void print_tree(tree t);
+*
+*   FUNCTION
+*       Render the tree into a local string buffer and print it.
+*
+*   INPUTS
+*       t - Expression tree.
+*
+*   RESULT
+*       None. Writes the expression without a trailing newline.
+*
+*   NOTES
+*       Formats into a fixed 300-byte local buffer without bounds checking.
+*
+****************************************************************************
+*
+*/
+
 static void print_tree(tree t)
 {
     char buf[300] = "";
     do_sprint_tree (buf, t);
     printf ("%s", buf);
 }
+
+/****i* januae-gengenblitter/generate_optable ****************************
+*
+*   NAME
+*       generate_optable() -- Emit the C blitter-operation lookup table.
+*
+*   SYNOPSIS
+*       static void generate_optable(void);
+*
+*   FUNCTION
+*       Emit 256 C initializer entries, each containing the chosen
+*       expression text and its required-input mask.
+*
+*   INPUTS
+*       None. Reads best_trees and used_mask.
+*
+*   RESULT
+*       None. Writes a definition of blitops[256] to standard output.
+*
+*   NOTES
+*       Outputs literal expressions for minterms 0 and 255 and prints
+*       the chosen tree for other entries. Output errors are not checked.
+*
+****************************************************************************
+*
+*/
 
 static void generate_optable(void)
 {
@@ -434,6 +899,34 @@ static void generate_optable(void)
     printf("};\n");
 }
 
+/****f* januae-gengenblitter/main ****************************************
+*
+*   NAME
+*       main() -- Generate the optimized blitter-operation table.
+*
+*   SYNOPSIS
+*       int main (int argc, char **argv);
+*
+*   FUNCTION
+*       Compute required-input masks, search for candidate expressions
+*       and print the resulting blitter table.
+*
+*   INPUTS
+*       argc - Argument count (unused).
+*       argv - Argument vector (unused).
+*
+*   RESULT
+*       Returns zero after emitting the table.
+*
+*   NOTES
+*       Computes input masks, selects candidate trees and writes C source
+*       to standard output. Allocation and output failures are not reported
+*       through a nonzero return value.
+*
+****************************************************************************
+*
+*/
+
 int main (int argc, char **argv)
 {
     int minterm;
@@ -444,6 +937,30 @@ int main (int argc, char **argv)
 
     return 0;
 }
+
+/****i* januae-gengenblitter/nop *****************************************
+*
+*   NAME
+*       nop() -- Perform no operation.
+*
+*   SYNOPSIS
+*       void nop(int a);
+*
+*   FUNCTION
+*       Ignore the argument without changing any state.
+*
+*   INPUTS
+*       a - Ignored.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       The call site in add_vec() is disabled by conditional compilation.
+*
+****************************************************************************
+*
+*/
 
 void nop(int a)
 {
