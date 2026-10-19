@@ -47,6 +47,32 @@ static const uae_u8 *execscsicmd_in_ioctl (int unitnum, const uae_u8 *cmd_data, 
  * this little piece of magic from Toni Wilen is needed to detect
  * ATAPI devices.
  */
+/****i* januae-linux-cdrom/is_atapi_drive *************************************
+*
+*   NAME
+*       is_atapi_drive() -- Identify an ATAPI CD-ROM unit.
+*
+*   SYNOPSIS
+*       static int is_atapi_drive (int unitnum);
+*
+*   FUNCTION
+*       Submit an INQUIRY packet and inspect the peripheral device type and
+*       reported ANSI SCSI version.
+*
+*   INPUTS
+*       unitnum - Opened backend unit index.
+*
+*   RESULT
+*       One when the inquiry identifies the expected ATAPI CD-ROM response;
+*       zero otherwise.
+*
+*   NOTES
+*       An unsuccessful inquiry is treated as a negative identification.
+*
+****************************************************************************
+*
+*/
+
 static int is_atapi_drive (int unitnum)
 {
     static const uae_u8 cmd[6] = {0x12, 0, 0, 0, 36, 0}; /* INQUIRY */
@@ -65,6 +91,28 @@ static int is_atapi_drive (int unitnum)
     return 0;
 }
 
+/****i* januae-linux-cdrom/open_scsi_bus_ioctl ********************************
+*
+*   NAME
+*       open_scsi_bus_ioctl() -- Initialize the Linux CD-ROM device table.
+*
+*   SYNOPSIS
+*       static int open_scsi_bus_ioctl (int flags);
+*
+*   FUNCTION
+*       Configure a single backend unit using currprefs.scsi_device and mark
+*       its descriptor closed. No device scan or host open is performed.
+*
+*   INPUTS
+*       flags - Unused.
+*
+*   RESULT
+*       One.
+*
+****************************************************************************
+*
+*/
+
 static int open_scsi_bus_ioctl (int flags)
 {
     DEBUG_LOG ("SCSIDEV: open_scsi_bus_ioctl\n");
@@ -76,10 +124,59 @@ static int open_scsi_bus_ioctl (int flags)
     return 1;
 }
 
+/****i* januae-linux-cdrom/close_scsi_bus_ioctl *******************************
+*
+*   NAME
+*       close_scsi_bus_ioctl() -- Close the Linux CD-ROM bus interface.
+*
+*   SYNOPSIS
+*       static void close_scsi_bus_ioctl (void);
+*
+*   FUNCTION
+*       No action is performed. Device descriptors are closed separately by
+*       close_scsi_device_ioctl().
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       None.
+*
+****************************************************************************
+*
+*/
+
 static void close_scsi_bus_ioctl (void)
 {
     DEBUG_LOG ("SCSIDEV: close_scsi_bus_ioctl\n");
 }
+
+/****i* januae-linux-cdrom/open_scsi_device_ioctl *****************************
+*
+*   NAME
+*       open_scsi_device_ioctl() -- Open a configured Linux CD-ROM device.
+*
+*   SYNOPSIS
+*       static int open_scsi_device_ioctl (int unitnum);
+*
+*   FUNCTION
+*       Open the configured device read-only and nonblocking when not already
+*       open, then probe its ATAPI identity. Reuse an existing descriptor on
+*       repeated calls.
+*
+*   INPUTS
+*       unitnum - Configured unit index, starting at zero.
+*
+*   RESULT
+*       One when the descriptor is open; zero when the open fails or the unit
+*       is outside the configured upper bound.
+*
+*   NOTES
+*       The caller must not pass a negative unit index.
+*
+****************************************************************************
+*
+*/
 
 static int open_scsi_device_ioctl (int unitnum)
 {
@@ -110,6 +207,32 @@ static int open_scsi_device_ioctl (int unitnum)
     return result;
 }
 
+/****i* januae-linux-cdrom/close_scsi_device_ioctl ****************************
+*
+*   NAME
+*       close_scsi_device_ioctl() -- Close a Linux CD-ROM device descriptor.
+*
+*   SYNOPSIS
+*       static void close_scsi_device_ioctl (int unitnum);
+*
+*   FUNCTION
+*       Close the descriptor for the selected unit if open and mark it
+*       closed.
+*
+*   INPUTS
+*       unitnum - Previously configured nonnegative unit index.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       Unit indices at or above total_drives are ignored. Negative indices
+*       are not checked.
+*
+****************************************************************************
+*
+*/
+
 static void close_scsi_device_ioctl (int unitnum)
 {
     struct scsidevdata *sdd;
@@ -126,6 +249,28 @@ static void close_scsi_device_ioctl (int unitnum)
     }
 }
 
+/****i* januae-linux-cdrom/media_check ****************************************
+*
+*   NAME
+*       media_check() -- Check whether a CD-ROM medium is present.
+*
+*   SYNOPSIS
+*       static int media_check (struct scsidevdata *sdd);
+*
+*   FUNCTION
+*       Query CDROM_DRIVE_STATUS for the currently selected slot of the
+*       device descriptor.
+*
+*   INPUTS
+*       sdd - Backend device state containing an open descriptor.
+*
+*   RESULT
+*       One for CDS_DISC_OK; zero for any other status or ioctl failure.
+*
+****************************************************************************
+*
+*/
+
 static int media_check (struct scsidevdata *sdd)
 {
     if (ioctl (sdd->fd, CDROM_DRIVE_STATUS, CDSL_CURRENT) == CDS_DISC_OK)
@@ -133,6 +278,35 @@ static int media_check (struct scsidevdata *sdd)
     else
         return 0;
 }
+
+/****i* januae-linux-cdrom/execscsicmd_out_ioctl ******************************
+*
+*   NAME
+*       execscsicmd_out_ioctl() -- Submit a packet command without a data buffer.
+*
+*   SYNOPSIS
+*       static const uae_u8 *execscsicmd_out_ioctl (int unitnum, const uae_u8 *cmd_data, int cmd_len);
+*
+*   FUNCTION
+*       Copy the command into a Linux CD-ROM packet request, set the write
+*       data direction and issue CDROM_SEND_PACKET.
+*
+*   INPUTS
+*       unitnum - Opened nonnegative backend unit index.
+*       cmd_data - Command descriptor bytes.
+*       cmd_len - Command length, no greater than CDROM_PACKET_SIZE.
+*
+*   RESULT
+*       The original cmd_data pointer after a successful ioctl; NULL when the
+*       unit is too large, the command is too long or the ioctl fails.
+*
+*   NOTES
+*       The returned pointer remains owned by the caller. The function does
+*       not verify negative unit or command lengths.
+*
+****************************************************************************
+*
+*/
 
 static const uae_u8 *execscsicmd_out_ioctl (int unitnum, const uae_u8 *cmd_data, int cmd_len)
 {
@@ -169,6 +343,38 @@ static const uae_u8 *execscsicmd_out_ioctl (int unitnum, const uae_u8 *cmd_data,
     }
     return cmd_data;
 }
+
+/****i* januae-linux-cdrom/execscsicmd_in_ioctl *******************************
+*
+*   NAME
+*       execscsicmd_in_ioctl() -- Submit a packet command that reads data.
+*
+*   SYNOPSIS
+*       static const uae_u8 *execscsicmd_in_ioctl (int unitnum, const uae_u8 *cmd_data, int cmd_len, int *outlen);
+*
+*   FUNCTION
+*       Execute CDROM_SEND_PACKET with a per-unit receive buffer and the read
+*       data direction. Copy the post-ioctl buffer length to outlen when
+*       supplied.
+*
+*   INPUTS
+*       unitnum - Opened nonnegative backend unit index.
+*       cmd_data - Command descriptor bytes.
+*       cmd_len - Command length, no greater than CDROM_PACKET_SIZE.
+*       outlen - Optional destination for the resulting cmd.buflen value.
+*
+*   RESULT
+*       Pointer to the per-unit receive buffer after a successful ioctl; NULL
+*       on a rejected unit or command length, or ioctl failure.
+*
+*   NOTES
+*       The buffer is backend-owned and can be overwritten by the next
+*       command for the same unit. Negative unit and command lengths are not
+*       checked.
+*
+****************************************************************************
+*
+*/
 
 static const uae_u8 *execscsicmd_in_ioctl (int unitnum, const uae_u8 *cmd_data, int cmd_len, int *outlen)
 {
@@ -208,6 +414,38 @@ static const uae_u8 *execscsicmd_in_ioctl (int unitnum, const uae_u8 *cmd_data, 
     }
     return sdd->buf;
 }
+
+/****i* januae-linux-cdrom/execscsicmd_direct_ioctl ***************************
+*
+*   NAME
+*       execscsicmd_direct_ioctl() -- Execute a guest-provided SCSI packet request.
+*
+*   SYNOPSIS
+*       static int execscsicmd_direct_ioctl (int unitnum, uaecptr acmd);
+*
+*   FUNCTION
+*       Read the guest SCSI command descriptor, validate the data address
+*       range, prepare the Linux CD-ROM packet, apply ATAPI adjustments when
+*       selected and issue CDROM_SEND_PACKET. Update the guest transfer
+*       counts, status and autosense fields according to the returned status.
+*
+*   INPUTS
+*       unitnum - Opened nonnegative backend unit index.
+*       acmd - Guest address of the SCSI command descriptor.
+*
+*   RESULT
+*       Zero on successful command completion; 45 for nonzero SCSI status; 20
+*       for an ioctl error without SCSI status; -5 for an invalid data buffer
+*       or an oversized command; -1 for an out-of-range unit.
+*
+*   NOTES
+*       The command and sense guest address ranges are not explicitly
+*       validated before translation; a negative unit index is also
+*       unchecked.
+*
+****************************************************************************
+*
+*/
 
 static int execscsicmd_direct_ioctl (int unitnum, uaecptr acmd)
 {
@@ -327,6 +565,34 @@ static int execscsicmd_direct_ioctl (int unitnum, uaecptr acmd)
     return io_error;
 }
 
+/****i* januae-linux-cdrom/info_device_ioctl **********************************
+*
+*   NAME
+*       info_device_ioctl() -- Describe a configured CD-ROM unit.
+*
+*   SYNOPSIS
+*       static struct device_info *info_device_ioctl (int unitnum, struct device_info *di);
+*
+*   FUNCTION
+*       Populate selected identity, media-presence, write-protection and
+*       sector-size fields for a CD-ROM device. The returned label encloses
+*       the configured host pathname in brackets.
+*
+*   INPUTS
+*       unitnum - Configured nonnegative backend unit index.
+*       di - Caller-owned device information record to update.
+*
+*   RESULT
+*       di for an index below total_drives; NULL otherwise.
+*
+*   NOTES
+*       Only the fields assigned by this implementation are initialized. A
+*       negative index is not checked.
+*
+****************************************************************************
+*
+*/
+
 static struct device_info *info_device_ioctl (int unitnum, struct device_info *di)
 {
     DEBUG_LOG ("SCSIDEV: unit = %d: info_device_ioctl\n", unitnum);
@@ -354,11 +620,54 @@ static struct device_info *info_device_ioctl (int unitnum, struct device_info *d
     return di;
 }
 
+/****i* januae-linux-cdrom/pause_ioctl ****************************************
+*
+*   NAME
+*       pause_ioctl() -- Handle a CD audio pause request.
+*
+*   SYNOPSIS
+*       static int pause_ioctl (int unitnum, int paused);
+*
+*   FUNCTION
+*       This callback is not implemented; it does not change playback state.
+*
+*   INPUTS
+*       unitnum - Unused.
+*       paused - Unused.
+*
+*   RESULT
+*       Zero, without performing a pause or resume operation.
+*
+****************************************************************************
+*
+*/
+
 static int pause_ioctl (int unitnum, int paused)
 {
     DEBUG_LOG ("SCSIDEV: unit = %d, pause_ioctl not implemented\n", unitnum);
     return 0;
 }
+
+/****i* januae-linux-cdrom/stop_ioctl *****************************************
+*
+*   NAME
+*       stop_ioctl() -- Handle a CD audio stop request.
+*
+*   SYNOPSIS
+*       static int stop_ioctl (int unitnum);
+*
+*   FUNCTION
+*       This callback is not implemented; it does not stop playback.
+*
+*   INPUTS
+*       unitnum - Unused.
+*
+*   RESULT
+*       Zero, without performing a stop operation.
+*
+****************************************************************************
+*
+*/
 
 static int stop_ioctl (int unitnum)
 {
@@ -366,11 +675,57 @@ static int stop_ioctl (int unitnum)
     return 0;
 }
 
+/****i* januae-linux-cdrom/play_ioctl *****************************************
+*
+*   NAME
+*       play_ioctl() -- Handle a CD audio play request.
+*
+*   SYNOPSIS
+*       static int play_ioctl (int unitnum, uae_u32 startmsf, uae_u32 endmsf, int scan);
+*
+*   FUNCTION
+*       This callback is not implemented; it does not start playback or
+*       scanning.
+*
+*   INPUTS
+*       unitnum - Unused.
+*       startmsf - Unused.
+*       endmsf - Unused.
+*       scan - Unused.
+*
+*   RESULT
+*       Zero, without performing playback.
+*
+****************************************************************************
+*
+*/
+
 static int play_ioctl (int unitnum, uae_u32 startmsf, uae_u32 endmsf, int scan)
 {
     DEBUG_LOG ("SCSIDEV: unit = %d, play_ioctl not implemented\n", unitnum);
     return 0;
 }
+
+/****i* januae-linux-cdrom/qcode_ioctl ****************************************
+*
+*   NAME
+*       qcode_ioctl() -- Handle a CD audio subchannel request.
+*
+*   SYNOPSIS
+*       static const uae_u8 *qcode_ioctl (int unitnum);
+*
+*   FUNCTION
+*       This callback is not implemented; no subchannel data is retrieved.
+*
+*   INPUTS
+*       unitnum - Unused.
+*
+*   RESULT
+*       NULL.
+*
+****************************************************************************
+*
+*/
 
 static const uae_u8 *qcode_ioctl (int unitnum)
 {
@@ -378,11 +733,54 @@ static const uae_u8 *qcode_ioctl (int unitnum)
     return 0;
 }
 
+/****i* januae-linux-cdrom/toc_ioctl ******************************************
+*
+*   NAME
+*       toc_ioctl() -- Handle a table-of-contents request.
+*
+*   SYNOPSIS
+*       static const uae_u8 *toc_ioctl (int unitnum);
+*
+*   FUNCTION
+*       This callback is not implemented; no table of contents is read.
+*
+*   INPUTS
+*       unitnum - Unused.
+*
+*   RESULT
+*       NULL.
+*
+****************************************************************************
+*
+*/
+
 static const uae_u8 *toc_ioctl (int unitnum)
 {
     DEBUG_LOG ("SCSIDEV: unit = %d, toc_ioctl not implemented\n", unitnum);
     return 0;
 }
+
+/****i* januae-linux-cdrom/read_ioctl *****************************************
+*
+*   NAME
+*       read_ioctl() -- Handle a CD-ROM sector read request.
+*
+*   SYNOPSIS
+*       static const uae_u8 *read_ioctl (int unitnum, int offset);
+*
+*   FUNCTION
+*       This callback is not implemented; no sector is read.
+*
+*   INPUTS
+*       unitnum - Unused.
+*       offset - Unused.
+*
+*   RESULT
+*       NULL.
+*
+****************************************************************************
+*
+*/
 
 static const uae_u8 *read_ioctl (int unitnum, int offset)
 {
@@ -390,11 +788,61 @@ static const uae_u8 *read_ioctl (int unitnum, int offset)
     return 0;
 }
 
+/****i* januae-linux-cdrom/write_ioctl ****************************************
+*
+*   NAME
+*       write_ioctl() -- Handle a CD-ROM write request.
+*
+*   SYNOPSIS
+*       static int write_ioctl (int unitnum, int length, uae_u8 *buf);
+*
+*   FUNCTION
+*       This callback is not implemented; it does not write the supplied
+*       data.
+*
+*   INPUTS
+*       unitnum - Unused.
+*       length - Unused.
+*       buf - Unused.
+*
+*   RESULT
+*       Zero, without writing data.
+*
+****************************************************************************
+*
+*/
+
 static int write_ioctl (int unitnum, int length, uae_u8 *buf)
 {
     DEBUG_LOG ("SCSIDEV: unit = %d, write_ioctl not implemented\n", unitnum);
     return 0;
 }
+
+/****i* januae-linux-cdrom/check_isatapi_ioctl ********************************
+*
+*   NAME
+*       check_isatapi_ioctl() -- Return the recorded ATAPI identification.
+*
+*   SYNOPSIS
+*       static int check_isatapi_ioctl (int unitnum);
+*
+*   FUNCTION
+*       Read the identification flag saved when the corresponding device
+*       descriptor was opened.
+*
+*   INPUTS
+*       unitnum - Previously configured nonnegative unit index.
+*
+*   RESULT
+*       One if the unit was identified as ATAPI; zero otherwise, including
+*       indices at or above total_drives.
+*
+*   NOTES
+*       Negative indices are not checked.
+*
+****************************************************************************
+*
+*/
 
 static int check_isatapi_ioctl (int unitnum)
 {
