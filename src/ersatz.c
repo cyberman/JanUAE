@@ -33,6 +33,31 @@
 
 static int already_failed = 0;
 
+/****f* januae-ersatz/init_ersatz_rom ************************************
+*
+*   NAME
+*       init_ersatz_rom() -- Install the replacement Kickstart entry sequence.
+*
+*   SYNOPSIS
+*       void init_ersatz_rom (uae_u8 *data);
+*
+*   FUNCTION
+*       Write the initial stack pointer, reset vector, and replacement
+*       opcode sequence into the supplied Kickstart memory.
+*
+*   INPUTS
+*       data - Writable start of a buffer with at least 50 bytes available.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       Exactly 50 bytes are written consecutively. No bounds check is made.
+*
+****************************************************************************
+*
+*/
+
 void init_ersatz_rom (uae_u8 *data)
 {
     *data++ = 0x00; *data++ = 0x08; /* initial SP */
@@ -68,6 +93,28 @@ void init_ersatz_rom (uae_u8 *data)
     *data++ = 0x4E; *data++ = 0x75;
 }
 
+/****i* januae-ersatz/ersatz_failed **************************************
+*
+*   NAME
+*       ersatz_failed() -- Signal an unsupported Kickstart replacement operation.
+*
+*   SYNOPSIS
+*       static void ersatz_failed (void);
+*
+*   FUNCTION
+*       Report the unsupported replacement operation and request an emulator
+*       restart. Subsequent calls do not repeat the message or restart request.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       None.
+*
+****************************************************************************
+*
+*/
+
 static void ersatz_failed (void)
 {
     if (already_failed)
@@ -77,6 +124,35 @@ static void ersatz_failed (void)
     gui_message ("Diskfile in DF0: is not compatible with Kickstart replacement.\n");
     uae_restart (-1, NULL);
 }
+
+/****i* januae-ersatz/ersatz_doio ****************************************
+*
+*   NAME
+*       ersatz_doio() -- Transfer sectors for a replacement disk I/O request.
+*
+*   SYNOPSIS
+*       static void ersatz_doio (void);
+*
+*   FUNCTION
+*       Read the request address from emulated register A1. Recognize
+*       commands 2, 0x8002, and 9; all other commands request a restart.
+*       Convert the request offset and length to 512-byte sectors and copy
+*       those sectors from the emulated floppy through DISK_ersatz_read().
+*
+*   INPUTS
+*       None; A1 holds a guest IORequest address.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       Request offsets and lengths are divided by 512 without validating
+*       alignment. Command 9 follows the sector-transfer path even though
+*       it is recognized as TD_MOTOR.
+*
+****************************************************************************
+*
+*/
 
 static void ersatz_doio (void)
 {
@@ -104,6 +180,34 @@ static void ersatz_doio (void)
 	}
     }
 }
+
+/****i* januae-ersatz/ersatz_init ****************************************
+*
+*   NAME
+*       ersatz_init() -- Initialize the replacement Kickstart environment.
+*
+*   SYNOPSIS
+*       static void ersatz_init (void);
+*
+*   FUNCTION
+*       Initialize the minimal replacement Exec state and read the boot
+*       blocks from DF0. A Kickstart disk triggers ROM loading, disk
+*       ejection, and an emulator reset; otherwise execution continues from
+*       the disk boot code with initialized custom-chip registers.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       An empty DF0 requests a restart without initializing the
+*       replacement system.
+*
+****************************************************************************
+*
+*/
 
 static void ersatz_init (void)
 {
@@ -209,6 +313,34 @@ static void ersatz_init (void)
     put_byte (0xBFDD00, 0x9F);
     put_byte (0xBFED01, 0x9F);
 }
+
+/****f* januae-ersatz/ersatz_perform *************************************
+*
+*   NAME
+*       ersatz_perform() -- Dispatch a replacement Kickstart opcode.
+*
+*   SYNOPSIS
+*       void ersatz_perform (uae_u16 what);
+*
+*   FUNCTION
+*       Supported cases initialize the replacement environment, acknowledge
+*       pending interrupts, run disk I/O, or update emulated CPU registers.
+*       Unimplemented and unknown operations request an emulator restart.
+*
+*   INPUTS
+*       what - Replacement opcode encoded by the Kickstart entry sequence.
+*
+*   RESULT
+*       None; selected operations update emulator registers or guest memory.
+*
+*   NOTES
+*       Memory availability and allocation cases return fixed values in D0;
+*       they do not allocate host or guest memory. The unsupported library
+*       open and unknown cases request a restart.
+*
+****************************************************************************
+*
+*/
 
 void ersatz_perform (uae_u16 what)
 {
