@@ -20,6 +20,31 @@ static unsigned char blttbl[]= {
     0xaa, 0xb1, 0xca, 0xcc, 0xd8, 0xe2, 0xea, 0xf0, 0xfa, 0xfc
 };
 
+/****i* januae-genblitter/generate_include *******************************
+*
+*   NAME
+*       generate_include() -- Emit the inline blitter minterm dispatcher.
+*
+*   SYNOPSIS
+*       static void generate_include(void);
+*
+*   FUNCTION
+*       Write a static inline blit_func() definition with one switch case
+*       for each 8-bit minterm, using the corresponding blitops expression.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       None; generated C source is written to standard output.
+*
+*   NOTES
+*       Every blitops[].s entry must provide a valid expression string.
+*
+****************************************************************************
+*
+*/
+
 static void generate_include(void)
 {
     int minterm;
@@ -32,6 +57,33 @@ static void generate_include(void)
     printf("return 0;\n"); /* No, sir, it doesn't! */
     printf("}\n");
 }
+
+/****i* januae-genblitter/generate_func **********************************
+*
+*   NAME
+*       generate_func() -- Emit specialized blitter implementations.
+*
+*   SYNOPSIS
+*       static void generate_func(void);
+*
+*   FUNCTION
+*       Write forward and descending blitter functions for the minterms in
+*       blttbl. The blitops used-mask selects which source channels each
+*       generated function reads; the expression string defines its result.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       None; generated C source is written to standard output.
+*
+*   NOTES
+*       Requires valid expressions and used-masks in blitops for each
+*       selected minterm. The disabled 32-bit paths are not emitted.
+*
+****************************************************************************
+*
+*/
 
 static void generate_func(void)
 {
@@ -204,6 +256,29 @@ static void generate_func(void)
     }
 }
 
+/****i* januae-genblitter/generate_table *********************************
+*
+*   NAME
+*       generate_table() -- Emit the fast-blitter dispatch tables.
+*
+*   SYNOPSIS
+*       static void generate_table(void);
+*
+*   FUNCTION
+*       Write two 256-entry function-pointer arrays for forward and descending
+*       blits. Minterms listed in blttbl reference specialized functions;
+*       all other entries are null.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       None; generated C source is written to standard output.
+*
+****************************************************************************
+*
+*/
+
 static void generate_table(void)
 {
     unsigned int index = 0;
@@ -241,6 +316,28 @@ static void generate_table(void)
     printf("};\n");
 }
 
+/****i* januae-genblitter/generate_header ********************************
+*
+*   NAME
+*       generate_header() -- Emit fast-blitter function declarations.
+*
+*   SYNOPSIS
+*       static void generate_header(void);
+*
+*   FUNCTION
+*       Write declarations for the forward and descending blitter functions
+*       corresponding to each minterm in blttbl.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       None; declarations are written to standard output.
+*
+****************************************************************************
+*
+*/
+
 static void generate_header(void)
 {
     unsigned int i;
@@ -249,6 +346,34 @@ static void generate_header(void)
 	printf("extern blitter_func blitdofast_desc_%x;\n",blttbl[i]);
     }
 }
+
+/****f* januae-genblitter/main *******************************************
+*
+*   NAME
+*       main() -- Generate the requested blitter source fragment.
+*
+*   SYNOPSIS
+*       int main(int argc, char **argv);
+*
+*   FUNCTION
+*       Select a generator using the first character of argv[1] when exactly
+*       one argument is supplied. With any other argument count, use 'i'.
+*       Modes are 'i' (inline dispatcher), 'f' (functions), 't' (tables),
+*       and 'h' (declarations). An unknown mode calls abort().
+*
+*   INPUTS
+*       argc - Number of command-line arguments, including the program name.
+*       argv - Command-line argument vector.
+*
+*   RESULT
+*       0 after the selected generator returns. Output is written to stdout.
+*
+*   NOTES
+*       The program does not check for failures while writing output.
+*
+****************************************************************************
+*
+*/
 
 int main(int argc, char **argv)
 {
