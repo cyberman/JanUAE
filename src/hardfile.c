@@ -103,6 +103,28 @@ static struct hardfileprivdata hardfpd[MAX_FILESYSTEM_UNITS];
 
 static uae_u32 nscmd_cmd;
 
+/****i* januae-hardfile/wl ****************************************************
+*
+*   NAME
+*       wl() -- Write a big-endian 32-bit value.
+*
+*   SYNOPSIS
+*       static void wl (uae_u8 *p, int v);
+*
+*   FUNCTION
+*       Store the four bytes of v, most significant byte first.
+*
+*   INPUTS
+*       p - Writable buffer of at least four bytes.
+*       v - Value to encode.
+*
+*   RESULT
+*       None.
+*
+****************************************************************************
+*
+*/
+
 static void wl (uae_u8 *p, int v)
 {
     p[0] = v >> 24;
@@ -110,10 +132,61 @@ static void wl (uae_u8 *p, int v)
     p[2] = v >> 8;
     p[3] = v;
 }
+/****i* januae-hardfile/rl ****************************************************
+*
+*   NAME
+*       rl() -- Read a big-endian 32-bit value.
+*
+*   SYNOPSIS
+*       static int rl (uae_u8 *p);
+*
+*   FUNCTION
+*       Combine four consecutive bytes into a 32-bit integer, most
+*       significant byte first.
+*
+*   INPUTS
+*       p - Readable buffer of at least four bytes.
+*
+*   RESULT
+*       Decoded 32-bit bit pattern.
+*
+****************************************************************************
+*
+*/
+
 static int rl (uae_u8 *p)
 {
     return (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | (p[3]);
 }
+
+/****i* januae-hardfile/cmd_read **********************************************
+*
+*   NAME
+*       cmd_read() -- Read a hardfile into guest memory.
+*
+*   SYNOPSIS
+*       static uae_u64 cmd_read (struct hardfiledata *hfd, uaecptr dataptr, uae_u64 offset, uae_u64 len);
+*
+*   FUNCTION
+*       Validate the guest address range using its memory bank, translate the
+*       guest pointer and pass the read to hdf_read().
+*
+*   INPUTS
+*       hfd - Open hardfile descriptor.
+*       dataptr - Guest-memory destination address.
+*       offset - Byte offset within the hardfile.
+*       len - Requested byte count.
+*
+*   RESULT
+*       Zero for an invalid guest address range; otherwise the hdf_read()
+*       result converted to uae_u64.
+*
+*   NOTES
+*       Backend errors are not translated into device-specific error codes.
+*
+****************************************************************************
+*
+*/
 
 static uae_u64 cmd_read (struct hardfiledata *hfd, uaecptr dataptr, uae_u64 offset, uae_u64 len)
 {
@@ -125,6 +198,35 @@ static uae_u64 cmd_read (struct hardfiledata *hfd, uaecptr dataptr, uae_u64 offs
     return hdf_read (hfd, bank_data->xlateaddr (dataptr), offset, len);
 }
 
+/****i* januae-hardfile/cmd_write *********************************************
+*
+*   NAME
+*       cmd_write() -- Write guest memory to a hardfile.
+*
+*   SYNOPSIS
+*       static uae_u64 cmd_write (struct hardfiledata *hfd, uaecptr dataptr, uae_u64 offset, uae_u64 len);
+*
+*   FUNCTION
+*       Validate the guest source address range, translate it through its
+*       memory bank and pass the write to hdf_write().
+*
+*   INPUTS
+*       hfd - Open hardfile descriptor.
+*       dataptr - Guest-memory source address.
+*       offset - Byte offset within the hardfile.
+*       len - Requested byte count.
+*
+*   RESULT
+*       Zero for an invalid guest address range; otherwise the hdf_write()
+*       result converted to uae_u64.
+*
+*   NOTES
+*       Backend errors are not translated into device-specific error codes.
+*
+****************************************************************************
+*
+*/
+
 static uae_u64 cmd_write (struct hardfiledata *hfd, uaecptr dataptr, uae_u64 offset, uae_u64 len)
 {
     addrbank *bank_data = &get_mem_bank (dataptr);
@@ -134,6 +236,38 @@ static uae_u64 cmd_write (struct hardfiledata *hfd, uaecptr dataptr, uae_u64 off
 	return 0;
     return hdf_write (hfd, bank_data->xlateaddr (dataptr), offset, len);
 }
+
+/****i* januae-hardfile/handle_scsi *******************************************
+*
+*   NAME
+*       handle_scsi() -- Handle a hardfile SCSI request.
+*
+*   SYNOPSIS
+*       static int handle_scsi (uaecptr request, struct hardfiledata *hfd);
+*
+*   FUNCTION
+*       Interpret the guest SCSI request and emulate unit readiness, block
+*       reads and writes, inquiry and capacity reporting. Write the resulting
+*       transfer count, SCSI status and optional sense data into guest
+*       memory.
+*
+*   INPUTS
+*       request - Guest address of an I/O request containing an SCSI command
+*       descriptor.
+*       hfd - Hardfile backing the emulated SCSI unit.
+*
+*   RESULT
+*       20 for an unsupported SCSI command; zero for commands handled by the
+*       dispatcher.
+*
+*   NOTES
+*       SCSI command status and the device I/O return code are distinct. The
+*       implementation does not map every backing-store I/O failure to a
+*       nonzero device I/O error.
+*
+****************************************************************************
+*
+*/
 
 static int handle_scsi (uaecptr request, struct hardfiledata *hfd)
 {
@@ -305,6 +439,32 @@ static int handle_scsi (uaecptr request, struct hardfiledata *hfd)
     return ret;
 }
 
+/****i* januae-hardfile/add_async_request *************************************
+*
+*   NAME
+*       add_async_request() -- Register an asynchronous hardfile request.
+*
+*   SYNOPSIS
+*       static int add_async_request (struct hardfileprivdata *hfpd, uaecptr request, int type, uae_u32 data);
+*
+*   FUNCTION
+*       Update the matching request slot if present, or use the first free
+*       slot in the fixed-size request table.
+*
+*   INPUTS
+*       hfpd - Per-unit asynchronous state.
+*       request - Guest I/O request address.
+*       type - Request tracking type.
+*       data - Associated request value.
+*
+*   RESULT
+*       Zero when the entry was updated or inserted; -1 when the table is
+*       full.
+*
+****************************************************************************
+*
+*/
+
 static int add_async_request (struct hardfileprivdata *hfpd, uaecptr request, int type, uae_u32 data)
 {
     int i;
@@ -334,6 +494,29 @@ static int add_async_request (struct hardfileprivdata *hfpd, uaecptr request, in
     return -1;
 }
 
+/****i* januae-hardfile/release_async_request *********************************
+*
+*   NAME
+*       release_async_request() -- Remove an asynchronous request registration.
+*
+*   SYNOPSIS
+*       static int release_async_request (struct hardfileprivdata *hfpd, uaecptr request);
+*
+*   FUNCTION
+*       Find the request in the per-unit table and clear its address, type
+*       and associated data.
+*
+*   INPUTS
+*       hfpd - Per-unit asynchronous state.
+*       request - Guest I/O request address to remove.
+*
+*   RESULT
+*       Former request type, or -1 when the request was not registered.
+*
+****************************************************************************
+*
+*/
+
 static int release_async_request (struct hardfileprivdata *hfpd, uaecptr request)
 {
     int i = 0;
@@ -352,6 +535,36 @@ static int release_async_request (struct hardfileprivdata *hfpd, uaecptr request
     hf_log ("tried to remove non-existing request %p\n", request);
     return -1;
 }
+
+/****i* januae-hardfile/abort_async *******************************************
+*
+*   NAME
+*       abort_async() -- Remove an asynchronous request after active processing.
+*
+*   SYNOPSIS
+*       static void abort_async (struct hardfileprivdata *hfpd, uaecptr request, int errcode, int type);
+*
+*   FUNCTION
+*       Wait while the registered request is marked as currently processing,
+*       then attempt to release its tracking slot.
+*
+*   INPUTS
+*       hfpd - Per-unit asynchronous state.
+*       request - Guest request address.
+*       errcode - Error code provided by the caller; does not set request
+*       state.
+*       type - Reserved argument; unused.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       This function does not itself write an I/O error or send a completion
+*       reply.
+*
+****************************************************************************
+*
+*/
 
 static void abort_async (struct hardfileprivdata *hfpd, uaecptr request, int errcode, int type)
 {
@@ -373,6 +586,32 @@ static void abort_async (struct hardfileprivdata *hfpd, uaecptr request, int err
 }
 
 static void *hardfile_thread (void *devs);
+/****i* januae-hardfile/start_thread ******************************************
+*
+*   NAME
+*       start_thread() -- Start the per-unit hardfile worker.
+*
+*   SYNOPSIS
+*       static int start_thread (int unit);
+*
+*   FUNCTION
+*       Reuse a running worker, or initialize its request pipe and
+*       synchronization semaphore, start a worker thread and wait for its
+*       startup signal.
+*
+*   INPUTS
+*       unit - Valid hardfile-unit index.
+*
+*   RESULT
+*       Nonzero when the worker reports running; zero otherwise.
+*
+*   NOTES
+*       The unit must refer to a configured hardfile slot.
+*
+****************************************************************************
+*
+*/
+
 static int start_thread (int unit)
 {
     struct hardfileprivdata *hfpd = &hardfpd[unit];
@@ -387,6 +626,32 @@ static int start_thread (int unit)
     return hfpd->thread_running;
 }
 
+/****i* januae-hardfile/mangleunit ********************************************
+*
+*   NAME
+*       mangleunit() -- Translate a guest hardfile unit number.
+*
+*   SYNOPSIS
+*       static int mangleunit (int unit);
+*
+*   FUNCTION
+*       Preserve values at most 99, map unit 100 to 8 and unit 110 to 9, and
+*       reject other values.
+*
+*   INPUTS
+*       unit - Guest-supplied unit number.
+*
+*   RESULT
+*       Mapped unit, or -1 for an unsupported value.
+*
+*   NOTES
+*       Negative unit values remain negative; this conversion does not
+*       validate the configured unit range.
+*
+****************************************************************************
+*
+*/
+
 static int mangleunit (int unit)
 {
     if (unit <= 99)
@@ -397,6 +662,33 @@ static int mangleunit (int unit)
 	return 9;
     return -1;
 }
+
+/****i* januae-hardfile/hardfile_open *****************************************
+*
+*   NAME
+*       hardfile_open() -- Open an emulated hardfile device unit.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 hardfile_open (TrapContext *context);
+*
+*   FUNCTION
+*       Read the guest I/O request from A1 and the unit from D0, start the
+*       per-unit worker and increment its open count. Update the guest device
+*       and request fields when opening succeeds.
+*
+*   INPUTS
+*       context - 68k trap register context with A1 and D0 set by the guest.
+*
+*   RESULT
+*       Zero on success; an error value on failure, including -6 for a
+*       virtual filesystem unit.
+*
+*   NOTES
+*       The caller must supply a configured, valid unit number.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 REGPARAM2 hardfile_open (TrapContext *context)
 {
@@ -423,6 +715,32 @@ static uae_u32 REGPARAM2 hardfile_open (TrapContext *context)
     return (uae_u32)err;
 }
 
+/****i* januae-hardfile/hardfile_close ****************************************
+*
+*   NAME
+*       hardfile_close() -- Close an emulated hardfile device unit.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 hardfile_close (TrapContext *context);
+*
+*   FUNCTION
+*       Read the unit from the guest I/O request, decrement its open count
+*       and, on the final close, send the worker its shutdown marker and wait
+*       for acknowledgment.
+*
+*   INPUTS
+*       context - 68k trap context with the I/O request address in A1.
+*
+*   RESULT
+*       Zero.
+*
+*   NOTES
+*       The guest request must identify a previously opened valid unit.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 hardfile_close (TrapContext *context)
 {
     uaecptr request = m68k_areg (&context->regs, 1); /* IOReq */
@@ -442,10 +760,62 @@ static uae_u32 REGPARAM2 hardfile_close (TrapContext *context)
     return 0;
 }
 
+/****i* januae-hardfile/hardfile_expunge **************************************
+*
+*   NAME
+*       hardfile_expunge() -- Handle a guest hardfile device expunge call.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 hardfile_expunge (TrapContext *context);
+*
+*   FUNCTION
+*       Ignore the expunge request without releasing device state.
+*
+*   INPUTS
+*       context - Trap context; unused.
+*
+*   RESULT
+*       Zero.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 hardfile_expunge (TrapContext *context)
 {
     return 0; /* Simply ignore this one... */
 }
+
+/****i* januae-hardfile/getchs2 ***********************************************
+*
+*   NAME
+*       getchs2() -- Derive the hardfile cylinder/head/sector geometry.
+*
+*   SYNOPSIS
+*       static void getchs2 (struct hardfiledata *hfd, int *cyl, int *cylsec, int *head, int *tracksec);
+*
+*   FUNCTION
+*       Prefer geometry taken from an RDB, then explicit hardfile settings,
+*       otherwise choose a synthetic head count and 63 sectors per track from
+*       the file size.
+*
+*   INPUTS
+*       hfd - Hardfile descriptor with size and geometry settings.
+*       cyl - Receives cylinder count.
+*       cylsec - Receives sectors per cylinder.
+*       head - Receives head count.
+*       tracksec - Receives sectors per track.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       When no RDB geometry is available, blocksize must be nonzero. This
+*       routine does not validate the resulting geometry.
+*
+****************************************************************************
+*
+*/
 
 static void getchs2 (struct hardfiledata *hfd, int *cyl, int *cylsec, int *head, int *tracksec)
 {
@@ -486,6 +856,31 @@ static void getchs2 (struct hardfiledata *hfd, int *cyl, int *cylsec, int *head,
     *head = heads;
 }
 
+/****i* januae-hardfile/getchs ************************************************
+*
+*   NAME
+*       getchs() -- Obtain the effective hardfile geometry.
+*
+*   SYNOPSIS
+*       static void getchs (struct hardfiledata *hfd, int *cyl, int *cylsec, int *head, int *tracksec);
+*
+*   FUNCTION
+*       Fill the four geometry outputs using getchs2().
+*
+*   INPUTS
+*       hfd - Hardfile descriptor.
+*       cyl - Receives cylinder count.
+*       cylsec - Receives sectors per cylinder.
+*       head - Receives head count.
+*       tracksec - Receives sectors per track.
+*
+*   RESULT
+*       None.
+*
+****************************************************************************
+*
+*/
+
 static void getchs (struct hardfiledata *hfd, int *cyl, int *cylsec, int *head, int *tracksec)
 {
     getchs2 (hfd, cyl, cylsec, head, tracksec);
@@ -494,18 +889,99 @@ static void getchs (struct hardfiledata *hfd, int *cyl, int *cylsec, int *head, 
 	*cyl, *cylsec, *head, *tracksec);
 }
 
+/****i* januae-hardfile/outofbounds *******************************************
+*
+*   NAME
+*       outofbounds() -- Log an out-of-range hardfile request.
+*
+*   SYNOPSIS
+*       static void outofbounds (int cmd, uae_u64 offset, uae_u64 len, uae_u64 max);
+*
+*   FUNCTION
+*       Write the command number, requested offset and length, and maximum
+*       offset to the emulator log.
+*
+*   INPUTS
+*       cmd - Device command number.
+*       offset - Requested byte offset.
+*       len - Requested byte count.
+*       max - Hardfile size in bytes.
+*
+*   RESULT
+*       None.
+*
+****************************************************************************
+*
+*/
+
 static void outofbounds (int cmd, uae_u64 offset, uae_u64 len, uae_u64 max)
 {
     write_log ("UAEHF: cmd %d: out of bounds, %08.8X-%08.8X + %08.8X-%08.8X > %08.8X-%08.8X\n", cmd,
 	(uae_u32)(offset >> 32),(uae_u32)offset,(uae_u32)(len >> 32),(uae_u32)len,
 	(uae_u32)(max >> 32),(uae_u32)max);
 }
+/****i* januae-hardfile/unaligned *********************************************
+*
+*   NAME
+*       unaligned() -- Log an unaligned hardfile request.
+*
+*   SYNOPSIS
+*       static void unaligned (int cmd, uae_u64 offset, uae_u64 len, int blocksize);
+*
+*   FUNCTION
+*       Write the command number, byte offset, length and block size to the
+*       emulator log.
+*
+*   INPUTS
+*       cmd - Device command number.
+*       offset - Requested byte offset.
+*       len - Requested byte count.
+*       blocksize - Hardfile sector size.
+*
+*   RESULT
+*       None.
+*
+****************************************************************************
+*
+*/
+
 static void unaligned (int cmd, uae_u64 offset, uae_u64 len, int blocksize)
 {
     write_log ("UAEHF: cmd %d: unaligned access, %08.8X-%08.8X, %08.8X-%08.8X, %08.8X\n", cmd,
 	(uae_u32)(offset >> 32),(uae_u32)offset,(uae_u32)(len >> 32),(uae_u32)len,
 	blocksize);
 }
+
+/****i* januae-hardfile/hardfile_do_io ****************************************
+*
+*   NAME
+*       hardfile_do_io() -- Dispatch a hardfile device I/O command.
+*
+*   SYNOPSIS
+*       static uae_u32 hardfile_do_io (struct hardfiledata *hfd, struct hardfileprivdata *hfpd, uaecptr request);
+*
+*   FUNCTION
+*       Read the guest command and process supported block I/O, geometry,
+*       status, change notification, NSD device query or direct SCSI
+*       operations. Write io_Actual and io_Error into the request.
+*
+*   INPUTS
+*       hfd - Hardfile descriptor for the unit.
+*       hfpd - Per-unit asynchronous request state.
+*       request - Guest address of the I/O request.
+*
+*   RESULT
+*       One when an ADDCHANGEINT request was successfully retained; zero for
+*       other commands.
+*
+*   NOTES
+*       Several control commands perform no device action. io_Actual does not
+*       reliably report the transferred length for 64-bit write and format
+*       commands.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 hardfile_do_io (struct hardfiledata *hfd, struct hardfileprivdata *hfpd, uaecptr request)
 {
@@ -685,6 +1161,34 @@ static uae_u32 hardfile_do_io (struct hardfiledata *hfd, struct hardfileprivdata
     return async;
 }
 
+/****i* januae-hardfile/hardfile_abortio **************************************
+*
+*   NAME
+*       hardfile_abortio() -- Process a guest AbortIO call.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 hardfile_abortio (TrapContext *context);
+*
+*   FUNCTION
+*       Locate the unit from the request in A1 and, when a hardfile is
+*       present, store an aborted-request error and release any matching
+*       asynchronous tracking entry.
+*
+*   INPUTS
+*       context - 68k trap context with request address in A1.
+*
+*   RESULT
+*       Zero when the unit resolves to a hardfile; otherwise the error byte
+*       written to the request.
+*
+*   NOTES
+*       AbortIO does not itself send a completion reply; the request must
+*       belong to a valid unit.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 hardfile_abortio (TrapContext *context)
 {
     uae_u32 request = m68k_areg (&context->regs, 1);
@@ -703,6 +1207,31 @@ static uae_u32 REGPARAM2 hardfile_abortio (TrapContext *context)
     abort_async (hfpd, request, -2, 0);
     return 0;
 }
+
+/****i* januae-hardfile/hardfile_can_quick ************************************
+*
+*   NAME
+*       hardfile_can_quick() -- Check whether a command is eligible for Quick I/O.
+*
+*   SYNOPSIS
+*       static int hardfile_can_quick (uae_u32 command);
+*
+*   FUNCTION
+*       Compare the guest command with the fixed set of synchronous-command
+*       candidates.
+*
+*   INPUTS
+*       command - Hardfile device command number.
+*
+*   RESULT
+*       One for a command in the Quick I/O list; zero otherwise.
+*
+*   NOTES
+*       Quick eligibility is not a guarantee of command support or success.
+*
+****************************************************************************
+*
+*/
 
 static int hardfile_can_quick (uae_u32 command)
 {
@@ -723,11 +1252,62 @@ static int hardfile_can_quick (uae_u32 command)
     return 0;
 }
 
+/****i* januae-hardfile/hardfile_canquick *************************************
+*
+*   NAME
+*       hardfile_canquick() -- Test a guest request for Quick I/O eligibility.
+*
+*   SYNOPSIS
+*       static int hardfile_canquick (struct hardfiledata *hfd, uaecptr request);
+*
+*   FUNCTION
+*       Read io_Command from the guest request and pass it to
+*       hardfile_can_quick().
+*
+*   INPUTS
+*       hfd - Hardfile descriptor; unused.
+*       request - Guest I/O request address.
+*
+*   RESULT
+*       Nonzero when the command is listed as Quick I/O eligible.
+*
+****************************************************************************
+*
+*/
+
 static int hardfile_canquick (struct hardfiledata *hfd, uaecptr request)
 {
     uae_u32 command = get_word (request + 28);
     return hardfile_can_quick (command);
 }
+
+/****i* januae-hardfile/hardfile_beginio **************************************
+*
+*   NAME
+*       hardfile_beginio() -- Start a hardfile I/O request.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 hardfile_beginio (TrapContext *context);
+*
+*   FUNCTION
+*       Execute Quick I/O inline when permitted by the request flag and
+*       command, or clear the Quick I/O flag and queue the request for the
+*       per-unit worker.
+*
+*   INPUTS
+*       context - 68k trap context with request address in A1.
+*
+*   RESULT
+*       The guest io_Error byte for an inline request, zero for a queued
+*       request, or the no-unit error byte.
+*
+*   NOTES
+*       Queued I/O is completed by the worker; it does not complete during
+*       BeginIO.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 REGPARAM2 hardfile_beginio (TrapContext *context)
 {
@@ -758,6 +1338,34 @@ static uae_u32 REGPARAM2 hardfile_beginio (TrapContext *context)
     }
 }
 
+/****i* januae-hardfile/hardfile_thread ***************************************
+*
+*   NAME
+*       hardfile_thread() -- Process queued hardfile requests for one unit.
+*
+*   SYNOPSIS
+*       static void *hardfile_thread (void *devs);
+*
+*   FUNCTION
+*       Signal successful thread startup, read requests from the per-unit
+*       pipe and serialize command execution with change_sem. Reply to
+*       completed requests; retain asynchronous change notifications until
+*       removed.
+*
+*   INPUTS
+*       devs - Pointer to a hardfileprivdata entry.
+*
+*   RESULT
+*       Null on receipt of the zero-valued shutdown marker.
+*
+*   NOTES
+*       The worker handles queued requests in order and waits for the global
+*       change_sem before processing.
+*
+****************************************************************************
+*
+*/
+
 static void *hardfile_thread (void *devs)
 {
     struct hardfileprivdata *hfpd = devs;
@@ -784,6 +1392,33 @@ static void *hardfile_thread (void *devs)
     }
 }
 
+/****i* januae-hardfile/hardfile_reset ****************************************
+*
+*   NAME
+*       hardfile_reset() -- Reset the hardfile device worker state.
+*
+*   SYNOPSIS
+*       void hardfile_reset (void);
+*
+*   FUNCTION
+*       For units with open requests, attempt to release tracked requests,
+*       send the worker a shutdown marker and wait for its acknowledgment.
+*       Clear each per-unit state record.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       Pending requests are not guaranteed to receive a completion reply
+*       during reset.
+*
+****************************************************************************
+*
+*/
+
 void hardfile_reset (void)
 {
     int i, j;
@@ -806,10 +1441,59 @@ void hardfile_reset (void)
     }
 }
 
+/****i* januae-hardfile/hardfile_cleanup **************************************
+*
+*   NAME
+*       hardfile_cleanup() -- Release active hardfile worker state.
+*
+*   SYNOPSIS
+*       void hardfile_cleanup (void);
+*
+*   FUNCTION
+*       Invoke hardfile_reset() to stop workers and clear per-unit state.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       None.
+*
+****************************************************************************
+*
+*/
+
 void hardfile_cleanup (void)
 {
     hardfile_reset ();
 }
+
+/****i* januae-hardfile/hardfile_install **************************************
+*
+*   NAME
+*       hardfile_install() -- Install the emulated uaehf.device descriptor.
+*
+*   SYNOPSIS
+*       void hardfile_install (void);
+*
+*   FUNCTION
+*       Initialize the shared change semaphore and emit the advertised
+*       command table, trap entrypoints, function table and device
+*       initialization data into the emulator ROM area.
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       The generated device exposes Open, Close, Expunge, BeginIO and
+*       AbortIO trap entrypoints. Its initialization code is supplied by
+*       filesys_initcode.
+*
+****************************************************************************
+*
+*/
 
 void hardfile_install (void)
 {
