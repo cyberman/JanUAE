@@ -28,6 +28,30 @@ static uae_u8 dither[4][4] =
 };
 
 
+/****i* januae-gfxutil/doMask *************************************************
+*
+*   NAME
+*       doMask() -- Map a component value into a pixel mask.
+*
+*   SYNOPSIS
+*       uae_u32 doMask (int p, int bits, int shift);
+*
+*   FUNCTION
+*       Take the most significant bits of the left-shifted component value
+*       and place them at the requested bit position.
+*
+*   INPUTS
+*       p - Component value.
+*       bits - Number of component bits; zero produces zero.
+*       shift - Destination bit offset.
+*
+*   RESULT
+*       Shifted component bit field.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 doMask (int p, int bits, int shift)
 {
     /* scale to 0..255, shift to align msb with mask, and apply mask */
@@ -40,6 +64,27 @@ uae_u32 doMask (int p, int bits, int shift)
     return val;
 }
 
+/****i* januae-gfxutil/bits_in_mask *******************************************
+*
+*   NAME
+*       bits_in_mask() -- Count set bits in a pixel mask.
+*
+*   SYNOPSIS
+*       int bits_in_mask (unsigned long mask);
+*
+*   FUNCTION
+*       Count the one-bits in mask.
+*
+*   INPUTS
+*       mask - Bit mask to examine.
+*
+*   RESULT
+*       Number of set bits; zero for an empty mask.
+*
+****************************************************************************
+*
+*/
+
 int bits_in_mask (unsigned long mask)
 {
     int n = 0;
@@ -50,6 +95,31 @@ int bits_in_mask (unsigned long mask)
     return n;
 }
 
+/****i* januae-gfxutil/mask_shift *********************************************
+*
+*   NAME
+*       mask_shift() -- Find the least significant bit of a mask.
+*
+*   SYNOPSIS
+*       int mask_shift (unsigned long mask);
+*
+*   FUNCTION
+*       Count the zero-bits below the least significant set bit.
+*
+*   INPUTS
+*       mask - Nonzero bit mask.
+*
+*   RESULT
+*       Index of the least significant set bit.
+*
+*   NOTES
+*       An all-zero mask never terminates the shift loop and is not a
+*       supported input.
+*
+****************************************************************************
+*
+*/
+
 int mask_shift (unsigned long mask)
 {
     int n = 0;
@@ -59,6 +129,30 @@ int mask_shift (unsigned long mask)
     }
     return n;
 }
+
+/****i* januae-gfxutil/doMask256 **********************************************
+*
+*   NAME
+*       doMask256() -- Map an eight-bit component into a pixel mask.
+*
+*   SYNOPSIS
+*       unsigned int doMask256 (int p, int bits, int shift);
+*
+*   FUNCTION
+*       Replicate an eight-bit intensity across a 32-bit word, retain the
+*       requested high bits and shift them into position.
+*
+*   INPUTS
+*       p - Eight-bit component intensity.
+*       bits - Number of component bits to retain.
+*       shift - Destination bit offset.
+*
+*   RESULT
+*       Shifted component bit field.
+*
+****************************************************************************
+*
+*/
 
 unsigned int doMask256 (int p, int bits, int shift)
 {
@@ -72,6 +166,30 @@ unsigned int doMask256 (int p, int bits, int shift)
     return val;
 }
 
+/****i* januae-gfxutil/doColor ************************************************
+*
+*   NAME
+*       doColor() -- Pack a component for the AGA color tables.
+*
+*   SYNOPSIS
+*       static unsigned int doColor (int i, int bits, int shift);
+*
+*   FUNCTION
+*       Discard low input bits when the destination component width is less
+*       than eight, then shift the retained value into position.
+*
+*   INPUTS
+*       i - Component value.
+*       bits - Destination component width.
+*       shift - Destination bit offset.
+*
+*   RESULT
+*       Packed component value.
+*
+****************************************************************************
+*
+*/
+
 static unsigned int doColor (int i, int bits, int shift)
 {
     int shift2;
@@ -79,11 +197,67 @@ static unsigned int doColor (int i, int bits, int shift)
     return (i >> shift2) << shift;
 }
 
+/****i* januae-gfxutil/doAlpha ************************************************
+*
+*   NAME
+*       doAlpha() -- Pack the constant alpha component.
+*
+*   SYNOPSIS
+*       static unsigned int doAlpha (int alpha, int bits, int shift);
+*
+*   FUNCTION
+*       Mask alpha to the requested width and shift it to the destination
+*       position.
+*
+*   INPUTS
+*       alpha - Alpha value.
+*       bits - Alpha component width.
+*       shift - Destination bit offset.
+*
+*   RESULT
+*       Packed alpha field.
+*
+****************************************************************************
+*
+*/
+
 static unsigned int doAlpha (int alpha, int bits, int shift)
 {
     return (alpha & ((1 << bits) - 1)) << shift;
 }
 
+
+/****i* januae-gfxutil/alloc_colors64k ****************************************
+*
+*   NAME
+*       alloc_colors64k() -- Build direct-color lookup tables.
+*
+*   SYNOPSIS
+*       void alloc_colors64k (int rw, int gw, int bw, int rs, int gs, int bs, int aw, int as, int alpha, int byte_swap);
+*
+*   FUNCTION
+*       Convert every 12-bit RGB color into its host pixel representation in
+*       xcolors. When AGA is enabled, also populate the per-channel 256-entry
+*       lookup tables.
+*
+*   INPUTS
+*       rw, gw, bw - Red, green and blue bit widths.
+*       rs, gs, bs - Destination shifts for the color channels.
+*       aw, as - Alpha width and shift.
+*       alpha - Constant alpha value.
+*       byte_swap - Nonzero to reverse byte order in each 16- or 32-bit
+*       pixel.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       For formats of at most 16 bits per pixel, each packed pixel is
+*       duplicated into both halves of the lookup-table entry.
+*
+****************************************************************************
+*
+*/
 
 void alloc_colors64k (int rw, int gw, int bw, int rs, int gs, int bs, int aw, int as, int alpha, int byte_swap)
 {
@@ -144,10 +318,64 @@ void alloc_colors64k (int rw, int gw, int bw, int rs, int gs, int bs, int aw, in
 static int color_diff[4096];
 static int newmaxcol = 0;
 
+/****i* januae-gfxutil/setup_maxcol *******************************************
+*
+*   NAME
+*       setup_maxcol() -- Set the indexed-color palette budget.
+*
+*   SYNOPSIS
+*       void setup_maxcol (int max);
+*
+*   FUNCTION
+*       Store the maximum palette size for the next alloc_colors256() call.
+*
+*   INPUTS
+*       max - Requested number of colors; zero selects 256.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       The value is not validated here; alloc_colors256() requires enough
+*       entries for at least two levels of each color component.
+*
+****************************************************************************
+*
+*/
+
 void setup_maxcol (int max)
 {
     newmaxcol = max;
 }
+
+/****i* januae-gfxutil/alloc_colors256 ****************************************
+*
+*   NAME
+*       alloc_colors256() -- Build an indexed-color translation table.
+*
+*   SYNOPSIS
+*       void alloc_colors256 (allocfunc_type allocfunc);
+*
+*   FUNCTION
+*       Allocate a coarse RGB palette through allocfunc, map all 4096 RGB444
+*       colors to palette entries, and use remaining entries for the largest
+*       approximations.
+*
+*   INPUTS
+*       allocfunc - Callback that allocates a palette entry from three
+*       four-bit color components and writes its pixel index.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       Uses the budget from setup_maxcol(), or 256 when unset. Allocation
+*       failure for the temporary map terminates the process; callback
+*       results are not checked.
+*
+****************************************************************************
+*
+*/
 
 void alloc_colors256 (allocfunc_type allocfunc)
 {
@@ -283,6 +511,34 @@ uae_u8 cidx[4][8*4096]; /* fast, but memory hungry =:-( */
 /*
  * Compute dithering structures
  */
+/****i* januae-gfxutil/setup_greydither_maxcol ********************************
+*
+*   NAME
+*       setup_greydither_maxcol() -- Prepare an ordered grayscale dither table.
+*
+*   SYNOPSIS
+*       void setup_greydither_maxcol (int maxcol, allocfunc_type allocfunc);
+*
+*   FUNCTION
+*       Allocate maxcol grayscale entries and populate cidx with a
+*       four-by-four ordered-dither mapping of RGB444 colors.
+*
+*   INPUTS
+*       maxcol - Number of grayscale entries; must be at least two.
+*       allocfunc - Palette-allocation callback receiving equal red, green
+*       and blue components.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       The callback status is ignored. Failure to allocate the temporary map
+*       terminates the process.
+*
+****************************************************************************
+*
+*/
+
 void setup_greydither_maxcol (int maxcol, allocfunc_type allocfunc)
 {
     int i,j,k;
@@ -341,10 +597,64 @@ void setup_greydither_maxcol (int maxcol, allocfunc_type allocfunc)
     free (map);
 }
 
+/****i* januae-gfxutil/setup_greydither ***************************************
+*
+*   NAME
+*       setup_greydither() -- Configure grayscale dithering by output depth.
+*
+*   SYNOPSIS
+*       void setup_greydither (int bits, allocfunc_type allocfunc);
+*
+*   FUNCTION
+*       Delegate to setup_greydither_maxcol() with a palette size of 1 <<
+*       bits.
+*
+*   INPUTS
+*       bits - Output index width; the selected palette size must be at least
+*       two.
+*       allocfunc - Grayscale palette-allocation callback.
+*
+*   RESULT
+*       None.
+*
+****************************************************************************
+*
+*/
+
 void setup_greydither (int bits, allocfunc_type allocfunc)
 {
     setup_greydither_maxcol(1 << bits, allocfunc);
 }
+
+/****i* januae-gfxutil/setup_dither *******************************************
+*
+*   NAME
+*       setup_dither() -- Prepare an ordered RGB dither table.
+*
+*   SYNOPSIS
+*       void setup_dither (int bits, allocfunc_type allocfunc);
+*
+*   FUNCTION
+*       Allocate an RGB palette and populate cidx with pixel indices for the
+*       four-by-four threshold matrix and every RGB444 color.
+*
+*   INPUTS
+*       bits - Output index width; the palette must accommodate at least two
+*       levels per component.
+*       allocfunc - Callback that allocates one palette entry from three
+*       four-bit components.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       Temporary map allocation failure terminates the process. The
+*       additional component-value allocation and callback results are not
+*       checked.
+*
+****************************************************************************
+*
+*/
 
 void setup_dither (int bits, allocfunc_type allocfunc)
 {
@@ -496,6 +806,38 @@ void setup_dither (int bits, allocfunc_type allocfunc)
  * Make sure you call this only with (len & 3) == 0, or you'll just make
  * yourself unhappy.
  */
+
+/****i* januae-gfxutil/DitherLine *********************************************
+*
+*   NAME
+*       DitherLine() -- Dither one scanline of RGB444 pixels.
+*
+*   SYNOPSIS
+*       void DitherLine (uae_u8 *l, uae_u16 *r4g4b4, int x, int y, uae_s16 len, int bits);
+*
+*   FUNCTION
+*       Convert successive groups of four RGB444 pixels using the table
+*       selected by x and y; pack one-, two- or four-bit indices, or write
+*       one index per byte for eight-bit output.
+*
+*   INPUTS
+*       l - Destination pixel-index bytes.
+*       r4g4b4 - Source RGB444 color indexes.
+*       x - Horizontal dither-phase coordinate.
+*       y - Vertical dither-phase coordinate.
+*       len - Pixel count, required to be a nonnegative multiple of four.
+*       bits - Packed index width: 1, 2, 4 or 8.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       The C implementation is compiled only when X86_ASSEMBLY is not
+*       defined. Initialize cidx before rendering.
+*
+****************************************************************************
+*
+*/
 
 void DitherLine (uae_u8 *l, uae_u16 *r4g4b4, int x, int y, uae_s16 len, int bits)
 {
