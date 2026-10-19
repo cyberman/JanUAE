@@ -19,6 +19,32 @@
 static FILE *tablef;
 static int nextch = 0;
 
+/****i* januae-build68k/getnextch ****************************************
+*
+*   NAME
+*       getnextch() -- Advance to the next instruction-table character.
+*
+*   SYNOPSIS
+*       static void getnextch(void);
+*
+*   FUNCTION
+*       Read from tablef into nextch, skipping whitespace and percent-sign
+*       comments that extend to the end of a line. Preserve EOF in nextch
+*       when the input is exhausted.
+*
+*   INPUTS
+*       None. The input stream is the current tablef.
+*
+*   RESULT
+*       None. The next character or EOF is stored in nextch.
+*
+*   NOTES
+*       tablef must refer to an open input stream.
+*
+****************************************************************************
+*
+*/
+
 static void getnextch(void)
 {
     do {
@@ -30,6 +56,31 @@ static void getnextch(void)
 	}
     } while (nextch != EOF && isspace(nextch));
 }
+
+/****i* januae-build68k/nextchtohex **************************************
+*
+*   NAME
+*       nextchtohex() -- Decode a hexadecimal digit from the instruction table.
+*
+*   SYNOPSIS
+*       static int nextchtohex(void);
+*
+*   FUNCTION
+*       Convert the current nextch value to a hexadecimal digit. Both
+*       uppercase and lowercase alphabetic digits are accepted.
+*
+*   INPUTS
+*       None. The character is read from nextch without advancing tablef.
+*
+*   RESULT
+*       A value from 0 through 15.
+*
+*   NOTES
+*       An invalid character terminates the process with abort().
+*
+****************************************************************************
+*
+*/
 
 static int nextchtohex(void)
 {
@@ -53,6 +104,37 @@ static int nextchtohex(void)
      default: abort();
     }
 }
+
+/****f* januae-build68k/main *********************************************
+*
+*   NAME
+*       main() -- Generate the 68000 instruction definition table.
+*
+*   SYNOPSIS
+*       int main(int argc, char **argv);
+*
+*   FUNCTION
+*       Parse instruction patterns, CPU and privilege levels, condition-code
+*       flag effects and uses, source/destination status, and opcode text
+*       from standard input. Write the defs68k[] initializer and n_defs68k
+*       definition as C source on standard output.
+*
+*   INPUTS
+*       argc - Ignored.
+*       argv - Ignored.
+*
+*   RESULT
+*       0 after processing reaches EOF. The generated C is sent to stdout.
+*
+*   NOTES
+*       Each record must follow the table68k field syntax. Invalid pattern
+*       characters, CPU/privilege levels, separators, or hex digits
+*       can abort the process. Output may be written before such a failure.
+*       The code does not check input or output errors.
+*
+****************************************************************************
+*
+*/
 
 int main(int argc, char **argv)
 {
