@@ -20,6 +20,33 @@
 #endif
 
 
+/****i* januae-hardfile-unix/hdf_seek ****************************************
+*
+*   NAME
+*       hdf_seek() -- Seek to a hardfile-relative block position.
+*
+*   SYNOPSIS
+*       static int hdf_seek (struct hardfiledata *hfd, uae_u64 offset);
+*
+*   FUNCTION
+*       Check the descriptor's size and offset sentinels, require an in-range,
+*       block-aligned position, and seek the underlying host file.
+*
+*   INPUTS
+*       hfd - Open hardfile descriptor with consistent size and offset fields.
+*       offset - Byte offset relative to hfd->offset.
+*
+*   RESULT
+*       Zero on successful lseek(); -1 on seek failure or when the
+*       absolute position exceeds the 2 GiB limit with a narrow off_t.
+*
+*   NOTES
+*       Invalid bounds, alignment or descriptor sentinels terminate the process.
+*
+****************************************************************************
+*
+*/
+
 static int hdf_seek (struct hardfiledata *hfd, uae_u64 offset)
 {
     off_t ret;
@@ -58,6 +85,34 @@ static int hdf_seek (struct hardfiledata *hfd, uae_u64 offset)
     return 0;
 }
 
+/****i* januae-hardfile-unix/poscheck ****************************************
+*
+*   NAME
+*       poscheck() -- Check the current hardfile position.
+*
+*   SYNOPSIS
+*       static void poscheck (struct hardfiledata *hfd, int len);
+*
+*   FUNCTION
+*       Read the host file position and check its relation to the configured
+*       hardfile bounds and block alignment.
+*
+*   INPUTS
+*       hfd - Open hardfile descriptor.
+*       len - Requested transfer length, which must not be negative.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       Inconsistent size or offset fields, failed lseek(), invalid
+*       position, negative length or misalignment terminate the process.
+*       The current check does not establish that the full transfer fits.
+*
+****************************************************************************
+*
+*/
+
 static void poscheck (struct hardfiledata *hfd, int len)
 {
     off_t pos;
@@ -91,6 +146,35 @@ static void poscheck (struct hardfiledata *hfd, int len)
 	abort ();
     }
 }
+
+/****f* januae-hardfile-unix/hdf_open ****************************************
+*
+*   NAME
+*       hdf_open() -- Open a host file as a hardfile.
+*
+*   SYNOPSIS
+*       int hdf_open (struct hardfiledata *hfd, const char *name);
+*
+*   FUNCTION
+*       Open the named file read-only or read/write according to hfd->readonly,
+*       initialize its handle, cached state, identification strings, size and
+*       512-byte block size.
+*
+*   INPUTS
+*       hfd - Hardfile descriptor to initialize; readonly is used as input.
+*       name - NUL-terminated host path.
+*
+*   RESULT
+*       1 if open() succeeds; 0 if open() fails.
+*
+*   NOTES
+*       The end-of-file lseek() result is not checked. Success therefore does
+*       not independently establish a valid file size. The caller owns hfd and
+*       must close the opened handle.
+*
+****************************************************************************
+*
+*/
 
 int hdf_open (struct hardfiledata *hfd, const char *name)
 {
@@ -127,6 +211,33 @@ int hdf_open (struct hardfiledata *hfd, const char *name)
     return 0;
 }
 
+/****f* januae-hardfile-unix/hdf_dup *****************************************
+*
+*   NAME
+*       hdf_dup() -- Duplicate a hardfile host handle.
+*
+*   SYNOPSIS
+*       extern int hdf_dup (struct hardfiledata *dhfd, const struct hardfiledata *shfd);
+*
+*   FUNCTION
+*       If the source handle is nonnegative, call dup() and assign its result
+*       to the destination handle.
+*
+*   INPUTS
+*       dhfd - Destination descriptor whose handle is assigned on that path.
+*       shfd - Source descriptor supplying the handle.
+*
+*   RESULT
+*       Always returns 0, including when dup() fails.
+*
+*   NOTES
+*       This function does not copy any other descriptor fields. If the
+*       source handle is negative, it leaves the destination handle unchanged.
+*
+****************************************************************************
+*
+*/
+
 extern int hdf_dup (struct hardfiledata *dhfd, const struct hardfiledata *shfd)
 {
     DEBUG_LOG ("called\n");
@@ -138,6 +249,31 @@ extern int hdf_dup (struct hardfiledata *dhfd, const struct hardfiledata *shfd)
     return 0;
 }
 
+/****f* januae-hardfile-unix/hdf_close ***************************************
+*
+*   NAME
+*       hdf_close() -- Close a hardfile host handle.
+*
+*   SYNOPSIS
+*       void hdf_close (struct hardfiledata *hfd);
+*
+*   FUNCTION
+*       Call close() for the descriptor handle and set the stored handle
+*       to -1.
+*
+*   INPUTS
+*       hfd - Hardfile descriptor to close.
+*
+*   RESULT
+*       None.
+*
+*   NOTES
+*       The result of close() is not inspected.
+*
+****************************************************************************
+*
+*/
+
 void hdf_close (struct hardfiledata *hfd)
 {
     DEBUG_LOG ("called\n");
@@ -145,6 +281,36 @@ void hdf_close (struct hardfiledata *hfd)
     close (hfd->handle);
     hfd->handle = -1;
 }
+
+/****f* januae-hardfile-unix/hdf_read ****************************************
+*
+*   NAME
+*       hdf_read() -- Read bytes from a host-backed hardfile.
+*
+*   SYNOPSIS
+*       int hdf_read (struct hardfiledata *hfd, void *buffer, uae_u64 offset, int len);
+*
+*   FUNCTION
+*       Invalidate the hardfile cache, attempt to seek to the requested
+*       relative offset, check the current position, then call read().
+*
+*   INPUTS
+*       hfd - Open hardfile descriptor.
+*       buffer - Writable destination buffer for len bytes.
+*       offset - Byte offset relative to the configured hardfile origin.
+*       len - Requested byte count.
+*
+*   RESULT
+*       Number of bytes returned by read(), or -1 on its failure.
+*
+*   NOTES
+*       The return value of hdf_seek() is ignored. Position-check failures
+*       terminate the process; successful positioning and a complete transfer
+*       are not guaranteed.
+*
+****************************************************************************
+*
+*/
 
 int hdf_read (struct hardfiledata *hfd, void *buffer, uae_u64 offset, int len)
 {
@@ -161,6 +327,35 @@ int hdf_read (struct hardfiledata *hfd, void *buffer, uae_u64 offset, int len)
 
     return n;
 }
+
+/****f* januae-hardfile-unix/hdf_write ***************************************
+*
+*   NAME
+*       hdf_write() -- Write bytes to a host-backed hardfile.
+*
+*   SYNOPSIS
+*       int hdf_write (struct hardfiledata *hfd, void *buffer, uae_u64 offset, int len);
+*
+*   FUNCTION
+*       Invalidate the hardfile cache, attempt to seek to the requested
+*       relative offset, check the current position, then call write().
+*
+*   INPUTS
+*       hfd - Open writable hardfile descriptor.
+*       buffer - Source buffer containing len bytes.
+*       offset - Byte offset relative to the configured hardfile origin.
+*       len - Requested byte count.
+*
+*   RESULT
+*       Number of bytes returned by write(), or -1 on its failure.
+*
+*   NOTES
+*       The return value of hdf_seek() is ignored. Position-check failures
+*       terminate the process; a complete write is not guaranteed.
+*
+****************************************************************************
+*
+*/
 
 int hdf_write (struct hardfiledata *hfd, void *buffer, uae_u64 offset, int len)
 {
