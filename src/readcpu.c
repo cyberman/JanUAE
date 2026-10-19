@@ -157,6 +157,33 @@ struct mnemolookup lookuptab[] = {
 
 struct instr *table68k;
 
+/****i* januae-readcpu/specialcase ***************************************
+*
+*   NAME
+*       specialcase() -- Apply model-specific instruction-level exceptions.
+*
+*   SYNOPSIS
+*       static int specialcase (uae_u16 opcode, int cpu_lev);
+*
+*   FUNCTION
+*       Raise the minimum CPU level to 68020 for the TST and CMPI
+*       addressing-mode combinations recognized here. Other opcodes retain
+*       their supplied level.
+*
+*   INPUTS
+*       opcode - 16-bit instruction word.
+*       cpu_lev - Minimum CPU level from the instruction definition.
+*
+*   RESULT
+*       The supplied level or 2 for a recognized 68020-only case.
+*
+*   NOTES
+*       A supplied level of 2 or greater is returned without decoding.
+*
+****************************************************************************
+*
+*/
+
 static int specialcase (uae_u16 opcode, int cpu_lev)
 {
     int mode = (opcode >> 3) & 7;
@@ -179,6 +206,31 @@ static int specialcase (uae_u16 opcode, int cpu_lev)
     return cpu_lev;
 }
 
+/****i* januae-readcpu/mode_from_str *************************************
+*
+*   NAME
+*       mode_from_str() -- Decode an instruction addressing-mode name.
+*
+*   SYNOPSIS
+*       static amodes mode_from_str (const char *str);
+*
+*   FUNCTION
+*       Map a four-character addressing-mode prefix to its amodes value.
+*
+*   INPUTS
+*       str - String beginning with a supported mode identifier.
+*
+*   RESULT
+*       The corresponding addressing-mode constant.
+*
+*   NOTES
+*       Only the first four characters are compared. An unrecognized
+*       identifier calls abort().
+*
+****************************************************************************
+*
+*/
+
 static amodes mode_from_str (const char *str)
 {
     if (strncmp (str, "Dreg", 4) == 0) return Dreg;
@@ -196,6 +248,33 @@ static amodes mode_from_str (const char *str)
     abort ();
     return 0;
 }
+
+/****i* januae-readcpu/mode_from_mr **************************************
+*
+*   NAME
+*       mode_from_mr() -- Decode the mode/register fields of an effective address.
+*
+*   SYNOPSIS
+*       STATIC_INLINE amodes mode_from_mr (int mode, int reg);
+*
+*   FUNCTION
+*       Translate the encoded 68000 addressing-mode field and, for mode 7,
+*       its register subfield into an amodes value.
+*
+*   INPUTS
+*       mode - Effective-address mode field.
+*       reg - Register subfield, used when mode is 7.
+*
+*   RESULT
+*       The decoded addressing mode; am_illg for mode 7 with a register
+*       value of 5, 6, or 7.
+*
+*   NOTES
+*       Unsupported mode values call abort().
+*
+****************************************************************************
+*
+*/
 
 STATIC_INLINE amodes mode_from_mr (int mode, int reg)
 {
@@ -222,6 +301,34 @@ STATIC_INLINE amodes mode_from_mr (int mode, int reg)
     abort ();
     return 0;
 }
+
+/****i* januae-readcpu/build_insn ****************************************
+*
+*   NAME
+*       build_insn() -- Expand one instruction definition into opcode descriptors.
+*
+*   SYNOPSIS
+*       static void build_insn (int insn);
+*
+*   FUNCTION
+*       Enumerate the variable-bit combinations in defs68k[insn], decode
+*       mnemonic, size, operands, CPU level and flag usage, and populate
+*       matching entries in the global table68k array.
+*
+*   INPUTS
+*       insn - Index into defs68k, in the range 0 through n_defs68k - 1.
+*
+*   RESULT
+*       None. Matching entries in table68k are updated.
+*
+*   NOTES
+*       Invalid operand syntax and unsupported mode strings may call
+*       abort(). Duplicate opcode matches are reported with write_log().
+*       Nonmatching variants are skipped.
+*
+****************************************************************************
+*
+*/
 
 static void build_insn (int insn)
 {
@@ -769,6 +876,35 @@ static void build_insn (int insn)
 }
 
 
+/****f* januae-readcpu/read_table68k *************************************
+*
+*   NAME
+*       read_table68k() -- Rebuild the 65536-entry instruction decode table.
+*
+*   SYNOPSIS
+*       void read_table68k (void);
+*
+*   FUNCTION
+*       Release the previous table68k allocation, allocate a new table,
+*       initialize each mnemonic to i_ILLG and handler to -1, then expand
+*       all definitions from defs68k into the table.
+*
+*   INPUTS
+*       None. Reads defs68k and n_defs68k.
+*
+*   RESULT
+*       None. The global table68k pointer refers to the new table.
+*
+*   NOTES
+*       Any prior table68k pointer becomes invalid when this function
+*       begins. Other descriptor fields are assigned only for matched
+*       instructions; invalid entries must not be treated as initialized
+*       instruction descriptors.
+*
+****************************************************************************
+*
+*/
+
 void read_table68k (void)
 {
     int i;
@@ -785,6 +921,34 @@ void read_table68k (void)
 }
 
 static int mismatch;
+
+/****i* januae-readcpu/handle_merges *************************************
+*
+*   NAME
+*       handle_merges() -- Identify equivalent register variants of an opcode.
+*
+*   SYNOPSIS
+*       static void handle_merges (long int opcode);
+*
+*   FUNCTION
+*       Visit the variable source- and destination-register combinations
+*       represented by opcode. If the decoded instruction properties
+*       match, set the variant handler field to the representative opcode;
+*       otherwise increment the global mismatch counter.
+*
+*   INPUTS
+*       opcode - Representative opcode index, from 0 through 65535.
+*
+*   RESULT
+*       None. Updates table68k handler fields and mismatch.
+*
+*   NOTES
+*       Requires a table populated by read_table68k(). It is called
+*       for valid representative opcodes by do_merges().
+*
+****************************************************************************
+*
+*/
 
 static void handle_merges (long int opcode)
 {
@@ -861,6 +1025,33 @@ static void handle_merges (long int opcode)
     }
 }
 
+/****f* januae-readcpu/do_merges *****************************************
+*
+*   NAME
+*       do_merges() -- Merge equivalent opcode entries and count handlers.
+*
+*   SYNOPSIS
+*       void do_merges (void);
+*
+*   FUNCTION
+*       Reset the mismatch count, visit valid opcodes without a handler,
+*       and merge their equivalent register variants. Store the number
+*       of representative instructions in nr_cpuop_funcs.
+*
+*   INPUTS
+*       None. Operates on table68k.
+*
+*   RESULT
+*       None. Updates table68k, nr_cpuop_funcs and the mismatch count.
+*
+*   NOTES
+*       Call read_table68k() before merging. Handler assignments persist
+*       until the instruction table is rebuilt.
+*
+****************************************************************************
+*
+*/
+
 void do_merges (void)
 {
     long int opcode;
@@ -874,6 +1065,30 @@ void do_merges (void)
     }
     nr_cpuop_funcs = nr;
 }
+
+/****f* januae-readcpu/get_no_mismatches *********************************
+*
+*   NAME
+*       get_no_mismatches() -- Return the current opcode merge mismatch count.
+*
+*   SYNOPSIS
+*       int get_no_mismatches (void);
+*
+*   FUNCTION
+*       Read the mismatch counter last reset by do_merges().
+*
+*   INPUTS
+*       None.
+*
+*   RESULT
+*       Number of mismatching variant comparisons recorded by merging.
+*
+*   NOTES
+*       The counter is not reset by this call.
+*
+****************************************************************************
+*
+*/
 
 int get_no_mismatches (void)
 {
