@@ -42,17 +42,70 @@ static int have_sound;
 uae_u16 sndbuffer[44100];
 uae_u16 *sndbufpt;
 
+/****i* januae-sd-solaris/clearbuffer **************************************
+*
+*   NAME
+*       clearbuffer()
+*
+*   SYNOPSIS
+*       static void clearbuffer (void);
+*
+*   FUNCTION
+*       Zero the full shared Solaris audio buffer.
+*
+****************************************************************************
+*
+*/
 static void clearbuffer (void)
 {
     memset (sndbuffer, 0 , sizeof (sndbuffer));
 }
 
+/****i* januae-sd-solaris/close_sound **************************************
+*
+*   NAME
+*       close_sound()
+*
+*   SYNOPSIS
+*       void close_sound(void);
+*
+*   FUNCTION
+*       Close the /dev/audio descriptor when this backend is marked active.
+*
+*   NOTES
+*       The have_sound flag and descriptor are not reset.
+*
+****************************************************************************
+*
+*/
 void close_sound(void)
 {
     if (have_sound)
 	close (sound_fd);
 }
 
+/****i* januae-sd-solaris/setup_sound **************************************
+*
+*   NAME
+*       setup_sound()
+*
+*   SYNOPSIS
+*       int setup_sound (void);
+*
+*   FUNCTION
+*       Open /dev/audio for output and record whether the descriptor was
+*       acquired.
+*
+*   RESULT
+*       1 if opening succeeds; otherwise 0.
+*
+*   NOTES
+*       A successful probe keeps /dev/audio open for subsequent
+*       init_sound(). It does not close the descriptor.
+*
+****************************************************************************
+*
+*/
 int setup_sound (void)
 {
     sound_fd = open ("/dev/audio", O_WRONLY);
@@ -64,6 +117,30 @@ int setup_sound (void)
     return 1;
 }
 
+/****i* januae-sd-solaris/init_sound ***************************************
+*
+*   NAME
+*       init_sound()
+*
+*   SYNOPSIS
+*       int init_sound (void);
+*
+*   FUNCTION
+*       Configure the previously opened audio device for mono playback,
+*       choose mu-law or linear sample output and initialize the shared
+*       sound buffer.
+*
+*   RESULT
+*       1 after a successful AUDIO_SETINFO ioctl; otherwise 0.
+*
+*   NOTES
+*       The device is always configured for one channel, although buffer
+*       sizing consults the stereo preference. This function assumes
+*       setup_sound() opened the device.
+*
+****************************************************************************
+*
+*/
 int init_sound (void)
 {
     int rate, dspbits;
@@ -101,35 +178,149 @@ int init_sound (void)
     return 1;
 }
 
+/****i* januae-sd-solaris/reset_sound **************************************
+*
+*   NAME
+*       reset_sound()
+*
+*   SYNOPSIS
+*       void reset_sound (void);
+*
+*   FUNCTION
+*       Zero the full shared Solaris sound buffer.
+*
+****************************************************************************
+*
+*/
 void reset_sound (void)
 {
    clearbuffer ();
 }
 
+/****i* januae-sd-solaris/pause_sound **************************************
+*
+*   NAME
+*       pause_sound()
+*
+*   SYNOPSIS
+*       void pause_sound (void);
+*
+*   FUNCTION
+*       Zero the shared sound buffer without pausing the audio device.
+*
+****************************************************************************
+*
+*/
 void pause_sound (void)
 {
    clearbuffer ();
 }
 
+/****i* januae-sd-solaris/resume_sound *************************************
+*
+*   NAME
+*       resume_sound()
+*
+*   SYNOPSIS
+*       void resume_sound (void);
+*
+*   FUNCTION
+*       Perform no Solaris audio resume operation.
+*
+****************************************************************************
+*
+*/
 void resume_sound (void)
 {
 }
 
+/****i* januae-sd-solaris/sound_volume *************************************
+*
+*   NAME
+*       sound_volume()
+*
+*   SYNOPSIS
+*       void sound_volume (int dir);
+*
+*   FUNCTION
+*       Perform no Solaris volume adjustment.
+*
+*   INPUTS
+*       dir - Unused.
+*
+****************************************************************************
+*
+*/
 void sound_volume (int dir)
 {
 }
 
-/*
- * Handle audio specific cfgfile options
- */
+/****i* januae-sd-solaris/audio_default_options ****************************
+*
+*   NAME
+*       audio_default_options()
+*
+*   SYNOPSIS
+*       void audio_default_options (struct uae_prefs *p);
+*
+*   FUNCTION
+*       Perform no Solaris-specific default-option changes.
+*
+*   INPUTS
+*       p - Unused.
+*
+****************************************************************************
+*
+*/
 void audio_default_options (struct uae_prefs *p)
 {
 }
 
+/****i* januae-sd-solaris/audio_save_options *******************************
+*
+*   NAME
+*       audio_save_options()
+*
+*   SYNOPSIS
+*       void audio_save_options (FILE *f, const struct uae_prefs *p);
+*
+*   FUNCTION
+*       Write no Solaris-specific configuration options.
+*
+*   INPUTS
+*       f - Unused.
+*       p - Unused.
+*
+****************************************************************************
+*
+*/
 void audio_save_options (FILE *f, const struct uae_prefs *p)
 {
 }
 
+/****i* januae-sd-solaris/audio_parse_option *******************************
+*
+*   NAME
+*       audio_parse_option()
+*
+*   SYNOPSIS
+*       int audio_parse_option (struct uae_prefs *p, const char *option,
+*       const char *value);
+*
+*   FUNCTION
+*       Decline Solaris-specific configuration options.
+*
+*   INPUTS
+*       p - Unused.
+*       option - Unused.
+*       value - Unused.
+*
+*   RESULT
+*       Always 0.
+*
+****************************************************************************
+*
+*/
 int audio_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     return 0;

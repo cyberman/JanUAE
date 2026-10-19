@@ -35,6 +35,20 @@ snd_pcm_t *alsa_playback_handle = 0;
 int bytes_per_frame;
 
 
+/****i* januae-sd-alsa/close_sound *****************************************
+*
+*   NAME
+*       close_sound()
+*
+*   SYNOPSIS
+*       void close_sound (void);
+*
+*   FUNCTION
+*       Close the current ALSA playback handle and clear it if one exists.
+*
+****************************************************************************
+*
+*/
 void close_sound (void)
 {
   if (alsa_playback_handle) {
@@ -43,12 +57,55 @@ void close_sound (void)
   }
 }
 
+/****i* januae-sd-alsa/open_sound ******************************************
+*
+*   NAME
+*       open_sound()
+*
+*   SYNOPSIS
+*       static int open_sound(void);
+*
+*   FUNCTION
+*       Open the configured ALSA device for blocking playback and retain its
+*       handle.
+*
+*   RESULT
+*       The result of snd_pcm_open(), zero on success or a negative ALSA
+*       error.
+*
+*   NOTES
+*       The handle is owned by this backend until close_sound().
+*
+****************************************************************************
+*
+*/
 static int open_sound(void)
 {
   return snd_pcm_open (&alsa_playback_handle, alsa_device, SND_PCM_STREAM_PLAYBACK, 0);
 }
 
-/* Try to determine whether sound is available.  This is only for GUI purposes.  */
+/****i* januae-sd-alsa/setup_sound *****************************************
+*
+*   NAME
+*       setup_sound()
+*
+*   SYNOPSIS
+*       int setup_sound (void);
+*
+*   FUNCTION
+*       Probe the configured ALSA playback device by opening and immediately
+*       closing it; set sound_available on success.
+*
+*   RESULT
+*       1 if opening succeeded; otherwise 0.
+*
+*   NOTES
+*       An unavailable or busy device is reported as unavailable; this does
+*       not reserve the device.
+*
+****************************************************************************
+*
+*/
 int setup_sound (void)
 {
   int err;
@@ -66,6 +123,43 @@ int setup_sound (void)
   return 1;
 }
 
+/****i* januae-sd-alsa/set_hw_params ***************************************
+*
+*   NAME
+*       set_hw_params()
+*
+*   SYNOPSIS
+*       static int set_hw_params(snd_pcm_t *pcm, snd_pcm_hw_params_t
+*       *hw_params, unsigned int *rate, unsigned int channels,
+*       snd_pcm_format_t format, unsigned int *buffer_time,
+*       snd_pcm_uframes_t *buffer_frames, snd_pcm_uframes_t *period_frames);
+*
+*   FUNCTION
+*       Request interleaved PCM access, sample format, channel count, a
+*       nearby sample rate, buffer duration and approximately two periods,
+*       then apply the hardware parameters.
+*
+*   INPUTS
+*       pcm - Open ALSA playback handle.
+*       hw_params - Writable ALSA hardware parameter structure.
+*       rate - Requested rate, updated to the selected rate.
+*       channels - Requested channel count.
+*       format - Requested PCM sample format.
+*       buffer_time - Requested buffer duration, updated to a nearby value.
+*       buffer_frames - Receives the selected hardware buffer frame count.
+*       period_frames - Receives the period frame count.
+*
+*   RESULT
+*       Negative ALSA error on a checked setup failure; -EINVAL for a
+*       one-period selection; otherwise 0.
+*
+*   NOTES
+*       The final snd_pcm_hw_params() return value is not checked before
+*       returning 0.
+*
+****************************************************************************
+*
+*/
 static int set_hw_params(snd_pcm_t *pcm,
 			 snd_pcm_hw_params_t *hw_params,
 			 unsigned int *rate,
@@ -108,6 +202,35 @@ static int set_hw_params(snd_pcm_t *pcm,
     return 0;
 }
 
+/****i* januae-sd-alsa/set_sw_params ***************************************
+*
+*   NAME
+*       set_sw_params()
+*
+*   SYNOPSIS
+*       static int set_sw_params(snd_pcm_t *pcm, snd_pcm_sw_params_t
+*       *sw_params, snd_pcm_uframes_t buffer_frames, snd_pcm_uframes_t
+*       period_frames);
+*
+*   FUNCTION
+*       Configure ALSA playback start, availability and stop thresholds and
+*       transfer alignment for the given frame counts.
+*
+*   INPUTS
+*       pcm - Open ALSA playback handle.
+*       sw_params - Writable software parameter structure.
+*       buffer_frames - Configured buffer length in frames.
+*       period_frames - Configured period length in frames.
+*
+*   RESULT
+*       0 on success or a negative ALSA error.
+*
+*   NOTES
+*       A zero period frame count is not guarded before division.
+*
+****************************************************************************
+*
+*/
 static int set_sw_params(snd_pcm_t *pcm,
 			 snd_pcm_sw_params_t *sw_params,
 			 snd_pcm_uframes_t buffer_frames,
@@ -136,6 +259,30 @@ static int set_sw_params(snd_pcm_t *pcm,
     return 0;
 }
 
+/****i* januae-sd-alsa/init_sound ******************************************
+*
+*   NAME
+*       init_sound()
+*
+*   SYNOPSIS
+*       int init_sound (void);
+*
+*   FUNCTION
+*       Open and configure the ALSA PCM stream from current sound
+*       preferences, select the sample handler and prepare the shared output
+*       buffer.
+*
+*   RESULT
+*       1 if playback initialization succeeds; otherwise 0.
+*
+*   NOTES
+*       Supports signed 8-bit and 16-bit PCM, mono or stereo. Hardware may
+*       choose a nearby rate, but obtainedfreq is assigned the requested
+*       frequency. Some ALSA result codes are not checked.
+*
+****************************************************************************
+*
+*/
 int init_sound (void)
 {
     unsigned int rate;
@@ -246,41 +393,168 @@ int init_sound (void)
     return 0;
 }
 
+/****i* januae-sd-alsa/reset_sound *****************************************
+*
+*   NAME
+*       reset_sound()
+*
+*   SYNOPSIS
+*       void reset_sound (void);
+*
+*   FUNCTION
+*       Perform no ALSA reset operation.
+*
+****************************************************************************
+*
+*/
 void reset_sound (void)
 {
 }
 
+/****i* januae-sd-alsa/pause_sound *****************************************
+*
+*   NAME
+*       pause_sound()
+*
+*   SYNOPSIS
+*       void pause_sound (void);
+*
+*   FUNCTION
+*       Drop queued ALSA playback frames if a playback handle is open.
+*
+*   NOTES
+*       The snd_pcm_drop() result is not inspected.
+*
+****************************************************************************
+*
+*/
 void pause_sound (void)
 {
     if (alsa_playback_handle)
 	snd_pcm_drop (alsa_playback_handle);
 }
 
+/****i* januae-sd-alsa/resume_sound ****************************************
+*
+*   NAME
+*       resume_sound()
+*
+*   SYNOPSIS
+*       void resume_sound (void);
+*
+*   FUNCTION
+*       Prepare the ALSA playback handle again if one is open.
+*
+*   NOTES
+*       The snd_pcm_prepare() result is not inspected.
+*
+****************************************************************************
+*
+*/
 void resume_sound (void)
 {
     if (alsa_playback_handle)
 	snd_pcm_prepare (alsa_playback_handle);
 }
 
+/****i* januae-sd-alsa/sound_volume ****************************************
+*
+*   NAME
+*       sound_volume()
+*
+*   SYNOPSIS
+*       void sound_volume (int dir);
+*
+*   FUNCTION
+*       Perform no volume adjustment.
+*
+*   INPUTS
+*       dir - Unused.
+*
+****************************************************************************
+*
+*/
 void sound_volume (int dir)
 {
 }
 
-/*
- * Handle audio specific cfgfile options
- */
+/****i* januae-sd-alsa/audio_default_options *******************************
+*
+*   NAME
+*       audio_default_options()
+*
+*   SYNOPSIS
+*       void audio_default_options (struct uae_prefs *p);
+*
+*   FUNCTION
+*       Set the ALSA device name to "default" and disable verbose ALSA
+*       diagnostics.
+*
+*   INPUTS
+*       p - Unused.
+*
+****************************************************************************
+*
+*/
 void audio_default_options (struct uae_prefs *p)
 {
     strncpy (alsa_device, "default", 256);
     alsa_verbose = 0;
 }
 
+/****i* januae-sd-alsa/audio_save_options **********************************
+*
+*   NAME
+*       audio_save_options()
+*
+*   SYNOPSIS
+*       void audio_save_options (FILE *f, const struct uae_prefs *p);
+*
+*   FUNCTION
+*       Write the ALSA device name and verbosity flag as configuration
+*       options.
+*
+*   INPUTS
+*       f - Destination configuration file.
+*       p - Unused.
+*
+****************************************************************************
+*
+*/
 void audio_save_options (FILE *f, const struct uae_prefs *p)
 {
     cfgfile_write (f, "alsa.device=%s\n", alsa_device);
     cfgfile_write (f, "alsa.verbose=%s\n", alsa_verbose ? "true" : "false");
 }
 
+/****i* januae-sd-alsa/audio_parse_option **********************************
+*
+*   NAME
+*       audio_parse_option()
+*
+*   SYNOPSIS
+*       int audio_parse_option (struct uae_prefs *p, const char *option,
+*       const char *value);
+*
+*   FUNCTION
+*       Parse an ALSA device-name or verbosity option into backend global
+*       settings.
+*
+*   INPUTS
+*       p - Unused.
+*       option - Backend option name.
+*       value - Backend option value.
+*
+*   RESULT
+*       Nonzero if either recognized option parser handles the option;
+*       otherwise zero.
+*
+*   NOTES
+*       The configured ALSA device-name storage is limited to 256 bytes.
+*
+****************************************************************************
+*
+*/
 int audio_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     return (cfgfile_string (option, value, "device",   alsa_device, 256)

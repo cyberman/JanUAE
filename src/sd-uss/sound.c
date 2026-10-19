@@ -32,6 +32,31 @@ uae_u16 sndbuffer[44100];
 uae_u16 *sndbufpt;
 int sndbufsize;
 
+/****i* januae-sd-uss/exact_log2 *******************************************
+*
+*   NAME
+*       exact_log2()
+*
+*   SYNOPSIS
+*       static int exact_log2 (int v);
+*
+*   FUNCTION
+*       Compute the position of the highest set bit by repeatedly shifting
+*       the argument right.
+*
+*   INPUTS
+*       v - Input integer.
+*
+*   RESULT
+*       The number of right shifts before the value reaches zero.
+*
+*   NOTES
+*       For positive inputs this is floor(log2(v)); the function does not
+*       validate its input.
+*
+****************************************************************************
+*
+*/
 static int exact_log2 (int v)
 {
     int l = 0;
@@ -40,13 +65,52 @@ static int exact_log2 (int v)
     return l;
 }
 
+/****i* januae-sd-uss/close_sound ******************************************
+*
+*   NAME
+*       close_sound()
+*
+*   SYNOPSIS
+*       void close_sound (void);
+*
+*   FUNCTION
+*       Close the OSS device descriptor if this backend is marked active.
+*
+*   NOTES
+*       The have_sound flag is not cleared and the descriptor is not reset.
+*
+****************************************************************************
+*
+*/
 void close_sound (void)
 {
     if (have_sound)
 	close (sound_fd);
 }
 
-/* Try to determine whether sound is available.  This is only for GUI purposes.  */
+/****i* januae-sd-uss/setup_sound ******************************************
+*
+*   NAME
+*       setup_sound()
+*
+*   SYNOPSIS
+*       int setup_sound (void);
+*
+*   FUNCTION
+*       Probe /dev/dsp and its supported PCM formats to report OSS sound
+*       availability.
+*
+*   RESULT
+*       1 when a format query succeeds, or when opening reports EBUSY;
+*       otherwise 0.
+*
+*   NOTES
+*       An EBUSY result is deliberately treated as availability. A
+*       successful probe closes its descriptor.
+*
+****************************************************************************
+*
+*/
 int setup_sound (void)
 {
     sound_fd = open ("/dev/dsp", O_WRONLY);
@@ -74,6 +138,29 @@ int setup_sound (void)
     return 1;
 }
 
+/****i* januae-sd-uss/init_sound *******************************************
+*
+*   NAME
+*       init_sound()
+*
+*   SYNOPSIS
+*       int init_sound (void);
+*
+*   FUNCTION
+*       Open /dev/dsp, configure PCM width, stereo, rate and fragment size,
+*       then select the shared sample handler.
+*
+*   RESULT
+*       1 on successful initialization; otherwise 0.
+*
+*   NOTES
+*       Accepts rates within ten percent of the requested rate. Several
+*       ioctl results are unchecked, and some failure paths return without
+*       closing the open descriptor.
+*
+****************************************************************************
+*
+*/
 int init_sound (void)
 {
     int tmp;
@@ -144,33 +231,147 @@ int init_sound (void)
     return 1;
 }
 
+/****i* januae-sd-uss/reset_sound ******************************************
+*
+*   NAME
+*       reset_sound()
+*
+*   SYNOPSIS
+*       void reset_sound (void);
+*
+*   FUNCTION
+*       Perform no OSS audio reset.
+*
+****************************************************************************
+*
+*/
 void reset_sound (void)
 {
 }
 
+/****i* januae-sd-uss/pause_sound ******************************************
+*
+*   NAME
+*       pause_sound()
+*
+*   SYNOPSIS
+*       void pause_sound (void);
+*
+*   FUNCTION
+*       Perform no OSS pause operation.
+*
+****************************************************************************
+*
+*/
 void pause_sound (void)
 {
 }
 
+/****i* januae-sd-uss/resume_sound *****************************************
+*
+*   NAME
+*       resume_sound()
+*
+*   SYNOPSIS
+*       void resume_sound (void);
+*
+*   FUNCTION
+*       Perform no OSS resume operation.
+*
+****************************************************************************
+*
+*/
 void resume_sound (void)
 {
 }
 
+/****i* januae-sd-uss/sound_volume *****************************************
+*
+*   NAME
+*       sound_volume()
+*
+*   SYNOPSIS
+*       void sound_volume (int dir);
+*
+*   FUNCTION
+*       Perform no OSS volume adjustment.
+*
+*   INPUTS
+*       dir - Unused.
+*
+****************************************************************************
+*
+*/
 void sound_volume (int dir)
 {
 }
 
-/*
- * Handle audio specific cfgfile options
- */
+/****i* januae-sd-uss/audio_default_options ********************************
+*
+*   NAME
+*       audio_default_options()
+*
+*   SYNOPSIS
+*       void audio_default_options (struct uae_prefs *p);
+*
+*   FUNCTION
+*       Perform no OSS-specific default-option changes.
+*
+*   INPUTS
+*       p - Unused.
+*
+****************************************************************************
+*
+*/
 void audio_default_options (struct uae_prefs *p)
 {
 }
 
+/****i* januae-sd-uss/audio_save_options ***********************************
+*
+*   NAME
+*       audio_save_options()
+*
+*   SYNOPSIS
+*       void audio_save_options (FILE *f, const struct uae_prefs *p);
+*
+*   FUNCTION
+*       Write no OSS-specific configuration options.
+*
+*   INPUTS
+*       f - Unused.
+*       p - Unused.
+*
+****************************************************************************
+*
+*/
 void audio_save_options (FILE *f, const struct uae_prefs *p)
 {
 }
 
+/****i* januae-sd-uss/audio_parse_option ***********************************
+*
+*   NAME
+*       audio_parse_option()
+*
+*   SYNOPSIS
+*       int audio_parse_option (struct uae_prefs *p, const char *option,
+*       const char *value);
+*
+*   FUNCTION
+*       Decline OSS-specific configuration options.
+*
+*   INPUTS
+*       p - Unused.
+*       option - Unused.
+*       value - Unused.
+*
+*   RESULT
+*       Always 0.
+*
+****************************************************************************
+*
+*/
 int audio_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     return 0;
