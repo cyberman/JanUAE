@@ -24,6 +24,27 @@ ULONG bitbuf;
 
 
 
+/****i* januae-dms/initbitbuf **********************************************
+*
+*   NAME
+*       initbitbuf()
+*
+*   SYNOPSIS
+*       void initbitbuf(UCHAR *in);
+*
+*   FUNCTION
+*       Bind a compressed input buffer and initialize the shared bit reader.
+*
+*   INPUTS
+*       in - Input bytes for the bit reader.
+*
+*   NOTES
+*       The initial refill reads from in through DROPBITS(0). The caller
+*       must supply sufficient input; no input length is accepted.
+*
+****************************************************************************
+*
+*/
 void initbitbuf(UCHAR *in){
 	bitbuf = 0;
 	bitcount = 0;

@@ -48,6 +48,39 @@ UCHAR *text;
 
 
 
+/****i* januae-dms/DMS_Process_File ****************************************
+*
+*   NAME
+*       DMS_Process_File()
+*
+*   SYNOPSIS
+*       USHORT DMS_Process_File(struct zfile *fi, struct zfile *fo, USHORT
+*       cmd, USHORT opt, USHORT PCRC, USHORT pwd);
+*
+*   FUNCTION
+*       Read and validate a DMS archive header, then dispatch the requested
+*       archive operation over its tracks.
+*
+*   INPUTS
+*       fi - Open input archive.
+*       fo - Output stream used for disk-image extraction.
+*       cmd - DMS operation selector.
+*       opt - Operation options passed to track processing.
+*       PCRC - Initial decryption checksum state.
+*       pwd - Nonzero password/decryption seed for encrypted tracks.
+*
+*   RESULT
+*       NO_PROBLEM on accepted completion, otherwise an ERR_* status from
+*       pfile.h.
+*
+*   NOTES
+*       Allocates shared scratch and dictionary buffers. CMD_VIEW reports
+*       only archive-level information. CMD_UNPACK emits qualifying disk
+*       tracks; non-track trailing data is accepted as end of archive.
+*
+****************************************************************************
+*
+*/
 USHORT DMS_Process_File(struct zfile *fi, struct zfile *fo, USHORT cmd, USHORT opt, USHORT PCRC, USHORT pwd){
 	USHORT from, to, geninfo, c_version, cmode, hcrc, disktype, pv, ret;
 	ULONG pkfsize, unpkfsize;
@@ -231,6 +264,40 @@ USHORT DMS_Process_File(struct zfile *fi, struct zfile *fo, USHORT cmd, USHORT o
 
 
 
+/****i* januae-dms/Process_Track *******************************************
+*
+*   NAME
+*       Process_Track()
+*
+*   SYNOPSIS
+*       static USHORT Process_Track(struct zfile *fi, struct zfile *fo,
+*       UCHAR *b1, UCHAR *b2, USHORT cmd, USHORT opt, USHORT pwd);
+*
+*   FUNCTION
+*       Read and verify one DMS track, then optionally unpack, write or
+*       display its contents.
+*
+*   INPUTS
+*       fi - Input archive positioned at a track header.
+*       fo - Destination for extracted track data.
+*       b1 - Track-header and compressed-data buffer.
+*       b2 - Uncompressed track buffer.
+*       cmd - Operation selector.
+*       opt - Options value (not used in this routine).
+*       pwd - Nonzero seed enabling track decryption.
+*
+*   RESULT
+*       NO_PROBLEM on a processed track, DMS_FILE_END on clean EOF, or an
+*       ERR_* code for a rejected track or failed operation.
+*
+*   NOTES
+*       Checks track-header CRC, data CRC and the declared 32000-byte
+*       limits. Data checksum is checked on decompressed tracks that are
+*       actually consumed.
+*
+****************************************************************************
+*
+*/
 static USHORT Process_Track(struct zfile *fi, struct zfile *fo, UCHAR *b1, UCHAR *b2, USHORT cmd, USHORT opt, USHORT pwd){
 	USHORT hcrc, dcrc, usum, number, pklen1, pklen2, unpklen, l, r;
 	UCHAR cmode, flags;
@@ -330,6 +397,38 @@ static USHORT Process_Track(struct zfile *fi, struct zfile *fo, UCHAR *b1, UCHAR
 
 
 
+/****i* januae-dms/Unpack_Track ********************************************
+*
+*   NAME
+*       Unpack_Track()
+*
+*   SYNOPSIS
+*       static USHORT Unpack_Track(UCHAR *b1, UCHAR *b2, USHORT pklen2,
+*       USHORT unpklen, UCHAR cmode, UCHAR flags);
+*
+*   FUNCTION
+*       Apply the unpacking sequence selected by the DMS track compression
+*       mode.
+*
+*   INPUTS
+*       b1 - Packed input and secondary scratch buffer.
+*       b2 - Unpacked output and intermediate buffer.
+*       pklen2 - Size of the first unpacking stage.
+*       unpklen - Final uncompressed size.
+*       cmode - Compression mode 0 through 6.
+*       flags - Track flags controlling Heavy mode and decoder state.
+*
+*   RESULT
+*       NO_PROBLEM, ERR_BADDECR, or ERR_UNKNMODE.
+*
+*   NOTES
+*       Quick, Medium and Deep modes run through RLE after their first
+*       stage. Heavy modes use RLE only when flag bit 2 is set. Decoder
+*       state is reset unless flag bit 0 is set.
+*
+****************************************************************************
+*
+*/
 static USHORT Unpack_Track(UCHAR *b1, UCHAR *b2, USHORT pklen2, USHORT unpklen, UCHAR cmode, UCHAR flags){
 	switch (cmode){
 		case 0:
@@ -386,6 +485,29 @@ static USHORT Unpack_Track(UCHAR *b1, UCHAR *b2, USHORT pklen2, USHORT unpklen, 
 
 
 /*  DMS uses a lame encryption  */
+/****i* januae-dms/dms_decrypt *********************************************
+*
+*   NAME
+*       dms_decrypt()
+*
+*   SYNOPSIS
+*       static void dms_decrypt(UCHAR *p, USHORT len);
+*
+*   FUNCTION
+*       Decrypt a track in place using the rolling DMS checksum and update
+*       the shared decryption state.
+*
+*   INPUTS
+*       p - Track data to modify in place.
+*       len - Number of bytes to decrypt.
+*
+*   NOTES
+*       Each byte is XORed with the low byte of PWDCRC; the checksum
+*       advances using the original encrypted byte.
+*
+****************************************************************************
+*
+*/
 static void dms_decrypt(UCHAR *p, USHORT len){
 	USHORT t;
 
@@ -398,6 +520,29 @@ static void dms_decrypt(UCHAR *p, USHORT len){
 
 
 
+/****i* januae-dms/printbandiz *********************************************
+*
+*   NAME
+*       printbandiz()
+*
+*   SYNOPSIS
+*       static void printbandiz(UCHAR *m, USHORT len);
+*
+*   FUNCTION
+*       Log newline-terminated text records from a banner or FILEID.DIZ
+*       buffer.
+*
+*   INPUTS
+*       m - Mutable text bytes.
+*       len - Length of the buffer.
+*
+*   NOTES
+*       Replaces line-feed bytes with string terminators and does not print
+*       a trailing fragment without a line feed.
+*
+****************************************************************************
+*
+*/
 static void printbandiz(UCHAR *m, USHORT len){
 	UCHAR *i,*j;
 

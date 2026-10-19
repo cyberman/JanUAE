@@ -23,6 +23,33 @@ USHORT medium_text_loc;
 
 
 
+/****i* januae-dms/Unpack_MEDIUM *******************************************
+*
+*   NAME
+*       Unpack_MEDIUM()
+*
+*   SYNOPSIS
+*       USHORT Unpack_MEDIUM(UCHAR *in, UCHAR *out, USHORT origsize);
+*
+*   FUNCTION
+*       Decode Medium-mode literal and dictionary-match tokens into a shared
+*       16 KiB history buffer.
+*
+*   INPUTS
+*       in - Packed input bitstream.
+*       out - Output buffer.
+*       origsize - Requested number of output bytes.
+*
+*   RESULT
+*       Always zero.
+*
+*   NOTES
+*       Preserves the shared history position between blocks; encoded match
+*       lengths are not separately bounded against origsize.
+*
+****************************************************************************
+*
+*/
 USHORT Unpack_MEDIUM(UCHAR *in, UCHAR *out, USHORT origsize){
 	USHORT i, j, c;
 	UCHAR u, *outend;

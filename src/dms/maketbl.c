@@ -23,6 +23,36 @@ static USHORT mktbl(void);
 
 
 
+/****i* januae-dms/make_table **********************************************
+*
+*   NAME
+*       make_table()
+*
+*   SYNOPSIS
+*       USHORT make_table(USHORT nchar, UCHAR bitlen[],USHORT tablebits,
+*       USHORT table[]);
+*
+*   FUNCTION
+*       Build the primary lookup table and overflow tree for a canonical
+*       Huffman code.
+*
+*   INPUTS
+*       nchar - Number of symbols.
+*       bitlen - Code length of each symbol.
+*       tablebits - Number of bits in the primary lookup.
+*       table - Destination lookup table.
+*
+*   RESULT
+*       Zero on success; nonzero (1 through 5) for a malformed or
+*       unrepresentable tree.
+*
+*   NOTES
+*       Uses shared tree arrays and file-static builder state; a call
+*       overwrites the preceding table-building state.
+*
+****************************************************************************
+*
+*/
 USHORT make_table(USHORT nchar, UCHAR bitlen[],USHORT tablebits, USHORT table[]){
 	n = avail = nchar;
 	blen = bitlen;
@@ -44,6 +74,29 @@ USHORT make_table(USHORT nchar, UCHAR bitlen[],USHORT tablebits, USHORT table[])
 
 
 
+/****i* januae-dms/mktbl ***************************************************
+*
+*   NAME
+*       mktbl()
+*
+*   SYNOPSIS
+*       static USHORT mktbl(void);
+*
+*   FUNCTION
+*       Build one subtree or lookup entry while advancing the shared Huffman
+*       table builder.
+*
+*   RESULT
+*       Leaf symbol or internal node index; zero when construction is
+*       stopped by an error.
+*
+*   NOTES
+*       Called recursively by make_table(); errors are recorded in the
+*       file-static TabErr state.
+*
+****************************************************************************
+*
+*/
 static USHORT mktbl(void){
 	USHORT i=0;
 

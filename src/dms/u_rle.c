@@ -14,6 +14,34 @@
 
 
 
+/****i* januae-dms/Unpack_RLE **********************************************
+*
+*   NAME
+*       Unpack_RLE()
+*
+*   SYNOPSIS
+*       USHORT Unpack_RLE(UCHAR *in, UCHAR *out, USHORT origsize);
+*
+*   FUNCTION
+*       Expand DMS run-length tokens, treating 0x90 followed by zero as a
+*       literal 0x90.
+*
+*   INPUTS
+*       in - RLE-encoded input bytes.
+*       out - Destination for expanded bytes.
+*       origsize - Required uncompressed length.
+*
+*   RESULT
+*       Zero on completion; 1 when a run would extend beyond the requested
+*       output size.
+*
+*   NOTES
+*       A run length of 0xff introduces a 16-bit count. The function has no
+*       packed-input length argument.
+*
+****************************************************************************
+*
+*/
 USHORT Unpack_RLE(UCHAR *in, UCHAR *out, USHORT origsize){
 	USHORT n;
 	UCHAR a,b, *outend;

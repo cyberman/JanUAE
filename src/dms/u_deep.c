@@ -48,6 +48,25 @@ USHORT son[T];   /* pointers to child nodes (son[], son[] + 1) */
 
 
 
+/****i* januae-dms/Init_DEEP_Tabs ******************************************
+*
+*   NAME
+*       Init_DEEP_Tabs()
+*
+*   SYNOPSIS
+*       void Init_DEEP_Tabs(void);
+*
+*   FUNCTION
+*       Initialize the adaptive Huffman frequency, parent and child tables
+*       used by Deep decoding.
+*
+*   NOTES
+*       Clears init_deep_tabs so subsequent Deep blocks reuse the
+*       initialized table until a decoder reset.
+*
+****************************************************************************
+*
+*/
 void Init_DEEP_Tabs(void){
 	USHORT i, j;
 
@@ -71,6 +90,34 @@ void Init_DEEP_Tabs(void){
 
 
 
+/****i* januae-dms/Unpack_DEEP *********************************************
+*
+*   NAME
+*       Unpack_DEEP()
+*
+*   SYNOPSIS
+*       USHORT Unpack_DEEP(UCHAR *in, UCHAR *out, USHORT origsize);
+*
+*   FUNCTION
+*       Decode Deep-mode literals and dictionary matches into an output
+*       buffer.
+*
+*   INPUTS
+*       in - Compressed bitstream.
+*       out - Destination buffer.
+*       origsize - Requested number of output bytes.
+*
+*   RESULT
+*       Always zero.
+*
+*   NOTES
+*       Uses the shared 16 KiB dictionary and adaptive Huffman state;
+*       initializes the tables if marked dirty. Encoded matches are not
+*       separately bounded against the remaining output space.
+*
+****************************************************************************
+*
+*/
 USHORT Unpack_DEEP(UCHAR *in, UCHAR *out, USHORT origsize){
 	USHORT i, j, c;
 	UCHAR *outend;
@@ -98,6 +145,24 @@ USHORT Unpack_DEEP(UCHAR *in, UCHAR *out, USHORT origsize){
 
 
 
+/****i* januae-dms/DecodeChar **********************************************
+*
+*   NAME
+*       DecodeChar()
+*
+*   SYNOPSIS
+*       INLINE USHORT DecodeChar(void);
+*
+*   FUNCTION
+*       Decode one adaptive Huffman symbol and update its occurrence
+*       frequency.
+*
+*   RESULT
+*       Decoded symbol, including match-length symbols above 255.
+*
+****************************************************************************
+*
+*/
 INLINE USHORT DecodeChar(void){
 	USHORT c;
 
@@ -117,6 +182,24 @@ INLINE USHORT DecodeChar(void){
 
 
 
+/****i* januae-dms/DecodePosition ******************************************
+*
+*   NAME
+*       DecodePosition()
+*
+*   SYNOPSIS
+*       INLINE USHORT DecodePosition(void);
+*
+*   FUNCTION
+*       Decode the dictionary back-reference displacement from the shared
+*       bitstream.
+*
+*   RESULT
+*       Decoded dictionary position offset.
+*
+****************************************************************************
+*
+*/
 INLINE USHORT DecodePosition(void){
 	USHORT i, j, c;
 
@@ -132,6 +215,24 @@ INLINE USHORT DecodePosition(void){
 
 /* reconstruction of tree */
 
+/****i* januae-dms/reconst *************************************************
+*
+*   NAME
+*       reconst()
+*
+*   SYNOPSIS
+*       static void reconst(void);
+*
+*   FUNCTION
+*       Rescale leaf frequencies and reconstruct the adaptive Huffman tree
+*       when its root reaches the frequency threshold.
+*
+*   NOTES
+*       Updates the shared frequency, child and parent arrays.
+*
+****************************************************************************
+*
+*/
 static void reconst(void){
 	USHORT i, j, k, f, l;
 
@@ -171,6 +272,27 @@ static void reconst(void){
 
 /* increment frequency of given code by one, and update tree */
 
+/****i* januae-dms/update **************************************************
+*
+*   NAME
+*       update()
+*
+*   SYNOPSIS
+*       INLINE void update(USHORT c);
+*
+*   FUNCTION
+*       Increment the frequency of a decoded symbol and restore the adaptive
+*       Huffman node ordering.
+*
+*   INPUTS
+*       c - Decoded Huffman symbol.
+*
+*   NOTES
+*       Rebuilds the tree through reconst() at the maximum root frequency.
+*
+****************************************************************************
+*
+*/
 INLINE void update(USHORT c){
 	USHORT i, j, k, l;
 

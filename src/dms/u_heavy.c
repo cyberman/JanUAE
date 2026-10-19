@@ -35,6 +35,37 @@ INLINE USHORT decode_p(void);
 
 
 
+/****i* januae-dms/Unpack_HEAVY ********************************************
+*
+*   NAME
+*       Unpack_HEAVY()
+*
+*   SYNOPSIS
+*       USHORT Unpack_HEAVY(UCHAR *in, UCHAR *out, UCHAR flags, USHORT
+*       origsize);
+*
+*   FUNCTION
+*       Decode a Heavy 1 or Heavy 2 track using Huffman symbols and
+*       dictionary back-references.
+*
+*   INPUTS
+*       in - Compressed input bitstream.
+*       out - Destination bytes.
+*       flags - Dictionary-size and tree-reload controls.
+*       origsize - Requested output length.
+*
+*   RESULT
+*       Zero on completion; 1 if the character tree cannot be read, or 2 if
+*       the position tree cannot be read.
+*
+*   NOTES
+*       Flag bit 3 selects an 8 KiB dictionary instead of 4 KiB; flag bit 1
+*       reloads the code trees. Other shared decoder state is retained
+*       between calls.
+*
+****************************************************************************
+*
+*/
 USHORT Unpack_HEAVY(UCHAR *in, UCHAR *out, UCHAR flags, USHORT origsize){
 	USHORT j, i, c, bitmask;
 	UCHAR *outend;
@@ -74,6 +105,24 @@ USHORT Unpack_HEAVY(UCHAR *in, UCHAR *out, UCHAR flags, USHORT origsize){
 
 
 
+/****i* januae-dms/decode_c ************************************************
+*
+*   NAME
+*       decode_c()
+*
+*   SYNOPSIS
+*       INLINE USHORT decode_c(void);
+*
+*   FUNCTION
+*       Decode a Heavy-mode literal or match-length symbol from the
+*       character Huffman tree.
+*
+*   RESULT
+*       Decoded character-tree symbol.
+*
+****************************************************************************
+*
+*/
 INLINE USHORT decode_c(void){
 	USHORT i, j, m;
 
@@ -96,6 +145,25 @@ INLINE USHORT decode_c(void){
 
 
 
+/****i* januae-dms/decode_p ************************************************
+*
+*   NAME
+*       decode_p()
+*
+*   SYNOPSIS
+*       INLINE USHORT decode_p(void);
+*
+*   FUNCTION
+*       Decode a Heavy-mode dictionary displacement from the position
+*       Huffman tree.
+*
+*   RESULT
+*       Decoded displacement, or the previous displacement for the
+*       repeat-position symbol.
+*
+****************************************************************************
+*
+*/
 INLINE USHORT decode_p(void){
 	USHORT i, j, m;
 
@@ -128,6 +196,27 @@ INLINE USHORT decode_p(void){
 
 
 
+/****i* januae-dms/read_tree_c *********************************************
+*
+*   NAME
+*       read_tree_c()
+*
+*   SYNOPSIS
+*       static USHORT read_tree_c(void);
+*
+*   FUNCTION
+*       Read or synthesize the Heavy-mode character Huffman decoding table.
+*
+*   RESULT
+*       Zero on success or 1 if table construction fails.
+*
+*   NOTES
+*       A zero tree length selects a single symbol to fill the primary
+*       table.
+*
+****************************************************************************
+*
+*/
 static USHORT read_tree_c(void){
 	USHORT i,n;
 
@@ -151,6 +240,28 @@ static USHORT read_tree_c(void){
 
 
 
+/****i* januae-dms/read_tree_p *********************************************
+*
+*   NAME
+*       read_tree_p()
+*
+*   SYNOPSIS
+*       static USHORT read_tree_p(void);
+*
+*   FUNCTION
+*       Read or synthesize the Heavy-mode dictionary-position Huffman
+*       decoding table.
+*
+*   RESULT
+*       Zero on success or 1 if table construction fails.
+*
+*   NOTES
+*       The current Heavy mode determines how many position symbols are
+*       accepted.
+*
+****************************************************************************
+*
+*/
 static USHORT read_tree_p(void){
 	USHORT i,n;
 

@@ -20,6 +20,33 @@
 USHORT quick_text_loc;
 
 
+/****i* januae-dms/Unpack_QUICK ********************************************
+*
+*   NAME
+*       Unpack_QUICK()
+*
+*   SYNOPSIS
+*       USHORT Unpack_QUICK(UCHAR *in, UCHAR *out, USHORT origsize);
+*
+*   FUNCTION
+*       Decode Quick-mode literals and back-references using a 256-byte
+*       circular history.
+*
+*   INPUTS
+*       in - Packed input bitstream.
+*       out - Output buffer.
+*       origsize - Requested output size.
+*
+*   RESULT
+*       Always zero.
+*
+*   NOTES
+*       Preserves the shared history position between blocks; encoded
+*       matches are not separately bounded against origsize.
+*
+****************************************************************************
+*
+*/
 USHORT Unpack_QUICK(UCHAR *in, UCHAR *out, USHORT origsize){
 	USHORT i, j;
 	UCHAR *outend;

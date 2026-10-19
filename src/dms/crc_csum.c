@@ -14,6 +14,27 @@
 
 
 
+/****i* januae-dms/Calc_CheckSum *******************************************
+*
+*   NAME
+*       Calc_CheckSum()
+*
+*   SYNOPSIS
+*       USHORT Calc_CheckSum(UCHAR *mem, ULONG size);
+*
+*   FUNCTION
+*       Add every byte of a memory block using a 16-bit checksum.
+*
+*   INPUTS
+*       mem - First byte of the block.
+*       size - Number of bytes to process.
+*
+*   RESULT
+*       Low 16 bits of the byte sum.
+*
+****************************************************************************
+*
+*/
 USHORT Calc_CheckSum(UCHAR *mem, ULONG size){
 	USHORT u=0;
 
@@ -23,6 +44,27 @@ USHORT Calc_CheckSum(UCHAR *mem, ULONG size){
 
 
 
+/****i* januae-dms/CreateCRC ***********************************************
+*
+*   NAME
+*       CreateCRC()
+*
+*   SYNOPSIS
+*       USHORT CreateCRC(UCHAR* mem, ULONG size );
+*
+*   FUNCTION
+*       Calculate the DMS 16-bit table-driven CRC for a memory block.
+*
+*   INPUTS
+*       mem - First byte of the block.
+*       size - Number of bytes to process.
+*
+*   RESULT
+*       CRC value initialized to zero.
+*
+****************************************************************************
+*
+*/
 USHORT CreateCRC(UCHAR* mem, ULONG size ){
 	static USHORT CRCTab[256]={
 		0x0000,0xC0C1,0xC181,0x0140,0xC301,0x03C0,0x0280,0xC241,
