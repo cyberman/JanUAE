@@ -21,7 +21,32 @@
 #define NUM_EVILCHARS 7
 static const char evilchars[NUM_EVILCHARS] = { '\\', '*', '?', '\"', '<', '>', '|' };
 
-/* Return nonzero for any name we can't create on the native filesystem.  */
+/****i* januae-win32/fsdb_name_invalid *************************************
+*
+*   NAME
+*       fsdb_name_invalid()
+*
+*   SYNOPSIS
+*       int fsdb_name_invalid (const char *n);
+*
+*   FUNCTION
+*       Check whether an Amiga filename is forbidden by the Win32 host
+*       filesystem.
+*
+*   INPUTS
+*       n - Filename to validate.
+*
+*   RESULT
+*       Nonzero for rejected names; zero otherwise.
+*
+*   NOTES
+*       Rejects reserved device names, trailing spaces or periods, seven
+*       forbidden characters and FSDB_FILE. Requires a nonempty string; the
+*       implementation examines n[strlen(n)-1].
+*
+****************************************************************************
+*
+*/
 int fsdb_name_invalid (const char *n)
 {
     int i;
@@ -67,11 +92,58 @@ int fsdb_name_invalid (const char *n)
     return 0; /* the filename passed all checks, now it should be ok */
 }
 
+/****i* januae-win32/filesys_parse_mask ************************************
+*
+*   NAME
+*       filesys_parse_mask()
+*
+*   SYNOPSIS
+*       static uae_u32 filesys_parse_mask (uae_u32 mask);
+*
+*   FUNCTION
+*       Convert between stored Amiga and host-facing protection-mask bits.
+*
+*   INPUTS
+*       mask - Protection bit mask.
+*
+*   RESULT
+*       mask with the low four bits inverted.
+*
+*   NOTES
+*       XOR with 0xF is its own inverse; no other bits are modified.
+*
+****************************************************************************
+*
+*/
 static uae_u32 filesys_parse_mask (uae_u32 mask)
 {
     return mask ^ 0xf;
 }
 
+/****i* januae-win32/fsdb_exists *******************************************
+*
+*   NAME
+*       fsdb_exists()
+*
+*   SYNOPSIS
+*       int fsdb_exists (char *nname);
+*
+*   FUNCTION
+*       Test whether Windows can obtain file attributes for a path.
+*
+*   INPUTS
+*       nname - Native filesystem pathname.
+*
+*   RESULT
+*       One if GetFileAttributes succeeds; zero otherwise.
+*
+*   NOTES
+*       Does not distinguish a missing path from other attribute-query
+*       failures.
+*
+****************************************************************************
+*
+*/
 int fsdb_exists (char *nname)
 {
     if (GetFileAttributes(nname) == 0xFFFFFFFF)
@@ -79,8 +151,31 @@ int fsdb_exists (char *nname)
     return 1;
 }
 
-/* For an a_inode we have newly created based on a filename we found on the
- * native fs, fill in information about this file/directory.  */
+/****i* januae-win32/fsdb_fill_file_attrs **********************************
+*
+*   NAME
+*       fsdb_fill_file_attrs()
+*
+*   SYNOPSIS
+*       int fsdb_fill_file_attrs (a_inode *base, a_inode *aino);
+*
+*   FUNCTION
+*       Populate an inode with Win32 file attribute information.
+*
+*   INPUTS
+*       base - Unused parent inode argument.
+*       aino - Inode with a valid native pathname to update.
+*
+*   RESULT
+*       One when attributes are obtained; zero on failure.
+*
+*   NOTES
+*       Sets directory status and maps archive, read-only, write and delete
+*       access into Amiga protection bits. Logs attribute-query failures.
+*
+****************************************************************************
+*
+*/
 int fsdb_fill_file_attrs (a_inode *base, a_inode *aino)
 {
     DWORD mode;
@@ -100,6 +195,31 @@ int fsdb_fill_file_attrs (a_inode *base, a_inode *aino)
     return 1;
 }
 
+/****i* januae-win32/fsdb_set_file_attrs ***********************************
+*
+*   NAME
+*       fsdb_set_file_attrs()
+*
+*   SYNOPSIS
+*       int fsdb_set_file_attrs (a_inode *aino);
+*
+*   FUNCTION
+*       Translate stored Amiga protection bits to Win32 attributes.
+*
+*   INPUTS
+*       aino - Inode with the target pathname and Amiga protection mask.
+*
+*   RESULT
+*       ERROR_OBJECT_NOT_AROUND when stat fails; otherwise zero.
+*
+*   NOTES
+*       Sets attributes only for nondirectories and marks the inode dirty.
+*       Ignores the result of SetFileAttributes(), so zero does not
+*       guarantee the attributes changed.
+*
+****************************************************************************
+*
+*/
 int fsdb_set_file_attrs (a_inode *aino)
 {
     struct stat statbuf;
@@ -127,8 +247,32 @@ int fsdb_set_file_attrs (a_inode *aino)
     return 0;
 }
 
-/* Return nonzero if we can represent the amigaos_mode of AINO within the
- * native FS.  Return zero if that is not possible.  */
+/****i* januae-win32/fsdb_mode_representable_p *****************************
+*
+*   NAME
+*       fsdb_mode_representable_p()
+*
+*   SYNOPSIS
+*       int fsdb_mode_representable_p (const a_inode *aino);
+*
+*   FUNCTION
+*       Check whether the inode protection mask is representable with host
+*       attributes.
+*
+*   INPUTS
+*       aino - Inode whose Amiga protection mode is checked.
+*
+*   RESULT
+*       One for accepted modes; zero otherwise.
+*
+*   NOTES
+*       Directories are accepted only with a zero mask. For files, the
+*       implementation rejects script/pure/execute/read bits and requires
+*       write/delete bits to be both present or both absent.
+*
+****************************************************************************
+*
+*/
 int fsdb_mode_representable_p (const a_inode *aino)
 {
     int mask = aino->amigaos_mode;
@@ -150,6 +294,34 @@ int fsdb_mode_representable_p (const a_inode *aino)
     return 0;
 }
 
+/****i* januae-win32/fsdb_create_unique_nname ******************************
+*
+*   NAME
+*       fsdb_create_unique_nname()
+*
+*   SYNOPSIS
+*       char *fsdb_create_unique_nname (a_inode *base, const char
+*       *suggestion);
+*
+*   FUNCTION
+*       Generate an available native pathname for an Amiga file.
+*
+*   INPUTS
+*       base - Parent inode supplying the native directory.
+*       suggestion - Requested filename component.
+*
+*   RESULT
+*       Newly allocated native pathname.
+*
+*   NOTES
+*       Prefixes __uae___, replaces forbidden characters, dots and spaces
+*       with underscores, and retries random suffixes until access() reports
+*       ENOENT. The caller owns the returned allocation; other access
+*       failures do not terminate the retry loop.
+*
+****************************************************************************
+*
+*/
 char *fsdb_create_unique_nname (a_inode *base, const char *suggestion)
 {
     char *c;
@@ -184,6 +356,27 @@ char *fsdb_create_unique_nname (a_inode *base, const char *suggestion)
     }
 }
 
+/****i* januae-win32/dos_errno *********************************************
+*
+*   NAME
+*       dos_errno()
+*
+*   SYNOPSIS
+*       int dos_errno (void);
+*
+*   FUNCTION
+*       Translate the last Win32 error to an AmigaDOS filesystem error.
+*
+*   RESULT
+*       AmigaDOS error constant for the current GetLastError() value.
+*
+*   NOTES
+*       Unmapped Windows codes are logged and converted to
+*       ERROR_NOT_IMPLEMENTED.
+*
+****************************************************************************
+*
+*/
 int dos_errno (void)
 {
     DWORD e = GetLastError ();

@@ -15,11 +15,30 @@
 
 #include <SDL_main.h>
 
-/*
- * Handle break signal
- */
 #include <signal.h>
 
+/****i* januae-win32/sigbrkhandler *****************************************
+*
+*   NAME
+*       sigbrkhandler()
+*
+*   SYNOPSIS
+*       static RETSIGTYPE sigbrkhandler (int foo);
+*
+*   FUNCTION
+*       Respond to a SIGINT break request.
+*
+*   INPUTS
+*       foo - Received signal number in the C variant.
+*
+*   NOTES
+*       Activates the debugger only in DEBUGGER builds. Reinstalls the
+*       handler on the non-Unix branch. The C++ variant has a variadic
+*       signature.
+*
+****************************************************************************
+*
+*/
 #ifdef __cplusplus
 static RETSIGTYPE sigbrkhandler(...)
 #else
@@ -35,6 +54,24 @@ static RETSIGTYPE sigbrkhandler (int foo)
 #endif
 }
 
+/****i* januae-win32/setup_brkhandler **************************************
+*
+*   NAME
+*       setup_brkhandler()
+*
+*   SYNOPSIS
+*       void setup_brkhandler (void);
+*
+*   FUNCTION
+*       Register the emulator SIGINT handler.
+*
+*   NOTES
+*       Uses sigaction on Unix targets other than NeXT; otherwise installs a
+*       signal handler with signal(). Registration errors are not reported.
+*
+****************************************************************************
+*
+*/
 void setup_brkhandler (void)
 {
 #if defined(__unix) && !defined(__NeXT__)
@@ -60,6 +97,29 @@ int os_winnt, os_winnt_admin;
 static OSVERSIONINFO osVersion;
 static SYSTEM_INFO SystemInfo;
 
+/****i* januae-win32/isadminpriv *******************************************
+*
+*   NAME
+*       isadminpriv()
+*
+*   SYNOPSIS
+*       static int isadminpriv (void);
+*
+*   FUNCTION
+*       Check whether the process token belongs to the built-in
+*       Administrators group.
+*
+*   RESULT
+*       Nonzero if a matching group SID is found; zero otherwise.
+*
+*   NOTES
+*       Queries Windows token groups and compares their SIDs. Several early
+*       failure paths return without closing the token or releasing
+*       allocated storage.
+*
+****************************************************************************
+*
+*/
 static int isadminpriv (void)
 {
     DWORD i, dwSize = 0, dwResult = 0;
@@ -121,6 +181,30 @@ static int isadminpriv (void)
 typedef void (CALLBACK* PGETNATIVESYSTEMINFO)(LPSYSTEM_INFO);
 static PGETNATIVESYSTEMINFO pGetNativeSystemInfo;
 
+/****i* januae-win32/osdetect **********************************************
+*
+*   NAME
+*       osdetect()
+*
+*   SYNOPSIS
+*       static int osdetect (void);
+*
+*   FUNCTION
+*       Read Windows version and processor information and set the global OS
+*       flags.
+*
+*   RESULT
+*       Zero for an NT platform with a major version of four or earlier;
+*       otherwise one.
+*
+*   NOTES
+*       Updates os_winnt and os_winnt_admin. Uses GetNativeSystemInfo when
+*       available; otherwise GetSystemInfo. GetVersionEx failure is not
+*       reported as an error.
+*
+****************************************************************************
+*
+*/
 static int osdetect (void)
 {
     os_winnt = 0;
@@ -153,6 +237,32 @@ static int osdetect (void)
 }
 
 //int _stdcall WinMain (HINSTANCE hInstance, HINSTANCE prev, LPSTR cmd, int show)
+/****i* januae-win32/main **************************************************
+*
+*   NAME
+*       main()
+*
+*   SYNOPSIS
+*       int main (int argc, char **argv);
+*
+*   FUNCTION
+*       Start the Win32 emulator entry point.
+*
+*   INPUTS
+*       argc - Command-line argument count.
+*       argv - Command-line argument vector.
+*
+*   RESULT
+*       Always zero when the emulator entry point returns.
+*
+*   NOTES
+*       Allocates start_path and obtains the executable directory, then
+*       initializes SDL, runs real_main(), and frees start_path. Allocation
+*       and module-path retrieval failures are not handled.
+*
+****************************************************************************
+*
+*/
 int main (int argc, char **argv)
 {
 //    char **argv,
@@ -176,6 +286,26 @@ int main (int argc, char **argv)
 
 extern FILE *debugfile;
 
+/****i* januae-win32/logging_init ******************************************
+*
+*   NAME
+*       logging_init()
+*
+*   SYNOPSIS
+*       void logging_init (void);
+*
+*   FUNCTION
+*       Initialize or reopen the Win32 emulator log stream.
+*
+*   NOTES
+*       When SINGLEFILE is disabled, the first call opens a configured log
+*       or fallback boot log; the second call reopens only a configured log.
+*       Later calls write a restart marker. File-open failures are not
+*       reported.
+*
+****************************************************************************
+*
+*/
 void logging_init (void)
 {
     static int first;
@@ -224,23 +354,103 @@ void logging_init (void)
 //    write_log ("EXE: '%s'\nDATA: '%s'\n", start_path_exe, start_path_data);
 }
 
-/* dummy to get this thing to build */
+/****i* januae-win32/filesys_init ******************************************
+*
+*   NAME
+*       filesys_init()
+*
+*   SYNOPSIS
+*       void filesys_init (void);
+*
+*   FUNCTION
+*       Provide a no-op filesystem initialization entry point.
+*
+*   NOTES
+*       This Win32 implementation performs no initialization.
+*
+****************************************************************************
+*
+*/
 void filesys_init (void)
 {
 }
 
-/*
- * Handle target-specific cfgfile options
- */
+/****i* januae-win32/target_save_options ***********************************
+*
+*   NAME
+*       target_save_options()
+*
+*   SYNOPSIS
+*       void target_save_options (FILE *f, const struct uae_prefs *p);
+*
+*   FUNCTION
+*       Provide the Win32 target configuration writer.
+*
+*   INPUTS
+*       f - Configuration output stream.
+*       p - Emulator preferences.
+*
+*   NOTES
+*       No target-specific options are written.
+*
+****************************************************************************
+*
+*/
 void target_save_options (FILE *f, const struct uae_prefs *p)
 {
 }
 
+/****i* januae-win32/target_parse_option ***********************************
+*
+*   NAME
+*       target_parse_option()
+*
+*   SYNOPSIS
+*       int target_parse_option (struct uae_prefs *p, const char *option,
+*       const char *value);
+*
+*   FUNCTION
+*       Handle an unrecognized Win32 target option.
+*
+*   INPUTS
+*       p - Preferences object.
+*       option - Option name.
+*       value - Option value.
+*
+*   RESULT
+*       Always zero.
+*
+*   NOTES
+*       This backend does not recognize any target-specific options.
+*
+****************************************************************************
+*
+*/
 int target_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     return 0;
 }
 
+/****i* januae-win32/target_default_options ********************************
+*
+*   NAME
+*       target_default_options()
+*
+*   SYNOPSIS
+*       void target_default_options (struct uae_prefs *p);
+*
+*   FUNCTION
+*       Provide target-specific default initialization.
+*
+*   INPUTS
+*       p - Preferences object.
+*
+*   NOTES
+*       Does not change the preferences.
+*
+****************************************************************************
+*
+*/
 void target_default_options (struct uae_prefs *p)
 {
 }

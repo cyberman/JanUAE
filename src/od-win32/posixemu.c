@@ -19,7 +19,29 @@ static DWORD lasterror;
 
 
 #ifndef HAVE_GETTIMEOFDAY
-/* Our Win32 implementation of this function */
+/****i* januae-win32/gettimeofday ******************************************
+*
+*   NAME
+*       gettimeofday()
+*
+*   SYNOPSIS
+*       void gettimeofday (struct timeval *tv, void *blah);
+*
+*   FUNCTION
+*       Read the current host time into a POSIX timeval.
+*
+*   INPUTS
+*       tv - Output time structure.
+*       blah - Unused compatibility argument.
+*
+*   NOTES
+*       When HAVE_GETTIMEOFDAY is undefined, reads ftime() and converts
+*       milliseconds to microseconds. It does not report clock-read
+*       failures.
+*
+****************************************************************************
+*
+*/
 void gettimeofday (struct timeval *tv, void *blah)
 {
     struct timeb time;
@@ -31,6 +53,32 @@ void gettimeofday (struct timeval *tv, void *blah)
 #endif
 
 #ifndef HAVE_TRUNCATE
+/****i* januae-win32/truncate **********************************************
+*
+*   NAME
+*       truncate()
+*
+*   SYNOPSIS
+*       int truncate (const char *name, long int len);
+*
+*   FUNCTION
+*       Set an existing file length using Windows file operations.
+*
+*   INPUTS
+*       name - File to resize.
+*       len - Requested length from the beginning of the file.
+*
+*   RESULT
+*       Zero on success; -1 on failure.
+*
+*   NOTES
+*       Only built without HAVE_TRUNCATE. Opens the file, seeks and calls
+*       SetEndOfFile; records GetLastError in a private variable on failure.
+*       This implementation does not set errno or expose that private error.
+*
+****************************************************************************
+*
+*/
 int truncate (const char *name, long int len)
 {
     HANDLE hFile;
@@ -56,6 +104,31 @@ int truncate (const char *name, long int len)
 }
 #endif
 
+/****i* januae-win32/isspecialdrive ****************************************
+*
+*   NAME
+*       isspecialdrive()
+*
+*   SYNOPSIS
+*       int isspecialdrive (const char *name);
+*
+*   FUNCTION
+*       Check whether Windows reports a drive path as not ready.
+*
+*   INPUTS
+*       name - Path to inspect.
+*
+*   RESULT
+*       One for ERROR_NOT_READY, minus one for another attribute error, or
+*       zero otherwise.
+*
+*   NOTES
+*       Temporarily suppresses critical-error dialogs while querying file
+*       attributes, then restores the prior error mode.
+*
+****************************************************************************
+*
+*/
 int isspecialdrive (const char *name)
 {
     DWORD v;
