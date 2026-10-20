@@ -198,6 +198,24 @@ static const uae_s8 blit_cycle_diagram_line[] =
 static const uae_s8 blit_cycle_diagram_finald[] =
     { 0, 2, 0,4 };
 
+/****i* januae-blitter/build_blitfilltable
+ *
+ *   NAME
+ *       build_blitfilltable()
+ *
+ *   SYNOPSIS
+ *       void build_blitfilltable (void)
+ *
+ *   FUNCTION
+ *       Initialize the word masks and the 256-entry lookup table for inclusive and
+ *       exclusive fill operations.
+ *
+ *   NOTES
+ *       The table holds the filled byte and the carry state for each of four fill
+ *       configurations.
+ *
+****************************************************************************/
+
 void build_blitfilltable (void)
 {
     unsigned int d, fillmask;
@@ -226,6 +244,22 @@ void build_blitfilltable (void)
     }
 }
 
+/****i* januae-blitter/blitter_dump
+ *
+ *   NAME
+ *       blitter_dump()
+ *
+ *   SYNOPSIS
+ *       static void blitter_dump (void)
+ *
+ *   FUNCTION
+ *       Log the current blitter addresses, control words, input data and modulos.
+ *
+ *   NOTES
+ *       Emits diagnostic output through write_log().
+ *
+****************************************************************************/
+
 static void blitter_dump (void)
 {
     write_log ("APT=%08.8X BPT=%08.8X CPT=%08.8X DPT=%08.8X\n", bltapt, bltbpt, bltcpt, bltdpt);
@@ -236,6 +270,27 @@ static void blitter_dump (void)
 	blt_info.bltamod & 0xffff, blt_info.bltbmod & 0xffff, blt_info.bltcmod & 0xffff, blt_info.bltdmod & 0xffff);
 }
 
+/****i* januae-blitter/channel_state
+ *
+ *   NAME
+ *       channel_state()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int channel_state (unsigned int cycles)
+ *
+ *   FUNCTION
+ *       Select the DMA-channel code for a blitter cycle from the initial and
+ *       repeating timing diagrams.
+ *
+ *   RESULT
+ *       The channel or idle-cycle code at the given cycle offset.
+ *
+ *   NOTES
+ *       The caller must establish a valid blit_diag and a nonzero repeating cycle
+ *       count.
+ *
+****************************************************************************/
+
 STATIC_INLINE int channel_state (unsigned int cycles)
 {
     if ((int)cycles < blit_diag[0])
@@ -244,6 +299,26 @@ STATIC_INLINE int channel_state (unsigned int cycles)
 }
 
 #ifdef CPUEMU_6
+/****i* januae-blitter/canblit
+ *
+ *   NAME
+ *       canblit()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int canblit (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Check whether the bus is available to the blitter at a horizontal position.
+ *
+ *   RESULT
+ *       1 for an available bus slot, 0 for a busy or bitplane-DMA slot, or -1 for a
+ *       refresh slot.
+ *
+ *   NOTES
+ *       Available only when CPUEMU_6 is defined; indexes cycle_line by hpos.
+ *
+****************************************************************************/
+
 STATIC_INLINE int canblit (unsigned int hpos)
 {
     if (is_bitplane_dma (hpos))
@@ -255,6 +330,23 @@ STATIC_INLINE int canblit (unsigned int hpos)
     return 0;
 }
 #endif
+
+/****i* januae-blitter/blitter_done
+ *
+ *   NAME
+ *       blitter_done()
+ *
+ *   SYNOPSIS
+ *       static void blitter_done (void)
+ *
+ *   FUNCTION
+ *       Finish the active blit, clear queued destination writes, raise the blitter
+ *       interrupt and deactivate the scheduled event.
+ *
+ *   NOTES
+ *       Also clears the CPU blitter-nasty special flag.
+ *
+****************************************************************************/
 
 static void blitter_done (void)
 {
@@ -269,6 +361,24 @@ static void blitter_done (void)
 	vpos, blit_cyclecounter, blit_misscyclecounter, blit_cyclecounter + blit_misscyclecounter);
 #endif
 }
+
+/****i* januae-blitter/blitter_dofast
+ *
+ *   NAME
+ *       blitter_dofast()
+ *
+ *   SYNOPSIS
+ *       static void blitter_dofast (void)
+ *
+ *   FUNCTION
+ *       Execute a forward block blit using enabled A/B/C/D memory channels, shifts,
+ *       masks and optional fill logic.
+ *
+ *   NOTES
+ *       Advances enabled channel pointers and updates blt_info; uses a generated
+ *       optimized minterm routine when available without fill.
+ *
+****************************************************************************/
 
 static void blitter_dofast (void)
 {
@@ -365,6 +475,24 @@ static void blitter_dofast (void)
     bltstate = BLT_done;
 }
 
+/****i* januae-blitter/blitter_dofast_desc
+ *
+ *   NAME
+ *       blitter_dofast_desc()
+ *
+ *   SYNOPSIS
+ *       static void blitter_dofast_desc (void)
+ *
+ *   FUNCTION
+ *       Execute a descending block blit using reversed channel addresses and
+ *       shifts.
+ *
+ *   NOTES
+ *       Updates the blitter registers and destination memory; uses the descending
+ *       optimized minterm routine when available without fill.
+ *
+****************************************************************************/
+
 static void blitter_dofast_desc (void)
 {
     int i,j;
@@ -458,6 +586,24 @@ static void blitter_dofast_desc (void)
     bltstate = BLT_done;
 }
 
+/****i* januae-blitter/blitter_read
+ *
+ *   NAME
+ *       blitter_read()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void blitter_read (void)
+ *
+ *   FUNCTION
+ *       Read the line-mode C-channel source word when enabled and advance the line
+ *       state to work.
+ *
+ *   NOTES
+ *       If blitter DMA is disabled while C is enabled, preserves the current state
+ *       without reading.
+ *
+****************************************************************************/
+
 STATIC_INLINE void blitter_read (void)
 {
     if (bltcon0 & 0x200) {
@@ -467,6 +613,24 @@ STATIC_INLINE void blitter_read (void)
     }
     bltstate = BLT_work;
 }
+
+/****i* januae-blitter/blitter_write
+ *
+ *   NAME
+ *       blitter_write()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void blitter_write (void)
+ *
+ *   FUNCTION
+ *       Write the current line-mode destination word through chip memory when
+ *       C-channel DMA is enabled.
+ *
+ *   NOTES
+ *       Updates the zero flag and advances the line state only if the DMA gate
+ *       permits progress.
+ *
+****************************************************************************/
 
 STATIC_INLINE void blitter_write (void)
 {
@@ -481,6 +645,23 @@ STATIC_INLINE void blitter_write (void)
     bltstate = BLT_next;
 }
 
+/****i* januae-blitter/blitter_line_incx
+ *
+ *   NAME
+ *       blitter_line_incx()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void blitter_line_incx (void)
+ *
+ *   FUNCTION
+ *       Advance the line-mode horizontal bit position and move the C pointer when
+ *       it wraps.
+ *
+ *   NOTES
+ *       Wraps the shift position at 16 bits.
+ *
+****************************************************************************/
+
 STATIC_INLINE void blitter_line_incx (void)
 {
     if (++blinea_shift == 16) {
@@ -488,6 +669,23 @@ STATIC_INLINE void blitter_line_incx (void)
 	bltcpt += 2;
     }
 }
+
+/****i* januae-blitter/blitter_line_decx
+ *
+ *   NAME
+ *       blitter_line_decx()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void blitter_line_decx (void)
+ *
+ *   FUNCTION
+ *       Decrease the line-mode horizontal bit position and move the C pointer when
+ *       it wraps.
+ *
+ *   NOTES
+ *       Wraps the shift position to bit 15 after crossing zero.
+ *
+****************************************************************************/
 
 STATIC_INLINE void blitter_line_decx (void)
 {
@@ -497,17 +695,67 @@ STATIC_INLINE void blitter_line_decx (void)
     }
 }
 
+/****i* januae-blitter/blitter_line_decy
+ *
+ *   NAME
+ *       blitter_line_decy()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void blitter_line_decy (void)
+ *
+ *   FUNCTION
+ *       Move the line-mode C pointer upward by the C-channel modulo.
+ *
+ *   NOTES
+ *       Clears the one-dot flag.
+ *
+****************************************************************************/
+
 STATIC_INLINE void blitter_line_decy (void)
 {
     bltcpt -= blt_info.bltcmod;
     blitonedot = 0;
 }
 
+/****i* januae-blitter/blitter_line_incy
+ *
+ *   NAME
+ *       blitter_line_incy()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void blitter_line_incy (void)
+ *
+ *   FUNCTION
+ *       Move the line-mode C pointer downward by the C-channel modulo.
+ *
+ *   NOTES
+ *       Clears the one-dot flag.
+ *
+****************************************************************************/
+
 STATIC_INLINE void blitter_line_incy (void)
 {
     bltcpt += blt_info.bltcmod;
     blitonedot = 0;
 }
+
+/****i* januae-blitter/blitter_line
+ *
+ *   NAME
+ *       blitter_line()
+ *
+ *   SYNOPSIS
+ *       static void blitter_line (void)
+ *
+ *   FUNCTION
+ *       Evaluate the active line-mode minterm from the shifted A pattern, B sign
+ *       pattern and C data.
+ *
+ *   NOTES
+ *       Single-dot mode suppresses the A pattern after a dot has already been
+ *       emitted.
+ *
+****************************************************************************/
 
 static void blitter_line (void)
 {
@@ -520,6 +768,23 @@ static void blitter_line (void)
     blitonedot = 1;
     blt_info.bltddat = blit_func(blitahold, blitbhold, blitchold, bltcon0 & 0xFF);
 }
+
+/****i* januae-blitter/blitter_line_proc
+ *
+ *   NAME
+ *       blitter_line_proc()
+ *
+ *   SYNOPSIS
+ *       static void blitter_line_proc (void)
+ *
+ *   FUNCTION
+ *       Advance the line drawing error accumulator and destination coordinates
+ *       according to BLTCON1 direction bits.
+ *
+ *   NOTES
+ *       Recomputes the error sign and enters the write state.
+ *
+****************************************************************************/
 
 static void blitter_line_proc (void)
 {
@@ -556,6 +821,23 @@ static void blitter_line_proc (void)
     bltstate = BLT_write;
 }
 
+/****i* januae-blitter/blitter_nxline
+ *
+ *   NAME
+ *       blitter_nxline()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void blitter_nxline (void)
+ *
+ *   FUNCTION
+ *       Advance to the next line-mode step, rotating the B pattern and decrementing
+ *       the remaining vertical count.
+ *
+ *   NOTES
+ *       Returns the line state to the read phase.
+ *
+****************************************************************************/
+
 STATIC_INLINE void blitter_nxline (void)
 {
     blineb = (blineb << 1) | (blineb >> 15);
@@ -570,6 +852,23 @@ static unsigned int blit_last_hpos;
 static unsigned int blitter_cyclecounter;
 static int blitter_hcounter1, blitter_hcounter2;
 static int blitter_vcounter1, blitter_vcounter2;
+
+/****i* januae-blitter/decide_blitter_line
+ *
+ *   NAME
+ *       decide_blitter_line()
+ *
+ *   SYNOPSIS
+ *       static void decide_blitter_line (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Run cycle-exact line-mode DMA through the supplied horizontal position.
+ *
+ *   NOTES
+ *       Processes only available DMA slots and finishes when the vertical line
+ *       count reaches zero; requires CPUEMU_6.
+ *
+****************************************************************************/
 
 static void decide_blitter_line (unsigned int hpos)
 {
@@ -615,6 +914,24 @@ static void decide_blitter_line (unsigned int hpos)
 
 #endif
 
+/****i* januae-blitter/actually_do_blit
+ *
+ *   NAME
+ *       actually_do_blit()
+ *
+ *   SYNOPSIS
+ *       static void actually_do_blit (void)
+ *
+ *   FUNCTION
+ *       Execute the pending blit immediately, using line drawing or the
+ *       forward/descending block transfer path.
+ *
+ *   NOTES
+ *       Updates the blitter state but does not itself issue the completion
+ *       interrupt.
+ *
+****************************************************************************/
+
 static void actually_do_blit (void)
 {
     if (blitline) {
@@ -636,6 +953,24 @@ static void actually_do_blit (void)
 	bltstate = BLT_done;
     }
 }
+
+/****i* januae-blitter/blitter_handler
+ *
+ *   NAME
+ *       blitter_handler()
+ *
+ *   SYNOPSIS
+ *       void blitter_handler (void)
+ *
+ *   FUNCTION
+ *       Complete or reschedule the event-driven blitter operation according to DMA
+ *       availability and slowdown.
+ *
+ *   NOTES
+ *       If DMA is disabled, reschedules the event; an immediate-blit fallback can
+ *       force progress after repeated stalls.
+ *
+****************************************************************************/
 
 void blitter_handler (void)
 {
@@ -674,6 +1009,27 @@ void blitter_handler (void)
 #ifdef CPUEMU_6
 
 static uae_u32 preva, prevb;
+/****i* januae-blitter/blitter_doblit
+ *
+ *   NAME
+ *       blitter_doblit()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u16 blitter_doblit (void)
+ *
+ *   FUNCTION
+ *       Compute one cycle-exact block-blitter destination word from current source
+ *       words and the minterm.
+ *
+ *   RESULT
+ *       The computed 16-bit destination word.
+ *
+ *   NOTES
+ *       Applies first/last-word masks and optional fill; updates the zero flag and
+ *       prior A word. Available only with CPUEMU_6.
+ *
+****************************************************************************/
+
 STATIC_INLINE uae_u16 blitter_doblit (void)
 {
     uae_u32 blitahold;
@@ -709,6 +1065,28 @@ STATIC_INLINE uae_u16 blitter_doblit (void)
 }
 
 
+/****i* januae-blitter/blitter_doddma
+ *
+ *   NAME
+ *       blitter_doddma()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int blitter_doddma (void)
+ *
+ *   FUNCTION
+ *       Write a pending destination word in the cycle-exact block-blitter path,
+ *       when a write is due.
+ *
+ *   RESULT
+ *       -1 for an immediate generated word, 1 or 2 for a queued word, or 0 when no
+ *       write occurs.
+ *
+ *   NOTES
+ *       Advances D-channel pointers and the destination line counters when a write
+ *       occurs; requires CPUEMU_6.
+ *
+****************************************************************************/
+
 STATIC_INLINE int blitter_doddma (void)
 {
     int wd;
@@ -743,6 +1121,24 @@ STATIC_INLINE int blitter_doddma (void)
     }
     return wd;
 }
+
+/****i* januae-blitter/blitter_dodma
+ *
+ *   NAME
+ *       blitter_dodma()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void blitter_dodma (unsigned int ch)
+ *
+ *   FUNCTION
+ *       Fetch the selected A, B or C DMA word and advance cycle-exact block-blitter
+ *       counters.
+ *
+ *   NOTES
+ *       Channel values 1, 2 and 3 select A, B and C; other values perform no source
+ *       fetch. Available with CPUEMU_6.
+ *
+****************************************************************************/
 
 STATIC_INLINE void blitter_dodma (unsigned int ch)
 {
@@ -791,6 +1187,24 @@ STATIC_INLINE void blitter_dodma (unsigned int ch)
 	}
     }
 }
+
+/****i* januae-blitter/decide_blitter
+ *
+ *   NAME
+ *       decide_blitter()
+ *
+ *   SYNOPSIS
+ *       void decide_blitter (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Advance the active blitter to the requested horizontal position in
+ *       cycle-exact mode.
+ *
+ *   NOTES
+ *       When CPUEMU_6 is not defined, this entry point is a no-op. Otherwise it
+ *       allocates bus cycles and completes work when the DMA counters finish.
+ *
+****************************************************************************/
 
 void decide_blitter (unsigned int hpos)
 {
@@ -886,6 +1300,24 @@ void decide_blitter (unsigned int hpos)
 void decide_blitter (unsigned int hpos) { }
 #endif
 
+/****i* januae-blitter/blitter_force_finish
+ *
+ *   NAME
+ *       blitter_force_finish()
+ *
+ *   SYNOPSIS
+ *       static void blitter_force_finish (void)
+ *
+ *   FUNCTION
+ *       Finish an active blit before operations that cannot preserve its running
+ *       state.
+ *
+ *   NOTES
+ *       Temporarily enables blitter DMA, executes or advances the pending
+ *       operation, then restores DMACON.
+ *
+****************************************************************************/
+
 static void blitter_force_finish (void)
 {
     uae_u16 odmacon;
@@ -916,6 +1348,24 @@ static void blitter_force_finish (void)
 	dmacon = odmacon;
     }
 }
+
+/****i* januae-blitter/blit_bltset
+ *
+ *   NAME
+ *       blit_bltset()
+ *
+ *   SYNOPSIS
+ *       static void blit_bltset (unsigned int con)
+ *
+ *   FUNCTION
+ *       Decode the blitter control registers into line, fill, descending and
+ *       channel timing state.
+ *
+ *   NOTES
+ *       Updates shifts, DMA cycle counts and the active timing diagram. The con
+ *       bitmask controls whether the fill carry is refreshed.
+ *
+****************************************************************************/
 
 static void blit_bltset (unsigned int con)
 {
@@ -977,6 +1427,22 @@ static void blit_bltset (unsigned int con)
     blt_info.blitdownbshift = 16 - blt_info.blitbshift;
 }
 
+/****i* januae-blitter/blit_modset
+ *
+ *   NAME
+ *       blit_modset()
+ *
+ *   SYNOPSIS
+ *       static void blit_modset (void)
+ *
+ *   FUNCTION
+ *       Set byte-address steps and channel modulos for forward or descending blits.
+ *
+ *   NOTES
+ *       Uses a two-byte step and reverses its sign for descending mode.
+ *
+****************************************************************************/
+
 static void blit_modset (void)
 {
     int mult;
@@ -989,6 +1455,23 @@ static void blit_modset (void)
     blit_modaddd = mult * blt_info.bltdmod;
 }
 
+/****i* januae-blitter/reset_blit
+ *
+ *   NAME
+ *       reset_blit()
+ *
+ *   SYNOPSIS
+ *       void reset_blit (unsigned int bltcon)
+ *
+ *   FUNCTION
+ *       Refresh control decoding and channel modulos while a blit is active.
+ *
+ *   NOTES
+ *       A nonzero bltcon argument requests control redecoding; performs no work
+ *       when the blitter is done.
+ *
+****************************************************************************/
+
 void reset_blit (unsigned int bltcon)
 {
     if (bltstate == BLT_done)
@@ -997,6 +1480,24 @@ void reset_blit (unsigned int bltcon)
 	blit_bltset (bltcon);
     blit_modset ();
 }
+
+/****i* januae-blitter/do_blitter
+ *
+ *   NAME
+ *       do_blitter()
+ *
+ *   SYNOPSIS
+ *       void do_blitter (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Start a new blitter operation using the current control registers, sizes
+ *       and DMA configuration.
+ *
+ *   NOTES
+ *       Initializes line or block state, sets the CPU nasty flag when requested and
+ *       schedules an event unless cycle-exact execution is selected.
+ *
+****************************************************************************/
 
 void do_blitter (unsigned int hpos)
 {
@@ -1089,6 +1590,24 @@ void do_blitter (unsigned int hpos)
 }
 
 
+/****i* januae-blitter/maybe_blit
+ *
+ *   NAME
+ *       maybe_blit()
+ *
+ *   SYNOPSIS
+ *       void maybe_blit (unsigned int hpos, int hack)
+ *
+ *   FUNCTION
+ *       Synchronize a pending blit when the emulated CPU accesses blitter-dependent
+ *       state.
+ *
+ *   NOTES
+ *       In cycle-exact mode advances to hpos; otherwise invokes the event handler
+ *       unless the optional first-line guard suppresses it.
+ *
+****************************************************************************/
+
 void maybe_blit (unsigned int hpos, int hack)
 {
     static int warned;
@@ -1122,6 +1641,27 @@ end:;
 #endif
 }
 
+/****i* januae-blitter/blitnasty
+ *
+ *   NAME
+ *       blitnasty()
+ *
+ *   SYNOPSIS
+ *       unsigned int blitnasty (void)
+ *
+ *   FUNCTION
+ *       Count blitter cycles that do not allocate a DMA channel since the last
+ *       check.
+ *
+ *   RESULT
+ *       The accumulated idle-cycle count; zero if the blitter is finished, disabled
+ *       or has no such cycles.
+ *
+ *   NOTES
+ *       Advances the internal cycle cursor to the current emulator cycle.
+ *
+****************************************************************************/
+
 unsigned int blitnasty (void)
 {
     unsigned int cycles, ccnt;
@@ -1141,7 +1681,25 @@ unsigned int blitnasty (void)
     return ccnt;
 }
 
-/* very approximate emulation of blitter slowdown caused by bitplane DMA */
+/****i* januae-blitter/blitter_slowdown
+ *
+ *   NAME
+ *       blitter_slowdown()
+ *
+ *   SYNOPSIS
+ *       void blitter_slowdown (int ddfstrt, int ddfstop, unsigned int totalcycles,
+ *       unsigned int freecycles)
+ *
+ *   FUNCTION
+ *       Estimate and accumulate non-cycle-exact blitter delay caused by competing
+ *       bitplane DMA.
+ *
+ *   NOTES
+ *       Updates the slowdown only with valid cycle geometry and when not drawing a
+ *       line; uses cached geometry to recalculate delay.
+ *
+****************************************************************************/
+
 void blitter_slowdown (int ddfstrt, int ddfstop, unsigned int totalcycles, unsigned int freecycles)
 {
     static int oddfstrt, oddfstop;
@@ -1172,6 +1730,26 @@ void blitter_slowdown (int ddfstrt, int ddfstop, unsigned int totalcycles, unsig
 
 #ifdef SAVESTATE
 
+/****i* januae-blitter/restore_blitter
+ *
+ *   NAME
+ *       restore_blitter()
+ *
+ *   SYNOPSIS
+ *       const uae_u8 *restore_blitter (const uae_u8 *src)
+ *
+ *   FUNCTION
+ *       Restore the limited blitter-active flag from the save-state stream.
+ *
+ *   RESULT
+ *       The source pointer supplied by the caller.
+ *
+ *   NOTES
+ *       Available only with SAVESTATE. Reads state via restore_u32(); it does not
+ *       restore in-flight blitter transfers.
+ *
+****************************************************************************/
+
 const uae_u8 *restore_blitter (const uae_u8 *src)
 {
     uae_u32 flags = restore_u32 ();
@@ -1184,6 +1762,23 @@ const uae_u8 *restore_blitter (const uae_u8 *src)
     return src;
 }
 
+/****i* januae-blitter/restore_blitter_finish
+ *
+ *   NAME
+ *       restore_blitter_finish()
+ *
+ *   SYNOPSIS
+ *       void restore_blitter_finish (void)
+ *
+ *   FUNCTION
+ *       Restart a saved blit that was marked initialized but not executing.
+ *
+ *   NOTES
+ *       Available only with SAVESTATE; restarts the operation with horizontal
+ *       position zero.
+ *
+****************************************************************************/
+
 void restore_blitter_finish (void)
 {
     if (bltstate == BLT_init) {
@@ -1191,6 +1786,28 @@ void restore_blitter_finish (void)
 	do_blitter (0);
     }
 }
+
+/****i* januae-blitter/save_blitter
+ *
+ *   NAME
+ *       save_blitter()
+ *
+ *   SYNOPSIS
+ *       uae_u8 *save_blitter (uae_u32 *len, uae_u8 *dstptr)
+ *
+ *   FUNCTION
+ *       Record the limited blitter completion state and forcibly finish running
+ *       transfers before saving.
+ *
+ *   RESULT
+ *       The caller-provided destination or an allocated fallback buffer.
+ *
+ *   NOTES
+ *       Available only with SAVESTATE. Writes state through save_u32(); *len
+ *       records the difference of local pointers, not the bytes written by
+ *       save_u32().
+ *
+****************************************************************************/
 
 uae_u8 *save_blitter (uae_u32 *len, uae_u8 *dstptr)
 {
