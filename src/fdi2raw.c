@@ -71,6 +71,29 @@ static const char *datalog (const uae_u8 *src, unsigned int len)
 	return buf + offset2;
 }
 #else
+/****i* januae-fdi/datalog
+*
+*   NAME
+*       datalog() -- Provide the non-debug diagnostic formatter.
+*
+*   SYNOPSIS
+*       static const char *datalog (const uae_u8 *src, unsigned int len);
+*
+*   FUNCTION
+*       Return the empty string in builds of this file; DEBUG is explicitly
+*       undefined.
+*
+*   INPUTS
+*       src - Source bytes or compressed pulse stream; caller-owned.
+*       len - Length of the indicated input or output sequence.
+*
+*   RESULT
+*       Pointer to a static empty string.
+*
+***************************************************************************
+*
+*/
+
 static const char *datalog (const uae_u8 *src, unsigned int len) { return ""; }
 #endif
 
@@ -158,6 +181,25 @@ struct fdi {
 
 #define	get_u32(x) ((((x)[0])<<24)|(((x)[1])<<16)|(((x)[2])<<8)|((x)[3]))
 #define	get_u24(x) ((((x)[0])<<16)|(((x)[1])<<8)|((x)[2]))
+/****i* januae-fdi/put_u32
+*
+*   NAME
+*       put_u32() -- Store a big-endian 32-bit value.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void put_u32 (uae_u8 *d, uae_u32 v);
+*
+*   FUNCTION
+*       Write the four bytes of v to the caller-supplied output buffer.
+*
+*   INPUTS
+*       d - Output buffer, large enough for four bytes or the decoded data.
+*       v - Input value to encode.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE void put_u32 (uae_u8 *d, uae_u32 v)
 {
 	d[0] = v >> 24;
@@ -174,6 +216,30 @@ struct node {
 typedef	struct node NODE;
 
 static uae_u8 temp, temp2;
+
+/****i* januae-fdi/expand_tree
+*
+*   NAME
+*       expand_tree() -- Decode a Huffman tree shape.
+*
+*   SYNOPSIS
+*       static const uae_u8 *expand_tree (const uae_u8 *stream, NODE *node);
+*
+*   FUNCTION
+*       Recursively construct left and right child nodes from the shared bit
+*       reader; leaf nodes have no allocated children. The caller frees the
+*       allocated tree.
+*
+*   INPUTS
+*       stream - FDI input cursor in a valid encoded stream.
+*       node - Node within the allocated Huffman tree.
+*
+*   RESULT
+*       Pointer to the first unread compressed input byte.
+*
+***************************************************************************
+*
+*/
 
 static const uae_u8 *expand_tree (const uae_u8 *stream, NODE *node)
 {
@@ -204,6 +270,29 @@ static const uae_u8 *expand_tree (const uae_u8 *stream, NODE *node)
 	}
 }
 
+/****i* januae-fdi/values_tree8
+*
+*   NAME
+*       values_tree8() -- Assign eight-bit Huffman leaf values.
+*
+*   SYNOPSIS
+*       static const uae_u8 *values_tree8 (const uae_u8 *stream, NODE *node);
+*
+*   FUNCTION
+*       Visit the decoded tree in traversal order and consume one byte for each
+*       leaf.
+*
+*   INPUTS
+*       stream - FDI input cursor in a valid encoded stream.
+*       node - Node within the allocated Huffman tree.
+*
+*   RESULT
+*       Pointer past the last consumed value byte.
+*
+***************************************************************************
+*
+*/
+
 static const uae_u8 *values_tree8 (const uae_u8 *stream, NODE *node)
 {
 	if (node->left == 0) {
@@ -214,6 +303,29 @@ static const uae_u8 *values_tree8 (const uae_u8 *stream, NODE *node)
 		return values_tree8 (stream_temp, node->right);
 	}
 }
+
+/****i* januae-fdi/values_tree16
+*
+*   NAME
+*       values_tree16() -- Assign sixteen-bit Huffman leaf values.
+*
+*   SYNOPSIS
+*       static const uae_u8 *values_tree16 (const uae_u8 *stream, NODE *node);
+*
+*   FUNCTION
+*       Visit the decoded tree and consume a big-endian two-byte value for each
+*       leaf.
+*
+*   INPUTS
+*       stream - FDI input cursor in a valid encoded stream.
+*       node - Node within the allocated Huffman tree.
+*
+*   RESULT
+*       Pointer past the last consumed value.
+*
+***************************************************************************
+*
+*/
 
 static const uae_u8 *values_tree16 (const uae_u8 *stream, NODE *node)
 {
@@ -227,6 +339,25 @@ static const uae_u8 *values_tree16 (const uae_u8 *stream, NODE *node)
 	}
 }
 
+/****i* januae-fdi/free_nodes
+*
+*   NAME
+*       free_nodes() -- Release a decoded Huffman subtree.
+*
+*   SYNOPSIS
+*       static void free_nodes (NODE *node);
+*
+*   FUNCTION
+*       Recursively free child nodes and the supplied root using the FDI
+*       allocator. A null node is accepted.
+*
+*   INPUTS
+*       node - Node within the allocated Huffman tree.
+*
+***************************************************************************
+*
+*/
+
 static void free_nodes (NODE *node)
 {
 	if (node) {
@@ -236,6 +367,28 @@ static void free_nodes (NODE *node)
 	}
 }
 
+/****i* januae-fdi/sign_extend16
+*
+*   NAME
+*       sign_extend16() -- Sign-extend an encoded 16-bit value.
+*
+*   SYNOPSIS
+*       STATIC_INLINE uae_u32 sign_extend16 (uae_u32 v);
+*
+*   FUNCTION
+*       Copy bit 15 into the upper 16 bits of the unsigned integer without
+*       masking the lower value first.
+*
+*   INPUTS
+*       v - Input value to encode.
+*
+*   RESULT
+*       Unsigned representation of the sign-extended value.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE uae_u32 sign_extend16 (uae_u32 v)
 {
 	if (v &	0x8000)
@@ -243,12 +396,58 @@ STATIC_INLINE uae_u32 sign_extend16 (uae_u32 v)
 	return v;
 }
 
+/****i* januae-fdi/sign_extend8
+*
+*   NAME
+*       sign_extend8() -- Sign-extend an encoded eight-bit value.
+*
+*   SYNOPSIS
+*       STATIC_INLINE uae_u32 sign_extend8 (uae_u32 v);
+*
+*   FUNCTION
+*       Copy bit 7 into the upper 24 bits of the unsigned integer without masking
+*       the lower value first.
+*
+*   INPUTS
+*       v - Input value to encode.
+*
+*   RESULT
+*       Unsigned representation of the sign-extended value.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE uae_u32 sign_extend8 (uae_u32 v)
 {
 	if (v &	0x80)
 		v |= 0xffffff00;
 	return v;
 }
+
+/****i* januae-fdi/fdi_decode
+*
+*   NAME
+*       fdi_decode() -- Decompress Huffman-coded pulse fields.
+*
+*   SYNOPSIS
+*       static void fdi_decode (const uae_u8 *stream, unsigned int size, uae_u8
+*       *out);
+*
+*   FUNCTION
+*       Read successive packed substreams, build and free their Huffman trees and
+*       combine shifted 8- or 16-bit values into a 32-bit output array. The
+*       source byte count is not independently bounded.
+*
+*   INPUTS
+*       stream - FDI input cursor in a valid encoded stream.
+*       size - Number of decoded pulse entries or bytes as defined by the
+*       routine.
+*       out - Caller-provided decoded data or cell-timing buffer.
+*
+***************************************************************************
+*
+*/
 
 static void fdi_decode (const uae_u8 *stream, unsigned int size, uae_u8 *out)
 {
@@ -318,6 +517,28 @@ static void fdi_decode (const uae_u8 *stream, unsigned int size, uae_u8 *out)
 }
 
 
+/****i* januae-fdi/decode_raw_track
+*
+*   NAME
+*       decode_raw_track() -- Copy a raw FDI track bitstream.
+*
+*   SYNOPSIS
+*       static unsigned int decode_raw_track (FDI *fdi);
+*
+*   FUNCTION
+*       Read the track's 32-bit bit count and copy the corresponding bytes into
+*       the decoder output. The source cursor advances by the copied byte count.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+*   RESULT
+*       Advertised bit count of the track.
+*
+***************************************************************************
+*
+*/
+
 static unsigned int decode_raw_track (FDI *fdi)
 {
 	unsigned int size = get_u32(fdi->track_src);
@@ -326,37 +547,143 @@ static unsigned int decode_raw_track (FDI *fdi)
 	return size;
 }
 
-/* unknown track */
+/****i* januae-fdi/zxx
+*
+*   NAME
+*       zxx() -- Handle an unrecognized track type.
+*
+*   SYNOPSIS
+*       static void zxx (FDI *fdi);
+*
+*   FUNCTION
+*       Emit an optional verbose diagnostic. This handler does not itself set the
+*       decoder error flag.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void zxx	(FDI *fdi)
 {
 	outlog ("track %d: unknown track type 0x%02.2X\n", fdi->current_track, fdi->track_type);
 //	return -1;
 }
-/* unsupported track */
+/****i* januae-fdi/zyy
+*
+*   NAME
+*       zyy() -- Handle an unsupported track type.
+*
+*   SYNOPSIS
+*       static void zyy (FDI *fdi);
+*
+*   FUNCTION
+*       Emit an optional verbose diagnostic. This handler does not itself set the
+*       decoder error flag.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void zyy	(FDI *fdi)
 {
 	outlog ("track %d: unsupported track type 0x%02.2X\n", fdi->current_track, fdi->track_type);
 //	return -1;
 }
-/* empty track */
+/****i* januae-fdi/track_empty
+*
+*   NAME
+*       track_empty() -- Handle an empty track descriptor.
+*
+*   SYNOPSIS
+*       static void track_empty (FDI *fdi);
+*
+*   FUNCTION
+*       Leave the output and decoder state unchanged.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void track_empty	(FDI *fdi)
 {
 //	return 0;
 }
 
-/* unknown sector described type */
+/****i* januae-fdi/dxx
+*
+*   NAME
+*       dxx() -- Reject an unknown sector-command type.
+*
+*   SYNOPSIS
+*       static void dxx (FDI *fdi);
+*
+*   FUNCTION
+*       Emit an optional diagnostic and set the decoder error flag.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void dxx	(FDI *fdi)
 {
 	outlog ("\ntrack %d: unknown sector described type 0x%02.2X\n",	fdi->current_track, fdi->track_type);
 	fdi->err = 1;
 }
-/* unsupported sector described	type */
+/****i* januae-fdi/dyy
+*
+*   NAME
+*       dyy() -- Reject an unsupported sector-command type.
+*
+*   SYNOPSIS
+*       static void dyy (FDI *fdi);
+*
+*   FUNCTION
+*       Emit an optional diagnostic and set the decoder error flag.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void dyy	(FDI *fdi)
 {
 	outlog ("\ntrack %d: unsupported sector	described 0x%02.2X\n", fdi->current_track, fdi->track_type);
 	fdi->err = 1;
 }
-/* add position	of mfm sync bit	*/
+/****i* januae-fdi/add_mfm_sync_bit
+*
+*   NAME
+*       add_mfm_sync_bit() -- Record an MFM clock-bit position.
+*
+*   SYNOPSIS
+*       static void add_mfm_sync_bit (FDI *fdi);
+*
+*   FUNCTION
+*       Append the current output position to the sync-position array and advance
+*       the bit cursor, unless a pending drop suppresses it. Error conditions set
+*       the decoder flag.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void add_mfm_sync_bit (FDI *fdi)
 {
 	if (fdi->nextdrop) {
@@ -379,7 +706,27 @@ static void add_mfm_sync_bit (FDI *fdi)
 #define	BIT_BYTEOFFSET ((fdi->out) >> 3)
 #define	BIT_BITOFFSET (7-((fdi->out)&7))
 
-/* add one bit */
+/****i* januae-fdi/bit_add
+*
+*   NAME
+*       bit_add() -- Append one bit to the decoded track.
+*
+*   SYNOPSIS
+*       static void bit_add (FDI *fdi, int bit);
+*
+*   FUNCTION
+*       Write the requested bit at the current output cursor, then advance it. A
+*       pending drop suppresses the write; overflow marks an error and resets the
+*       cursor to one.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       bit - Zero or nonzero data bit to append.
+*
+***************************************************************************
+*
+*/
+
 static void bit_add (FDI *fdi, int bit)
 {
 	if (fdi->nextdrop) {
@@ -396,13 +743,50 @@ static void bit_add (FDI *fdi, int bit)
 		fdi->out = 1;
 	}
 }
-/* add bit and mfm sync	bit */
+/****i* januae-fdi/bit_mfm_add
+*
+*   NAME
+*       bit_mfm_add() -- Append a bit with MFM clock tracking.
+*
+*   SYNOPSIS
+*       static void bit_mfm_add (FDI *fdi, int bit);
+*
+*   FUNCTION
+*       Record the clock-bit position and then emit the data bit using the
+*       pending-drop rules.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       bit - Zero or nonzero data bit to append.
+*
+***************************************************************************
+*
+*/
+
 static void bit_mfm_add	(FDI *fdi, int bit)
 {
 	add_mfm_sync_bit (fdi);
 	bit_add	(fdi, bit);
 }
-/* remove following bit	*/
+/****i* januae-fdi/bit_drop_next
+*
+*   NAME
+*       bit_drop_next() -- Suppress the next output bit.
+*
+*   SYNOPSIS
+*       static void bit_drop_next (FDI *fdi);
+*
+*   FUNCTION
+*       Mark one pending bit for omission; a prior dedrop request cancels the
+*       operation.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void bit_drop_next (FDI *fdi)
 {
 	if (fdi->nextdrop > 0) {
@@ -416,7 +800,25 @@ static void bit_drop_next (FDI *fdi)
 	fdi->nextdrop =	1;
 }
 
-/* ignore next bit_drop_next() */
+/****i* januae-fdi/bit_dedrop
+*
+*   NAME
+*       bit_dedrop() -- Cancel the next drop request.
+*
+*   SYNOPSIS
+*       static void bit_dedrop (FDI *fdi);
+*
+*   FUNCTION
+*       Set the pending-drop state to the sentinel that makes the following
+*       bit_drop_next() ineffective.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void bit_dedrop (FDI *fdi)
 {
 	if (fdi->nextdrop) {
@@ -426,33 +828,126 @@ static void bit_dedrop (FDI *fdi)
 	debuglog (":BDD:");
 }
 
-/* add one byte	*/
+/****i* januae-fdi/byte_add
+*
+*   NAME
+*       byte_add() -- Append an encoded byte as raw bits.
+*
+*   SYNOPSIS
+*       static void byte_add (FDI *fdi, uae_u8 v);
+*
+*   FUNCTION
+*       Append the eight bits of v, most significant first.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       v - Input value to encode.
+*
+***************************************************************************
+*
+*/
+
 static void byte_add (FDI *fdi,	uae_u8 v)
 {
 	int i;
 	for (i = 7; i >= 0; i--)
 		bit_add	(fdi, v	& (1 <<	i));
 }
-/* add one word	*/
+/****i* januae-fdi/word_add
+*
+*   NAME
+*       word_add() -- Append an encoded big-endian word.
+*
+*   SYNOPSIS
+*       static void word_add (FDI *fdi, uae_u16 v);
+*
+*   FUNCTION
+*       Append the high and low bytes of v through the raw-bit writer.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       v - Input value to encode.
+*
+***************************************************************************
+*
+*/
+
 static void word_add (FDI *fdi,	uae_u16	v)
 {
 	byte_add (fdi, (uae_u8)(v >> 8));
 	byte_add (fdi, (uae_u8)v);
 }
-/* add one byte	and mfm	encode it */
+/****i* januae-fdi/byte_mfm_add
+*
+*   NAME
+*       byte_mfm_add() -- Append an unencoded byte as MFM data bits.
+*
+*   SYNOPSIS
+*       static void byte_mfm_add (FDI *fdi, uae_u8 v);
+*
+*   FUNCTION
+*       For each data bit, track its preceding MFM clock position and append its
+*       value.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       v - Input value to encode.
+*
+***************************************************************************
+*
+*/
+
 static void byte_mfm_add (FDI *fdi, uae_u8 v)
 {
 	int i;
 	for (i = 7; i >= 0; i--)
 		bit_mfm_add (fdi, v & (1 << i));
 }
-/* add multiple	bytes and mfm encode them */
+/****i* januae-fdi/bytes_mfm_add
+*
+*   NAME
+*       bytes_mfm_add() -- Append a repeated MFM data byte.
+*
+*   SYNOPSIS
+*       static void bytes_mfm_add (FDI *fdi, uae_u8 v, unsigned int len);
+*
+*   FUNCTION
+*       Encode the supplied byte len times using the MFM-aware bit writer.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       v - Input value to encode.
+*       len - Length of the indicated input or output sequence.
+*
+***************************************************************************
+*
+*/
+
 static void bytes_mfm_add (FDI *fdi, uae_u8 v, unsigned int len)
 {
 	unsigned int i;
 	for (i = 0; i <	len; i++) byte_mfm_add (fdi, v);
 }
-/* add one mfm encoded word and	re-mfm encode it */
+/****i* januae-fdi/word_post_mfm_add
+*
+*   NAME
+*       word_post_mfm_add() -- Re-encode an MFM word's data bits.
+*
+*   SYNOPSIS
+*       static void word_post_mfm_add (FDI *fdi, uae_u16 v);
+*
+*   FUNCTION
+*       Process bits 14, 12 through 0 of the supplied word, replacing clock cells
+*       according to the current output context.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       v - Input value to encode.
+*
+***************************************************************************
+*
+*/
+
 static void word_post_mfm_add (FDI *fdi, uae_u16 v)
 {
 	int i;
@@ -460,17 +955,120 @@ static void word_post_mfm_add (FDI *fdi, uae_u16 v)
 		bit_mfm_add (fdi, v & (1 << i));
 }
 
-/* bit 0 */
+/****i* januae-fdi/s00
+*
+*   NAME
+*       s00() -- Emit sector-command zero bit.
+*
+*   SYNOPSIS
+*       static void s00(FDI *fdi);
+*
+*   FUNCTION
+*       Append a single zero bit to the current track.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s00(FDI *fdi) { bit_add (fdi, 0); }
-/* bit 1*/
+/****i* januae-fdi/s01
+*
+*   NAME
+*       s01() -- Emit sector-command one bit.
+*
+*   SYNOPSIS
+*       static void s01(FDI *fdi);
+*
+*   FUNCTION
+*       Append a single one bit to the current track.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s01(FDI *fdi) { bit_add (fdi, 1); }
-/* 4489	*/
+/****i* januae-fdi/s02
+*
+*   NAME
+*       s02() -- Emit the Amiga MFM sync word.
+*
+*   SYNOPSIS
+*       static void s02(FDI *fdi);
+*
+*   FUNCTION
+*       Append the raw 0x4489 word to the current track.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s02(FDI *fdi) { word_add (fdi, 0x4489); }
-/* 5224	*/
+/****i* januae-fdi/s03
+*
+*   NAME
+*       s03() -- Emit the IBM index sync word.
+*
+*   SYNOPSIS
+*       static void s03(FDI *fdi);
+*
+*   FUNCTION
+*       Append the raw 0x5224 word to the current track.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s03(FDI *fdi) { word_add (fdi, 0x5224); }
-/* mfm sync bit	*/
+/****i* januae-fdi/s04
+*
+*   NAME
+*       s04() -- Register a sector-command MFM sync cell.
+*
+*   SYNOPSIS
+*       static void s04(FDI *fdi);
+*
+*   FUNCTION
+*       Record one clock-bit position and advance the current bit cursor.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s04(FDI *fdi) { add_mfm_sync_bit (fdi); }
-/* RLE MFM-encoded data	*/
+/****i* januae-fdi/s08
+*
+*   NAME
+*       s08() -- Expand a repeated encoded byte.
+*
+*   SYNOPSIS
+*       static void s08(FDI *fdi);
+*
+*   FUNCTION
+*       Read a count and encoded byte from the track stream; count zero
+*       represents 256 bytes. Append the byte without further MFM encoding.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s08(FDI *fdi)
 {
 	unsigned int bytes = *fdi->track_src++;
@@ -479,7 +1077,25 @@ static void s08(FDI *fdi)
 	debuglog ("s08:len=%d,data=%02.2X",bytes,byte);
 	while(bytes--) byte_add	(fdi, byte);
 }
-/* RLE MFM-decoded data	*/
+/****i* januae-fdi/s09
+*
+*   NAME
+*       s09() -- Expand a repeated unencoded byte.
+*
+*   SYNOPSIS
+*       static void s09(FDI *fdi);
+*
+*   FUNCTION
+*       Read a count and data byte, suppress the next clock bit and MFM-encode
+*       the repeated data. Zero count means 256 bytes.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s09(FDI *fdi)
 {
 	unsigned int bytes = *fdi->track_src++;
@@ -489,7 +1105,25 @@ static void s09(FDI *fdi)
 	debuglog ("s09:len=%d,data=%02.2X",bytes,byte);
 	while(bytes--) byte_mfm_add (fdi, byte);
 }
-/* MFM-encoded data */
+/****i* januae-fdi/s0a
+*
+*   NAME
+*       s0a() -- Copy a short raw-bit field.
+*
+*   SYNOPSIS
+*       static void s0a(FDI *fdi);
+*
+*   FUNCTION
+*       Read the 16-bit bit count and copy that many packed bits from the
+*       sector-command stream.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s0a(FDI *fdi)
 {
 	int i, bits = (fdi->track_src[0] << 8) | fdi->track_src[1];
@@ -509,7 +1143,25 @@ static void s0a(FDI *fdi)
 		}
 	}
 }
-/* MFM-encoded data */
+/****i* januae-fdi/s0b
+*
+*   NAME
+*       s0b() -- Copy a long raw-bit field.
+*
+*   SYNOPSIS
+*       static void s0b(FDI *fdi);
+*
+*   FUNCTION
+*       Read a 16-bit field length, add 65536 bits and append that many packed
+*       raw bits.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s0b(FDI *fdi)
 {
 	int i, bits = ((fdi->track_src[0] << 8)	| fdi->track_src[1]) + 65536;
@@ -529,7 +1181,25 @@ static void s0b(FDI *fdi)
 		}
 	}
 }
-/* MFM-decoded data */
+/****i* januae-fdi/s0c
+*
+*   NAME
+*       s0c() -- MFM-encode a short bit field.
+*
+*   SYNOPSIS
+*       static void s0c(FDI *fdi);
+*
+*   FUNCTION
+*       Read a 16-bit bit count, request a clock-cell drop and MFM-encode that
+*       many data bits.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s0c(FDI *fdi)
 {
 	int i, bits = (fdi->track_src[0] << 8) | fdi->track_src[1];
@@ -550,7 +1220,25 @@ static void s0c(FDI *fdi)
 		}
 	}
 }
-/* MFM-decoded data */
+/****i* januae-fdi/s0d
+*
+*   NAME
+*       s0d() -- MFM-encode a long bit field.
+*
+*   SYNOPSIS
+*       static void s0d(FDI *fdi);
+*
+*   FUNCTION
+*       Read a 16-bit bit count, add 65536, request a clock-cell drop and
+*       MFM-encode the supplied data bits.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s0d(FDI *fdi)
 {
 	int i, bits = ((fdi->track_src[0] << 8)	| fdi->track_src[1]) + 65536;
@@ -578,6 +1266,29 @@ static void s0d(FDI *fdi)
 
 /* just	for testing integrity of Amiga sectors */
 
+/****i* januae-fdi/rotateonebit
+*
+*   NAME
+*       rotateonebit() -- Rotate a byte range by a bit shift.
+*
+*   SYNOPSIS
+*       static void rotateonebit (uae_u8 *start, uae_u8 *end, unsigned int
+*       shift);
+*
+*   FUNCTION
+*       Shift each byte to the left while importing high bits from the following
+*       byte, including a read beyond the supplied end pointer. Shift zero is a
+*       no-op.
+*
+*   INPUTS
+*       start - Start of a writable byte region.
+*       end - Last byte of the region; the routine also reads its successor.
+*       shift - Bit shift applied to successive bytes.
+*
+***************************************************************************
+*
+*/
+
 static void rotateonebit (uae_u8 *start, uae_u8	*end, unsigned int shift)
 {
 	if (shift == 0)
@@ -590,6 +1301,29 @@ static void rotateonebit (uae_u8 *start, uae_u8	*end, unsigned int shift)
 }
 
 static int check_offset;
+/****i* januae-fdi/getmfmword
+*
+*   NAME
+*       getmfmword() -- Read a possibly bit-shifted MFM word.
+*
+*   SYNOPSIS
+*       static uae_u16 getmfmword (const uae_u8 *mbuf);
+*
+*   FUNCTION
+*       Read two or three source bytes as directed by the shared check_offset and
+*       assemble a 16-bit word.
+*
+*   INPUTS
+*       mbuf - Source MFM bytes or output MFM word buffer as used by this
+*       function.
+*
+*   RESULT
+*       MFM word at the current alignment.
+*
+***************************************************************************
+*
+*/
+
 static uae_u16 getmfmword (const uae_u8 *mbuf)
 {
 	uae_u32	v;
@@ -604,10 +1338,56 @@ static uae_u16 getmfmword (const uae_u8 *mbuf)
 }
 
 #define	MFMMASK	0x55555555
+/****i* januae-fdi/getmfmlong
+*
+*   NAME
+*       getmfmlong() -- Combine two MFM words into data positions.
+*
+*   SYNOPSIS
+*       static uae_u32 getmfmlong (const uae_u8 *mbuf);
+*
+*   FUNCTION
+*       Read two adjacent aligned MFM words and retain only odd bit positions
+*       using MFMMASK.
+*
+*   INPUTS
+*       mbuf - Source MFM bytes or output MFM word buffer as used by this
+*       function.
+*
+*   RESULT
+*       Masked 32-bit MFM word.
+*
+***************************************************************************
+*
+*/
+
 static uae_u32 getmfmlong (const uae_u8 *mbuf)
 {
 	return ((getmfmword (mbuf) << 16) | getmfmword (mbuf + 2)) & MFMMASK;
 }
+
+/****i* januae-fdi/amiga_check_track
+*
+*   NAME
+*       amiga_check_track() -- Inspect decoded Amiga sectors.
+*
+*   SYNOPSIS
+*       static int amiga_check_track (FDI *fdi);
+*
+*   FUNCTION
+*       Scan the generated track for sector syncs, headers and data checksums,
+*       collecting the presence of eleven sectors. This checker is not invoked by
+*       the current loadtrack path.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+*   RESULT
+*       Nonzero if the expected sectors pass its checks; zero otherwise.
+*
+***************************************************************************
+*
+*/
 
 static int amiga_check_track (FDI *fdi)
 {
@@ -766,6 +1546,30 @@ static int amiga_check_track (FDI *fdi)
 	return ok;
 }
 
+/****i* januae-fdi/amiga_data_raw
+*
+*   NAME
+*       amiga_data_raw() -- Encode raw Amiga sector data with supplied checksum.
+*
+*   SYNOPSIS
+*       static void amiga_data_raw (FDI *fdi, uae_u8 *secbuf, uae_u8 *crc,
+*       unsigned int len);
+*
+*   FUNCTION
+*       Emit four checksum bytes, or zeros when crc is null, followed by len
+*       source bytes through the MFM-aware writer.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       secbuf - Source sector bytes.
+*       crc - Optional stored checksum bytes; NULL requests generated or zero
+*       values.
+*       len - Length of the indicated input or output sequence.
+*
+***************************************************************************
+*
+*/
+
 static void amiga_data_raw (FDI	*fdi, uae_u8 *secbuf, uae_u8 *crc, unsigned int len)
 {
 	unsigned int i;
@@ -781,6 +1585,26 @@ static void amiga_data_raw (FDI	*fdi, uae_u8 *secbuf, uae_u8 *crc, unsigned int 
 	for (i = 0; i <	len; i++)
 		byte_mfm_add (fdi, secbuf[i]);
 }
+
+/****i* januae-fdi/amiga_data
+*
+*   NAME
+*       amiga_data() -- Encode an Amiga sector payload and checksum.
+*
+*   SYNOPSIS
+*       static void amiga_data (FDI *fdi, const uae_u8 *secbuf);
+*
+*   FUNCTION
+*       Split 512 data bytes into odd/even bitplanes, derive their XOR checksum
+*       and emit the resulting MFM-encoded words.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       secbuf - Source sector bytes.
+*
+***************************************************************************
+*
+*/
 
 static void amiga_data (FDI *fdi, const uae_u8 *secbuf)
 {
@@ -814,6 +1638,30 @@ static void amiga_data (FDI *fdi, const uae_u8 *secbuf)
 	for (i = 0; i <	4 + 512; i ++)
 		word_post_mfm_add (fdi,	mfmbuf[i]);
 }
+
+/****i* januae-fdi/amiga_sector_header
+*
+*   NAME
+*       amiga_sector_header() -- Encode an Amiga sector header.
+*
+*   SYNOPSIS
+*       static void amiga_sector_header (FDI *fdi, const uae_u8 *header, const
+*       uae_u8 *data, unsigned int sector, unsigned int untilgap);
+*
+*   FUNCTION
+*       Write Amiga sync words, an explicit or generated four-byte sector header,
+*       a 16-byte label and their odd/even checksum.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       header - Optional four-byte Amiga sector header; NULL synthesizes it.
+*       data - Source sector bytes or optional 16-byte header label.
+*       sector - Zero-based Amiga sector number.
+*       untilgap - Remaining sectors before the track gap.
+*
+***************************************************************************
+*
+*/
 
 static void amiga_sector_header	(FDI *fdi, const uae_u8 *header, const uae_u8 *data, unsigned int sector, unsigned int untilgap)
 {
@@ -875,7 +1723,25 @@ static void amiga_sector_header	(FDI *fdi, const uae_u8 *header, const uae_u8 *d
 		word_post_mfm_add (fdi,	mfmbuf[i]);
 }
 
-/* standard super-extended Amiga sector	header */
+/****i* januae-fdi/s20
+*
+*   NAME
+*       s20() -- Emit an extended Amiga sector header with label.
+*
+*   SYNOPSIS
+*       static void s20(FDI *fdi);
+*
+*   FUNCTION
+*       Drop the next clock cell, read four header bytes and a 16-byte label, and
+*       emit their encoded sector header.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s20(FDI *fdi)
 {
 	bit_drop_next (fdi);
@@ -883,7 +1749,25 @@ static void s20(FDI *fdi)
 	amiga_sector_header (fdi, fdi->track_src, fdi->track_src + 4, 0, 0);
 	fdi->track_src += 4 + 16;
 }
-/* standard extended Amiga sector header */
+/****i* januae-fdi/s21
+*
+*   NAME
+*       s21() -- Emit an extended Amiga sector header.
+*
+*   SYNOPSIS
+*       static void s21(FDI *fdi);
+*
+*   FUNCTION
+*       Drop the next clock cell and encode the supplied four-byte sector header
+*       without a label.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s21(FDI *fdi)
 {
 	bit_drop_next (fdi);
@@ -891,7 +1775,25 @@ static void s21(FDI *fdi)
 	amiga_sector_header (fdi, fdi->track_src, 0, 0,	0);
 	fdi->track_src += 4;
 }
-/* standard Amiga sector header	*/
+/****i* januae-fdi/s22
+*
+*   NAME
+*       s22() -- Emit a short Amiga sector header.
+*
+*   SYNOPSIS
+*       static void s22(FDI *fdi);
+*
+*   FUNCTION
+*       Drop the next clock cell, read sector number and sectors-to-gap, and
+*       synthesize the remaining header fields.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s22(FDI *fdi)
 {
 	bit_drop_next (fdi);
@@ -899,14 +1801,49 @@ static void s22(FDI *fdi)
 	amiga_sector_header (fdi, 0, 0,	fdi->track_src[0], fdi->track_src[1]);
 	fdi->track_src += 2;
 }
-/* standard 512-byte, CRC-correct Amiga	data */
+/****i* januae-fdi/s23
+*
+*   NAME
+*       s23() -- Emit a standard Amiga sector payload.
+*
+*   SYNOPSIS
+*       static void s23(FDI *fdi);
+*
+*   FUNCTION
+*       MFM-encode 512 bytes with a computed sector data checksum.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s23(FDI *fdi)
 {
 	debuglog ("s23:data=%s", datalog (fdi->track_src, 512));
 	amiga_data (fdi, fdi->track_src);
 	fdi->track_src += 512;
 }
-/* not-decoded,	128*2^x-byte, CRC-correct Amiga	data */
+/****i* januae-fdi/s24
+*
+*   NAME
+*       s24() -- Emit variable-length Amiga data with zero checksum.
+*
+*   SYNOPSIS
+*       static void s24(FDI *fdi);
+*
+*   FUNCTION
+*       Read a size exponent and encode 128 times two to that exponent bytes with
+*       a zero checksum.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s24(FDI *fdi)
 {
 	int shift = *fdi->track_src++;
@@ -914,7 +1851,25 @@ static void s24(FDI *fdi)
 	amiga_data_raw (fdi, fdi->track_src, 0,	128 << shift);
 	fdi->track_src += 128 << shift;
 }
-/* not-decoded,	128*2^x-byte, CRC-incorrect Amiga data */
+/****i* januae-fdi/s25
+*
+*   NAME
+*       s25() -- Emit variable-length Amiga data with stored checksum.
+*
+*   SYNOPSIS
+*       static void s25(FDI *fdi);
+*
+*   FUNCTION
+*       Read the size exponent, four checksum bytes and data, then MFM-encode the
+*       provided checksum and payload without correcting them.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s25(FDI *fdi)
 {
 	int shift = *fdi->track_src++;
@@ -922,7 +1877,25 @@ static void s25(FDI *fdi)
 	amiga_data_raw (fdi, fdi->track_src + 4, fdi->track_src, 128 <<	shift);
 	fdi->track_src += 4 + (128 << shift);
 }
-/* standard extended Amiga sector */
+/****i* januae-fdi/s26
+*
+*   NAME
+*       s26() -- Emit a complete extended Amiga sector.
+*
+*   SYNOPSIS
+*       static void s26(FDI *fdi);
+*
+*   FUNCTION
+*       Read and encode a four-byte header followed by 512 bytes of data with a
+*       computed checksum.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s26(FDI *fdi)
 {
 	s21 (fdi);
@@ -930,7 +1903,25 @@ static void s26(FDI *fdi)
 	amiga_data (fdi, fdi->track_src);
 	fdi->track_src += 512;
 }
-/* standard short Amiga	sector */
+/****i* januae-fdi/s27
+*
+*   NAME
+*       s27() -- Emit a complete short Amiga sector.
+*
+*   SYNOPSIS
+*       static void s27(FDI *fdi);
+*
+*   FUNCTION
+*       Read a two-byte sector descriptor followed by 512 bytes of data with a
+*       computed checksum.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s27(FDI *fdi)
 {
 	s22 (fdi);
@@ -942,6 +1933,30 @@ static void s27(FDI *fdi)
 /* *** */
 /* IBM */
 /* *** */
+
+/****i* januae-fdi/ibm_crc
+*
+*   NAME
+*       ibm_crc() -- Update the IBM CRC accumulator.
+*
+*   SYNOPSIS
+*       static uae_u16 ibm_crc (uae_u8 byte, int reset);
+*
+*   FUNCTION
+*       Optionally reset the static CRC to 0xCDB4, then process the supplied byte
+*       with polynomial 0x1021. This function maintains shared state between
+*       calls.
+*
+*   INPUTS
+*       byte - Next data byte for CRC processing.
+*       reset - Nonzero to reinitialize the shared CRC before processing.
+*
+*   RESULT
+*       Updated 16-bit CRC.
+*
+***************************************************************************
+*
+*/
 
 static uae_u16 ibm_crc (uae_u8 byte, int reset)
 {
@@ -961,6 +1976,30 @@ static uae_u16 ibm_crc (uae_u8 byte, int reset)
 	}
 	return crc;
 }
+
+/****i* januae-fdi/ibm_data
+*
+*   NAME
+*       ibm_data() -- Encode an IBM sector data field.
+*
+*   SYNOPSIS
+*       static void ibm_data (FDI *fdi, const uae_u8 *data, uae_u8 *crc, unsigned
+*       int len);
+*
+*   FUNCTION
+*       Write three MFM sync words, the data mark, len payload bytes and either
+*       the caller's CRC bytes or a computed CRC.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       data - Source sector bytes or optional 16-byte header label.
+*       crc - Optional stored checksum bytes; NULL requests generated or zero
+*       values.
+*       len - Length of the indicated input or output sequence.
+*
+***************************************************************************
+*
+*/
 
 static void ibm_data (FDI *fdi,	const uae_u8 *data, uae_u8 *crc, unsigned int len)
 {
@@ -985,6 +2024,31 @@ static void ibm_data (FDI *fdi,	const uae_u8 *data, uae_u8 *crc, unsigned int le
 	byte_mfm_add (fdi, crc[0]);
 	byte_mfm_add (fdi, crc[1]);
 }
+
+/****i* januae-fdi/ibm_sector_header
+*
+*   NAME
+*       ibm_sector_header() -- Encode an IBM sector ID field.
+*
+*   SYNOPSIS
+*       static void ibm_sector_header (FDI *fdi, const uae_u8 *data, const uae_u8
+*       *crc, int secnum, int pre);
+*
+*   FUNCTION
+*       Optionally prepend the standard gap, then encode an explicit or
+*       synthesized CHRN header and a caller-supplied or computed CRC.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       data - Source sector bytes or optional 16-byte header label.
+*       crc - Optional stored checksum bytes; NULL requests generated or zero
+*       values.
+*       secnum - Sector number; negative selects the caller-provided CHRN bytes.
+*       pre - Nonzero to prepend the standard sector-ID gap.
+*
+***************************************************************************
+*
+*/
 
 static void ibm_sector_header (FDI *fdi, const uae_u8 *data, const uae_u8 *crc, int secnum, int pre)
 {
@@ -1026,7 +2090,25 @@ static void ibm_sector_header (FDI *fdi, const uae_u8 *data, const uae_u8 *crc, 
 	byte_mfm_add (fdi, crcbuf[1]);
 }
 
-/* standard IBM	index address mark */
+/****i* januae-fdi/s10
+*
+*   NAME
+*       s10() -- Emit the standard IBM index address mark.
+*
+*   SYNOPSIS
+*       static void s10 (FDI *fdi);
+*
+*   FUNCTION
+*       Drop the next clock bit, emit twelve zero bytes, three 0x5224 syncs and
+*       the 0xFC mark.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s10 (FDI *fdi)
 {
 	bit_drop_next (fdi);
@@ -1036,7 +2118,25 @@ static void s10 (FDI *fdi)
 	word_add (fdi, 0x5224);
 	byte_mfm_add (fdi, 0xfc);
 }
-/* standard IBM	pre-gap	*/
+/****i* januae-fdi/s11
+*
+*   NAME
+*       s11() -- Emit the standard IBM index pregap.
+*
+*   SYNOPSIS
+*       static void s11 (FDI *fdi);
+*
+*   FUNCTION
+*       Emit a 78-byte 0x4E gap, the index mark and a 50-byte 0x4E gap, adjusting
+*       the pending clock drop.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s11 (FDI *fdi)
 {
 	bit_drop_next (fdi);
@@ -1045,13 +2145,48 @@ static void s11 (FDI *fdi)
 	s10 (fdi);
 	bytes_mfm_add (fdi, 0x4e, 50);
 }
-/* standard ST pre-gap */
+/****i* januae-fdi/s12
+*
+*   NAME
+*       s12() -- Emit an Atari-style pregap.
+*
+*   SYNOPSIS
+*       static void s12 (FDI *fdi);
+*
+*   FUNCTION
+*       Drop the next clock cell and emit 78 MFM-encoded 0x4E gap bytes.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s12 (FDI *fdi)
 {
 	bit_drop_next (fdi);
 	bytes_mfm_add (fdi, 0x4e, 78);
 }
-/* standard extended IBM sector	header */
+/****i* januae-fdi/s13
+*
+*   NAME
+*       s13() -- Emit an extended IBM sector header.
+*
+*   SYNOPSIS
+*       static void s13 (FDI *fdi);
+*
+*   FUNCTION
+*       Read four CHRN bytes and generate the standard header with pregap and a
+*       computed CRC.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s13 (FDI *fdi)
 {
 	bit_drop_next (fdi);
@@ -1059,48 +2194,172 @@ static void s13 (FDI *fdi)
 	ibm_sector_header (fdi,	fdi->track_src,	0, -1, 1);
 	fdi->track_src += 4;
 }
-/* standard mini-extended IBM sector header */
+/****i* januae-fdi/s14
+*
+*   NAME
+*       s14() -- Emit a compact extended IBM header.
+*
+*   SYNOPSIS
+*       static void s14 (FDI *fdi);
+*
+*   FUNCTION
+*       Read four CHRN bytes and generate the header without the pregap.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s14 (FDI *fdi)
 {
 	debuglog ("s14:header=%s", datalog (fdi->track_src, 4));
 	ibm_sector_header (fdi,	fdi->track_src,	0, -1, 0);
 	fdi->track_src += 4;
 }
-/* standard short IBM sector header */
+/****i* januae-fdi/s15
+*
+*   NAME
+*       s15() -- Emit a short IBM sector header.
+*
+*   SYNOPSIS
+*       static void s15 (FDI *fdi);
+*
+*   FUNCTION
+*       Read the sector number and synthesize remaining CHRN fields with standard
+*       pregap and checksum.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s15 (FDI *fdi)
 {
 	bit_drop_next (fdi);
 	debuglog ("s15:sector=%d", *fdi->track_src);
 	ibm_sector_header (fdi,	0, 0, *fdi->track_src++, 1);
 }
-/* standard mini-short IBM sector header */
+/****i* januae-fdi/s16
+*
+*   NAME
+*       s16() -- Emit a compact short IBM header.
+*
+*   SYNOPSIS
+*       static void s16 (FDI *fdi);
+*
+*   FUNCTION
+*       Read the sector number and generate the synthesized ID without a pregap.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s16 (FDI *fdi)
 {
 	debuglog ("s16:track=%d", *fdi->track_src);
 	ibm_sector_header (fdi,	0, 0, *fdi->track_src++, 0);
 }
-/* standard CRC-incorrect mini-extended	IBM sector header */
+/****i* januae-fdi/s17
+*
+*   NAME
+*       s17() -- Emit an IBM header with explicit checksum.
+*
+*   SYNOPSIS
+*       static void s17 (FDI *fdi);
+*
+*   FUNCTION
+*       Read four CHRN bytes and two checksum bytes and encode the header without
+*       correcting the stored CRC.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s17 (FDI *fdi)
 {
 	debuglog ("s17:header=%s,crc=%s", datalog (fdi->track_src, 4), datalog (fdi->track_src + 4, 2));
 	ibm_sector_header (fdi,	fdi->track_src,	fdi->track_src + 4, -1,	0);
 	fdi->track_src += 4 + 2;
 }
-/* standard CRC-incorrect mini-short IBM sector	header */
+/****i* januae-fdi/s18
+*
+*   NAME
+*       s18() -- Emit a short IBM header with explicit checksum.
+*
+*   SYNOPSIS
+*       static void s18 (FDI *fdi);
+*
+*   FUNCTION
+*       Read sector number and two checksum bytes, synthesize CHRN fields and
+*       preserve the stored CRC.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s18 (FDI *fdi)
 {
 	debuglog ("s18:sector=%d,header=%s", *fdi->track_src, datalog (fdi->track_src +	1, 4));
 	ibm_sector_header (fdi,	0, fdi->track_src + 1, *fdi->track_src,	0);
 	fdi->track_src += 1 + 4;
 }
-/* standard 512-byte CRC-correct IBM data */
+/****i* januae-fdi/s19
+*
+*   NAME
+*       s19() -- Emit a standard IBM sector payload.
+*
+*   SYNOPSIS
+*       static void s19 (FDI *fdi);
+*
+*   FUNCTION
+*       Read 512 bytes of data and emit its encoded data field with a computed
+*       CRC.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s19 (FDI *fdi)
 {
 	debuglog ("s19:data=%s", datalog (fdi->track_src , 512));
 	ibm_data (fdi, fdi->track_src, 0, 512);
 	fdi->track_src += 512;
 }
-/* standard 128*2^x-byte-byte CRC-correct IBM data */
+/****i* januae-fdi/s1a
+*
+*   NAME
+*       s1a() -- Emit a variable-length IBM data field.
+*
+*   SYNOPSIS
+*       static void s1a (FDI *fdi);
+*
+*   FUNCTION
+*       Read a size exponent and encode 128 times two to that exponent bytes with
+*       a computed CRC.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s1a (FDI *fdi)
 {
 	int shift = *fdi->track_src++;
@@ -1108,7 +2367,25 @@ static void s1a (FDI *fdi)
 	ibm_data (fdi, fdi->track_src, 0, 128 << shift);
 	fdi->track_src += 128 << shift;
 }
-/* standard 128*2^x-byte-byte CRC-incorrect IBM	data */
+/****i* januae-fdi/s1b
+*
+*   NAME
+*       s1b() -- Emit a variable-length IBM field with explicit CRC.
+*
+*   SYNOPSIS
+*       static void s1b (FDI *fdi);
+*
+*   FUNCTION
+*       Read size exponent, payload and two CRC bytes, preserving the supplied
+*       checksum in the emitted field.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s1b (FDI *fdi)
 {
 	int shift = *fdi->track_src++;
@@ -1116,7 +2393,25 @@ static void s1b (FDI *fdi)
 	ibm_data (fdi, fdi->track_src, fdi->track_src +	(128 <<	shift),	128 << shift);
 	fdi->track_src += (128 << shift) + 2;
 }
-/* standard extended IBM sector	*/
+/****i* januae-fdi/s1c
+*
+*   NAME
+*       s1c() -- Emit a complete extended IBM sector.
+*
+*   SYNOPSIS
+*       static void s1c (FDI *fdi);
+*
+*   FUNCTION
+*       Read a CHRN header, add the standard inter-field gap and encode its
+*       variable-length data with computed CRC.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s1c (FDI *fdi)
 {
 	int shift = fdi->track_src[3];
@@ -1126,7 +2421,25 @@ static void s1c (FDI *fdi)
 	ibm_data (fdi, fdi->track_src, 0, 128 << shift);
 	fdi->track_src += 128 << shift;
 }
-/* standard short IBM sector */
+/****i* januae-fdi/s1d
+*
+*   NAME
+*       s1d() -- Emit a complete short IBM sector.
+*
+*   SYNOPSIS
+*       static void s1d (FDI *fdi);
+*
+*   FUNCTION
+*       Read a short ID, emit the inter-field gap and encode a 512-byte data
+*       field with computed CRC.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void s1d (FDI *fdi)
 {
 	s15 (fdi);
@@ -1135,7 +2448,25 @@ static void s1d (FDI *fdi)
 	s19 (fdi);
 }
 
-/* end marker */
+/****i* januae-fdi/sff
+*
+*   NAME
+*       sff() -- Terminate a sector-description command sequence.
+*
+*   SYNOPSIS
+*       static void sff (FDI *fdi);
+*
+*   FUNCTION
+*       Perform no output operation; the enclosing command decoder terminates
+*       when it sees opcode 0xFF.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void sff (FDI *fdi)
 {
 }
@@ -1162,6 +2493,28 @@ static decode_described_track_func const decode_sectors_described_track[] =
 	dxx,dxx,dxx,dxx,dxx,dxx,dxx,dxx,dxx,dxx,dxx,dxx,dxx,dxx,dxx,sff	 /* F0-FF */
 };
 
+/****i* januae-fdi/track_amiga
+*
+*   NAME
+*       track_amiga() -- Generate an Amiga-sector track.
+*
+*   SYNOPSIS
+*       static void track_amiga (struct fdi *fdi, unsigned int first_sector,
+*       unsigned int max_sector);
+*
+*   FUNCTION
+*       Emit max_sector sectors starting at first_sector, wrapping the sector
+*       number, and append a 260-byte gap.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       first_sector - First sector number to encode in the track.
+*       max_sector - Number of sectors to encode.
+*
+***************************************************************************
+*
+*/
+
 static void track_amiga	(struct	fdi *fdi, unsigned int first_sector, unsigned int max_sector)
 {
 	unsigned int i;
@@ -1176,6 +2529,26 @@ static void track_amiga	(struct	fdi *fdi, unsigned int first_sector, unsigned in
 	}
 	bytes_mfm_add (fdi, 0, 260); /*	gap */
 }
+/****i* januae-fdi/track_atari_st
+*
+*   NAME
+*       track_atari_st() -- Generate an Atari ST track.
+*
+*   SYNOPSIS
+*       static void track_atari_st (struct fdi *fdi, unsigned int max_sector);
+*
+*   FUNCTION
+*       Emit an IBM-style indexed track with max_sector 512-byte sectors and
+*       layout-specific gap lengths; advance the input cursor.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       max_sector - Number of sectors to encode.
+*
+***************************************************************************
+*
+*/
+
 static void track_atari_st (struct fdi *fdi, unsigned int max_sector)
 {
 	unsigned int i, gap3 = 0;
@@ -1200,6 +2573,26 @@ static void track_atari_st (struct fdi *fdi, unsigned int max_sector)
 	bytes_mfm_add (fdi, 0x4e, 660 -	gap3);
 	fdi->track_src += fdi->track_len * 256;
 }
+/****i* januae-fdi/track_pc
+*
+*   NAME
+*       track_pc() -- Generate a PC-format track.
+*
+*   SYNOPSIS
+*       static void track_pc (struct fdi *fdi, unsigned int max_sector);
+*
+*   FUNCTION
+*       Emit an IBM-style indexed track with max_sector 512-byte sectors and a
+*       selected gap length; advance the input cursor.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       max_sector - Number of sectors to encode.
+*
+***************************************************************************
+*
+*/
+
 static void track_pc (struct fdi *fdi, unsigned int max_sector)
 {
 	unsigned int i, gap3;
@@ -1228,51 +2621,206 @@ static void track_pc (struct fdi *fdi, unsigned int max_sector)
 	fdi->track_src += fdi->track_len * 256;
 }
 
-/* amiga dd */
+/****i* januae-fdi/track_amiga_dd
+*
+*   NAME
+*       track_amiga_dd() -- Generate an Amiga double-density track.
+*
+*   SYNOPSIS
+*       static void track_amiga_dd (struct fdi *fdi);
+*
+*   FUNCTION
+*       Use the starting sector encoded in track_len and generate eleven sectors,
+*       then advance the source cursor by its low-nibble sector count.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void track_amiga_dd (struct fdi *fdi)
 {
 	uae_u8 *p = fdi->track_src;
 	track_amiga (fdi, fdi->track_len >> 4, 11);
 	fdi->track_src = p + (fdi->track_len & 15) * 512;
 }
-/* amiga hd */
+/****i* januae-fdi/track_amiga_hd
+*
+*   NAME
+*       track_amiga_hd() -- Generate an Amiga high-density track.
+*
+*   SYNOPSIS
+*       static void track_amiga_hd (struct fdi *fdi);
+*
+*   FUNCTION
+*       Generate 22 Amiga sectors and advance the source cursor by track_len
+*       times 256 bytes.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void track_amiga_hd (struct fdi *fdi)
 {
 	uae_u8 *p = fdi->track_src;
 	track_amiga (fdi, 0, 22);
 	fdi->track_src = p + fdi->track_len * 256;
 }
-/* atari st 9 sector */
+/****i* januae-fdi/track_atari_st_9
+*
+*   NAME
+*       track_atari_st_9() -- Generate a nine-sector Atari ST track.
+*
+*   SYNOPSIS
+*       static void track_atari_st_9 (struct fdi *fdi);
+*
+*   FUNCTION
+*       Select the Atari ST generator with nine 512-byte sectors.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void track_atari_st_9 (struct fdi *fdi)
 {
 	track_atari_st (fdi, 9);
 }
-/* atari st 10 sector */
+/****i* januae-fdi/track_atari_st_10
+*
+*   NAME
+*       track_atari_st_10() -- Generate a ten-sector Atari ST track.
+*
+*   SYNOPSIS
+*       static void track_atari_st_10 (struct fdi *fdi);
+*
+*   FUNCTION
+*       Select the Atari ST generator with ten 512-byte sectors.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void track_atari_st_10 (struct fdi *fdi)
 {
 	track_atari_st (fdi, 10);
 }
-/* pc 8	sector */
+/****i* januae-fdi/track_pc_8
+*
+*   NAME
+*       track_pc_8() -- Generate an eight-sector PC track.
+*
+*   SYNOPSIS
+*       static void track_pc_8 (struct fdi *fdi);
+*
+*   FUNCTION
+*       Select the PC track generator with eight 512-byte sectors.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void track_pc_8 (struct fdi *fdi)
 {
 	track_pc (fdi, 8);
 }
-/* pc 9	sector */
+/****i* januae-fdi/track_pc_9
+*
+*   NAME
+*       track_pc_9() -- Generate a nine-sector PC track.
+*
+*   SYNOPSIS
+*       static void track_pc_9 (struct fdi *fdi);
+*
+*   FUNCTION
+*       Select the PC track generator with nine 512-byte sectors.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void track_pc_9 (struct fdi *fdi)
 {
 	track_pc (fdi, 9);
 }
-/* pc 15 sector	*/
+/****i* januae-fdi/track_pc_15
+*
+*   NAME
+*       track_pc_15() -- Generate a fifteen-sector PC track.
+*
+*   SYNOPSIS
+*       static void track_pc_15 (struct fdi *fdi);
+*
+*   FUNCTION
+*       Select the PC track generator with fifteen 512-byte sectors.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void track_pc_15	(struct	fdi *fdi)
 {
 	track_pc (fdi, 15);
 }
-/* pc 18 sector	*/
+/****i* januae-fdi/track_pc_18
+*
+*   NAME
+*       track_pc_18() -- Generate an eighteen-sector PC track.
+*
+*   SYNOPSIS
+*       static void track_pc_18 (struct fdi *fdi);
+*
+*   FUNCTION
+*       Select the PC track generator with eighteen 512-byte sectors.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void track_pc_18	(struct	fdi *fdi)
 {
 	track_pc (fdi, 18);
 }
-/* pc 36 sector	*/
+/****i* januae-fdi/track_pc_36
+*
+*   NAME
+*       track_pc_36() -- Generate a thirty-six-sector PC track.
+*
+*   SYNOPSIS
+*       static void track_pc_36 (struct fdi *fdi);
+*
+*   FUNCTION
+*       Select the PC track generator with thirty-six 512-byte sectors.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 static void track_pc_36	(struct	fdi *fdi)
 {
 	track_pc (fdi, 36);
@@ -1288,6 +2836,26 @@ static decode_normal_track_func const decode_normal_track[] =
 	track_pc_8, track_pc_9,	track_pc_15, track_pc_18, track_pc_36, /* 5-9 */
 	zxx,zxx,zxx,zxx,zxx /* A-F */
 };
+
+/****i* januae-fdi/fix_mfm_sync
+*
+*   NAME
+*       fix_mfm_sync() -- Fill recorded MFM clock cells.
+*
+*   SYNOPSIS
+*       static void fix_mfm_sync (FDI *fdi);
+*
+*   FUNCTION
+*       Visit the saved clock-cell positions and set or clear each clock bit
+*       according to its adjacent data bits. The decoder trusts the saved
+*       positions.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
 
 static void fix_mfm_sync (FDI *fdi)
 {
@@ -1307,6 +2875,29 @@ static void fix_mfm_sync (FDI *fdi)
 			fdi->track_dst[off3] &=	~mask3;
 	}
 }
+
+/****i* januae-fdi/handle_sectors_described_track
+*
+*   NAME
+*       handle_sectors_described_track() -- Interpret FDI sector-description commands.
+*
+*   SYNOPSIS
+*       static int handle_sectors_described_track (FDI *fdi);
+*
+*   FUNCTION
+*       Read the track encoding and index fields, dispatch description opcodes
+*       until 0xFF, then fix recorded MFM clock bits. It checks the input cursor
+*       after each command rather than before every read.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+*   RESULT
+*       Generated bit count, or -1 for a decoder error or source overrun.
+*
+***************************************************************************
+*
+*/
 
 static int handle_sectors_described_track (FDI *fdi)
 {
@@ -1339,6 +2930,33 @@ static int handle_sectors_described_track (FDI *fdi)
 	return fdi->out;
 }
 
+/****i* januae-fdi/fdi_decompress
+*
+*   NAME
+*       fdi_decompress() -- Decode an FDI pulse-value stream.
+*
+*   SYNOPSIS
+*       static uae_u8 *fdi_decompress (unsigned int pulses, uae_u8 *sizep, const
+*       uae_u8 *src, unsigned int *dofree);
+*
+*   FUNCTION
+*       Use its packed size and compression mode to choose an in-place 32-bit
+*       conversion or an allocated Huffman output; set dofree only for newly
+*       allocated storage.
+*
+*   INPUTS
+*       pulses - Number of pulse samples to decompress or decode.
+*       sizep - Packed three-byte stream descriptor.
+*       src - Source bytes or compressed pulse stream; caller-owned.
+*       dofree - Output ownership flag: set when a new result allocation is made.
+*
+*   RESULT
+*       Decoded pulse pointer, or NULL for unsupported modes.
+*
+***************************************************************************
+*
+*/
+
 static uae_u8 *fdi_decompress (unsigned int pulses, uae_u8 *sizep, const uae_u8 *src, unsigned int *dofree)
 {
 	uae_u32	size = get_u24 (sizep);
@@ -1367,6 +2985,27 @@ static uae_u8 *fdi_decompress (unsigned int pulses, uae_u8 *sizep, const uae_u8 
 	return dst;
 }
 
+/****i* januae-fdi/dumpstream
+*
+*   NAME
+*       dumpstream() -- Accept an optional pulse-dump request.
+*
+*   SYNOPSIS
+*       static void dumpstream(int track, uae_u8 *stream, int len);
+*
+*   FUNCTION
+*       Perform no operation in the compiled implementation; the file-writing
+*       code is disabled by an inner #if 0.
+*
+*   INPUTS
+*       track - Zero-based FDI track index.
+*       stream - FDI input cursor in a valid encoded stream.
+*       len - Length of the indicated input or output sequence.
+*
+***************************************************************************
+*
+*/
+
 static void dumpstream(int track, uae_u8 *stream, int len)
 {
 #if 0
@@ -1381,6 +3020,26 @@ static void dumpstream(int track, uae_u8 *stream, int len)
 }
 
 static int bitoffset;
+
+/****i* januae-fdi/addbit
+*
+*   NAME
+*       addbit() -- Append one pulse-decoded bit.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void addbit (uae_u8 *p, int bit);
+*
+*   FUNCTION
+*       OR the supplied bit into the output byte at the shared bitoffset and
+*       advance that offset. This writer does not check buffer capacity.
+*
+*   INPUTS
+*       p - Heap allocation or destination byte array.
+*       bit - Zero or nonzero data bit to append.
+*
+***************************************************************************
+*
+*/
 
 STATIC_INLINE void addbit (uae_u8 *p, int bit)
 {
@@ -1404,6 +3063,28 @@ static int array_index;
 static unsigned	long total;
 static int totaldiv;
 
+/****i* januae-fdi/init_array
+*
+*   NAME
+*       init_array() -- Initialize the pulse-size history.
+*
+*   SYNOPSIS
+*       static void init_array(unsigned long standard_MFM_2_bit_cell_size, int
+*       nb_of_bits);
+*
+*   FUNCTION
+*       Set every history slot to the supplied nominal bit-cell size and count,
+*       accumulating the global total and divisor and restarting the ring index.
+*
+*   INPUTS
+*       standard_MFM_2_bit_cell_size - Nominal two-cell pulse size in source
+*       timing units.
+*       nb_of_bits - Number of bit cells represented by each history entry.
+*
+***************************************************************************
+*
+*/
+
 static void init_array(unsigned	long standard_MFM_2_bit_cell_size, int nb_of_bits)
 {
 	int i;
@@ -1417,6 +3098,38 @@ static void init_array(unsigned	long standard_MFM_2_bit_cell_size, int nb_of_bit
 	array_index = 0;
 }
 
+
+/****i* januae-fdi/fdi2_decode
+*
+*   NAME
+*       fdi2_decode() -- Convert pulse measurements into track bits.
+*
+*   SYNOPSIS
+*       static void fdi2_decode (FDI *fdi, unsigned long totalavg, uae_u32 *avgp,
+*       uae_u32 *minp, uae_u32 *maxp, uae_u8 *idx, unsigned int maxidx, unsigned
+*       int *indexoffsetp, unsigned int pulses, int mfm);
+*
+*   FUNCTION
+*       Use average, minimum, maximum and index pulse data to select bit-cell
+*       lengths, synthesize the bitstream and per-bit timing, and update the
+*       optional index position. The active implementation is selected by #else
+*       after a disabled decoder.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       totalavg - Total averaged pulse duration for one track.
+*       avgp - Per-pulse average durations.
+*       minp - Per-pulse minimum durations.
+*       maxp - Per-pulse maximum durations.
+*       idx - Per-pulse index/stability observations.
+*       maxidx - Maximum stability weight for index samples.
+*       indexoffsetp - Optional index position output, updated when detected.
+*       pulses - Number of pulse samples to decompress or decode.
+*       mfm - MFM timing mode requested by the caller.
+*
+***************************************************************************
+*
+*/
 
 static void fdi2_decode (FDI *fdi, unsigned long totalavg, uae_u32 *avgp, uae_u32 *minp, uae_u32 *maxp, uae_u8 *idx, unsigned int maxidx, unsigned int *indexoffsetp, unsigned int pulses, int mfm)
 {
@@ -1663,6 +3376,30 @@ static void fdi2_decode (FDI *fdi, unsigned long totalavg, uae_u32 *avgp, uae_u3
 }
 
 
+/****i* januae-fdi/fdi2_celltiming
+*
+*   NAME
+*       fdi2_celltiming() -- Convert pulse timing into output cell timing.
+*
+*   SYNOPSIS
+*       static void fdi2_celltiming (FDI *fdi, unsigned long totalavg, unsigned
+*       int bitoffset, uae_u16 *out);
+*
+*   FUNCTION
+*       Average every eight decoded bit timings and scale them to units of the
+*       track's average bit duration; duplicate the first output timing in the
+*       two trailing entries.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       totalavg - Total averaged pulse duration for one track.
+*       bitoffset - Number of generated bit cells to convert.
+*       out - Caller-provided decoded data or cell-timing buffer.
+*
+***************************************************************************
+*
+*/
+
 static void fdi2_celltiming (FDI *fdi, unsigned	long totalavg, unsigned int bitoffset, uae_u16 *out)
 {
 	uae_u16	*pt2, *pt;
@@ -1681,6 +3418,33 @@ static void fdi2_celltiming (FDI *fdi, unsigned	long totalavg, unsigned int bito
 	*pt++ = out[0];
 	*pt = out[0];
 }
+
+/****i* januae-fdi/decode_lowlevel_track
+*
+*   NAME
+*       decode_lowlevel_track() -- Read and cache a low-level FDI track.
+*
+*   SYNOPSIS
+*       static int decode_lowlevel_track (FDI *fdi, unsigned int track, struct
+*       fdi_cache *cache);
+*
+*   FUNCTION
+*       Decode compressed pulse averages, optional extrema and index
+*       measurements, determine stable pulses and index position, and store
+*       buffer ownership flags in the per-track cache.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       track - Zero-based FDI track index.
+*       cache - Per-track FDI cache populated on successful pulse decoding.
+*
+*   RESULT
+*       One on cache creation; -1 for a zero pulse count or unsupported average
+*       stream. Other decode failures are not uniformly checked.
+*
+***************************************************************************
+*
+*/
 
 static int decode_lowlevel_track (FDI *fdi, unsigned int track, struct fdi_cache *cache)
 {
@@ -1819,6 +3583,26 @@ static int decode_lowlevel_track (FDI *fdi, unsigned int track, struct fdi_cache
 static const char fdiid[] = "Formatted Disk Image file";
 static const unsigned int bit_rate_table[16] = { 125,150,250,300,500,1000 };
 
+/****i* januae-fdi/fdi2raw_header_free
+*
+*   NAME
+*       fdi2raw_header_free() -- Release an FDI decoder and its track caches.
+*
+*   SYNOPSIS
+*       void fdi2raw_header_free (FDI *fdi);
+*
+*   FUNCTION
+*       Free converter work buffers, owned pulse arrays in every cache and the
+*       FDI context. The associated zfile is not closed here; a null FDI pointer
+*       is not accepted.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+***************************************************************************
+*
+*/
+
 void fdi2raw_header_free (FDI *fdi)
 {
 	int i;
@@ -1842,10 +3626,53 @@ void fdi2raw_header_free (FDI *fdi)
 	debuglog ("FREE: memory allocated %d\n", fdi_allocated);
 }
 
+/****i* januae-fdi/fdi2raw_get_last_track
+*
+*   NAME
+*       fdi2raw_get_last_track() -- Read the track-count field.
+*
+*   SYNOPSIS
+*       int fdi2raw_get_last_track (FDI *fdi);
+*
+*   FUNCTION
+*       Return the stored last_track field, which is derived from cylinder count
+*       and head count and capped at MAX_TRACKS.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+*   RESULT
+*       Stored last_track value.
+*
+***************************************************************************
+*
+*/
+
 int fdi2raw_get_last_track (FDI	*fdi)
 {
 	return fdi->last_track;
 }
+
+/****i* januae-fdi/fdi2raw_get_num_sector
+*
+*   NAME
+*       fdi2raw_get_num_sector() -- Read default Amiga sectors per track.
+*
+*   SYNOPSIS
+*       int fdi2raw_get_num_sector (FDI *fdi);
+*
+*   FUNCTION
+*       Return 22 when header byte 152 equals 0x02, otherwise 11.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+*   RESULT
+*       22 or 11 sectors.
+*
+***************************************************************************
+*
+*/
 
 int fdi2raw_get_num_sector (FDI	*fdi)
 {
@@ -1854,30 +3681,158 @@ int fdi2raw_get_num_sector (FDI	*fdi)
 	return 11;
 }
 
+/****i* januae-fdi/fdi2raw_get_last_head
+*
+*   NAME
+*       fdi2raw_get_last_head() -- Read the last head index.
+*
+*   SYNOPSIS
+*       unsigned int fdi2raw_get_last_head (FDI *fdi);
+*
+*   FUNCTION
+*       Return the last_head field as stored in the FDI header.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+*   RESULT
+*       Last head index.
+*
+***************************************************************************
+*
+*/
+
 unsigned int fdi2raw_get_last_head (FDI *fdi)
 {
 	return fdi->last_head;
 }
+
+/****i* januae-fdi/fdi2raw_get_rotation
+*
+*   NAME
+*       fdi2raw_get_rotation() -- Read disk rotation information.
+*
+*   SYNOPSIS
+*       unsigned int fdi2raw_get_rotation (FDI *fdi);
+*
+*   FUNCTION
+*       Return the rotation_speed value derived from the FDI header.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+*   RESULT
+*       Stored rotation value.
+*
+***************************************************************************
+*
+*/
 
 unsigned int fdi2raw_get_rotation (FDI *fdi)
 {
 	return fdi->rotation_speed;
 }
 
+/****i* januae-fdi/fdi2raw_get_bit_rate
+*
+*   NAME
+*       fdi2raw_get_bit_rate() -- Read the most recently selected track bitrate.
+*
+*   SYNOPSIS
+*       unsigned int fdi2raw_get_bit_rate (FDI *fdi);
+*
+*   FUNCTION
+*       Return the bit_rate value set during track loading.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+*   RESULT
+*       Selected bitrate.
+*
+***************************************************************************
+*
+*/
+
 unsigned int fdi2raw_get_bit_rate (FDI *fdi)
 {
 	return fdi->bit_rate;
 }
+
+/****i* januae-fdi/fdi2raw_get_type
+*
+*   NAME
+*       fdi2raw_get_type() -- Read disk format type.
+*
+*   SYNOPSIS
+*       int fdi2raw_get_type (FDI *fdi);
+*
+*   FUNCTION
+*       Return the disk_type field from the FDI header.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+*   RESULT
+*       Stored disk type.
+*
+***************************************************************************
+*
+*/
 
 int fdi2raw_get_type (FDI *fdi)
 {
 	return fdi->disk_type;
 }
 
+/****i* januae-fdi/fdi2raw_get_write_protect
+*
+*   NAME
+*       fdi2raw_get_write_protect() -- Read the image write-protect flag.
+*
+*   SYNOPSIS
+*       int fdi2raw_get_write_protect (FDI *fdi);
+*
+*   FUNCTION
+*       Return bit zero of the FDI write-protect header field.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*
+*   RESULT
+*       Zero or one.
+*
+***************************************************************************
+*
+*/
+
 int fdi2raw_get_write_protect (FDI *fdi)
 {
 	return fdi->write_protect;
 }
+
+/****i* januae-fdi/fdi2raw_header
+*
+*   NAME
+*       fdi2raw_header() -- Open and parse an FDI image header.
+*
+*   SYNOPSIS
+*       FDI *fdi2raw_header(struct zfile *f);
+*
+*   FUNCTION
+*       Read the 2048-byte header, verify the format marker and major version,
+*       allocate work buffers and construct track offsets. The original file
+*       cursor is restored; the caller retains ownership of f.
+*
+*   INPUTS
+*       f - Caller-owned zfile containing the FDI image.
+*
+*   RESULT
+*       Allocated FDI context on accepted header, or NULL on rejected header.
+*
+***************************************************************************
+*
+*/
 
 FDI *fdi2raw_header(struct zfile *f)
 {
@@ -1945,6 +3900,40 @@ FDI *fdi2raw_header(struct zfile *f)
 }
 
 
+/****i* januae-fdi/fdi2raw_loadrevolution_2
+*
+*   NAME
+*       fdi2raw_loadrevolution_2() -- Render one cached low-level revolution.
+*
+*   SYNOPSIS
+*       static int fdi2raw_loadrevolution_2 (FDI *fdi, uae_u16 *mfmbuf, uae_u16
+*       *tracktiming, unsigned int track, unsigned int *tracklength, unsigned int
+*       *indexoffsetp, int *multirev, int mfm);
+*
+*   FUNCTION
+*       Re-decode cached pulse measurements into caller MFM words and cell
+*       timings, updating tracklength and optional index and multi-revolution
+*       outputs. Requires a populated cache.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       mfmbuf - Caller-provided destination for decoded 16-bit MFM words.
+*       tracktiming - Caller buffer for decoded cell timing values.
+*       track - Zero-based FDI track index.
+*       tracklength - Output for the decoded track length in bits.
+*       indexoffsetp - Optional index position output, updated when detected.
+*       multirev - Optional output indicating weak-bit-driven multiple
+*       revolutions.
+*       mfm - MFM timing mode requested by the caller.
+*
+*   RESULT
+*       One after rendering; no independent error result is returned by this
+*       routine.
+*
+***************************************************************************
+*
+*/
+
 static int fdi2raw_loadrevolution_2 (FDI *fdi, uae_u16 *mfmbuf, uae_u16 *tracktiming, unsigned int track, unsigned int *tracklength, unsigned int *indexoffsetp, int *multirev, int mfm)
 {
 	struct fdi_cache *cache = &fdi->cache[track];
@@ -1973,10 +3962,72 @@ static int fdi2raw_loadrevolution_2 (FDI *fdi, uae_u16 *mfmbuf, uae_u16 *trackti
 	return 1;
 }
 
+/****i* januae-fdi/fdi2raw_loadrevolution
+*
+*   NAME
+*       fdi2raw_loadrevolution() -- Render a cached track revolution.
+*
+*   SYNOPSIS
+*       int fdi2raw_loadrevolution (FDI *fdi, uae_u16 *mfmbuf, uae_u16
+*       *tracktiming, unsigned int track, unsigned int *tracklength, int mfm);
+*
+*   FUNCTION
+*       Call the low-level revolution decoder without requesting index position
+*       or multi-revolution status.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       mfmbuf - Caller-provided destination for decoded 16-bit MFM words.
+*       tracktiming - Caller buffer for decoded cell timing values.
+*       track - Zero-based FDI track index.
+*       tracklength - Output for the decoded track length in bits.
+*       mfm - MFM timing mode requested by the caller.
+*
+*   RESULT
+*       Result of the underlying revolution renderer.
+*
+***************************************************************************
+*
+*/
+
 int fdi2raw_loadrevolution (FDI *fdi, uae_u16 *mfmbuf, uae_u16 *tracktiming, unsigned int track, unsigned int *tracklength, int mfm)
 {
 	return fdi2raw_loadrevolution_2 (fdi, mfmbuf, tracktiming, track, tracklength, 0, 0, mfm);
 }
+
+/****i* januae-fdi/fdi2raw_loadtrack
+*
+*   NAME
+*       fdi2raw_loadtrack() -- Load and decode one FDI track.
+*
+*   SYNOPSIS
+*       int fdi2raw_loadtrack (FDI *fdi, uae_u16 *mfmbuf, uae_u16 *tracktiming,
+*       unsigned int track, unsigned int *tracklength, unsigned int
+*       *indexoffsetp, int *multirev, int mfm);
+*
+*   FUNCTION
+*       Read a track by its cached offsets, select pulse, raw, sector-described
+*       or standard encoding, and fill caller MFM data and tracklength. Cached
+*       low-level tracks use the revolution renderer.
+*
+*   INPUTS
+*       fdi - Initialized FDI decoding context with its working buffers.
+*       mfmbuf - Caller-provided destination for decoded 16-bit MFM words.
+*       tracktiming - Caller buffer for decoded cell timing values.
+*       track - Zero-based FDI track index.
+*       tracklength - Output for the decoded track length in bits.
+*       indexoffsetp - Optional index position output, updated when detected.
+*       multirev - Optional output indicating weak-bit-driven multiple
+*       revolutions.
+*       mfm - MFM timing mode requested by the caller.
+*
+*   RESULT
+*       Decoded bit count for non-pulse tracks; one for pulse decoding; zero on
+*       the decoder error flag; -1 for an unsupported track type.
+*
+***************************************************************************
+*
+*/
 
 int fdi2raw_loadtrack (FDI *fdi, uae_u16 *mfmbuf, uae_u16 *tracktiming, unsigned int track, unsigned int *tracklength, unsigned int *indexoffsetp, int *multirev, int mfm)
 {
