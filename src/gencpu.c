@@ -62,6 +62,23 @@ static int *opcode_next_clev;
 static int *opcode_last_postfix;
 static unsigned long *counts;
 
+/****i* januae-gencpu/read_counts
+*
+*   NAME
+*       read_counts() -- Order distinct opcode handlers by observed frequency.
+*
+*   SYNOPSIS
+*       static void read_counts (void);
+*
+*   FUNCTION
+*       Initialize the 65536-entry count array; use frequent.68k when available,
+*       then append eligible handlers not already present. Abort if the final
+*       count differs from nr_cpuop_funcs.
+*
+***************************************************************************
+*
+*/
+
 static void read_counts (void)
 {
     FILE *file;
@@ -106,6 +123,22 @@ static int n_braces = 0, limit_braces;
 static int m68k_pc_offset = 0;
 static int insn_n_cycles;
 
+/****i* januae-gencpu/fpulimit
+*
+*   NAME
+*       fpulimit() -- Start conditional FPU code in the generated source.
+*
+*   SYNOPSIS
+*       static void fpulimit (void);
+*
+*   FUNCTION
+*       Emit an FPUEMU preprocessor guard once for the current instruction and
+*       preserve the open-brace depth for later closure.
+*
+***************************************************************************
+*
+*/
+
 static void fpulimit (void)
 {
     if (limit_braces)
@@ -114,31 +147,145 @@ static void fpulimit (void)
     limit_braces = n_braces;
     n_braces = 0;
 }
+/****i* januae-gencpu/cpulimit
+*
+*   NAME
+*       cpulimit() -- Start a CPU-model preprocessor guard.
+*
+*   SYNOPSIS
+*       static void cpulimit (void);
+*
+*   FUNCTION
+*       Emit the CPUEMU_68000_ONLY exclusion directive for code requiring a later
+*       CPU model.
+*
+***************************************************************************
+*
+*/
+
 static void cpulimit (void)
 {
     printf ("#ifndef CPUEMU_68000_ONLY\n");
 }
+
+/****i* januae-gencpu/returncycles
+*
+*   NAME
+*       returncycles() -- Emit the instruction cycle-count return.
+*
+*   SYNOPSIS
+*       static void returncycles (const char *s, int cycles);
+*
+*   FUNCTION
+*       Write a C return statement scaled by CYCLE_UNIT; emit nothing for
+*       cycle-exact handlers.
+*
+*   INPUTS
+*       s - Leading source text or expression to emit.
+*       cycles - Number of emulated CPU cycles.
+*
+***************************************************************************
+*
+*/
 
 static void returncycles (const char *s, int cycles)
 {
     if (using_ce) return;
     printf ("%sreturn CYCLE_UNIT / 2 * %d;\n", s, cycles);
 }
+/****i* januae-gencpu/addcycles
+*
+*   NAME
+*       addcycles() -- Emit a constant cycle-exact delay.
+*
+*   SYNOPSIS
+*       static void addcycles (int cycles);
+*
+*   FUNCTION
+*       Generate a do_cycles_ce() call only when cycle-exact output is selected.
+*
+*   INPUTS
+*       cycles - Number of emulated CPU cycles.
+*
+***************************************************************************
+*
+*/
+
 static void addcycles (int cycles)
 {
     if (!using_ce) return;
     printf ("\tdo_cycles_ce (CYCLE_UNIT / 2 * %d);\n", cycles);
 }
+/****i* januae-gencpu/addcycles2
+*
+*   NAME
+*       addcycles2() -- Emit a prefixed cycle-exact delay.
+*
+*   SYNOPSIS
+*       static void addcycles2 (const char *s, int cycles);
+*
+*   FUNCTION
+*       Write a do_cycles_ce() call with caller-supplied leading source text;
+*       ordinary handlers produce no statement.
+*
+*   INPUTS
+*       s - Leading source text or expression to emit.
+*       cycles - Number of emulated CPU cycles.
+*
+***************************************************************************
+*
+*/
+
 static void addcycles2 (const char *s, int cycles)
 {
     if (!using_ce) return;
     printf ("%sdo_cycles_ce (CYCLE_UNIT / 2 * %d);\n", s, cycles);
 }
+/****i* januae-gencpu/addcycles3
+*
+*   NAME
+*       addcycles3() -- Emit a conditional dynamic cycle-exact delay.
+*
+*   SYNOPSIS
+*       static void addcycles3 (const char *s);
+*
+*   FUNCTION
+*       Write a guard that calls do_cycles_ce(cycles) only if cycles is positive;
+*       skip non-cycle-exact output.
+*
+*   INPUTS
+*       s - Leading source text or expression to emit.
+*
+***************************************************************************
+*
+*/
+
 static void addcycles3 (const char *s)
 {
     if (!using_ce) return;
     printf ("%sif (cycles > 0) do_cycles_ce (cycles);\n", s);
 }
+
+/****i* januae-gencpu/isreg
+*
+*   NAME
+*       isreg() -- Identify direct register addressing.
+*
+*   SYNOPSIS
+*       static int isreg(amodes mode);
+*
+*   FUNCTION
+*       Test whether the address mode names a data or address register.
+*
+*   INPUTS
+*       mode - Parsed 68k addressing mode.
+*
+*   RESULT
+*       Nonzero for Dreg or Areg; zero otherwise.
+*
+***************************************************************************
+*
+*/
 
 static int isreg(amodes mode)
 {
@@ -147,11 +294,42 @@ static int isreg(amodes mode)
     return 0;
 }
 
+/****i* januae-gencpu/start_brace
+*
+*   NAME
+*       start_brace() -- Open a generated C block.
+*
+*   SYNOPSIS
+*       static void start_brace (void);
+*
+*   FUNCTION
+*       Increment the generator's tracked brace depth and emit an opening brace.
+*
+***************************************************************************
+*
+*/
+
 static void start_brace (void)
 {
     n_braces++;
     printf ("{");
 }
+
+/****i* januae-gencpu/close_brace
+*
+*   NAME
+*       close_brace() -- Close a generated C block.
+*
+*   SYNOPSIS
+*       static void close_brace (void);
+*
+*   FUNCTION
+*       Assert that the tracked depth is positive, decrement it and emit a
+*       closing brace.
+*
+***************************************************************************
+*
+*/
 
 static void close_brace (void)
 {
@@ -160,17 +338,74 @@ static void close_brace (void)
     printf ("}");
 }
 
+/****i* januae-gencpu/finish_braces
+*
+*   NAME
+*       finish_braces() -- Close all tracked C blocks.
+*
+*   SYNOPSIS
+*       static void finish_braces (void);
+*
+*   FUNCTION
+*       Emit closing braces until the generator's tracked nesting depth reaches
+*       zero.
+*
+***************************************************************************
+*
+*/
+
 static void finish_braces (void)
 {
     while (n_braces > 0)
 	close_brace ();
 }
 
+/****i* januae-gencpu/pop_braces
+*
+*   NAME
+*       pop_braces() -- Close blocks down to a requested depth.
+*
+*   SYNOPSIS
+*       static void pop_braces (int to);
+*
+*   FUNCTION
+*       Emit closing braces while tracked nesting exceeds the supplied threshold.
+*
+*   INPUTS
+*       to - Target brace depth or destination expression, according to the
+*       signature.
+*
+***************************************************************************
+*
+*/
+
 static void pop_braces (int to)
 {
     while (n_braces > to)
 	close_brace ();
 }
+
+/****i* januae-gencpu/bit_size
+*
+*   NAME
+*       bit_size() -- Translate an operand size into bits.
+*
+*   SYNOPSIS
+*       static int bit_size (int size);
+*
+*   FUNCTION
+*       Map byte, word and long operand-size enumerators to 8, 16 and 32
+*       respectively; abort for other values.
+*
+*   INPUTS
+*       size - Operand width or shift size.
+*
+*   RESULT
+*       Operand width in bits.
+*
+***************************************************************************
+*
+*/
 
 static int bit_size (int size)
 {
@@ -183,6 +418,28 @@ static int bit_size (int size)
     return 0;
 }
 
+/****i* januae-gencpu/bit_mask
+*
+*   NAME
+*       bit_mask() -- Return a literal mask for an operand size.
+*
+*   SYNOPSIS
+*       static const char *bit_mask (int size);
+*
+*   FUNCTION
+*       Select the hexadecimal bit mask used by generated byte, word or long
+*       operands; abort on unsupported sizes.
+*
+*   INPUTS
+*       size - Operand width or shift size.
+*
+*   RESULT
+*       Pointer to a fixed hexadecimal C literal string.
+*
+***************************************************************************
+*
+*/
+
 static const char *bit_mask (int size)
 {
     switch (size) {
@@ -193,6 +450,30 @@ static const char *bit_mask (int size)
     }
     return 0;
 }
+
+/****i* januae-gencpu/gen_nextilong
+*
+*   NAME
+*       gen_nextilong() -- Emit a long immediate fetch declaration.
+*
+*   SYNOPSIS
+*       static void gen_nextilong (const char *type, const char *name, int
+*       norefill);
+*
+*   FUNCTION
+*       Advance the instruction-stream offset by four and emit prefetch or plain
+*       fetch code for the named C variable; optionally reuse regs->irc instead
+*       of refilling.
+*
+*   INPUTS
+*       type - C declaration type or condition-code operation.
+*       name - Generated local variable name.
+*       norefill - Nonzero to reuse the prefetched instruction register rather
+*       than fetch again.
+*
+***************************************************************************
+*
+*/
 
 static void gen_nextilong (const char *type, const char *name, int norefill)
 {
@@ -227,6 +508,31 @@ static void gen_nextilong (const char *type, const char *name, int norefill)
     }
 }
 
+/****i* januae-gencpu/gen_nextiword
+*
+*   NAME
+*       gen_nextiword() -- Construct a word immediate fetch expression.
+*
+*   SYNOPSIS
+*       static const char *gen_nextiword (int norefill);
+*
+*   FUNCTION
+*       Advance the instruction offset by two, account for non-cycle-exact fetch
+*       cycles and select prefetch or direct access, with optional reuse of
+*       regs->irc.
+*
+*   INPUTS
+*       norefill - Nonzero to reuse the prefetched instruction register rather
+*       than fetch again.
+*
+*   RESULT
+*       Pointer to a shared static expression buffer, overwritten on the next
+*       call.
+*
+***************************************************************************
+*
+*/
+
 static const char *gen_nextiword (int norefill)
 {
     static char buffer[80];
@@ -253,6 +559,31 @@ static const char *gen_nextiword (int norefill)
     }
     return buffer;
 }
+
+/****i* januae-gencpu/gen_nextibyte
+*
+*   NAME
+*       gen_nextibyte() -- Construct a byte immediate fetch expression.
+*
+*   SYNOPSIS
+*       static const char *gen_nextibyte (int norefill);
+*
+*   FUNCTION
+*       Advance the instruction offset by one word and format the cast byte
+*       access for ordinary, prefetch or cycle-exact code. Its cycle accounting
+*       follows the existing branches.
+*
+*   INPUTS
+*       norefill - Nonzero to reuse the prefetched instruction register rather
+*       than fetch again.
+*
+*   RESULT
+*       Pointer to a shared static expression buffer, overwritten on the next
+*       call.
+*
+***************************************************************************
+*
+*/
 
 static const char *gen_nextibyte (int norefill)
 {
@@ -282,6 +613,22 @@ static const char *gen_nextibyte (int norefill)
     return buffer;
 }
 
+/****i* januae-gencpu/irc2ir
+*
+*   NAME
+*       irc2ir() -- Emit instruction prefetch register transfer.
+*
+*   SYNOPSIS
+*       static void irc2ir (void);
+*
+*   FUNCTION
+*       Write an assignment from the prefetched instruction word to the
+*       instruction register only when prefetch generation is active.
+*
+***************************************************************************
+*
+*/
+
 static void irc2ir (void)
 {
     if (!using_prefetch)
@@ -290,6 +637,22 @@ static void irc2ir (void)
 }
 
 static int did_prefetch;
+
+/****i* januae-gencpu/fill_prefetch_2
+*
+*   NAME
+*       fill_prefetch_2() -- Emit a prefetch after the current extension offset.
+*
+*   SYNOPSIS
+*       static void fill_prefetch_2 (void);
+*
+*   FUNCTION
+*       Write an ordinary or cycle-exact prefetch at the current offset plus two
+*       and mark prefetch performed, accounting four cycles.
+*
+***************************************************************************
+*
+*/
 
 static void fill_prefetch_2 (void)
 {
@@ -302,6 +665,25 @@ static void fill_prefetch_2 (void)
     did_prefetch = 1;
     insn_n_cycles += 4;
 }
+
+/****i* januae-gencpu/fill_prefetch_1
+*
+*   NAME
+*       fill_prefetch_1() -- Emit a prefetch at an explicit displacement.
+*
+*   SYNOPSIS
+*       static void fill_prefetch_1 (int o);
+*
+*   FUNCTION
+*       Write an ordinary or cycle-exact instruction fetch at the supplied
+*       offset, mark prefetch performed and account four cycles.
+*
+*   INPUTS
+*       o - Instruction-stream fetch displacement.
+*
+***************************************************************************
+*
+*/
 
 static void fill_prefetch_1 (int o)
 {
@@ -316,12 +698,44 @@ static void fill_prefetch_1 (int o)
     insn_n_cycles += 4;
 }
 
+/****i* januae-gencpu/fill_prefetch_full
+*
+*   NAME
+*       fill_prefetch_full() -- Emit complete initial instruction prefetch.
+*
+*   SYNOPSIS
+*       static void fill_prefetch_full (void);
+*
+*   FUNCTION
+*       Generate an initial fetch, copy the prefetched word to the instruction
+*       register and fetch the following word.
+*
+***************************************************************************
+*
+*/
+
 static void fill_prefetch_full (void)
 {
     fill_prefetch_1 (0);
     irc2ir ();
     fill_prefetch_1 (2);
 }
+
+/****i* januae-gencpu/fill_prefetch_0
+*
+*   NAME
+*       fill_prefetch_0() -- Emit a prefetch from the current PC.
+*
+*   SYNOPSIS
+*       static void fill_prefetch_0 (void);
+*
+*   FUNCTION
+*       Generate a fetch at offset zero when prefetch is enabled and update the
+*       generator's prefetch and cycle state.
+*
+***************************************************************************
+*
+*/
 
 static void fill_prefetch_0 (void)
 {
@@ -335,11 +749,42 @@ static void fill_prefetch_0 (void)
     insn_n_cycles += 4;
 }
 
+/****i* januae-gencpu/fill_prefetch_next_1
+*
+*   NAME
+*       fill_prefetch_next_1() -- Advance the instruction prefetch queue.
+*
+*   SYNOPSIS
+*       static void fill_prefetch_next_1 (void);
+*
+*   FUNCTION
+*       Copy regs->irc into regs->ir and generate a new fetch after the current
+*       instruction offset.
+*
+***************************************************************************
+*
+*/
+
 static void fill_prefetch_next_1 (void)
 {
     irc2ir ();
     fill_prefetch_1 (m68k_pc_offset + 2);
 }
+
+/****i* januae-gencpu/fill_prefetch_next
+*
+*   NAME
+*       fill_prefetch_next() -- Emit the next instruction prefetch.
+*
+*   SYNOPSIS
+*       static void fill_prefetch_next (void);
+*
+*   FUNCTION
+*       Delegate to fill_prefetch_next_1() for queue advancement.
+*
+***************************************************************************
+*
+*/
 
 static void fill_prefetch_next (void)
 {
@@ -367,12 +812,44 @@ static void fill_prefetch_next_delay (int extracycles)
 }
 #endif
 
+/****i* januae-gencpu/fill_prefetch_finish
+*
+*   NAME
+*       fill_prefetch_finish() -- Supply a missing instruction prefetch.
+*
+*   SYNOPSIS
+*       static void fill_prefetch_finish (void);
+*
+*   FUNCTION
+*       Emit a final fetch at the current instruction offset when prefetch mode
+*       is enabled and no prefetch has yet been emitted.
+*
+***************************************************************************
+*
+*/
+
 static void fill_prefetch_finish (void)
 {
     if (did_prefetch || !using_prefetch)
 	return;
     fill_prefetch_1 (m68k_pc_offset);
 }
+
+/****i* januae-gencpu/sync_m68k_pc
+*
+*   NAME
+*       sync_m68k_pc() -- Emit accumulated guest-PC advancement.
+*
+*   SYNOPSIS
+*       static void sync_m68k_pc (void);
+*
+*   FUNCTION
+*       Write m68k_incpc() for any pending extension-byte offset and reset the
+*       generator's offset to zero.
+*
+***************************************************************************
+*
+*/
 
 static void sync_m68k_pc (void)
 {
@@ -385,6 +862,34 @@ static void sync_m68k_pc (void)
 /* getv == 1: fetch data; getv != 0: check for odd address. If movem != 0,
  * the calling routine handles Apdi and Aipi modes.
  * gb-- movem == 2 means the same thing but for a MOVE16 instruction */
+/****i* januae-gencpu/genamode2
+*
+*   NAME
+*       genamode2() -- Generate effective-address setup and optional operand fetch.
+*
+*   SYNOPSIS
+*       static void genamode2 (amodes mode, const char *reg, wordsizes size,
+*       const char *name, int getv, int movem, int flags, int e3fudge);
+*
+*   FUNCTION
+*       Handle register, indirect, indexed, PC-relative and immediate modes; emit
+*       operand access, pre/post register updates, cycles and optional
+*       address-error checks. Abort on unsupported combinations.
+*
+*   INPUTS
+*       mode - Parsed 68k addressing mode.
+*       reg - C expression selecting the instruction register operand.
+*       size - Operand width or shift size.
+*       name - Generated local variable name.
+*       getv - Operand fetch and odd-address checking selector.
+*       movem - Nonzero for MOVEM or special MOVE16 effective-address handling.
+*       flags - Bit mask of generator addressing flags.
+*       e3fudge - Adjustment to the reported address-error instruction PC.
+*
+***************************************************************************
+*
+*/
+
 static void genamode2 (amodes mode, const char *reg, wordsizes size, const char *name, int getv, int movem, int flags, int e3fudge)
 {
     char namea[100];
@@ -620,14 +1125,94 @@ static void genamode2 (amodes mode, const char *reg, wordsizes size, const char 
 	}
 }
 
+/****i* januae-gencpu/genamode
+*
+*   NAME
+*       genamode() -- Generate an effective-address operand with default exception displacement.
+*
+*   SYNOPSIS
+*       static void genamode (amodes mode, const char *reg, wordsizes size, const
+*       char *name, int getv, int movem, int flags);
+*
+*   FUNCTION
+*       Delegate to genamode2() with zero exception-PC adjustment.
+*
+*   INPUTS
+*       mode - Parsed 68k addressing mode.
+*       reg - C expression selecting the instruction register operand.
+*       size - Operand width or shift size.
+*       name - Generated local variable name.
+*       getv - Operand fetch and odd-address checking selector.
+*       movem - Nonzero for MOVEM or special MOVE16 effective-address handling.
+*       flags - Bit mask of generator addressing flags.
+*
+***************************************************************************
+*
+*/
+
 static void genamode (amodes mode, const char *reg, wordsizes size, const char *name, int getv, int movem, int flags)
 {
     genamode2 (mode, reg, size, name, getv, movem, flags, 0);
 }
+/****i* januae-gencpu/genamode_e3
+*
+*   NAME
+*       genamode_e3() -- Generate an effective address with exception-PC adjustment.
+*
+*   SYNOPSIS
+*       static void genamode_e3 (amodes mode, const char *reg, wordsizes size,
+*       const char *name, int getv, int movem, int flags, int e3fudge);
+*
+*   FUNCTION
+*       Delegate to genamode2() using the supplied address-error exception
+*       displacement.
+*
+*   INPUTS
+*       mode - Parsed 68k addressing mode.
+*       reg - C expression selecting the instruction register operand.
+*       size - Operand width or shift size.
+*       name - Generated local variable name.
+*       getv - Operand fetch and odd-address checking selector.
+*       movem - Nonzero for MOVEM or special MOVE16 effective-address handling.
+*       flags - Bit mask of generator addressing flags.
+*       e3fudge - Adjustment to the reported address-error instruction PC.
+*
+***************************************************************************
+*
+*/
+
 static void genamode_e3 (amodes mode, const char *reg, wordsizes size, const char *name, int getv, int movem, int flags, int e3fudge)
 {
     genamode2 (mode, reg, size, name, getv, movem, flags, e3fudge);
 }
+
+/****i* januae-gencpu/genastore_2
+*
+*   NAME
+*       genastore_2() -- Generate an operand store.
+*
+*   SYNOPSIS
+*       static void genastore_2 (const char *from, amodes mode, const char *reg,
+*       wordsizes size, const char *to, int store_dir);
+*
+*   FUNCTION
+*       Emit register updates or ordinary/cycle-exact memory writes for the
+*       selected size and addressing mode; choose high/low word store order via
+*       store_dir. Abort for immediate destinations.
+*
+*   INPUTS
+*       from - Generated C expression containing the stored value.
+*       mode - Parsed 68k addressing mode.
+*       reg - C expression selecting the instruction register operand.
+*       size - Operand width or shift size.
+*       to - Target brace depth or destination expression, according to the
+*       signature.
+*       store_dir - Nonzero to reverse the word-store sequence in cycle-exact
+*       longword writes.
+*
+***************************************************************************
+*
+*/
 
 static void genastore_2 (const char *from, amodes mode, const char *reg, wordsizes size, const char *to, int store_dir)
 {
@@ -733,15 +1318,83 @@ static void genastore_2 (const char *from, amodes mode, const char *reg, wordsiz
     }
 }
 
+/****i* januae-gencpu/genastore
+*
+*   NAME
+*       genastore() -- Generate a normal-order operand store.
+*
+*   SYNOPSIS
+*       static void genastore (const char *from, amodes mode, const char *reg,
+*       wordsizes size, const char *to);
+*
+*   FUNCTION
+*       Delegate to genastore_2() using the regular longword write order.
+*
+*   INPUTS
+*       from - Generated C expression containing the stored value.
+*       mode - Parsed 68k addressing mode.
+*       reg - C expression selecting the instruction register operand.
+*       size - Operand width or shift size.
+*       to - Target brace depth or destination expression, according to the
+*       signature.
+*
+***************************************************************************
+*
+*/
+
 static void genastore (const char *from, amodes mode, const char *reg, wordsizes size, const char *to)
 {
     genastore_2 (from, mode, reg, size, to, 0);
 }
+/****i* januae-gencpu/genastore_rev
+*
+*   NAME
+*       genastore_rev() -- Generate a reversed-order operand store.
+*
+*   SYNOPSIS
+*       static void genastore_rev (const char *from, amodes mode, const char
+*       *reg, wordsizes size, const char *to);
+*
+*   FUNCTION
+*       Delegate to genastore_2() with reversed word order for cycle-exact long
+*       stores.
+*
+*   INPUTS
+*       from - Generated C expression containing the stored value.
+*       mode - Parsed 68k addressing mode.
+*       reg - C expression selecting the instruction register operand.
+*       size - Operand width or shift size.
+*       to - Target brace depth or destination expression, according to the
+*       signature.
+*
+***************************************************************************
+*
+*/
+
 static void genastore_rev (const char *from, amodes mode, const char *reg, wordsizes size, const char *to)
 {
     genastore_2 (from, mode, reg, size, to, 1);
 }
 
+
+/****i* januae-gencpu/genmovemel
+*
+*   NAME
+*       genmovemel() -- Generate memory-to-register MOVEM transfers.
+*
+*   SYNOPSIS
+*       static void genmovemel (uae_u16 opcode);
+*
+*   FUNCTION
+*       Emit the register-mask decoder and successive memory reads, adjusting the
+*       effective address for postincrement.
+*
+*   INPUTS
+*       opcode - Decoded 16-bit 68k instruction opcode.
+*
+***************************************************************************
+*
+*/
 
 static void genmovemel (uae_u16 opcode)
 {
@@ -766,6 +1419,25 @@ static void genmovemel (uae_u16 opcode)
     if (table68k[opcode].dmode == Aipi)
 	printf ("\tm68k_areg (regs, dstreg) = srca;\n");
 }
+
+/****i* januae-gencpu/genmovemel_ce
+*
+*   NAME
+*       genmovemel_ce() -- Generate cycle-exact memory-to-register MOVEM.
+*
+*   SYNOPSIS
+*       static void genmovemel_ce (uae_u16 opcode);
+*
+*   FUNCTION
+*       Emit wordwise cycle-exact reads, an additional terminal word fetch and
+*       register updates including postincrement.
+*
+*   INPUTS
+*       opcode - Decoded 16-bit 68k instruction opcode.
+*
+***************************************************************************
+*
+*/
 
 static void genmovemel_ce (uae_u16 opcode)
 {
@@ -792,6 +1464,25 @@ static void genmovemel_ce (uae_u16 opcode)
     if (table68k[opcode].dmode == Aipi)
 	printf ("\tm68k_areg (regs, dstreg) = srca;\n");
 }
+
+/****i* januae-gencpu/genmovemle
+*
+*   NAME
+*       genmovemle() -- Generate register-to-memory MOVEM transfers.
+*
+*   SYNOPSIS
+*       static void genmovemle (uae_u16 opcode);
+*
+*   FUNCTION
+*       Emit byte-width-independent word or long stores and register traversal,
+*       reversing register order under predecrement.
+*
+*   INPUTS
+*       opcode - Decoded 16-bit 68k instruction opcode.
+*
+***************************************************************************
+*
+*/
 
 static void genmovemle (uae_u16 opcode)
 {
@@ -824,6 +1515,25 @@ static void genmovemle (uae_u16 opcode)
 		putcode, size);
     }
 }
+
+/****i* januae-gencpu/genmovemle_ce
+*
+*   NAME
+*       genmovemle_ce() -- Generate cycle-exact register-to-memory MOVEM.
+*
+*   SYNOPSIS
+*       static void genmovemle_ce (uae_u16 opcode);
+*
+*   FUNCTION
+*       Emit cycle-exact word stores, register traversal order and
+*       address-register updates for predecrement and other modes.
+*
+*   INPUTS
+*       opcode - Decoded 16-bit 68k instruction opcode.
+*
+***************************************************************************
+*
+*/
 
 static void genmovemle_ce (uae_u16 opcode)
 {
@@ -867,6 +1577,25 @@ static void genmovemle_ce (uae_u16 opcode)
     }
 }
 
+/****i* januae-gencpu/duplicate_carry
+*
+*   NAME
+*       duplicate_carry() -- Emit a CCR carry-to-extend copy.
+*
+*   SYNOPSIS
+*       static void duplicate_carry (int n);
+*
+*   FUNCTION
+*       Write COPY_CARRY() with one more tab indentation level than the supplied
+*       nesting counter.
+*
+*   INPUTS
+*       n - Indentation nesting count.
+*
+***************************************************************************
+*
+*/
+
 static void duplicate_carry (int n)
 {
     int i;
@@ -881,6 +1610,30 @@ typedef enum
   flag_av, flag_sv
 }
 flagtypes;
+
+/****i* januae-gencpu/genflags_normal
+*
+*   NAME
+*       genflags_normal() -- Emit explicit condition-code computations.
+*
+*   SYNOPSIS
+*       static void genflags_normal (flagtypes type, wordsizes size, const char
+*       *value, const char *src, const char *dst);
+*
+*   FUNCTION
+*       Generate the Z, N, V, C and X updates appropriate to the operation and
+*       operand width, including temporary sign and carry expressions.
+*
+*   INPUTS
+*       type - C declaration type or condition-code operation.
+*       size - Operand width or shift size.
+*       value - Generated expression or result variable name.
+*       src - Generated source expression.
+*       dst - Generated destination expression.
+*
+***************************************************************************
+*
+*/
 
 static void genflags_normal (flagtypes type, wordsizes size, const char *value, const char *src, const char *dst)
 {
@@ -1023,6 +1776,30 @@ static void genflags_normal (flagtypes type, wordsizes size, const char *value, 
     }
 }
 
+/****i* januae-gencpu/genflags
+*
+*   NAME
+*       genflags() -- Emit condition-code computations for the selected strategy.
+*
+*   SYNOPSIS
+*       static void genflags (flagtypes type, wordsizes size, const char *value,
+*       const char *src, const char *dst);
+*
+*   FUNCTION
+*       Use optflag_* helpers where supported by optimized-flags mode, otherwise
+*       delegate to genflags_normal().
+*
+*   INPUTS
+*       type - C declaration type or condition-code operation.
+*       size - Operand width or shift size.
+*       value - Generated expression or result variable name.
+*       src - Generated source expression.
+*       dst - Generated destination expression.
+*
+***************************************************************************
+*
+*/
+
 static void genflags (flagtypes type, wordsizes size, const char *value, const char *src, const char *dst)
 {
     /* Temporarily deleted 68k/ARM flag optimizations.  I'd prefer to have
@@ -1100,6 +1877,26 @@ static void genflags (flagtypes type, wordsizes size, const char *value, const c
     genflags_normal (type, size, value, src, dst);
 }
 
+/****i* januae-gencpu/force_range_for_rox
+*
+*   NAME
+*       force_range_for_rox() -- Emit rotation-count normalization.
+*
+*   SYNOPSIS
+*       static void force_range_for_rox (const char *var, wordsizes size);
+*
+*   FUNCTION
+*       Write width-specific subtractive reductions for ROX shift counts, using
+*       byte, word or long count ranges.
+*
+*   INPUTS
+*       var - Generated C shift-count variable.
+*       size - Operand width or shift size.
+*
+***************************************************************************
+*
+*/
+
 static void force_range_for_rox (const char *var, wordsizes size)
 {
     /* Could do a modulo operation here... which one is faster? */
@@ -1119,6 +1916,28 @@ static void force_range_for_rox (const char *var, wordsizes size)
     }
 }
 
+/****i* januae-gencpu/cmask
+*
+*   NAME
+*       cmask() -- Return the sign-bit literal for an operand width.
+*
+*   SYNOPSIS
+*       static const char *cmask (wordsizes size);
+*
+*   FUNCTION
+*       Choose the high-bit mask for byte, word or long operations; abort for
+*       other sizes.
+*
+*   INPUTS
+*       size - Operand width or shift size.
+*
+*   RESULT
+*       Pointer to a fixed hexadecimal C literal string.
+*
+***************************************************************************
+*
+*/
+
 static const char *cmask (wordsizes size)
 {
     switch (size) {
@@ -1129,10 +1948,52 @@ static const char *cmask (wordsizes size)
     }
 }
 
+/****i* januae-gencpu/source_is_imm1_8
+*
+*   NAME
+*       source_is_imm1_8() -- Identify quick immediate instruction fields.
+*
+*   SYNOPSIS
+*       static int source_is_imm1_8 (struct instr *i);
+*
+*   FUNCTION
+*       Test whether the parsed opcode's source type is the encoded 1-through-8
+*       immediate class.
+*
+*   INPUTS
+*       i - Decoded instruction description.
+*
+*   RESULT
+*       Nonzero exactly when stype equals 3.
+*
+***************************************************************************
+*
+*/
+
 static int source_is_imm1_8 (struct instr *i)
 {
     return i->stype == 3;
 }
+
+/****i* januae-gencpu/shift_ce
+*
+*   NAME
+*       shift_ce() -- Emit cycle-exact register-shift timing.
+*
+*   SYNOPSIS
+*       static void shift_ce (amodes dmode, int size);
+*
+*   FUNCTION
+*       For cycle-exact register operands, write the base delay plus two cycles
+*       per shift count and apply positive dynamic cycles.
+*
+*   INPUTS
+*       dmode - Destination addressing mode.
+*       size - Operand width or shift size.
+*
+***************************************************************************
+*
+*/
 
 static void shift_ce (amodes dmode, int size)
 {
@@ -1144,6 +2005,26 @@ static void shift_ce (amodes dmode, int size)
 	printf ("\t}\n");
     }
 }
+
+/****i* januae-gencpu/gen_opcode
+*
+*   NAME
+*       gen_opcode() -- Generate the body of an instruction handler.
+*
+*   SYNOPSIS
+*       static void gen_opcode (unsigned long int opcode);
+*
+*   FUNCTION
+*       Switch on the decoded opcode mnemonic to emit operand fetches,
+*       arithmetic, condition flags, exceptions, PC updates and timing;
+*       unsupported mnemonics abort the generator.
+*
+*   INPUTS
+*       opcode - Decoded 16-bit 68k instruction opcode.
+*
+***************************************************************************
+*
+*/
 
 static void gen_opcode (unsigned long int opcode)
 {
@@ -2880,6 +3761,25 @@ static void gen_opcode (unsigned long int opcode)
     did_prefetch = 0;
 }
 
+/****i* januae-gencpu/generate_includes
+*
+*   NAME
+*       generate_includes() -- Write the generated CPU unit prologue.
+*
+*   SYNOPSIS
+*       static void generate_includes (FILE * f);
+*
+*   FUNCTION
+*       Emit common includes, CPUFUNC name mapping and NOFLAGS-specific macros to
+*       the supplied output stream.
+*
+*   INPUTS
+*       f - Output C file stream.
+*
+***************************************************************************
+*
+*/
+
 static void generate_includes (FILE * f)
 {
     fprintf (f, "#include \"sysconfig.h\"\n");
@@ -2903,6 +3803,29 @@ static void generate_includes (FILE * f)
 
 static int postfix;
 
+
+/****i* januae-gencpu/decodeEA
+*
+*   NAME
+*       decodeEA() -- Format an addressing-mode operand for comments.
+*
+*   SYNOPSIS
+*       static char *decodeEA (amodes mode, wordsizes size);
+*
+*   FUNCTION
+*       Select a register, indirect, displacement or immediate notation from the
+*       supplied mode and operand width.
+*
+*   INPUTS
+*       mode - Parsed 68k addressing mode.
+*       size - Operand width or shift size.
+*
+*   RESULT
+*       Pointer to a shared static string overwritten on the next call.
+*
+***************************************************************************
+*
+*/
 
 static char *decodeEA (amodes mode, wordsizes size)
 {
@@ -2977,6 +3900,28 @@ static char *decodeEA (amodes mode, wordsizes size)
     return buffer;
 }
 
+/****i* januae-gencpu/outopcode
+*
+*   NAME
+*       outopcode() -- Format a readable mnemonic and operand list.
+*
+*   SYNOPSIS
+*       static char *outopcode (int opcode);
+*
+*   FUNCTION
+*       Look up the instruction mnemonic and concatenate its size suffix and
+*       source/destination effective-address descriptions.
+*
+*   INPUTS
+*       opcode - Decoded 16-bit 68k instruction opcode.
+*
+*   RESULT
+*       Pointer to a shared static output buffer overwritten on the next call.
+*
+***************************************************************************
+*
+*/
+
 static char *outopcode (int opcode)
 {
     static char out[100];
@@ -3004,6 +3949,26 @@ static char *outopcode (int opcode)
     }
     return out;
 }
+
+/****i* januae-gencpu/generate_one_opcode
+*
+*   NAME
+*       generate_one_opcode() -- Generate or reuse a CPU handler for one opcode-map entry.
+*
+*   SYNOPSIS
+*       static void generate_one_opcode (int rp);
+*
+*   FUNCTION
+*       Skip illegal or out-of-level opcodes; emit handler-table references,
+*       prototypes and a body when a distinct CPU-level implementation is needed.
+*       Update opcode reuse metadata.
+*
+*   INPUTS
+*       rp - Index into the generator opcode map.
+*
+***************************************************************************
+*
+*/
 
 static void generate_one_opcode (int rp)
 {
@@ -3119,6 +4084,22 @@ static void generate_one_opcode (int rp)
     opcode_last_postfix[rp] = postfix;
 }
 
+/****i* januae-gencpu/generate_func
+*
+*   NAME
+*       generate_func() -- Emit handlers partitioned into eight selectable source segments.
+*
+*   SYNOPSIS
+*       static void generate_func (void);
+*
+*   FUNCTION
+*       Write PART_1 through PART_8 guards, generate each group's opcode handlers
+*       and terminate the small opcode table.
+*
+***************************************************************************
+*
+*/
+
 static void generate_func (void)
 {
     int j, rp;
@@ -3151,6 +4132,32 @@ static void generate_func (void)
 
 	fprintf (stblfile, "{ 0, 0 }};\n");
 }
+
+/****i* januae-gencpu/main
+*
+*   NAME
+*       main() -- Generate the CPU emulator source and dispatch tables.
+*
+*   SYNOPSIS
+*       int main (int argc, char **argv);
+*
+*   FUNCTION
+*       Load decoded instruction definitions and optional frequency data, then
+*       write cputbl.h, cpustbl.c and the selected cpuemu_N.c files across CPU
+*       model levels. Optional --optimized-flags selects alternate flag
+*       generation. fopen/freopen errors are not checked.
+*
+*   INPUTS
+*       argc - Number of command-line arguments.
+*       argv - Array of command-line arguments.
+*
+*   RESULT
+*       Zero on completion; some invalid inputs terminate the process instead of
+*       returning an error code.
+*
+***************************************************************************
+*
+*/
 
 int main (int argc, char **argv)
 {
