@@ -69,10 +69,47 @@ static int warned_cpu68020;
 static unsigned long int instrcount[65536];
 static uae_u16 opcodenums[65536];
 
+/****i* januae-cpu/compfn *************************************************************
+*
+*   NAME
+*       compfn() -- Compare instruction counts.
+*
+*   SYNOPSIS
+*       static int compfn (const void *el1, const void *el2);
+*
+*   FUNCTION
+*       Compare the counter values for two opcode indices used by the
+*       instruction-count sorting operation. The comparison returns the result
+*       of a less-than test, not a three-way ordering.
+*
+*   INPUTS
+*       el1 - Pointer to the first opcode index.
+*       el2 - Pointer to the second opcode index.
+*
+***************************************************************************
+*
+*/
+
 static int compfn (const void *el1, const void *el2)
 {
     return instrcount[*(const uae_u16 *)el1] < instrcount[*(const uae_u16 *)el2];
 }
+
+/****i* januae-cpu/icountfilename *****************************************************
+*
+*   NAME
+*       icountfilename() -- Choose an instruction-count filename.
+*
+*   SYNOPSIS
+*       static char *icountfilename (void);
+*
+*   FUNCTION
+*       Return the INSNCOUNT environment variable when set, otherwise select a
+*       default filename based on COUNT_INSTRS.
+*
+***************************************************************************
+*
+*/
 
 static char *icountfilename (void)
 {
@@ -81,6 +118,23 @@ static char *icountfilename (void)
 	return name;
     return COUNT_INSTRS == 2 ? "frequent.68k" : "insncount";
 }
+
+/****i* januae-cpu/dump_counts-1 *****************************************************
+*
+*   NAME
+*       dump_counts() -- Write instruction-count statistics.
+*
+*   SYNOPSIS
+*       void dump_counts (void);
+*
+*   FUNCTION
+*       When COUNT_INSTRS is enabled, sort instruction opcodes by their
+*       accumulated counts and write the nonzero entries to a file. The
+*       alternative build definition performs no work.
+*
+***************************************************************************
+*
+*/
 
 void dump_counts (void)
 {
@@ -110,10 +164,47 @@ void dump_counts (void)
     fclose (f);
 }
 #else
+/****i* januae-cpu/dump_counts-2 *****************************************************
+*
+*   NAME
+*       dump_counts() -- Write instruction-count statistics.
+*
+*   SYNOPSIS
+*       void dump_counts (void);
+*
+*   FUNCTION
+*       When COUNT_INSTRS is enabled, sort instruction opcodes by their
+*       accumulated counts and write the nonzero entries to a file. The
+*       alternative build definition performs no work.
+*
+***************************************************************************
+*
+*/
+
 void dump_counts (void)
 {
 }
 #endif
+
+/****i* januae-cpu/count_instr ********************************************************
+*
+*   NAME
+*       count_instr() -- Record an executed opcode.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void count_instr (unsigned int opcode);
+*
+*   FUNCTION
+*       Increment the instruction or merged-handler counter according to
+*       COUNT_INSTRS; leave the counters untouched when instruction counting is
+*       disabled.
+*
+*   INPUTS
+*       opcode - Encoded 68k instruction.
+*
+***************************************************************************
+*
+*/
 
 STATIC_INLINE void count_instr (unsigned int opcode)
 {
@@ -127,11 +218,50 @@ STATIC_INLINE void count_instr (unsigned int opcode)
 
 static unsigned long op_illg_1 (uae_u32 opcode, struct regstruct *regs) REGPARAM;
 
+/****i* januae-cpu/op_illg_1 **********************************************************
+*
+*   NAME
+*       op_illg_1() -- Dispatch an unsupported instruction.
+*
+*   SYNOPSIS
+*       static unsigned long REGPARAM2 op_illg_1 (uae_u32 opcode, struct
+*       regstruct *regs);
+*
+*   FUNCTION
+*       Forward the opcode to the illegal-instruction handler and return four
+*       CPU cycles.
+*
+*   INPUTS
+*       opcode - Encoded 68k instruction.
+*       regs - Register state read or modified by the operation.
+*
+***************************************************************************
+*
+*/
+
 static unsigned long REGPARAM2 op_illg_1 (uae_u32 opcode, struct regstruct *regs)
 {
     op_illg (opcode, regs);
     return 4;
 }
+
+/****i* januae-cpu/build_cpufunctbl ***************************************************
+*
+*   NAME
+*       build_cpufunctbl() -- Select and construct opcode dispatch.
+*
+*   SYNOPSIS
+*       static void build_cpufunctbl (void);
+*
+*   FUNCTION
+*       Select the instruction-handler table for the configured CPU model and
+*       prefetch or cycle-exact mode, fill all 65536 dispatch slots, and resolve
+*       shared instruction handlers. Abort when no applicable table or
+*       referenced handler exists.
+*
+***************************************************************************
+*
+*/
 
 static void build_cpufunctbl (void)
 {
@@ -204,6 +334,26 @@ static void build_cpufunctbl (void)
 #endif
 }
 
+/****i* januae-cpu/fill_prefetch_slow *************************************************
+*
+*   NAME
+*       fill_prefetch_slow() -- Load the CPU prefetch words.
+*
+*   SYNOPSIS
+*       void fill_prefetch_slow (struct regstruct *regs);
+*
+*   FUNCTION
+*       Read the two instruction words at the current PC and the following word
+*       into ir and irc; use cycle-exact reads when that build and configuration
+*       support them.
+*
+*   INPUTS
+*       regs - Register state read or modified by the operation.
+*
+***************************************************************************
+*
+*/
+
 void fill_prefetch_slow (struct regstruct *regs)
 {
 #ifdef CPUEMU_6
@@ -221,6 +371,22 @@ void fill_prefetch_slow (struct regstruct *regs)
 
 unsigned long cycles_mask, cycles_val;
 
+/****i* januae-cpu/update_68k_cycles **************************************************
+*
+*   NAME
+*       update_68k_cycles() -- Update CPU cycle scaling.
+*
+*   SYNOPSIS
+*       static void update_68k_cycles (void);
+*
+*   FUNCTION
+*       Set the global cycle mask and value from m68k_speed, disabling masking
+*       when the requested speed is below one.
+*
+***************************************************************************
+*
+*/
+
 static void update_68k_cycles (void)
 {
     cycles_mask = 0;
@@ -230,6 +396,23 @@ static void update_68k_cycles (void)
 	cycles_val = 0;
     }
 }
+
+/****i* januae-cpu/check_prefs_changed_cpu ********************************************
+*
+*   NAME
+*       check_prefs_changed_cpu() -- Apply pending CPU preferences.
+*
+*   SYNOPSIS
+*       void check_prefs_changed_cpu (void);
+*
+*   FUNCTION
+*       Apply changed CPU model, compatibility, cycle-exact and speed options;
+*       rebuild handlers and request exit from the current opcode loop when a
+*       mode change requires it. Update the CPU idle preference separately.
+*
+***************************************************************************
+*
+*/
 
 void check_prefs_changed_cpu (void)
 {
@@ -264,6 +447,23 @@ void check_prefs_changed_cpu (void)
 	currprefs.cpu_idle = changed_prefs.cpu_idle;
     }
 }
+
+/****i* januae-cpu/init_m68k **********************************************************
+*
+*   NAME
+*       init_m68k() -- Initialize CPU decoding and execution.
+*
+*   SYNOPSIS
+*       void init_m68k (void);
+*
+*   FUNCTION
+*       Build MOVEM bit lookup tables, initialize instruction decoding and
+*       merged dispatch handlers, set the address-space mask and CPU timing, and
+*       initialize JIT preferences when enabled.
+*
+***************************************************************************
+*
+*/
 
 void init_m68k (void)
 {
@@ -373,6 +573,34 @@ static uae_s32 m68kpc_offset;
 #define get_ibyte_1(regs, o) get_byte((regs)->pc + ((regs)->pc_p - (regs)->pc_oldp) + (o) + 1)
 #define get_iword_1(regs, o) get_word((regs)->pc + ((regs)->pc_p - (regs)->pc_oldp) + (o))
 #define get_ilong_1(regs, o) get_long((regs)->pc + ((regs)->pc_p - (regs)->pc_oldp) + (o))
+
+/****i* januae-cpu/ShowEA *************************************************************
+*
+*   NAME
+*       ShowEA() -- Format a decoded effective address.
+*
+*   SYNOPSIS
+*       static uae_s32 ShowEA (void *f, uae_u16 opcode, int reg, amodes mode,
+*       wordsizes size, char *buf, uae_u32 *eaddr, int safemode);
+*
+*   FUNCTION
+*       Decode an instruction operand using its addressing mode, operand size
+*       and register, format its textual representation, and optionally return
+*       the computed effective address.
+*
+*   INPUTS
+*       f - Output stream or output handle selected by the caller.
+*       opcode - Encoded 68k instruction.
+*       reg - Register selection within the effective-address mode.
+*       mode - Effective-address mode.
+*       size - Operand width.
+*       buf - Caller-provided output buffer.
+*       eaddr - Optional effective-address output.
+*       safemode - Select safe operand inspection.
+*
+***************************************************************************
+*
+*/
 
 static uae_s32 ShowEA (void *f, uae_u16 opcode, int reg, amodes mode, wordsizes size, char *buf, uae_u32 *eaddr, int safemode)
 {
@@ -560,6 +788,29 @@ static uae_s32 ShowEA (void *f, uae_u16 opcode, int reg, amodes mode, wordsizes 
 }
 
 
+/****i* januae-cpu/get_disp_ea_020 ****************************************************
+*
+*   NAME
+*       get_disp_ea_020() -- Compute a 68020 indexed effective address.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 get_disp_ea_020 (struct regstruct *regs, uae_u32 base,
+*       uae_u32 dp);
+*
+*   FUNCTION
+*       Decode the 68020 index extension, including scaling, base suppression
+*       and memory-indirect forms, then calculate the resulting effective
+*       address.
+*
+*   INPUTS
+*       regs - Register state read or modified by the operation.
+*       base - Base effective address.
+*       dp - Index and displacement extension word.
+*
+***************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 get_disp_ea_020 (struct regstruct *regs, uae_u32 base, uae_u32 dp)
 {
     int reg = (dp >> 12) & 15;
@@ -588,6 +839,28 @@ uae_u32 REGPARAM2 get_disp_ea_020 (struct regstruct *regs, uae_u32 base, uae_u32
     }
 }
 
+/****i* januae-cpu/get_disp_ea_000 ****************************************************
+*
+*   NAME
+*       get_disp_ea_000() -- Compute a 68000 indexed effective address.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 get_disp_ea_000 (struct regstruct *regs, uae_u32 base,
+*       uae_u32 dp);
+*
+*   FUNCTION
+*       Add the signed eight-bit displacement and selected index register value
+*       to the base address using 68000 indexing rules.
+*
+*   INPUTS
+*       regs - Register state read or modified by the operation.
+*       base - Base effective address.
+*       dp - Index and displacement extension word.
+*
+***************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 get_disp_ea_000 (struct regstruct *regs, uae_u32 base, uae_u32 dp)
 {
     int reg = (dp >> 12) & 15;
@@ -612,6 +885,25 @@ uae_u32 REGPARAM2 get_disp_ea_000 (struct regstruct *regs, uae_u32 base, uae_u32
 #endif
 }
 
+/****i* januae-cpu/MakeSR *************************************************************
+*
+*   NAME
+*       MakeSR() -- Assemble the status register.
+*
+*   SYNOPSIS
+*       void REGPARAM2 MakeSR (struct regstruct *regs);
+*
+*   FUNCTION
+*       Pack supervisor, trace, interrupt-mask and condition-code state from the
+*       register structure into the 68k status register.
+*
+*   INPUTS
+*       regs - Register state read or modified by the operation.
+*
+***************************************************************************
+*
+*/
+
 void REGPARAM2 MakeSR (struct regstruct *regs)
 {
 #if 0
@@ -631,6 +923,25 @@ void REGPARAM2 MakeSR (struct regstruct *regs)
 	       | (GET_ZFLG(&regs->ccrflags) << 2) | (GET_VFLG(&regs->ccrflags) << 1)
 	       |  GET_CFLG(&regs->ccrflags));
 }
+
+/****i* januae-cpu/MakeFromSR *********************************************************
+*
+*   NAME
+*       MakeFromSR() -- Apply a status register value.
+*
+*   SYNOPSIS
+*       void REGPARAM2 MakeFromSR (struct regstruct *regs);
+*
+*   FUNCTION
+*       Unpack the status register into CPU status and condition flags; account
+*       for supervisor and master-stack transitions when the mode changes.
+*
+*   INPUTS
+*       regs - Register state read or modified by the operation.
+*
+***************************************************************************
+*
+*/
 
 void REGPARAM2 MakeFromSR (struct regstruct *regs)
 {
@@ -696,6 +1007,27 @@ void REGPARAM2 MakeFromSR (struct regstruct *regs)
 	unset_special (regs, SPCFLAG_TRACE);
 }
 
+/****i* januae-cpu/trace_exception ****************************************************
+*
+*   NAME
+*       trace_exception() -- Record exception trace state.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void trace_exception (struct regstruct *regs, unsigned int
+*       nr);
+*
+*   FUNCTION
+*       Clear pending trace special flags, retain a deferred trace request for
+*       selected exception vectors, and clear the CPU trace-mode flags.
+*
+*   INPUTS
+*       regs - Register state read or modified by the operation.
+*       nr - Exception vector number.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE void trace_exception (struct regstruct *regs, unsigned int nr)
 {
     unset_special (regs, SPCFLAG_TRACE | SPCFLAG_DOTRACE);
@@ -709,6 +1041,25 @@ STATIC_INLINE void trace_exception (struct regstruct *regs, unsigned int nr)
     regs->t1 = regs->t0 = regs->m = 0;
 }
 
+/****i* januae-cpu/exception_debug ****************************************************
+*
+*   NAME
+*       exception_debug() -- Report an exception to the debugger.
+*
+*   SYNOPSIS
+*       static void exception_debug (int nr);
+*
+*   FUNCTION
+*       Emit the exception information used by the debugger's exception
+*       reporting path when the corresponding debug conditions are enabled.
+*
+*   INPUTS
+*       nr - Exception vector number.
+*
+***************************************************************************
+*
+*/
+
 static void exception_debug (int nr)
 {
 #ifdef DEBUGGER
@@ -721,6 +1072,28 @@ static void exception_debug (int nr)
 #ifdef CPUEMU_6
 
 /* cycle-exact exception handler, 68000 only */
+
+/****i* januae-cpu/uae_Exception_ce ***************************************************
+*
+*   NAME
+*       uae_Exception_ce() -- Build a cycle-exact exception frame.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void uae_Exception_ce (int nr, struct regstruct *regs,
+*       uaecptr oldpc);
+*
+*   FUNCTION
+*       Perform exception entry using cycle-exact memory and timing operations,
+*       including vector access, stack frame construction and updated CPU state.
+*
+*   INPUTS
+*       nr - Exception vector number.
+*       regs - Register state read or modified by the operation.
+*       oldpc - Program counter associated with the exception.
+*
+***************************************************************************
+*
+*/
 
 STATIC_INLINE void uae_Exception_ce (int nr, struct regstruct *regs, uaecptr oldpc)
 {
@@ -831,6 +1204,28 @@ kludge_me_do:
     trace_exception (regs, nr);
 }
 #endif
+
+/****i* januae-cpu/uae_Exception_normal ***********************************************
+*
+*   NAME
+*       uae_Exception_normal() -- Build a normal exception frame.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void uae_Exception_normal (int nr, struct regstruct *regs,
+*       uaecptr oldpc);
+*
+*   FUNCTION
+*       Perform exception entry for the non-cycle-exact CPU mode, saving the
+*       appropriate status and return address and loading the exception vector.
+*
+*   INPUTS
+*       nr - Exception vector number.
+*       regs - Register state read or modified by the operation.
+*       oldpc - Program counter associated with the exception.
+*
+***************************************************************************
+*
+*/
 
 STATIC_INLINE void uae_Exception_normal (int nr, struct regstruct *regs, uaecptr oldpc)
 {
@@ -956,6 +1351,28 @@ kludge_me_do:
     trace_exception (regs, nr);
 }
 
+/****i* januae-cpu/uae_Exception ******************************************************
+*
+*   NAME
+*       uae_Exception() -- Dispatch an emulated CPU exception.
+*
+*   SYNOPSIS
+*       void REGPARAM2 uae_Exception (int nr, struct regstruct *regs, uaecptr
+*       oldpc);
+*
+*   FUNCTION
+*       Select the cycle-exact or ordinary exception-entry implementation
+*       according to the current CPU mode.
+*
+*   INPUTS
+*       nr - Exception vector number.
+*       regs - Register state read or modified by the operation.
+*       oldpc - Program counter associated with the exception.
+*
+***************************************************************************
+*
+*/
+
 void REGPARAM2 uae_Exception (int nr, struct regstruct *regs, uaecptr oldpc)
 {
 #if 0
@@ -970,6 +1387,27 @@ void REGPARAM2 uae_Exception (int nr, struct regstruct *regs, uaecptr oldpc)
 #endif
 	uae_Exception_normal (nr, regs, oldpc);
 }
+
+/****i* januae-cpu/service_interrupt **************************************************
+*
+*   NAME
+*       service_interrupt() -- Enter an eligible interrupt.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void service_interrupt (unsigned int level, struct
+*       regstruct *regs);
+*
+*   FUNCTION
+*       If the incoming level exceeds the current mask, leave STOP state, enter
+*       the matching autovector exception and update the interrupt mask.
+*
+*   INPUTS
+*       level - Requested interrupt level.
+*       regs - Register state read or modified by the operation.
+*
+***************************************************************************
+*
+*/
 
 STATIC_INLINE void service_interrupt (unsigned int level, struct regstruct *regs)
 {
@@ -990,6 +1428,26 @@ STATIC_INLINE void service_interrupt (unsigned int level, struct regstruct *regs
  * This probably ain't a great idea, because this could allow an interrupt
  * to be forced before an opcode is completed and the PC updated.
  */
+/****i* januae-cpu/Interrupt **********************************************************
+*
+*   NAME
+*       Interrupt() -- Request an immediate CPU interrupt.
+*
+*   SYNOPSIS
+*       void Interrupt (unsigned int level);
+*
+*   FUNCTION
+*       Assert that the level is below eight and call the interrupt service path
+*       for the global CPU state. The request is not deferred until instruction
+*       completion.
+*
+*   INPUTS
+*       level - Requested interrupt level.
+*
+***************************************************************************
+*
+*/
+
 void Interrupt (unsigned int level)
 {
     assert (level < 8);
@@ -999,6 +1457,25 @@ void Interrupt (unsigned int level)
 static uae_u32 caar, cacr, itt0, itt1, dtt0, dtt1, tc, mmusr, urp, srp, buscr, pcr;
 
 #ifndef CPUEMU_68000_ONLY
+
+/****i* januae-cpu/movec_illg *********************************************************
+*
+*   NAME
+*       movec_illg() -- Validate a control-register selector.
+*
+*   SYNOPSIS
+*       static int movec_illg (int regno);
+*
+*   FUNCTION
+*       Decide whether a MOVEC control-register selector is invalid for the
+*       configured CPU level.
+*
+*   INPUTS
+*       regno - Encoded CPU control-register selector.
+*
+***************************************************************************
+*
+*/
 
 static int movec_illg (int regno)
 {
@@ -1024,6 +1501,27 @@ static int movec_illg (int regno)
     }
     return 1;
 }
+
+/****i* januae-cpu/m68k_move2c ********************************************************
+*
+*   NAME
+*       m68k_move2c() -- Write an emulated CPU control register.
+*
+*   SYNOPSIS
+*       int m68k_move2c (int regno, uae_u32 *regp);
+*
+*   FUNCTION
+*       Validate the MOVEC selector, mask model-dependent writable fields and
+*       update the selected control register; perform JIT cache operations when
+*       applicable.
+*
+*   INPUTS
+*       regno - Encoded CPU control-register selector.
+*       regp - Input or output control-register value.
+*
+***************************************************************************
+*
+*/
 
 int m68k_move2c (int regno, uae_u32 *regp)
 {
@@ -1076,6 +1574,26 @@ int m68k_move2c (int regno, uae_u32 *regp)
     return 1;
 }
 
+/****i* januae-cpu/m68k_movec2 ********************************************************
+*
+*   NAME
+*       m68k_movec2() -- Read an emulated CPU control register.
+*
+*   SYNOPSIS
+*       int m68k_movec2 (int regno, uae_u32 *regp);
+*
+*   FUNCTION
+*       Validate the MOVEC selector and copy the selected CPU control register
+*       value into the caller's output word.
+*
+*   INPUTS
+*       regno - Encoded CPU control-register selector.
+*       regp - Input or output control-register value.
+*
+***************************************************************************
+*
+*/
+
 int m68k_movec2 (int regno, uae_u32 *regp)
 {
 //    write_log ("movec2 %04x ", regno);
@@ -1113,6 +1631,31 @@ int m68k_movec2 (int regno, uae_u32 *regp)
     return 1;
 }
 
+/****i* januae-cpu/div_unsigned *******************************************************
+*
+*   NAME
+*       div_unsigned() -- Divide an unsigned 64-bit value.
+*
+*   SYNOPSIS
+*       STATIC_INLINE int div_unsigned(uae_u32 src_hi, uae_u32 src_lo, uae_u32
+*       div, uae_u32 *quot, uae_u32 *rem);
+*
+*   FUNCTION
+*       Divide a high/low 32-bit dividend by a 32-bit divisor using a
+*       shift-subtract loop. Return an overflow indication without updating the
+*       output words when the quotient will not fit.
+*
+*   INPUTS
+*       src_hi - High word of the dividend.
+*       src_lo - Low word of the dividend.
+*       div - Unsigned divisor.
+*       quot - Output quotient.
+*       rem - Output remainder.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE int
 div_unsigned(uae_u32 src_hi, uae_u32 src_lo, uae_u32 div, uae_u32 *quot, uae_u32 *rem)
 {
@@ -1137,6 +1680,30 @@ div_unsigned(uae_u32 src_hi, uae_u32 src_lo, uae_u32 div, uae_u32 *quot, uae_u32
 	*rem = src_hi;
 	return 0;
 }
+
+/****i* januae-cpu/m68k_divl **********************************************************
+*
+*   NAME
+*       m68k_divl() -- Execute long division.
+*
+*   SYNOPSIS
+*       void m68k_divl (uae_u32 opcode, uae_u32 src, uae_u16 extra, uaecptr
+*       oldpc);
+*
+*   FUNCTION
+*       Emulate the signed or unsigned long-division form selected by the
+*       extension word, updating destination registers and CPU flags or raising
+*       division exceptions as implemented.
+*
+*   INPUTS
+*       opcode - Encoded 68k instruction.
+*       src - Input operand or saved-state cursor.
+*       extra - Instruction extension word.
+*       oldpc - Program counter associated with the exception.
+*
+***************************************************************************
+*
+*/
 
 void m68k_divl (uae_u32 opcode, uae_u32 src, uae_u16 extra, uaecptr oldpc)
 {
@@ -1259,6 +1826,29 @@ void m68k_divl (uae_u32 opcode, uae_u32 src, uae_u16 extra, uaecptr oldpc)
 #endif
 }
 
+/****i* januae-cpu/mul_unsigned *******************************************************
+*
+*   NAME
+*       mul_unsigned() -- Multiply two unsigned 32-bit values.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void mul_unsigned (uae_u32 src1, uae_u32 src2, uae_u32
+*       *dst_hi, uae_u32 *dst_lo);
+*
+*   FUNCTION
+*       Calculate the 64-bit product and write its high and low words through
+*       the supplied pointers.
+*
+*   INPUTS
+*       src1 - First multiplicand.
+*       src2 - Second multiplicand.
+*       dst_hi - Output high product word.
+*       dst_lo - Output low product word.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE void
 mul_unsigned (uae_u32 src1, uae_u32 src2, uae_u32 *dst_hi, uae_u32 *dst_lo)
 {
@@ -1277,6 +1867,28 @@ mul_unsigned (uae_u32 src1, uae_u32 src2, uae_u32 *dst_hi, uae_u32 *dst_lo)
 	*dst_lo = lo;
 	*dst_hi = r3;
 }
+
+/****i* januae-cpu/m68k_mull **********************************************************
+*
+*   NAME
+*       m68k_mull() -- Execute long multiplication.
+*
+*   SYNOPSIS
+*       void m68k_mull (uae_u32 opcode, uae_u32 src, uae_u16 extra);
+*
+*   FUNCTION
+*       Apply the extension-word register selection and signed or unsigned
+*       multiplication rules, updating the result register or pair and condition
+*       codes.
+*
+*   INPUTS
+*       opcode - Encoded 68k instruction.
+*       src - Input operand or saved-state cursor.
+*       extra - Instruction extension word.
+*
+***************************************************************************
+*
+*/
 
 void m68k_mull (uae_u32 opcode, uae_u32 src, uae_u16 extra)
 {
@@ -1368,6 +1980,24 @@ void m68k_mull (uae_u32 opcode, uae_u32 src, uae_u16 extra)
 #endif
 
 
+/****i* januae-cpu/m68k_reset *********************************************************
+*
+*   NAME
+*       m68k_reset() -- Initialize CPU register state after reset.
+*
+*   SYNOPSIS
+*       void m68k_reset (void);
+*
+*   FUNCTION
+*       Initialize the instruction and stack pointers from the Kickstart reset
+*       vectors, reset condition and control registers, and fill the instruction
+*       prefetch state. During SaveState recovery, restore state without reading
+*       the reset vectors.
+*
+***************************************************************************
+*
+*/
+
 void m68k_reset (void)
 {
     regs.kick_mask = 0x00F80000;
@@ -1412,15 +2042,75 @@ void m68k_reset (void)
     warned_cpu68020 = 0;
 }
 
+/****i* januae-cpu/in_rom *************************************************************
+*
+*   NAME
+*       in_rom() -- Test for Kickstart address space.
+*
+*   SYNOPSIS
+*       STATIC_INLINE int in_rom (uaecptr pc);
+*
+*   FUNCTION
+*       Return whether the 24-bit-mapped PC lies in the primary Kickstart ROM
+*       region at F80000.
+*
+*   INPUTS
+*       pc - Emulated program counter.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE int in_rom (uaecptr pc)
 {
     return (munge24 (pc) & 0xFFF80000) == 0xF80000;
 }
 
+/****i* januae-cpu/in_rtarea **********************************************************
+*
+*   NAME
+*       in_rtarea() -- Test for emulator runtime address space.
+*
+*   SYNOPSIS
+*       STATIC_INLINE int in_rtarea (uaecptr pc);
+*
+*   FUNCTION
+*       Return whether the 24-bit-mapped PC lies in the emulated runtime trap
+*       area.
+*
+*   INPUTS
+*       pc - Emulated program counter.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE int in_rtarea (uaecptr pc)
 {
     return (munge24 (pc) & 0xFFFF0000) == RTAREA_BASE;
 }
+
+/****i* januae-cpu/op_illg ************************************************************
+*
+*   NAME
+*       op_illg() -- Handle an illegal or special emulator opcode.
+*
+*   SYNOPSIS
+*       unsigned long REGPARAM2 op_illg (uae_u32 opcode, struct regstruct
+*       *regs);
+*
+*   FUNCTION
+*       Recognize selected Kickstart and runtime-area trap encodings before
+*       raising an illegal-instruction or line-A/line-F exception. Return the
+*       fixed handler cycle count.
+*
+*   INPUTS
+*       opcode - Encoded 68k instruction.
+*       regs - Register state read or modified by the operation.
+*
+***************************************************************************
+*
+*/
 
 unsigned long REGPARAM2 op_illg (uae_u32 opcode, struct regstruct *regs)
 {
@@ -1496,6 +2186,28 @@ unsigned long REGPARAM2 op_illg (uae_u32 opcode, struct regstruct *regs)
 
 #ifdef CPUEMU_0
 
+/****i* januae-cpu/mmu_op *************************************************************
+*
+*   NAME
+*       mmu_op() -- Interpret selected MMU instruction encodings.
+*
+*   SYNOPSIS
+*       void mmu_op(uae_u32 opcode, struct regstruct *regs, uae_u16 extra);
+*
+*   FUNCTION
+*       Handle the recognized PFLUSH and PTEST encodings by logging or clearing
+*       MMU status; dispatch all other encodings as illegal instructions. This
+*       is not full MMU emulation.
+*
+*   INPUTS
+*       opcode - Encoded 68k instruction.
+*       regs - Register state read or modified by the operation.
+*       extra - Instruction extension word.
+*
+***************************************************************************
+*
+*/
+
 void mmu_op(uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
 {
     if ((opcode & 0xFE0) == 0x0500) {
@@ -1512,6 +2224,25 @@ void mmu_op(uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
 #endif
 
 static uaecptr last_trace_ad = 0;
+
+/****i* januae-cpu/do_trace ***********************************************************
+*
+*   NAME
+*       do_trace() -- Advance pending CPU trace exceptions.
+*
+*   SYNOPSIS
+*       static NOINLINE void do_trace (struct regstruct *regs);
+*
+*   FUNCTION
+*       Examine trace mode and the next instruction to schedule a trace
+*       exception at the appropriate PC when a trace condition is met.
+*
+*   INPUTS
+*       regs - Register state read or modified by the operation.
+*
+***************************************************************************
+*
+*/
 
 static NOINLINE void do_trace (struct regstruct *regs)
 {
@@ -1554,6 +2285,26 @@ static NOINLINE void do_trace (struct regstruct *regs)
  * The 68k CPU stays in stopped state, essentially doing
  * nothing, until an IRQ arrives,
  */
+/****i* januae-cpu/do_stop ************************************************************
+*
+*   NAME
+*       do_stop() -- Wait while the emulated CPU is stopped.
+*
+*   SYNOPSIS
+*       static NOINLINE void do_stop (struct regstruct *regs);
+*
+*   FUNCTION
+*       Advance hardware cycles and Copper activity until an interrupt, stop
+*       cancellation or execution-mode change ends the STOP state; optionally
+*       sleep the host during idle periods.
+*
+*   INPUTS
+*       regs - Register state read or modified by the operation.
+*
+***************************************************************************
+*
+*/
+
 static NOINLINE void do_stop (struct regstruct *regs)
 {
     unsigned int stop_count = 0;
@@ -1615,6 +2366,27 @@ static NOINLINE void do_stop (struct regstruct *regs)
     } while (regs->spcflags & SPCFLAG_STOP);
 }
 
+
+/****i* januae-cpu/do_specialties *****************************************************
+*
+*   NAME
+*       do_specialties() -- Process pending special CPU states.
+*
+*   SYNOPSIS
+*       STATIC_INLINE int do_specialties (int cycles, struct regstruct *regs);
+*
+*   FUNCTION
+*       Service trace, STOP, DMA-related cycle work, interrupt delivery, break
+*       or mode-change flags and optional cartridge monitor hooks. Return
+*       nonzero when the opcode execution loop must exit.
+*
+*   INPUTS
+*       cycles - Cycles already consumed by the current instruction.
+*       regs - Register state read or modified by the operation.
+*
+***************************************************************************
+*
+*/
 
 STATIC_INLINE int do_specialties (int cycles, struct regstruct *regs)
 {
@@ -1727,6 +2499,23 @@ STATIC_INLINE int do_specialties (int cycles, struct regstruct *regs)
 
 #ifndef CPUEMU_5
 
+/****i* januae-cpu/m68k_run_1-1 ******************************************************
+*
+*   NAME
+*       m68k_run_1() -- Run the 68000 prefetch execution loop.
+*
+*   SYNOPSIS
+*       static void m68k_run_1 (void);
+*
+*   FUNCTION
+*       In CPUEMU_5 builds, dispatch opcodes from the emulated instruction
+*       prefetch register and account for cycles and special events; the
+*       alternative build definition is empty.
+*
+***************************************************************************
+*
+*/
+
 static void m68k_run_1 (void)
 {
 }
@@ -1736,6 +2525,23 @@ static void m68k_run_1 (void)
 /* It's really sad to have two almost identical functions for this, but we
    do it all for performance... :(
    This version emulates 68000's prefetch "cache" */
+/****i* januae-cpu/m68k_run_1-2 ******************************************************
+*
+*   NAME
+*       m68k_run_1() -- Run the 68000 prefetch execution loop.
+*
+*   SYNOPSIS
+*       static void m68k_run_1 (void);
+*
+*   FUNCTION
+*       In CPUEMU_5 builds, dispatch opcodes from the emulated instruction
+*       prefetch register and account for cycles and special events; the
+*       alternative build definition is empty.
+*
+***************************************************************************
+*
+*/
+
 static void m68k_run_1 (void)
 {
     struct regstruct *r = &regs;
@@ -1763,6 +2569,23 @@ static void m68k_run_1 (void)
 
 #ifndef CPUEMU_6
 
+/****i* januae-cpu/m68k_run_1_ce-1 ***************************************************
+*
+*   NAME
+*       m68k_run_1_ce() -- Run the cycle-exact 68000 loop.
+*
+*   SYNOPSIS
+*       static void m68k_run_1_ce (void);
+*
+*   FUNCTION
+*       In CPUEMU_6 builds, execute instructions from the prefetch register and
+*       process special events after each instruction; the alternative build
+*       definition is empty.
+*
+***************************************************************************
+*
+*/
+
 static void m68k_run_1_ce (void)
 {
 }
@@ -1770,6 +2593,23 @@ static void m68k_run_1_ce (void)
 #else
 
 /* cycle-exact m68k_run() */
+
+/****i* januae-cpu/m68k_run_1_ce-2 ***************************************************
+*
+*   NAME
+*       m68k_run_1_ce() -- Run the cycle-exact 68000 loop.
+*
+*   SYNOPSIS
+*       static void m68k_run_1_ce (void);
+*
+*   FUNCTION
+*       In CPUEMU_6 builds, execute instructions from the prefetch register and
+*       process special events after each instruction; the alternative build
+*       definition is empty.
+*
+***************************************************************************
+*
+*/
 
 static void m68k_run_1_ce (void)
 {
@@ -1789,12 +2629,44 @@ static void m68k_run_1_ce (void)
 
 #ifdef JIT  /* Completely different run_2 replacement */
 
+/****i* januae-cpu/do_nothing *********************************************************
+*
+*   NAME
+*       do_nothing() -- Advance zero host-independent CPU cycles.
+*
+*   SYNOPSIS
+*       void do_nothing(void);
+*
+*   FUNCTION
+*       Invoke the cycle accounting routine with a zero-cycle request; compiled
+*       only with JIT.
+*
+***************************************************************************
+*
+*/
+
 void do_nothing(void)
 {
     /* What did you expect this to do? */
     do_cycles(0);
     /* I bet you didn't expect *that* ;-) */
 }
+
+/****i* januae-cpu/exec_nostats *******************************************************
+*
+*   NAME
+*       exec_nostats() -- Execute an interpreter block for JIT.
+*
+*   SYNOPSIS
+*       void exec_nostats(void);
+*
+*   FUNCTION
+*       Dispatch opcodes until a block-ending opcode or pending special state;
+*       account for emulated cycles without compiling a new block.
+*
+***************************************************************************
+*
+*/
 
 void exec_nostats(void)
 {
@@ -1819,6 +2691,23 @@ void exec_nostats(void)
 }
 
 static int triggered;
+
+/****i* januae-cpu/execute_normal *****************************************************
+*
+*   NAME
+*       execute_normal() -- Collect and compile an interpreted block.
+*
+*   SYNOPSIS
+*       void execute_normal(void);
+*
+*   FUNCTION
+*       Interpret instructions while recording instruction locations and
+*       special-memory effects; hand the resulting history to the JIT compiler
+*       at a block boundary or instruction limit.
+*
+***************************************************************************
+*
+*/
 
 void execute_normal(void)
 {
@@ -1864,6 +2753,22 @@ void execute_normal(void)
 
 typedef void compiled_handler(void);
 
+/****i* januae-cpu/m68k_run_2a ********************************************************
+*
+*   NAME
+*       m68k_run_2a() -- Execute compiled JIT blocks.
+*
+*   SYNOPSIS
+*       static void m68k_run_2a (void);
+*
+*   FUNCTION
+*       Call the installed compiled handler repeatedly, processing special CPU
+*       flags after each return until execution must yield.
+*
+***************************************************************************
+*
+*/
+
 static void m68k_run_2a (void)
 {
     for (;;) {
@@ -1888,9 +2793,43 @@ static void m68k_run_2a (void)
 
 #ifndef CPUEMU_0
 
+/****i* januae-cpu/m68k_run_2-1 ******************************************************
+*
+*   NAME
+*       m68k_run_2() -- Run the basic opcode interpreter.
+*
+*   SYNOPSIS
+*       static void m68k_run_2 (void);
+*
+*   FUNCTION
+*       In CPUEMU_0 builds, fetch and dispatch successive opcodes, charge cycles
+*       and handle special conditions; the alternative build definition is
+*       empty.
+*
+***************************************************************************
+*
+*/
+
 static void m68k_run_2 (void)
 {
 }
+
+/****i* januae-cpu/m68k_run_2p-1 *****************************************************
+*
+*   NAME
+*       m68k_run_2p() -- Run an interpreter with emulated prefetch.
+*
+*   SYNOPSIS
+*       static void m68k_run_2p (void);
+*
+*   FUNCTION
+*       In CPUEMU_0 builds, retain a two-word prefetch stream when fetching
+*       opcodes, dispatch instruction handlers and process cycles and special
+*       conditions; the alternative build definition is empty.
+*
+***************************************************************************
+*
+*/
 
 static void m68k_run_2p (void)
 {
@@ -1899,6 +2838,23 @@ static void m68k_run_2p (void)
 #else
 
 /* emulate simple prefetch  */
+/****i* januae-cpu/m68k_run_2p-2 *****************************************************
+*
+*   NAME
+*       m68k_run_2p() -- Run an interpreter with emulated prefetch.
+*
+*   SYNOPSIS
+*       static void m68k_run_2p (void);
+*
+*   FUNCTION
+*       In CPUEMU_0 builds, retain a two-word prefetch stream when fetching
+*       opcodes, dispatch instruction handlers and process cycles and special
+*       conditions; the alternative build definition is empty.
+*
+***************************************************************************
+*
+*/
+
 static void m68k_run_2p (void)
 {
     uae_u32 prefetch, prefetch_pc;
@@ -1935,6 +2891,23 @@ static void m68k_run_2p (void)
 }
 
 /* Same thing, but don't use prefetch to get opcode.  */
+/****i* januae-cpu/m68k_run_2-2 ******************************************************
+*
+*   NAME
+*       m68k_run_2() -- Run the basic opcode interpreter.
+*
+*   SYNOPSIS
+*       static void m68k_run_2 (void);
+*
+*   FUNCTION
+*       In CPUEMU_0 builds, fetch and dispatch successive opcodes, charge cycles
+*       and handle special conditions; the alternative build definition is
+*       empty.
+*
+***************************************************************************
+*
+*/
+
 static void m68k_run_2 (void)
 {
     struct regstruct *r = &regs;
@@ -1961,6 +2934,26 @@ static void m68k_run_2 (void)
 #endif /* CPUEMU_0 */
 
 
+/****i* januae-cpu/exception2_handle **************************************************
+*
+*   NAME
+*       exception2_handle() -- Enter a pending bus-error exception.
+*
+*   SYNOPSIS
+*       static void exception2_handle (uaecptr addr, uaecptr fault);
+*
+*   FUNCTION
+*       Copy stored bus-error address information into the exception state and
+*       enter exception vector two.
+*
+*   INPUTS
+*       addr - Emulated address, or the address to inspect.
+*       fault - Faulting address.
+*
+***************************************************************************
+*
+*/
+
 static void exception2_handle (uaecptr addr, uaecptr fault)
 {
     last_addr_for_exception_3 = addr;
@@ -1969,6 +2962,26 @@ static void exception2_handle (uaecptr addr, uaecptr fault)
     last_instructionaccess_for_exception_3 = 0;
     uae_Exception (2, &regs, addr);
 }
+
+/****i* januae-cpu/m68k_go ************************************************************
+*
+*   NAME
+*       m68k_go() -- Run the CPU until a state change is pending.
+*
+*   SYNOPSIS
+*       void m68k_go (int may_quit);
+*
+*   FUNCTION
+*       Choose the JIT, cycle-exact, compatible-prefetch or basic interpreter
+*       loop for the active preferences; process debug and panic states between
+*       loop invocations.
+*
+*   INPUTS
+*       may_quit - Legacy entry argument; unused by this implementation.
+*
+***************************************************************************
+*
+*/
 
 void m68k_go (int may_quit)
 {
@@ -2021,6 +3034,34 @@ void m68k_go (int may_quit)
 static const char * const ccnames[] =
 { "T","F","HI","LS","CC","CS","NE","EQ",
   "VC","VS","PL","MI","GE","LT","GT","LE" };
+
+/****i* januae-cpu/m68k_disasm_2 ******************************************************
+*
+*   NAME
+*       m68k_disasm_2() -- Disassemble instructions with addressing details.
+*
+*   SYNOPSIS
+*       static void m68k_disasm_2 (void *f, uaecptr addr, uaecptr *nextpc, int
+*       cnt, uae_u32 *seaddr, uae_u32 *deaddr, int safemode);
+*
+*   FUNCTION
+*       Decode and format successive instructions from an emulated address,
+*       optionally reporting source and destination effective addresses and the
+*       next PC.
+*
+*   INPUTS
+*       f - Output stream or output handle selected by the caller.
+*       addr - Emulated address, or the address to inspect.
+*       nextpc - Optional output for the address following the last decoded
+*                instruction.
+*       cnt - Number of instructions to decode.
+*       seaddr - Optional source operand address output.
+*       deaddr - Optional destination operand address output.
+*       safemode - Select safe operand inspection.
+*
+***************************************************************************
+*
+*/
 
 static void m68k_disasm_2 (void *f, uaecptr addr, uaecptr *nextpc, int cnt, uae_u32 *seaddr, uae_u32 *deaddr, int safemode)
 {
@@ -2095,10 +3136,58 @@ static void m68k_disasm_2 (void *f, uaecptr addr, uaecptr *nextpc, int cnt, uae_
 	*nextpc = m68k_getpc (&regs) + m68kpc_offset;
 }
 
+/****i* januae-cpu/m68k_disasm_ea *****************************************************
+*
+*   NAME
+*       m68k_disasm_ea() -- Disassemble and report operand addresses.
+*
+*   SYNOPSIS
+*       void m68k_disasm_ea (void *f, uaecptr addr, uaecptr *nextpc, int cnt,
+*       uae_u32 *seaddr, uae_u32 *deaddr);
+*
+*   FUNCTION
+*       Invoke the internal disassembler while allowing effective-address
+*       results to be returned to the caller.
+*
+*   INPUTS
+*       f - Output stream or output handle selected by the caller.
+*       addr - Emulated address, or the address to inspect.
+*       nextpc - Optional output for the address following the last decoded
+*                instruction.
+*       cnt - Number of instructions to decode.
+*       seaddr - Optional source operand address output.
+*       deaddr - Optional destination operand address output.
+*
+***************************************************************************
+*
+*/
+
 void m68k_disasm_ea (void *f, uaecptr addr, uaecptr *nextpc, int cnt, uae_u32 *seaddr, uae_u32 *deaddr)
 {
     m68k_disasm_2 (f, addr, nextpc, cnt, seaddr, deaddr, 1);
 }
+/****i* januae-cpu/m68k_disasm ********************************************************
+*
+*   NAME
+*       m68k_disasm() -- Disassemble instructions to an output stream.
+*
+*   SYNOPSIS
+*       void m68k_disasm (void *f, uaecptr addr, uaecptr *nextpc, int cnt);
+*
+*   FUNCTION
+*       Invoke the internal disassembler without requesting operand addresses.
+*
+*   INPUTS
+*       f - Output stream or output handle selected by the caller.
+*       addr - Emulated address, or the address to inspect.
+*       nextpc - Optional output for the address following the last decoded
+*                instruction.
+*       cnt - Number of instructions to decode.
+*
+***************************************************************************
+*
+*/
+
 void m68k_disasm (void *f, uaecptr addr, uaecptr *nextpc, int cnt)
 {
     m68k_disasm_2 (f, addr, nextpc, cnt, NULL, NULL, 0);
@@ -2108,6 +3197,31 @@ void m68k_disasm (void *f, uaecptr addr, uaecptr *nextpc, int cnt)
  Disasm the m68kcode at the given address into instrname
  and instrcode
 *************************************************************/
+/****i* januae-cpu/sm68k_disasm *******************************************************
+*
+*   NAME
+*       sm68k_disasm() -- Format an instruction into caller buffers.
+*
+*   SYNOPSIS
+*       void sm68k_disasm (char *instrname, char *instrcode, uaecptr addr,
+*       uaecptr *nextpc);
+*
+*   FUNCTION
+*       Decode the instruction at the specified address, placing mnemonic and
+*       instruction words into the supplied output buffers and optionally
+*       returning the next PC.
+*
+*   INPUTS
+*       instrname - Caller-provided mnemonic output buffer.
+*       instrcode - Caller-provided opcode text output buffer.
+*       addr - Emulated address, or the address to inspect.
+*       nextpc - Optional output for the address following the last decoded
+*                instruction.
+*
+***************************************************************************
+*
+*/
+
 void sm68k_disasm (char *instrname, char *instrcode, uaecptr addr, uaecptr *nextpc)
 {
     char *ccpt;
@@ -2166,6 +3280,28 @@ void sm68k_disasm (char *instrname, char *instrcode, uaecptr addr, uaecptr *next
     if (nextpc)
 	*nextpc = m68k_getpc (&regs) + m68kpc_offset;
 }
+
+/****i* januae-cpu/m68k_dumpstate-1 **************************************************
+*
+*   NAME
+*       m68k_dumpstate() -- Write CPU register and instruction state.
+*
+*   SYNOPSIS
+*       void m68k_dumpstate (void *f, uaecptr *nextpc);
+*
+*   FUNCTION
+*       When debugger or Enforcer output is enabled, print CPU registers,
+*       status, optional FPU and prefetch information and the next instruction;
+*       the alternative build definition does nothing.
+*
+*   INPUTS
+*       f - Output stream or output handle selected by the caller.
+*       nextpc - Optional output for the address following the last decoded
+*                instruction.
+*
+***************************************************************************
+*
+*/
 
 void m68k_dumpstate (void *f, uaecptr *nextpc)
 {
@@ -2226,6 +3362,28 @@ void m68k_dumpstate (void *f, uaecptr *nextpc)
 
 #else
 
+/****i* januae-cpu/m68k_dumpstate-2 **************************************************
+*
+*   NAME
+*       m68k_dumpstate() -- Write CPU register and instruction state.
+*
+*   SYNOPSIS
+*       void m68k_dumpstate (void *f, uaecptr *nextpc);
+*
+*   FUNCTION
+*       When debugger or Enforcer output is enabled, print CPU registers,
+*       status, optional FPU and prefetch information and the next instruction;
+*       the alternative build definition does nothing.
+*
+*   INPUTS
+*       f - Output stream or output handle selected by the caller.
+*       nextpc - Optional output for the address following the last decoded
+*                instruction.
+*
+***************************************************************************
+*
+*/
+
 void m68k_dumpstate (void *f, uaecptr *nextpc)
 {
 }
@@ -2239,6 +3397,26 @@ void m68k_dumpstate (void *f, uaecptr *nextpc)
 
 #define CPUTYPE_EC 1
 #define CPUMODE_HALT 1
+
+/****i* januae-cpu/restore_cpu ********************************************************
+*
+*   NAME
+*       restore_cpu() -- Restore CPU state from SaveState.
+*
+*   SYNOPSIS
+*       const uae_u8 *restore_cpu (const uae_u8 *src);
+*
+*   FUNCTION
+*       Read saved CPU model, flags, registers, control state and compatible
+*       machine flags through the SaveState read helpers. Return the input
+*       pointer used by the save framework.
+*
+*   INPUTS
+*       src - Input operand or saved-state cursor.
+*
+***************************************************************************
+*
+*/
 
 const uae_u8 *restore_cpu (const uae_u8 *src)
 {
@@ -2313,6 +3491,22 @@ const uae_u8 *restore_cpu (const uae_u8 *src)
     return src;
 }
 
+/****i* januae-cpu/restore_cpu_finish *************************************************
+*
+*   NAME
+*       restore_cpu_finish() -- Complete CPU state restoration.
+*
+*   SYNOPSIS
+*       void restore_cpu_finish (void);
+*
+*   FUNCTION
+*       Finalize restored processor state after the saved register data has been
+*       read.
+*
+***************************************************************************
+*
+*/
+
 void restore_cpu_finish (void)
 {
     init_m68k ();
@@ -2320,6 +3514,27 @@ void restore_cpu_finish (void)
 }
 
 static const int cpumodel[] = { 68000, 68010, 68020, 68020, 68040, 68060 };
+
+/****i* januae-cpu/save_cpu ***********************************************************
+*
+*   NAME
+*       save_cpu() -- Serialize CPU state for SaveState.
+*
+*   SYNOPSIS
+*       uae_u8 *save_cpu (uae_u32 *len, uae_u8 *dstptr);
+*
+*   FUNCTION
+*       Write the configured CPU model and register/control state into an
+*       existing or newly allocated SaveState buffer and provide its length when
+*       requested.
+*
+*   INPUTS
+*       len - Optional serialized-length output.
+*       dstptr - Optional existing serialization buffer.
+*
+***************************************************************************
+*
+*/
 
 uae_u8 *save_cpu (uae_u32 *len, uae_u8 *dstptr)
 {
@@ -2358,6 +3573,31 @@ uae_u8 *save_cpu (uae_u32 *len, uae_u8 *dstptr)
 
 #endif /* SAVESTATE */
 
+/****i* januae-cpu/exception3f ********************************************************
+*
+*   NAME
+*       exception3f() -- Record an address-error exception.
+*
+*   SYNOPSIS
+*       static void exception3f (uae_u32 opcode, uaecptr addr, uaecptr fault,
+*       int writeaccess, int instructionaccess);
+*
+*   FUNCTION
+*       Save the faulting opcode, instruction PC, fault address and read/write
+*       or instruction-access attributes before entering the address-error
+*       vector.
+*
+*   INPUTS
+*       opcode - Encoded 68k instruction.
+*       addr - Emulated address, or the address to inspect.
+*       fault - Faulting address.
+*       writeaccess - Nonzero for a write access.
+*       instructionaccess - Nonzero for an instruction fetch.
+*
+***************************************************************************
+*
+*/
+
 static void exception3f (uae_u32 opcode, uaecptr addr, uaecptr fault, int writeaccess, int instructionaccess)
 {
     last_addr_for_exception_3 = addr;
@@ -2368,15 +3608,78 @@ static void exception3f (uae_u32 opcode, uaecptr addr, uaecptr fault, int writea
     uae_Exception (3, &regs, fault);
 }
 
+/****i* januae-cpu/exception3 *********************************************************
+*
+*   NAME
+*       exception3() -- Signal a data address error.
+*
+*   SYNOPSIS
+*       void exception3 (uae_u32 opcode, uaecptr addr, uaecptr fault);
+*
+*   FUNCTION
+*       Forward the faulting opcode and address information as a data-access
+*       address error.
+*
+*   INPUTS
+*       opcode - Encoded 68k instruction.
+*       addr - Emulated address, or the address to inspect.
+*       fault - Faulting address.
+*
+***************************************************************************
+*
+*/
+
 void exception3 (uae_u32 opcode, uaecptr addr, uaecptr fault)
 {
     exception3f (opcode, addr, fault, 0, 0);
 }
 
+/****i* januae-cpu/exception3i ********************************************************
+*
+*   NAME
+*       exception3i() -- Signal an instruction address error.
+*
+*   SYNOPSIS
+*       void exception3i (uae_u32 opcode, uaecptr addr, uaecptr fault);
+*
+*   FUNCTION
+*       Forward the faulting opcode and address information as an
+*       instruction-fetch address error.
+*
+*   INPUTS
+*       opcode - Encoded 68k instruction.
+*       addr - Emulated address, or the address to inspect.
+*       fault - Faulting address.
+*
+***************************************************************************
+*
+*/
+
 void exception3i (uae_u32 opcode, uaecptr addr, uaecptr fault)
 {
     exception3f (opcode, addr, fault, 0, 1);
 }
+
+/****i* januae-cpu/exception2 *********************************************************
+*
+*   NAME
+*       exception2() -- Defer a bus-error exception.
+*
+*   SYNOPSIS
+*       void exception2 (uaecptr addr, uaecptr fault);
+*
+*   FUNCTION
+*       Record the pending bus-error state, force the execution loop to stop and
+*       redirect the PC to the reboot ROM address; also terminate JIT
+*       compilation when enabled.
+*
+*   INPUTS
+*       addr - Emulated address, or the address to inspect.
+*       fault - Faulting address.
+*
+***************************************************************************
+*
+*/
 
 void exception2 (uaecptr addr, uaecptr fault)
 {
@@ -2391,6 +3694,22 @@ void exception2 (uaecptr addr, uaecptr fault)
 #endif
     fill_prefetch_slow (&regs);
 }
+
+/****i* januae-cpu/cpureset ***********************************************************
+*
+*   NAME
+*       cpureset() -- Reset custom-chip state for RESET opcode.
+*
+*   SYNOPSIS
+*       void cpureset (void);
+*
+*   FUNCTION
+*       Invoke customreset for the guest RESET instruction. The historical
+*       special-case RESET/JMP implementation is disabled.
+*
+***************************************************************************
+*
+*/
 
 void cpureset (void)
 {
@@ -2456,6 +3775,26 @@ void cpureset (void)
 // Unsigned division
 //
 
+/****i* januae-cpu/getDivu68kCycles_2 *************************************************
+*
+*   NAME
+*       getDivu68kCycles_2() -- Count unsigned 68000 division cycles.
+*
+*   SYNOPSIS
+*       STATIC_INLINE int getDivu68kCycles_2(uae_u32 dividend, uae_u16 divisor);
+*
+*   FUNCTION
+*       Calculate the instruction cycles for the specified unsigned
+*       register-operand division using the implementation's bit-step algorithm.
+*
+*   INPUTS
+*       dividend - Value to divide.
+*       divisor - Value used as the divisor.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE int getDivu68kCycles_2(uae_u32 dividend, uae_u16 divisor)
 {
 	int mcycles;
@@ -2496,6 +3835,26 @@ STATIC_INLINE int getDivu68kCycles_2(uae_u32 dividend, uae_u16 divisor)
 	}
 	return mcycles * 2;
 }
+/****i* januae-cpu/getDivu68kCycles ***************************************************
+*
+*   NAME
+*       getDivu68kCycles() -- Return unsigned division cycle count.
+*
+*   SYNOPSIS
+*       int getDivu68kCycles(uae_u32 dividend, uae_u16 divisor);
+*
+*   FUNCTION
+*       Return the unsigned division helper result minus four cycles. A zero
+*       divisor produces minus four because the helper returns zero.
+*
+*   INPUTS
+*       dividend - Value to divide.
+*       divisor - Value used as the divisor.
+*
+***************************************************************************
+*
+*/
+
 int getDivu68kCycles(uae_u32 dividend, uae_u16 divisor)
 {
     int v = getDivu68kCycles_2(dividend, divisor) - 4;
@@ -2507,6 +3866,26 @@ int getDivu68kCycles(uae_u32 dividend, uae_u16 divisor)
 // DIVS
 // Signed division
 //
+
+/****i* januae-cpu/getDivs68kCycles_2 *************************************************
+*
+*   NAME
+*       getDivs68kCycles_2() -- Count signed 68000 division cycles.
+*
+*   SYNOPSIS
+*       STATIC_INLINE int getDivs68kCycles_2(uae_s32 dividend, uae_s16 divisor);
+*
+*   FUNCTION
+*       Calculate signed division timing including sign and overflow-dependent
+*       work for the specified register operands.
+*
+*   INPUTS
+*       dividend - Value to divide.
+*       divisor - Value used as the divisor.
+*
+***************************************************************************
+*
+*/
 
 STATIC_INLINE int getDivs68kCycles_2(uae_s32 dividend, uae_s16 divisor)
 {
@@ -2552,6 +3931,26 @@ STATIC_INLINE int getDivs68kCycles_2(uae_s32 dividend, uae_s16 divisor)
 
 	return mcycles * 2;
 }
+/****i* januae-cpu/getDivs68kCycles ***************************************************
+*
+*   NAME
+*       getDivs68kCycles() -- Return signed division cycle count.
+*
+*   SYNOPSIS
+*       int getDivs68kCycles(uae_s32 dividend, uae_s16 divisor);
+*
+*   FUNCTION
+*       Return the signed division helper result minus four cycles. A zero
+*       divisor produces minus four because the helper returns zero.
+*
+*   INPUTS
+*       dividend - Value to divide.
+*       divisor - Value used as the divisor.
+*
+***************************************************************************
+*
+*/
+
 int getDivs68kCycles(uae_s32 dividend, uae_s16 divisor)
 {
     int v = getDivs68kCycles_2(dividend, divisor) - 4;
