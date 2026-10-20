@@ -109,6 +109,27 @@ BOOL gui_visible (void);
  * Random prefs-related junk that needs to go elsewhere.
  */
 
+/****i* januae-main/fixup_prefs_dimensions **********************************
+*
+*   NAME
+*       fixup_prefs_dimensions() -- Normalize emulated display dimensions.
+*
+*   SYNOPSIS
+*       void fixup_prefs_dimensions (struct uae_prefs *prefs);
+*
+*   FUNCTION
+*       Enforce a minimum window size of 320 by 200, cap both heights at 1280,
+*       and round fullscreen and window widths up to a multiple of eight. A zero
+*       fullscreen height prevents the fullscreen minimum checks, but not the
+*       width alignment.
+*
+*   INPUTS
+*       prefs - Preference structure modified in place.
+*
+****************************************************************************
+*
+*/
+
 void fixup_prefs_dimensions (struct uae_prefs *prefs)
 {
   /* 0 means clone workbench! */
@@ -136,6 +157,27 @@ void fixup_prefs_dimensions (struct uae_prefs *prefs)
     prefs->gfx_width_win &= ~7;
 }
 
+/****i* januae-main/fixup_prefs_joysticks ***********************************
+*
+*   NAME
+*       fixup_prefs_joysticks() -- Replace unavailable joystick bindings.
+*
+*   SYNOPSIS
+*       static void fixup_prefs_joysticks (struct uae_prefs *prefs);
+*
+*   FUNCTION
+*       Inspect the number of available joystick devices and replace an
+*       out-of-range joystick assignment on each port with the preferred mouse
+*       or keyboard alternative, falling back to no device when the other port
+*       prevents that assignment.
+*
+*   INPUTS
+*       prefs - Preference structure whose two port assignments may change.
+*
+****************************************************************************
+*
+*/
+
 static void fixup_prefs_joysticks (struct uae_prefs *prefs)
 {
     int joy_count = inputdevice_get_device_total (IDTYPE_JOYSTICK);
@@ -152,6 +194,30 @@ static void fixup_prefs_joysticks (struct uae_prefs *prefs)
 	    prefs->jport1 = (prefs->jport0 != JSEM_KBDLAYOUT) ? JSEM_KBDLAYOUT : JSEM_NONE;
     }
 }
+
+/****i* januae-main/fix_options *********************************************
+*
+*   NAME
+*       fix_options() -- Validate and normalize current emulator preferences.
+*
+*   SYNOPSIS
+*       static void fix_options (void);
+*
+*   FUNCTION
+*       Rewrite unsupported memory sizes, incompatible CPU and graphics options,
+*       sound settings, floppy counts, collision settings and input speed in
+*       currprefs. Apply build-time feature restrictions, display dimension
+*       alignment, joystick fallback and fullscreen-related screen selection.
+*       Log some rejected settings.
+*
+*   NOTES
+*       Errors are logged rather than returned. The function does not reject the
+*       configuration as a whole. JIT-specific normalization is compiled only
+*       with JIT.
+*
+****************************************************************************
+*
+*/
 
 static void fix_options (void)
 {
@@ -377,10 +443,48 @@ static void fix_options (void)
 
 #ifndef DONT_PARSE_CMDLINE
 
+/****i* januae-main/usage ***************************************************
+*
+*   NAME
+*       usage() -- Display available command-line options.
+*
+*   SYNOPSIS
+*       void usage (void);
+*
+*   FUNCTION
+*       Delegate option-usage output to cfgfile_show_usage().
+*
+*   NOTES
+*       Compiled when DONT_PARSE_CMDLINE is not defined.
+*
+****************************************************************************
+*
+*/
+
 void usage (void)
 {
     cfgfile_show_usage ();
 }
+
+/****i* januae-main/show_version ********************************************
+*
+*   NAME
+*       show_version() -- Log emulator version and build date.
+*
+*   SYNOPSIS
+*       static void show_version (void);
+*
+*   FUNCTION
+*       Write the configured package version, or the UAE numeric version when
+*       package metadata is unavailable, followed by the compilation date and
+*       time.
+*
+*   NOTES
+*       Compiled when DONT_PARSE_CMDLINE is not defined.
+*
+****************************************************************************
+*
+*/
 
 static void show_version (void)
 {
@@ -391,6 +495,25 @@ static void show_version (void)
 #endif
     write_log ("Build date: " __DATE__ " " __TIME__ "\n");
 }
+
+/****i* januae-main/show_version_full ***************************************
+*
+*   NAME
+*       show_version_full() -- Log version and license information.
+*
+*   SYNOPSIS
+*       static void show_version_full (void);
+*
+*   FUNCTION
+*       Log the short version, contributor attributions, and the software
+*       license and warranty notice.
+*
+*   NOTES
+*       Compiled when DONT_PARSE_CMDLINE is not defined.
+*
+****************************************************************************
+*
+*/
 
 static void show_version_full (void)
 {
@@ -406,6 +529,31 @@ static void show_version_full (void)
     write_log ("This is free software; see the file COPYING for copying conditions.  There is NO\n");
     write_log ("warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.\n");
 }
+
+/****i* januae-main/parse_optionfile_parameter ******************************
+*
+*   NAME
+*       parse_optionfile_parameter() -- Select the configuration file argument.
+*
+*   SYNOPSIS
+*       static void parse_optionfile_parameter (int argc, char **argv);
+*
+*   FUNCTION
+*       Scan arguments for the first -f with a following value, save the prior
+*       optionsfile path in default_optionsfile and copy the requested filename
+*       into optionsfile. Log a missing -f argument.
+*
+*   INPUTS
+*       argc - Number of command-line arguments.
+*       argv - Argument vector searched for -f.
+*
+*   NOTES
+*       Does not load the file. The fixed-size path copy may lack a terminating
+*       NUL for an input of 255 bytes or more.
+*
+****************************************************************************
+*
+*/
 
 static void parse_optionfile_parameter (int argc, char **argv) {
   int i;
@@ -427,6 +575,32 @@ static void parse_optionfile_parameter (int argc, char **argv) {
   }
 }
  
+/****i* januae-main/parse_cmdline *******************************************
+*
+*   NAME
+*       parse_cmdline() -- Apply command-line preference overrides.
+*
+*   SYNOPSIS
+*       static void parse_cmdline (int argc, char **argv);
+*
+*   FUNCTION
+*       Process configuration-string overrides, usage and version requests, SCSI
+*       logging, splash options and single-letter UAE options. Skip -f values
+*       because the config filename has already been selected and ignore the
+*       deprecated -config= form after logging a warning.
+*
+*   INPUTS
+*       argc - Argument count.
+*       argv - Argument vector to process.
+*
+*   NOTES
+*       The help and version options terminate the process. Several path and
+*       splash-text copies do not guarantee truncation-safe termination.
+*
+****************************************************************************
+*
+*/
+
 static void parse_cmdline (int argc, char **argv) {
 
   int i;
@@ -531,6 +705,33 @@ static void parse_cmdline (int argc, char **argv) {
 }
 #endif
 
+/****i* januae-main/parse_cmdline_and_init_file *****************************
+*
+*   NAME
+*       parse_cmdline_and_init_file() -- Load and override startup preferences.
+*
+*   SYNOPSIS
+*       static void parse_cmdline_and_init_file (int argc, char **argv);
+*
+*   FUNCTION
+*       Build the default PROGDIR: configuration path, apply an optional -f
+*       selection, load the requested file with fallback to the saved default if
+*       necessary, normalize preferences, apply command-line overrides and
+*       normalize again.
+*
+*   INPUTS
+*       argc - Startup argument count.
+*       argv - Startup arguments including optional configuration overrides.
+*
+*   NOTES
+*       When OPTIONS_IN_HOME is enabled, a failed initial load also tries
+*       OPTIONSFILENAME in the current directory. A failed configuration load is
+*       logged; the function has no success result.
+*
+****************************************************************************
+*
+*/
+
 static void parse_cmdline_and_init_file (int argc, char **argv) {
 
   strcpy (optionsfile, "");
@@ -574,9 +775,28 @@ static void parse_cmdline_and_init_file (int argc, char **argv) {
   fix_options ();
 }
 
-/*
- * Save the currently loaded configuration.
- */
+/****i* januae-main/uae_save_config *****************************************
+*
+*   NAME
+*       uae_save_config() -- Save current or pending emulator preferences.
+*
+*   SYNOPSIS
+*       void uae_save_config (void);
+*
+*   FUNCTION
+*       Rename the current optionsfile to its .backup counterpart, open a
+*       replacement config file, and serialize changed_prefs when stopped or
+*       currprefs otherwise.
+*
+*   NOTES
+*       The backup rename result is not checked. File creation failure is
+*       reported through gui_message(); serialization and close errors are not
+*       propagated. The function overwrites the named configuration file.
+*
+****************************************************************************
+*
+*/
+
 void uae_save_config (void)
 {
     FILE *f;
@@ -603,6 +823,31 @@ void uae_save_config (void)
 
     fclose (f);
 }
+
+/****i* januae-main/uae_save_config_to_file *********************************
+*
+*   NAME
+*       uae_save_config_to_file() -- Write current and pending configuration
+*       snapshots.
+*
+*   SYNOPSIS
+*       static void uae_save_config_to_file (char *filename);
+*
+*   FUNCTION
+*       Write changed_prefs to the filename with .changed appended and currprefs
+*       to the filename with .current appended, stopping after a failed open.
+*
+*   INPUTS
+*       filename - Base path used to construct the .changed and .current file
+*       names.
+*
+*   NOTES
+*       The names are assembled in fixed 512-byte arrays without length checks.
+*       The routine leaves the first file written if the second open fails.
+*
+****************************************************************************
+*
+*/
 
 static void uae_save_config_to_file (char *filename) {
 
@@ -642,6 +887,30 @@ static void uae_save_config_to_file (char *filename) {
  *
  * don't push backup_prefs on the stack, it will exceed the limit .. :(
  */
+/****i* januae-main/uae_load_config *****************************************
+*
+*   NAME
+*       uae_load_config() -- Reload preferences from the configured path.
+*
+*   SYNOPSIS
+*       void uae_load_config (void);
+*
+*   FUNCTION
+*       Allocate a backup of currprefs, discard current mounted configuration
+*       when FILESYS is enabled, reset preferences to defaults and load
+*       optionsfile. Restore the backup on load failure, then normalize
+*       currprefs, copy it to changed_prefs and refresh the GUI.
+*
+*   NOTES
+*       The backup AllocVec() result is dereferenced without an allocation
+*       check. The prior mount configuration is freed before the load; a failed
+*       load restores the preference structure by assignment, not by rebuilding
+*       freed mount data.
+*
+****************************************************************************
+*
+*/
+
 void uae_load_config (void) {
 
   struct uae_prefs *backup_prefs;
@@ -681,6 +950,25 @@ void uae_load_config (void) {
 static int uae_state;
 static int uae_target_state;
 
+/****i* januae-main/uae_get_state *******************************************
+*
+*   NAME
+*       uae_get_state() -- Return the active emulator lifecycle state.
+*
+*   SYNOPSIS
+*       int uae_get_state (void);
+*
+*   FUNCTION
+*       Read uae_state, the lifecycle state most recently installed by
+*       set_state().
+*
+*   RESULT
+*       Current UAE_STATE_* lifecycle value.
+*
+****************************************************************************
+*
+*/
+
 int uae_get_state (void)
 {
     return uae_state;
@@ -698,6 +986,29 @@ int uae_get_state (void)
  * set_state. Crashes etc are better handled
  * in custom.c/custom_reset
  ***********************************************/
+/****i* januae-main/set_state ***********************************************
+*
+*   NAME
+*       set_state() -- Publish an emulator lifecycle transition.
+*
+*   SYNOPSIS
+*       static void set_state (int state);
+*
+*   FUNCTION
+*       Record the supplied lifecycle state and notify the GUI and graphics
+*       layers. On AROS, also call j_reset() for stopped, cold-start or
+*       warm-start states.
+*
+*   INPUTS
+*       state - Lifecycle value becoming active.
+*
+*   NOTES
+*       Changing uae_state does not itself update uae_target_state.
+*
+****************************************************************************
+*
+*/
+
 static void set_state (int state) {
 
   switch(state) {
@@ -721,15 +1032,65 @@ static void set_state (int state) {
   graphics_notify_state (state);
 }
 
+/****i* januae-main/uae_state_change_pending ********************************
+*
+*   NAME
+*       uae_state_change_pending() -- Test for an outstanding lifecycle
+*       transition.
+*
+*   SYNOPSIS
+*       int uae_state_change_pending (void);
+*
+*   FUNCTION
+*       Compare the active lifecycle state with the requested target state.
+*
+*   RESULT
+*       Nonzero when uae_state differs from uae_target_state; zero otherwise.
+*
+****************************************************************************
+*
+*/
+
 int uae_state_change_pending (void)
 {
     return uae_state != uae_target_state;
 }
 
+/****i* januae-main/uae_start ***********************************************
+*
+*   NAME
+*       uae_start() -- Request a cold start.
+*
+*   SYNOPSIS
+*       void uae_start (void);
+*
+*   FUNCTION
+*       Set the target lifecycle state to UAE_STATE_COLD_START.
+*
+****************************************************************************
+*
+*/
+
 void uae_start (void)
 {
     uae_target_state = UAE_STATE_COLD_START;
 }
+
+/****i* januae-main/uae_pause ***********************************************
+*
+*   NAME
+*       uae_pause() -- Request suspension of execution.
+*
+*   SYNOPSIS
+*       void uae_pause (void);
+*
+*   FUNCTION
+*       Change the target state from UAE_STATE_RUNNING to UAE_STATE_PAUSED;
+*       leave other target states unchanged.
+*
+****************************************************************************
+*
+*/
 
 void uae_pause (void)
 {
@@ -737,11 +1098,43 @@ void uae_pause (void)
 	uae_target_state = UAE_STATE_PAUSED;
 }
 
+/****i* januae-main/uae_resume **********************************************
+*
+*   NAME
+*       uae_resume() -- Request resumption of execution.
+*
+*   SYNOPSIS
+*       void uae_resume (void);
+*
+*   FUNCTION
+*       Change the target state from UAE_STATE_PAUSED to UAE_STATE_RUNNING;
+*       leave other target states unchanged.
+*
+****************************************************************************
+*
+*/
+
 void uae_resume (void)
 {
     if (uae_target_state == UAE_STATE_PAUSED)
 	uae_target_state = UAE_STATE_RUNNING;
 }
+
+/****i* januae-main/uae_quit ************************************************
+*
+*   NAME
+*       uae_quit() -- Request emulator termination.
+*
+*   SYNOPSIS
+*       void uae_quit (void);
+*
+*   FUNCTION
+*       Set the requested lifecycle state to UAE_STATE_QUITTING unless
+*       termination is already requested.
+*
+****************************************************************************
+*
+*/
 
 void uae_quit (void)
 {
@@ -750,6 +1143,22 @@ void uae_quit (void)
     }
 }
 
+/****i* januae-main/uae_stop ************************************************
+*
+*   NAME
+*       uae_stop() -- Request stopping the running emulator.
+*
+*   SYNOPSIS
+*       void uae_stop (void);
+*
+*   FUNCTION
+*       Set the target state to UAE_STATE_STOPPED and clear restart_config
+*       unless the target is already stopped or quitting.
+*
+****************************************************************************
+*
+*/
+
 void uae_stop (void)
 {
     if (uae_target_state != UAE_STATE_QUITTING && uae_target_state != UAE_STATE_STOPPED) {
@@ -757,6 +1166,31 @@ void uae_stop (void)
 	restart_config[0] = 0;
     }
 }
+
+/****i* januae-main/uae_reset ***********************************************
+*
+*   NAME
+*       uae_reset() -- Request a warm or cold reset.
+*
+*   SYNOPSIS
+*       void uae_reset (int hard_reset);
+*
+*   FUNCTION
+*       When execution is in a resettable target state, request
+*       UAE_STATE_COLD_START for a nonzero hard_reset argument or
+*       UAE_STATE_WARM_START otherwise.
+*
+*   INPUTS
+*       hard_reset - Nonzero to request a cold reset; zero to request a warm
+*       reset.
+*
+*   NOTES
+*       Requests are ignored when the target is already quitting, stopped,
+*       cold-starting or warm-starting.
+*
+****************************************************************************
+*
+*/
 
 void uae_reset (int hard_reset)
 {
@@ -774,6 +1208,31 @@ void uae_reset (int hard_reset)
 }
 
 /* This needs to be rethought */
+/****i* januae-main/uae_restart *********************************************
+*
+*   NAME
+*       uae_restart() -- Schedule a stop with restart options.
+*
+*   SYNOPSIS
+*       void uae_restart (int opengui, char *cfgfile);
+*
+*   FUNCTION
+*       Request a stop, encode the opengui choice in restart_program, clear the
+*       pending config path and optionally copy cfgfile into restart_config.
+*
+*   INPUTS
+*       opengui - Positive, zero or negative restart-mode selector.
+*       cfgfile - Optional configuration filename copied for the subsequent
+*       startup, or NULL.
+*
+*   NOTES
+*       The restart_config copy is not length-checked. This routine requests a
+*       transition; it does not directly start a new emulation session.
+*
+****************************************************************************
+*
+*/
+
 void uae_restart (int opengui, char *cfgfile)
 {
     uae_stop ();
@@ -790,6 +1249,36 @@ void uae_restart (int opengui, char *cfgfile)
  *
  * TODO: Need better cohesion! Break this sucker up!
  */
+/****i* januae-main/do_preinit_machine **************************************
+*
+*   NAME
+*       do_preinit_machine() -- Prepare host services and startup configuration.
+*
+*   SYNOPSIS
+*       static int do_preinit_machine (int argc, char **argv);
+*
+*   FUNCTION
+*       Set up graphics, restore default preferences when a restart
+*       configuration exists, initialize optional shared memory and filesystem
+*       support, select or retain settings, initialize the high-resolution timer
+*       and machine-dependent services, then set up audio and input devices.
+*
+*   INPUTS
+*       argc - Startup argument count passed to the configuration parser.
+*       argv - Startup arguments passed to the configuration parser.
+*
+*   RESULT
+*       One after completed initialization; graphics setup failure terminates
+*       the process.
+*
+*   NOTES
+*       Audio setup failure disables sound rather than failing
+*       preinitialization.
+*
+****************************************************************************
+*
+*/
+
 static int do_preinit_machine (int argc, char **argv)
 {
     if (! graphics_setup ()) {
@@ -831,9 +1320,32 @@ static int do_preinit_machine (int argc, char **argv)
     return 1;
 }
 
-/*
- * Initialization of emulator proper
- */
+/****i* januae-main/do_init_machine *****************************************
+*
+*   NAME
+*       do_init_machine() -- Initialize emulated hardware and host peripherals.
+*
+*   SYNOPSIS
+*       static int do_init_machine (void);
+*
+*   FUNCTION
+*       Initialize optional JIT and SaveState services, expansion and memory
+*       banks, emulated CPU and custom chips, disks, graphics, debugger and
+*       audio. Register optional emulated libraries and storage drivers in
+*       dependency order.
+*
+*   RESULT
+*       One when custom-chip and graphics initialization succeeds; zero
+*       otherwise.
+*
+*   NOTES
+*       Audio initialization failure disables output and still permits a
+*       successful result. Partial initialization is not rolled back here.
+*
+****************************************************************************
+*
+*/
+
 static int do_init_machine (void)
 {
 
@@ -920,9 +1432,27 @@ static int do_init_machine (void)
     return 0;
 }
 
-/*
- * Helper for reset method
- */
+/****i* januae-main/reset_all_systems ***************************************
+*
+*   NAME
+*       reset_all_systems() -- Reset emulated subsystems in dependency order.
+*
+*   SYNOPSIS
+*       static void reset_all_systems (void);
+*
+*   FUNCTION
+*       Reinitialize the event table and memory, then reset optional filesystem
+*       and SCSI services and start their worker threads. Perform optional BSD
+*       socket reset in the enabled compatibility path.
+*
+*   NOTES
+*       Actual reset coverage depends on FILESYS, SCSIEMU and other build-time
+*       feature flags.
+*
+****************************************************************************
+*
+*/
+
 static void reset_all_systems (void)
 {
     init_eventtab ();
@@ -944,9 +1474,32 @@ static void reset_all_systems (void)
 #endif
 }
 
-/*
- * Reset emulator
- */
+/****i* januae-main/do_reset_machine ****************************************
+*
+*   NAME
+*       do_reset_machine() -- Perform a warm or cold emulated-machine reset.
+*
+*   SYNOPSIS
+*       static void do_reset_machine (int hardreset);
+*
+*   FUNCTION
+*       Prepare optional SaveState restoration, reset core subsystems, custom
+*       chips and the 68k CPU in that order, optionally clear Chip RAM on hard
+*       reset, then restore prefetch/event processing and update input
+*       configuration.
+*
+*   INPUTS
+*       hardreset - Nonzero to clear allocated Chip RAM after resetting the
+*       emulated CPU.
+*
+*   NOTES
+*       The reset order is significant for Fast RAM state restoration. Cold
+*       reset clears allocated Chip RAM; warm reset does not.
+*
+****************************************************************************
+*
+*/
+
 static void do_reset_machine (int hardreset)
 {
 #ifdef SAVESTATE
@@ -983,9 +1536,25 @@ static void do_reset_machine (int hardreset)
     inputdevice_updateconfig (&currprefs);
 }
 
-/*
- * Run emulator
- */
+/****i* januae-main/do_run_machine ******************************************
+*
+*   NAME
+*       do_run_machine() -- Run the emulated 68k processor.
+*
+*   SYNOPSIS
+*       static void do_run_machine (void);
+*
+*   FUNCTION
+*       Enter the processor execution loop through m68k_go(1).
+*
+*   NOTES
+*       A Win32-only JIT configuration wraps execution in a structured exception
+*       handler; the AROS path calls m68k_go() directly.
+*
+****************************************************************************
+*
+*/
+
 static void do_run_machine (void)
 {
 #if defined (NATMEM_OFFSET) && defined( _WIN32 ) && !defined( NO_WIN32_EXCEPTION_HANDLER )
@@ -1009,6 +1578,28 @@ static void do_run_machine (void)
  * o1i: this is only called, if the uae window is open,
  *      not if only the gui is active.
  */
+/****i* januae-main/do_exit_machine *****************************************
+*
+*   NAME
+*       do_exit_machine() -- Release initialized emulator services.
+*
+*   SYNOPSIS
+*       static void do_exit_machine (void);
+*
+*   FUNCTION
+*       Shut down graphics and input, Janus host integration, optional SCSI and
+*       serial backends, disk and audio services, GUI hooks, expansions,
+*       filesystem and hardfile resources, SaveState data and emulator memory.
+*       Clear stored configuration parameters.
+*
+*   NOTES
+*       The GUI exit hook may be empty; successful completion of individual
+*       subsystem shutdowns is not reported.
+*
+****************************************************************************
+*
+*/
+
 static void do_exit_machine (void)
 {
 
@@ -1049,9 +1640,34 @@ static void do_exit_machine (void)
 #if defined GTKMUI
 void gui_shutdown (void);
 #endif
-/*
- * Here's where all the action takes place!
- */
+
+/****i* januae-main/real_main ***********************************************
+*
+*   NAME
+*       real_main() -- Manage emulator startup, execution and shutdown.
+*
+*   SYNOPSIS
+*       void real_main (int argc, char **argv);
+*
+*   FUNCTION
+*       Initialize GUI synchronization, run the configuration and GUI startup
+*       loop, drive cold and warm resets and CPU execution, service GUI and
+*       input while paused, flush filesystem state between runs, and release
+*       emulation and Janus host threads on final exit.
+*
+*   INPUTS
+*       argc - Startup argument count.
+*       argv - Startup arguments supplied to the emulator.
+*
+*   NOTES
+*       The final cleanup waits for remaining host tasks for at most 20
+*       one-second iterations and reports survivors without forcibly completing
+*       their shutdown. The routine controls global lifecycle state and does not
+*       return a status to its caller.
+*
+****************************************************************************
+*
+*/
 
 void real_main (int argc, char **argv) {
 	ULONG waitcount;
@@ -1287,6 +1903,29 @@ void real_main (int argc, char **argv) {
 }
 
 #ifdef USE_SDL
+/****i* januae-main/init_sdl ************************************************
+*
+*   NAME
+*       init_sdl() -- Initialize SDL timer support.
+*
+*   SYNOPSIS
+*       int init_sdl (void);
+*
+*   FUNCTION
+*       Initialize SDL with the timer subsystem and without automatic signal
+*       handlers, registering SDL_Quit() for process exit only after successful
+*       initialization.
+*
+*   RESULT
+*       Nonzero on successful SDL_Init(); zero on failure.
+*
+*   NOTES
+*       Defined only when USE_SDL is enabled.
+*
+****************************************************************************
+*
+*/
+
 int init_sdl (void)
 {
     int result = (SDL_Init (SDL_INIT_TIMER | SDL_INIT_NOPARACHUTE /*| SDL_INIT_AUDIO*/) == 0);
@@ -1300,6 +1939,33 @@ int init_sdl (void)
 #endif
 
 #ifndef NO_MAIN_IN_MAIN_C
+/****i* januae-main/main ****************************************************
+*
+*   NAME
+*       main() -- Enter the emulator startup sequence.
+*
+*   SYNOPSIS
+*       int main (int argc, char **argv);
+*
+*   FUNCTION
+*       Initialize optional SDL support, invoke GUI initialization, then run
+*       real_main() to completion.
+*
+*   INPUTS
+*       argc - Process command-line argument count.
+*       argv - Process argument vector.
+*
+*   RESULT
+*       Zero after real_main() returns.
+*
+*   NOTES
+*       Compiled unless NO_MAIN_IN_MAIN_C is defined. The SDL initialization
+*       result and GUI initialization result are not checked here.
+*
+****************************************************************************
+*
+*/
+
 int main (int argc, char **argv)
 {
     init_sdl ();
