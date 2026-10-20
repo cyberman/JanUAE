@@ -65,6 +65,26 @@ unsigned int lasthist = 0;
 static struct regstruct history[MAX_HIST];
 
 
+/****i* januae-debugger/activate_debugger ***********************************
+*
+*   NAME
+*       activate_debugger() -- Request debugger entry.
+*
+*   SYNOPSIS
+*       void activate_debugger (void);
+*
+*   FUNCTION
+*       If debugging is available, leave full-screen mode where possible,
+*       close an active instruction-trace file and request a CPU break.
+*
+*   NOTES
+*       If full-screen mode cannot be exited, the function logs a message and
+*       does not activate the debugger.
+*
+****************************************************************************
+*
+*/
+
 void activate_debugger (void)
 {
     if (debuggable ()) {
@@ -135,12 +155,46 @@ static const char help[] = {
     "  q                     Quit the emulator. You don't want to use this command.\n\n"
 };
 
+/****i* januae-debugger/debug_help ******************************************
+*
+*   NAME
+*       debug_help() -- Display debugger command help.
+*
+*   SYNOPSIS
+*       static void debug_help (void);
+*
+*   FUNCTION
+*       Write the built-in debugger command reference to the console.
+*
+****************************************************************************
+*
+*/
+
 static void debug_help (void)
 {
     console_out (help);
 }
 
 
+
+/****i* januae-debugger/ignore_ws *******************************************
+*
+*   NAME
+*       ignore_ws() -- Skip leading white space.
+*
+*   SYNOPSIS
+*       static void ignore_ws (const char **c);
+*
+*   FUNCTION
+*       Advance the caller-owned command cursor over isspace() characters
+*       without consuming the first non-space character.
+*
+*   INPUTS
+*       c - Input command cursor; advanced past consumed characters.
+*
+****************************************************************************
+*
+*/
 
 static void ignore_ws (const char **c)
 {
@@ -149,6 +203,32 @@ static void ignore_ws (const char **c)
 }
 
 static uae_u32 readint (const char **c);
+/****i* januae-debugger/readhex *********************************************
+*
+*   NAME
+*       readhex() -- Read a hexadecimal command argument.
+*
+*   SYNOPSIS
+*       static uae_u32 readhex (const char **c);
+*
+*   FUNCTION
+*       Skip white space and accumulate hexadecimal digits at the command
+*       cursor. A leading ! or _ redirects parsing to decimal readint().
+*
+*   INPUTS
+*       c - Input command cursor; advanced past consumed characters.
+*
+*   RESULT
+*       Parsed unsigned 32-bit value.
+*
+*   NOTES
+*       A missing digit yields zero. The cursor remains at the first
+*       character not consumed.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 readhex (const char **c)
 {
     uae_u32 val = 0;
@@ -171,6 +251,32 @@ static uae_u32 readhex (const char **c)
     }
     return val;
 }
+
+/****i* januae-debugger/readint *********************************************
+*
+*   NAME
+*       readint() -- Read a decimal command argument.
+*
+*   SYNOPSIS
+*       static uae_u32 readint (const char **c);
+*
+*   FUNCTION
+*       Skip white space and parse decimal digits, or use readhex() after a
+*       leading $ or 0x prefix.
+*
+*   INPUTS
+*       c - Input command cursor; advanced past consumed characters.
+*
+*   RESULT
+*       Parsed unsigned 32-bit value.
+*
+*   NOTES
+*       A leading minus is consumed but the implementation assigns a positive
+*       sign. No range error is reported.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 readint (const char **c)
 {
@@ -199,11 +305,59 @@ static uae_u32 readint (const char **c)
     return val * sign;
 }
 
+/****i* januae-debugger/next_char *******************************************
+*
+*   NAME
+*       next_char() -- Consume the next command character.
+*
+*   SYNOPSIS
+*       static char next_char (const char **c);
+*
+*   FUNCTION
+*       Skip leading white space, return the current character and advance
+*       the command cursor.
+*
+*   INPUTS
+*       c - Input command cursor; advanced past consumed characters.
+*
+*   RESULT
+*       Character at the cursor before advancement.
+*
+*   NOTES
+*       The cursor is advanced even when the character is the string
+*       terminator.
+*
+****************************************************************************
+*
+*/
+
 static char next_char (const char **c)
 {
     ignore_ws (c);
     return *(*c)++;
 }
+
+/****i* januae-debugger/peek_next_char **************************************
+*
+*   NAME
+*       peek_next_char() -- Inspect the character after the cursor.
+*
+*   SYNOPSIS
+*       static char peek_next_char (const char **c);
+*
+*   FUNCTION
+*       Read the next character from the supplied command pointer without
+*       advancing it.
+*
+*   INPUTS
+*       c - Input command cursor; advanced past consumed characters.
+*
+*   RESULT
+*       Character one byte beyond the current cursor.
+*
+****************************************************************************
+*
+*/
 
 static char peek_next_char (const char **c)
 {
@@ -211,11 +365,64 @@ static char peek_next_char (const char **c)
     return pc[1];
 }
 
+/****i* januae-debugger/more_params *****************************************
+*
+*   NAME
+*       more_params() -- Check for remaining command input.
+*
+*   SYNOPSIS
+*       static int more_params (const char **c);
+*
+*   FUNCTION
+*       Skip leading white space and test whether the command cursor has
+*       reached the string terminator.
+*
+*   INPUTS
+*       c - Input command cursor; advanced past consumed characters.
+*
+*   RESULT
+*       Nonzero when input remains, otherwise zero.
+*
+****************************************************************************
+*
+*/
+
 static int more_params (const char **c)
 {
     ignore_ws (c);
     return (**c) != 0;
 }
+
+/****i* januae-debugger/next_string *****************************************
+*
+*   NAME
+*       next_string() -- Copy a command token.
+*
+*   SYNOPSIS
+*       static int next_string (const char **c, char *out, unsigned int max,
+*       int forceupper);
+*
+*   FUNCTION
+*       Copy up to max - 1 characters into out, stopping after white space or
+*       the length limit; optionally convert copied characters to upper case.
+*
+*   INPUTS
+*       c - Input command cursor; advanced past consumed characters.
+*       out - Writable destination string.
+*       max - Capacity of the destination string in bytes.
+*       forceupper - Nonzero to uppercase each copied character.
+*
+*   RESULT
+*       Length of the resulting NUL-terminated string.
+*
+*   NOTES
+*       The routine initially writes a terminator to out, so max must
+*       describe a writable buffer of at least one byte. It stops on ASCII
+*       space rather than all white-space characters.
+*
+****************************************************************************
+*
+*/
 
 static int next_string (const char **c, char *out, unsigned int max, int forceupper)
 {
@@ -237,6 +444,34 @@ static int next_string (const char **c, char *out, unsigned int max, int forceup
     }
     return strlen (out);
 }
+
+/****i* januae-debugger/nextaddr ********************************************
+*
+*   NAME
+*       nextaddr() -- Advance through configured RAM regions.
+*
+*   SYNOPSIS
+*       static uae_u32 nextaddr (uae_u32 addr);
+*
+*   FUNCTION
+*       Advance a guest address, jumping between chip, fast and slow RAM at
+*       their configured region boundaries. The all-ones address selects the
+*       first search endpoint.
+*
+*   INPUTS
+*       addr - Current guest search address, or the end sentinel.
+*
+*   RESULT
+*       Next guest address, or 0xffffffff at the end of the configured search
+*       progression.
+*
+*   NOTES
+*       The all-ones sentinel initially selects the last configured RAM
+*       endpoint, not address zero.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 nextaddr (uae_u32 addr)
 {
@@ -264,6 +499,32 @@ static uae_u32 nextaddr (uae_u32 addr)
     return addr + 1;
 }
 
+/****i* januae-debugger/dumpmem *********************************************
+*
+*   NAME
+*       dumpmem() -- Display hexadecimal and character memory rows.
+*
+*   SYNOPSIS
+*       static void dumpmem (uaecptr addr, uaecptr *nxmem, unsigned int
+*       lines);
+*
+*   FUNCTION
+*       Read sixteen guest bytes per row, format their hexadecimal values and
+*       printable characters, and advance the next-dump address.
+*
+*   INPUTS
+*       addr - Guest memory address or instruction address.
+*       nxmem - Pointer receiving the next dump address.
+*       lines - Number of output lines.
+*
+*   NOTES
+*       The caller supplies storage for the resulting nxmem address; guest
+*       reads use get_byte().
+*
+****************************************************************************
+*
+*/
+
 static void dumpmem (uaecptr addr, uaecptr *nxmem, unsigned int lines)
 {
     char line[80];
@@ -286,6 +547,27 @@ static void dumpmem (uaecptr addr, uaecptr *nxmem, unsigned int lines)
     }
     *nxmem = addr;
 }
+
+/****i* januae-debugger/dump_custom_regs ************************************
+*
+*   NAME
+*       dump_custom_regs() -- Display current custom-chip register values.
+*
+*   SYNOPSIS
+*       static void dump_custom_regs (void);
+*
+*   FUNCTION
+*       Capture custom-register and four audio-channel SaveState images,
+*       merge the audio register fields and print paired register names and
+*       values.
+*
+*   NOTES
+*       The function frees the allocated SaveState snapshots and assumes the
+*       snapshot routines return usable buffers.
+*
+****************************************************************************
+*
+*/
 
 static void dump_custom_regs (void)
 {
@@ -332,6 +614,30 @@ static void dump_custom_regs (void)
     free (p2);
 }
 
+/****i* januae-debugger/dump_vectors ****************************************
+*
+*   NAME
+*       dump_vectors() -- Display exception and trap vectors.
+*
+*   SYNOPSIS
+*       static void dump_vectors (uaecptr addr);
+*
+*   FUNCTION
+*       Print the known interrupt and trap vector names and the guest
+*       longwords at their vector addresses. Use regs.vbr when addr is
+*       0xffffffff.
+*
+*   INPUTS
+*       addr - Guest memory address or instruction address.
+*
+*   NOTES
+*       The reset vector at address four is read without adding the supplied
+*       vector base.
+*
+****************************************************************************
+*
+*/
+
 static void dump_vectors (uaecptr addr)
 {
     unsigned int i = 0, j = 0;
@@ -355,6 +661,26 @@ static void dump_vectors (uaecptr addr)
 	console_out ("\n");
     }
 }
+
+/****i* januae-debugger/disassemble_wait ************************************
+*
+*   NAME
+*       disassemble_wait() -- Describe a Copper WAIT or SKIP comparison.
+*
+*   SYNOPSIS
+*       static void disassemble_wait (uae_u32 insn);
+*
+*   FUNCTION
+*       Decode vertical and horizontal position masks and the
+*       blitter-finished-disable bit from an encoded Copper instruction, and
+*       print the resulting comparison.
+*
+*   INPUTS
+*       insn - Encoded 32-bit Copper instruction.
+*
+****************************************************************************
+*
+*/
 
 static void disassemble_wait (uae_u32 insn)
 {
@@ -403,12 +729,56 @@ struct cop_record
 static struct cop_record *cop_record[2];
 static unsigned int nr_cop_records[2], curr_cop_set;
 
+/****i* januae-debugger/record_copper_reset *********************************
+*
+*   NAME
+*       record_copper_reset() -- Begin a fresh Copper trace frame.
+*
+*   SYNOPSIS
+*       void record_copper_reset (void);
+*
+*   FUNCTION
+*       Alternate between two Copper-record buffers and reset the record
+*       count for the selected buffer.
+*
+****************************************************************************
+*
+*/
+
 void record_copper_reset (void)
 {
 /* Start a new set of copper records.  */
     curr_cop_set ^= 1;
     nr_cop_records[curr_cop_set] = 0;
 }
+
+/****i* januae-debugger/record_copper ***************************************
+*
+*   NAME
+*       record_copper() -- Record a Copper fetch and check trace triggers.
+*
+*   SYNOPSIS
+*       void record_copper (uaecptr addr, unsigned int hpos, unsigned int
+*       vpos);
+*
+*   FUNCTION
+*       Append an instruction address and raster position until the
+*       40000-record limit, then request debugger activation for armed trace
+*       or matching address breakpoints.
+*
+*   INPUTS
+*       addr - Guest address of the fetched Copper instruction.
+*       hpos - Horizontal beam position of the fetch.
+*       vpos - Vertical beam position of the fetch.
+*
+*   NOTES
+*       Both record buffers are allocated on first use without checking
+*       allocation failures; additional records beyond the limit are
+*       discarded.
+*
+****************************************************************************
+*
+*/
 
 void record_copper (uaecptr addr, unsigned int hpos, unsigned int vpos)
 {
@@ -433,6 +803,35 @@ void record_copper (uaecptr addr, unsigned int hpos, unsigned int vpos)
     }
 }
 
+/****i* januae-debugger/find_copper_record **********************************
+*
+*   NAME
+*       find_copper_record() -- Find the last frame's Copper fetch position.
+*
+*   SYNOPSIS
+*       static int find_copper_record (uaecptr addr, unsigned int *phpos,
+*       unsigned int *pvpos);
+*
+*   FUNCTION
+*       Search the previously active record buffer for the first entry with
+*       the specified guest address.
+*
+*   INPUTS
+*       addr - Copper instruction guest address to look up.
+*       phpos - Output pointer receiving horizontal position.
+*       pvpos - Output pointer receiving vertical position.
+*
+*   RESULT
+*       One if found, otherwise zero.
+*
+*   NOTES
+*       On success, writes the recorded horizontal and vertical positions to
+*       the supplied output pointers.
+*
+****************************************************************************
+*
+*/
+
 static int find_copper_record (uaecptr addr, unsigned int *phpos, unsigned int *pvpos)
 {
     unsigned int s = curr_cop_set ^ 1;
@@ -450,6 +849,31 @@ static int find_copper_record (uaecptr addr, unsigned int *phpos, unsigned int *
 }
 
 /* simple decode copper by Mark Cox */
+/****i* januae-debugger/decode_copper_insn **********************************
+*
+*   NAME
+*       decode_copper_insn() -- Disassemble one Copper instruction.
+*
+*   SYNOPSIS
+*       static void decode_copper_insn (uae_u32 insn, uaecptr addr);
+*
+*   FUNCTION
+*       Display the instruction words, optional recorded raster position,
+*       current Copper-pointer marker and decoded MOVE, WAIT or SKIP
+*       operation.
+*
+*   INPUTS
+*       insn - Encoded 32-bit Copper instruction.
+*       addr - Guest address containing the Copper instruction.
+*
+*   NOTES
+*       The instruction is supplied as two packed 16-bit words. An
+*       unrecognized instruction type causes abort().
+*
+****************************************************************************
+*
+*/
+
 static void decode_copper_insn (uae_u32 insn, uaecptr addr)
 {
     uae_u32 insn_type = insn & 0x00010001;
@@ -503,6 +927,31 @@ static void decode_copper_insn (uae_u32 insn, uaecptr addr)
 
 }
 
+/****i* januae-debugger/decode_copperlist ***********************************
+*
+*   NAME
+*       decode_copperlist() -- Display a consecutive Copper instruction
+*       sequence.
+*
+*   SYNOPSIS
+*       static uaecptr decode_copperlist (uaecptr address, unsigned int
+*       nolines);
+*
+*   FUNCTION
+*       Read and decode nolines longwords from guest memory beginning at
+*       address without treating the end-of-list instruction as a terminator.
+*
+*   INPUTS
+*       address - First guest instruction address.
+*       nolines - Number of Copper instructions to decode.
+*
+*   RESULT
+*       Address immediately following the decoded instruction sequence.
+*
+****************************************************************************
+*
+*/
+
 static uaecptr decode_copperlist (uaecptr address, unsigned int nolines)
 {
     uae_u32 insn;
@@ -516,6 +965,32 @@ static uaecptr decode_copperlist (uaecptr address, unsigned int nolines)
      * Well, often nice things are hidden at the end and it is debatable the actual
      * values that mean the end of the copperlist */
 }
+
+/****i* januae-debugger/copper_debugger *************************************
+*
+*   NAME
+*       copper_debugger() -- Execute a Copper debugger subcommand.
+*
+*   SYNOPSIS
+*       static int copper_debugger (const char **c);
+*
+*   FUNCTION
+*       Toggle Copper logging, arm a one-instruction trace or address
+*       breakpoint, or display Copper instructions at an explicit, current or
+*       previously used address.
+*
+*   INPUTS
+*       c - Input command cursor; advanced past consumed characters.
+*
+*   RESULT
+*       One when execution should resume for an armed trace; otherwise zero.
+*
+*   NOTES
+*       Subcommands d, t and b operate on the global debug_copper flags.
+*
+****************************************************************************
+*
+*/
 
 static int copper_debugger (const char **c)
 {
@@ -563,6 +1038,33 @@ static int copper_debugger (const char **c)
 }
 
 /* cheat-search by Holger Jakob */
+/****i* januae-debugger/cheatsearch *****************************************
+*
+*   NAME
+*       cheatsearch() -- Narrow candidate addresses for a changing game
+*       value.
+*
+*   SYNOPSIS
+*       static void cheatsearch (const char **c);
+*
+*   FUNCTION
+*       On the first invocation, scan allocated chip RAM for a matching
+*       big-endian longword and retain up to 255 addresses. On the next
+*       invocation, compare those addresses with a new value and discard the
+*       candidate list.
+*
+*   INPUTS
+*       c - Input command cursor; advanced past consumed characters.
+*
+*   NOTES
+*       The second search checks every one of the 255 slots, including
+*       uninitialized entries beyond the found-count; candidate storage is
+*       freed only after that search.
+*
+****************************************************************************
+*
+*/
+
 static void cheatsearch (const char **c)
 {
     uae_u8 *p = get_real_address (0);
@@ -641,6 +1143,28 @@ static uae_u8 *illgdebug;
 static int illgdebug_break;
 extern int cdtv_enabled, cd32_enabled;
 
+/****i* januae-debugger/illg_init *******************************************
+*
+*   NAME
+*       illg_init() -- Build the illegal-memory-access permission image.
+*
+*   SYNOPSIS
+*       static void illg_init (void);
+*
+*   FUNCTION
+*       Allocate a 16 MiB permission table, initialize unassigned locations
+*       as invalid and classify configured RAM, custom registers, CIAs, ROMs
+*       and optional CDTV/CD32 or filesystem regions.
+*
+*   NOTES
+*       The 24-bit permission image is global and reused by watched
+*       guest-memory accesses. Failed allocation leaves the feature
+*       unavailable.
+*
+****************************************************************************
+*
+*/
+
 static void illg_init (void)
 {
     unsigned int i;
@@ -689,10 +1213,64 @@ static void illg_init (void)
 }
 
 /* add special custom register check here */
+/****i* januae-debugger/illg_debug_check ************************************
+*
+*   NAME
+*       illg_debug_check() -- Reserved hook for custom-register access
+*       validation.
+*
+*   SYNOPSIS
+*       static void illg_debug_check (uaecptr addr, int rw, int size, uae_u32
+*       val);
+*
+*   FUNCTION
+*       Return without inspecting the address, access kind, width or value.
+*
+*   INPUTS
+*       addr - Guest memory address or instruction address.
+*       rw - Nonzero for writes; zero for reads.
+*       size - Size of the guest-memory region in bytes.
+*       val - Access value for the memory operation.
+*
+*   NOTES
+*       This function is an intentional no-op in the existing implementation.
+*
+****************************************************************************
+*
+*/
+
 static void illg_debug_check (uaecptr addr, int rw, int size, uae_u32 val)
 {
     return;
 }
+
+/****i* januae-debugger/illg_debug_do ***************************************
+*
+*   NAME
+*       illg_debug_do() -- Log accesses that violate the permission image.
+*
+*   SYNOPSIS
+*       static void illg_debug_do (uaecptr addr, int rw, int size, uae_u32
+*       val);
+*
+*   FUNCTION
+*       Inspect each byte of a guest memory access against the per-address
+*       permission mask, log disallowed reads and writes and optionally
+*       request debugger entry.
+*
+*   INPUTS
+*       addr - Guest memory address or instruction address.
+*       rw - Nonzero for writes; zero for reads.
+*       size - Access width or address-range length in bytes.
+*       val - Access value for the memory operation.
+*
+*   NOTES
+*       Addresses at or above 16 MiB are treated as fully restricted; an
+*       unset permission mask causes no diagnostic.
+*
+****************************************************************************
+*
+*/
 
 static void illg_debug_do (uaecptr addr, int rw, int size, uae_u32 val)
 {
@@ -731,10 +1309,60 @@ static void illg_debug_do (uaecptr addr, int rw, int size, uae_u32 val)
     }
 }
 
+/****i* januae-debugger/debug_mem_off ***************************************
+*
+*   NAME
+*       debug_mem_off() -- Select a watched guest-memory bank.
+*
+*   SYNOPSIS
+*       STATIC_INLINE uae_u8 debug_mem_off (uaecptr addr);
+*
+*   FUNCTION
+*       Normalize the address to 24-bit space and return the bank number in
+*       bits 16 through 23.
+*
+*   INPUTS
+*       addr - Guest address to normalize to a bank index.
+*
+*   RESULT
+*       Eight-bit memory-bank index.
+*
+****************************************************************************
+*
+*/
+
 STATIC_INLINE uae_u8 debug_mem_off (uaecptr addr)
 {
     return (munge24 (addr) >> 16) & 0xff;
 }
+
+/****i* januae-debugger/memwatch_func ***************************************
+*
+*   NAME
+*       memwatch_func() -- Check one guest-memory access against watchpoints.
+*
+*   SYNOPSIS
+*       static void memwatch_func (uaecptr addr, int rw, int size, uae_u32
+*       val);
+*
+*   FUNCTION
+*       Run illegal-access diagnostics when enabled, then test the four
+*       configured read/write watchpoint ranges and optional value filters.
+*       On a hit, store the access details and request a CPU break.
+*
+*   INPUTS
+*       addr - Guest memory address or instruction address.
+*       rw - Nonzero for writes; zero for reads.
+*       size - Size of the guest access in bytes (1, 2 or 4).
+*       val - Access value for the memory operation.
+*
+*   NOTES
+*       For write-change watchpoints, the first matching write seeds the
+*       comparison value and later equal writes are ignored.
+*
+****************************************************************************
+*
+*/
 
 static void memwatch_func (uaecptr addr, int rw, int size, uae_u32 val)
 {
@@ -787,6 +1415,31 @@ static void memwatch_func (uaecptr addr, int rw, int size, uae_u32 val)
     }
 }
 
+/****i* januae-debugger/debug_lget ******************************************
+*
+*   NAME
+*       debug_lget() -- Read a watched longword.
+*
+*   SYNOPSIS
+*       static REGPARAM2 uae_u32 debug_lget (uaecptr addr);
+*
+*   FUNCTION
+*       Delegate the read to the saved original memory-bank handler, then
+*       evaluate watchpoints using the returned longword.
+*
+*   INPUTS
+*       addr - Guest memory address or instruction address.
+*
+*   RESULT
+*       Value returned by the original bank handler.
+*
+*   NOTES
+*       Requires initialized watched-bank forwarding state.
+*
+****************************************************************************
+*
+*/
+
 static REGPARAM2 uae_u32 debug_lget (uaecptr addr)
 {
     uae_u8 off = debug_mem_off (addr);
@@ -795,6 +1448,31 @@ static REGPARAM2 uae_u32 debug_lget (uaecptr addr)
     memwatch_func (addr, 0, 4, v);
     return v;
 }
+/****i* januae-debugger/debug_wget ******************************************
+*
+*   NAME
+*       debug_wget() -- Read a watched word.
+*
+*   SYNOPSIS
+*       static REGPARAM2 uae_u32 debug_wget (uaecptr addr);
+*
+*   FUNCTION
+*       Delegate the read to the saved original memory-bank handler, then
+*       evaluate watchpoints using the returned word.
+*
+*   INPUTS
+*       addr - Guest memory address or instruction address.
+*
+*   RESULT
+*       Value returned by the original bank handler.
+*
+*   NOTES
+*       Requires initialized watched-bank forwarding state.
+*
+****************************************************************************
+*
+*/
+
 static REGPARAM2 uae_u32 debug_wget (uaecptr addr)
 {
     uae_u8 off = debug_mem_off (addr);
@@ -803,6 +1481,31 @@ static REGPARAM2 uae_u32 debug_wget (uaecptr addr)
     memwatch_func (addr, 0, 2, v);
     return v;
 }
+/****i* januae-debugger/debug_bget ******************************************
+*
+*   NAME
+*       debug_bget() -- Read a watched byte.
+*
+*   SYNOPSIS
+*       static REGPARAM2 uae_u32 debug_bget (uaecptr addr);
+*
+*   FUNCTION
+*       Delegate the read to the saved original memory-bank handler, then
+*       evaluate watchpoints using the returned byte.
+*
+*   INPUTS
+*       addr - Guest memory address or instruction address.
+*
+*   RESULT
+*       Value returned by the original bank handler.
+*
+*   NOTES
+*       Requires initialized watched-bank forwarding state.
+*
+****************************************************************************
+*
+*/
+
 static REGPARAM2 uae_u32 debug_bget (uaecptr addr)
 {
     uae_u8 off = debug_mem_off (addr);
@@ -811,32 +1514,171 @@ static REGPARAM2 uae_u32 debug_bget (uaecptr addr)
     memwatch_func (addr, 0, 1, v);
     return v;
 }
+/****i* januae-debugger/debug_lput ******************************************
+*
+*   NAME
+*       debug_lput() -- Write a watched longword.
+*
+*   SYNOPSIS
+*       static REGPARAM2 void debug_lput (uaecptr addr, uae_u32 v);
+*
+*   FUNCTION
+*       Evaluate watchpoints for the supplied longword value, then delegate
+*       the write to the saved original memory-bank handler.
+*
+*   INPUTS
+*       addr - Guest memory address or instruction address.
+*       v - Value written to guest memory.
+*
+*   NOTES
+*       Requires initialized watched-bank forwarding state.
+*
+****************************************************************************
+*
+*/
+
 static REGPARAM2 void debug_lput (uaecptr addr, uae_u32 v)
 {
     uae_u8 off = debug_mem_off (addr);
     memwatch_func (addr, 1, 4, v);
     debug_mem_banks[off]->lput(addr, v);
 }
+/****i* januae-debugger/debug_wput ******************************************
+*
+*   NAME
+*       debug_wput() -- Write a watched word.
+*
+*   SYNOPSIS
+*       static REGPARAM2 void debug_wput (uaecptr addr, uae_u32 v);
+*
+*   FUNCTION
+*       Evaluate watchpoints for the supplied word value, then delegate the
+*       write to the saved original memory-bank handler.
+*
+*   INPUTS
+*       addr - Guest memory address or instruction address.
+*       v - Value written to guest memory.
+*
+*   NOTES
+*       Requires initialized watched-bank forwarding state.
+*
+****************************************************************************
+*
+*/
+
 static REGPARAM2 void debug_wput (uaecptr addr, uae_u32 v)
 {
     uae_u8 off = debug_mem_off (addr);
     memwatch_func (addr, 1, 2, v);
     debug_mem_banks[off]->wput(addr, v);
 }
+/****i* januae-debugger/debug_bput ******************************************
+*
+*   NAME
+*       debug_bput() -- Write a watched byte.
+*
+*   SYNOPSIS
+*       static REGPARAM2 void debug_bput (uaecptr addr, uae_u32 v);
+*
+*   FUNCTION
+*       Evaluate watchpoints for the supplied byte value, then delegate the
+*       write to the saved original memory-bank handler.
+*
+*   INPUTS
+*       addr - Guest memory address or instruction address.
+*       v - Value written to guest memory.
+*
+*   NOTES
+*       Requires initialized watched-bank forwarding state.
+*
+****************************************************************************
+*
+*/
+
 static REGPARAM2 void debug_bput (uaecptr addr, uae_u32 v)
 {
     uae_u8 off = debug_mem_off (addr);
     memwatch_func (addr, 1, 1, v);
     debug_mem_banks[off]->bput(addr, v);
 }
+/****i* januae-debugger/debug_check *****************************************
+*
+*   NAME
+*       debug_check() -- Forward a watched bank range check.
+*
+*   SYNOPSIS
+*       static REGPARAM2 int debug_check (uaecptr addr, uae_u32 size);
+*
+*   FUNCTION
+*       Delegate address-range validation to the saved original memory bank.
+*
+*   INPUTS
+*       addr - Guest memory address or instruction address.
+*       size - Size of the guest-memory region in bytes.
+*
+*   RESULT
+*       Original bank check result.
+*
+*   NOTES
+*       Intended for the 24-bit address-space watchpoint mode.
+*
+****************************************************************************
+*
+*/
+
 static REGPARAM2 int debug_check (uaecptr addr, uae_u32 size)
 {
     return debug_mem_banks[munge24 (addr) >> 16]->check (addr, size);
 }
+/****i* januae-debugger/debug_xlate *****************************************
+*
+*   NAME
+*       debug_xlate() -- Forward watched bank pointer translation.
+*
+*   SYNOPSIS
+*       static REGPARAM2 uae_u8 *debug_xlate (uaecptr addr);
+*
+*   FUNCTION
+*       Request the underlying original memory bank's direct address
+*       translation.
+*
+*   INPUTS
+*       addr - Guest memory address or instruction address.
+*
+*   RESULT
+*       Pointer returned by the original bank handler.
+*
+*   NOTES
+*       No allocation or independent range validation is performed.
+*
+****************************************************************************
+*
+*/
+
 static REGPARAM2 uae_u8 *debug_xlate (uaecptr addr)
 {
     return debug_mem_banks[munge24 (addr) >> 16]->xlateaddr (addr);
 }
+
+/****i* januae-debugger/deinitialize_memwatch *******************************
+*
+*   NAME
+*       deinitialize_memwatch() -- Remove watched-bank forwarding hooks.
+*
+*   SYNOPSIS
+*       static void deinitialize_memwatch (void);
+*
+*   FUNCTION
+*       Restore all 256 original memory-bank descriptors, free their saved
+*       copies and the illegal-access permission image, and clear the enabled
+*       flag.
+*
+*   NOTES
+*       Does nothing when watchpoint forwarding is not enabled.
+*
+****************************************************************************
+*
+*/
 
 static void deinitialize_memwatch (void)
 {
@@ -856,6 +1698,30 @@ static void deinitialize_memwatch (void)
     free (illgdebug);
     illgdebug = 0;
 }
+
+/****i* januae-debugger/initialize_memwatch *********************************
+*
+*   NAME
+*       initialize_memwatch() -- Install watched-bank forwarding hooks.
+*
+*   SYNOPSIS
+*       static int initialize_memwatch (void);
+*
+*   FUNCTION
+*       In 24-bit address mode, save the original 256 bank descriptors, then
+*       replace their read, write, range-check and address-translation
+*       callbacks with debugging wrappers.
+*
+*   RESULT
+*       One after installation; zero when 24-bit address mode is disabled.
+*
+*   NOTES
+*       The allocation calls are not checked for failure before their results
+*       are used.
+*
+****************************************************************************
+*
+*/
 
 static int initialize_memwatch (void)
 {
@@ -885,6 +1751,29 @@ static int initialize_memwatch (void)
     return 1;
 }
 
+/****i* januae-debugger/memwatch_dump ***************************************
+*
+*   NAME
+*       memwatch_dump() -- Display configured memory watchpoints.
+*
+*   SYNOPSIS
+*       static void memwatch_dump (int num);
+*
+*   FUNCTION
+*       Print the active watchpoint indices, address ranges, access
+*       directions, optional value filters and write-change markers.
+*
+*   INPUTS
+*       num - Watchpoint index, or negative to display all slots.
+*
+*   NOTES
+*       A negative num selects all entries; a nonnegative num selects only
+*       the matching slot.
+*
+****************************************************************************
+*
+*/
+
 static void memwatch_dump (int num)
 {
     unsigned int i;
@@ -905,6 +1794,31 @@ static void memwatch_dump (int num)
 	}
     }
 }
+
+/****i* januae-debugger/memwatch ********************************************
+*
+*   NAME
+*       memwatch() -- Manage memory watchpoints and illegal-access logging.
+*
+*   SYNOPSIS
+*       static void memwatch (const char **c);
+*
+*   FUNCTION
+*       Enable watchpoint forwarding on first use; list, remove or configure
+*       one of four watchpoints, disable forwarding, or manage illegal-access
+*       logging and excluded addresses.
+*
+*   INPUTS
+*       c - Input command cursor; advanced past consumed characters.
+*
+*   NOTES
+*       Watchpoints are only available in 24-bit address mode. The d command
+*       may allocate a 16 MiB permission image; a following d command can
+*       clear a range in that image.
+*
+****************************************************************************
+*
+*/
 
 static void memwatch (const char **c)
 {
@@ -998,6 +1912,29 @@ static void memwatch (const char **c)
     memwatch_dump (num);
 }
 
+/****i* januae-debugger/writeintomem ****************************************
+*
+*   NAME
+*       writeintomem() -- Write a numeric value to guest memory.
+*
+*   SYNOPSIS
+*       static void writeintomem (const char **c);
+*
+*   FUNCTION
+*       Parse a hexadecimal guest address and value, then select an 8-, 16-
+*       or 32-bit guest write according to the value magnitude.
+*
+*   INPUTS
+*       c - Input command cursor; advanced past consumed characters.
+*
+*   NOTES
+*       The width follows the numeric value, not an explicit command-size
+*       parameter.
+*
+****************************************************************************
+*
+*/
+
 static void writeintomem (const char **c)
 {
     uae_u32 addr = 0;
@@ -1020,6 +1957,27 @@ static void writeintomem (const char **c)
     }
     console_out ("Wrote %x (%u) at %08x.%c\n", val, val, addr, cc);
 }
+
+/****i* januae-debugger/show_exec_tasks *************************************
+*
+*   NAME
+*       show_exec_tasks() -- Display Exec task lists.
+*
+*   SYNOPSIS
+*       static void show_exec_tasks (void);
+*
+*   FUNCTION
+*       Read the guest ExecBase pointer from address four, print the current
+*       task and traverse the ready and waiting task lists while following
+*       guest successor pointers.
+*
+*   NOTES
+*       The traversal assumes valid guest task-list pointers and reads names
+*       through direct guest-memory translation.
+*
+****************************************************************************
+*
+*/
 
 static void show_exec_tasks (void)
 {
@@ -1051,6 +2009,34 @@ static int trace_same_insn_count;
 static uae_u8 trace_insn_copy[10];
 static struct regstruct trace_prev_regs;
 static uaecptr nextpc;
+
+/****i* januae-debugger/instruction_breakpoint ******************************
+*
+*   NAME
+*       instruction_breakpoint() -- Configure instruction tracing and
+*       breakpoints.
+*
+*   SYNOPSIS
+*       static int instruction_breakpoint (const char **c);
+*
+*   FUNCTION
+*       Handle return-opcode tracing, list or clear eight breakpoints, toggle
+*       an address breakpoint, configure an address-range skip or start an
+*       instruction trace.
+*
+*   INPUTS
+*       c - Input command cursor; advanced past consumed characters.
+*
+*   RESULT
+*       One if execution should resume, otherwise zero.
+*
+*   NOTES
+*       A sentinel address of 0xC0DEDBAD opens uae.trace and enables
+*       instruction-state logging; the trace file-open result is not checked.
+*
+****************************************************************************
+*
+*/
 
 static int instruction_breakpoint (const char **c)
 {
@@ -1128,6 +2114,29 @@ static int instruction_breakpoint (const char **c)
     return 1;
 }
 
+/****i* januae-debugger/savemem *********************************************
+*
+*   NAME
+*       savemem() -- Save a region of guest memory to a host file.
+*
+*   SYNOPSIS
+*       static void savemem (const char **cc);
+*
+*   FUNCTION
+*       Parse a filename, hexadecimal start address and byte count, then read
+*       guest memory one byte at a time and write it to a binary host file.
+*
+*   INPUTS
+*       cc - Input command cursor; advanced past consumed characters.
+*
+*   NOTES
+*       On a failed fopen(), the allocated filename is not freed. A short
+*       write stops the copy and prints a diagnostic.
+*
+****************************************************************************
+*
+*/
+
 static void savemem (const char **cc)
 {
     uae_u8 b;
@@ -1186,6 +2195,30 @@ S_argh:
 	free (name);
     console_out ("S-command needs more arguments!\n");
 }
+
+/****i* januae-debugger/searchmem *******************************************
+*
+*   NAME
+*       searchmem() -- Search guest RAM for bytes or case-insensitive text.
+*
+*   SYNOPSIS
+*       static void searchmem (const char **cc);
+*
+*   FUNCTION
+*       Parse a quoted string or sequence of hexadecimal byte pairs,
+*       optionally read a start and end address, then scan configured guest
+*       memory and display matching addresses.
+*
+*   INPUTS
+*       cc - Input command cursor; advanced past consumed characters.
+*
+*   NOTES
+*       The 256-byte pattern buffer has no explicit length guard. The search
+*       reports at most 101 matches before stopping.
+*
+****************************************************************************
+*
+*/
 
 static void searchmem (const char **cc)
 {
@@ -1273,6 +2306,32 @@ static void searchmem (const char **cc)
 }
 
 #ifdef SAVESTATE
+/****i* januae-debugger/staterecorder ***************************************
+*
+*   NAME
+*       staterecorder() -- Handle a debugger SaveState rewind command.
+*
+*   SYNOPSIS
+*       static int staterecorder (const char **cc);
+*
+*   FUNCTION
+*       Request rewinding to a prior captured state when no subcommand is
+*       supplied, or list available rewind positions for the l subcommand.
+*
+*   INPUTS
+*       cc - Input command cursor; advanced past consumed characters.
+*
+*   RESULT
+*       One when a rewind request succeeds and execution should resume;
+*       otherwise zero.
+*
+*   NOTES
+*       Compiled only with SAVESTATE.
+*
+****************************************************************************
+*
+*/
+
 static int staterecorder (const char **cc)
 {
     char nc;
@@ -1292,6 +2351,29 @@ static int staterecorder (const char **cc)
     return 0;
 }
 #endif
+
+/****i* januae-debugger/disk_debug ******************************************
+*
+*   NAME
+*       disk_debug() -- Configure disk-access break logging.
+*
+*   SYNOPSIS
+*       static void disk_debug (const char **inptr);
+*
+*   FUNCTION
+*       Parse DMA-read, DMA-write and PIO mode letters, then optionally
+*       select a track number and enable extended disk logging.
+*
+*   INPUTS
+*       inptr - Input command cursor; advanced past consumed characters.
+*
+*   NOTES
+*       Invalid or out-of-range track selections are normalized to -1,
+*       meaning all tracks.
+*
+****************************************************************************
+*
+*/
 
 static void disk_debug (const char **inptr)
 {
@@ -1323,6 +2405,30 @@ end:
 	disk_debug_mode & DISK_DEBUG_PIO ? 'P' : '-',
 	disk_debug_track);
 }
+
+/****i* januae-debugger/m68k_modify *****************************************
+*
+*   NAME
+*       m68k_modify() -- Modify a debugger-visible CPU register.
+*
+*   SYNOPSIS
+*       static void m68k_modify (const char **inptr);
+*
+*   FUNCTION
+*       Parse a register name and hexadecimal value, update an address/data
+*       register, instruction prefetch field, VBR or stack/status register,
+*       and recalculate register state when required.
+*
+*   INPUTS
+*       inptr - Input command cursor; advanced past consumed characters.
+*
+*   NOTES
+*       Register indices after A or D are accepted as digits without an 0..7
+*       range check; the CCR branch replaces only the low four SR bits.
+*
+****************************************************************************
+*
+*/
 
 static void m68k_modify (const char **inptr)
 {
@@ -1367,6 +2473,27 @@ static void m68k_modify (const char **inptr)
 	MakeFromSR (&regs);
     }
 }
+
+/****i* januae-debugger/debug_1 *********************************************
+*
+*   NAME
+*       debug_1() -- Run the interactive debugger command loop.
+*
+*   SYNOPSIS
+*       static void debug_1 (void);
+*
+*   FUNCTION
+*       Display the CPU state, read console commands, perform inspection and
+*       modification actions and resume or terminate emulation on the
+*       appropriate command.
+*
+*   NOTES
+*       An end-of-file result from console_get() causes the input loop to
+*       retry rather than exit.
+*
+****************************************************************************
+*
+*/
 
 static void debug_1 (void)
 {
@@ -1566,6 +2693,26 @@ static void debug_1 (void)
     }
 }
 
+/****i* januae-debugger/addhistory ******************************************
+*
+*   NAME
+*       addhistory() -- Record one CPU state in the debugger ring.
+*
+*   SYNOPSIS
+*       static void addhistory (void);
+*
+*   FUNCTION
+*       Copy the CPU register snapshot and current guest PC into the
+*       100-entry history buffer, advancing and wrapping the read and write
+*       indices.
+*
+*   NOTES
+*       The oldest entry is discarded when the ring becomes full.
+*
+****************************************************************************
+*
+*/
+
 static void addhistory (void)
 {
     history[lasthist] = regs;
@@ -1576,6 +2723,28 @@ static void addhistory (void)
 	if (++firsthist == MAX_HIST) firsthist = 0;
     }
 }
+
+/****i* januae-debugger/debug ***********************************************
+*
+*   NAME
+*       debug() -- Run the debugger dispatch and resume logic.
+*
+*   SYNOPSIS
+*       void debug (void);
+*
+*   FUNCTION
+*       Save a CPU history snapshot, test instruction, Copper and memory
+*       watch triggers, pause input and audio around the command loop, then
+*       restore them and arm remaining breakpoints.
+*
+*   NOTES
+*       With SAVESTATE, an active state-save operation suppresses entry;
+*       successful command-loop exit may capture a state when the configured
+*       conditions permit.
+*
+****************************************************************************
+*
+*/
 
 void debug (void)
 {
