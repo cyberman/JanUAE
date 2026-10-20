@@ -129,13 +129,26 @@ typedef struct
 } unz_s;
 
 
-/* ===========================================================================
-     Read a byte from a gz_stream; update next_in and avail_in. Return EOF
-   for end of file.
-   IN assertion: the stream s has been sucessfully opened for reading.
+/****i* januae-zip/unzlocal_getByte *********************************************
+*
+*   NAME
+*       unzlocal_getByte()
+*
+*   SYNOPSIS
+*       static int unzlocal_getByte(struct zfile *fin, int *pi);
+*
+*   FUNCTION
+*       Read one byte from a zfile and store its unsigned value in *pi.
+*
+*   RESULT
+*       UNZ_OK after one byte; UNZ_EOF when no byte is read.
+*
+*   NOTES
+*       The output is not assigned on failure.
+*
+*************************************************************************
+*
 */
-
-
 local int unzlocal_getByte(fin,pi)
 	struct zfile *fin;
 	int *pi;
@@ -154,8 +167,25 @@ local int unzlocal_getByte(fin,pi)
 }
 
 
-/* ===========================================================================
-   Reads a long in LSB order from the given gz_stream. Sets 
+/****i* januae-zip/unzlocal_getShort ********************************************
+*
+*   NAME
+*       unzlocal_getShort()
+*
+*   SYNOPSIS
+*       static int unzlocal_getShort(struct zfile *fin, uLong *pX);
+*
+*   FUNCTION
+*       Read a two-byte little-endian value from the archive stream.
+*
+*   RESULT
+*       UNZ_OK on a complete read; otherwise the underlying byte-read status.
+*
+*   NOTES
+*       Stores zero on an incomplete read.
+*
+*************************************************************************
+*
 */
 local int unzlocal_getShort (fin,pX)
 	struct zfile* fin;
@@ -179,6 +209,26 @@ local int unzlocal_getShort (fin,pX)
     return err;
 }
 
+/****i* januae-zip/unzlocal_getLong *********************************************
+*
+*   NAME
+*       unzlocal_getLong()
+*
+*   SYNOPSIS
+*       static int unzlocal_getLong(struct zfile *fin, uLong *pX);
+*
+*   FUNCTION
+*       Read a four-byte little-endian value from the archive stream.
+*
+*   RESULT
+*       UNZ_OK on a complete read; otherwise the underlying byte-read status.
+*
+*   NOTES
+*       Stores zero on an incomplete read.
+*
+*************************************************************************
+*
+*/
 local int unzlocal_getLong (fin,pX)
 	struct zfile* fin;
     uLong *pX;
@@ -210,7 +260,28 @@ local int unzlocal_getLong (fin,pX)
 }
 
 
-/* My own strcmpi / strcasecmp */
+/****i* januae-zip/strcmpcasenosensitive_internal *******************************
+*
+*   NAME
+*       strcmpcasenosensitive_internal()
+*
+*   SYNOPSIS
+*       static int strcmpcasenosensitive_internal(const char *fileName1,
+*       const char *fileName2);
+*
+*   FUNCTION
+*       Compare two NUL-terminated filenames after folding ASCII lowercase
+*       letters to uppercase.
+*
+*   RESULT
+*       A negative, zero, or positive value according to the comparison.
+*
+*   NOTES
+*       Only ASCII a-z are folded; this is not locale-aware.
+*
+*************************************************************************
+*
+*/
 local int strcmpcasenosensitive_internal (fileName1,fileName2)
 	const char* fileName1;
 	const char* fileName2;
@@ -245,14 +316,28 @@ local int strcmpcasenosensitive_internal (fileName1,fileName2)
 #define STRCMPCASENOSENTIVEFUNCTION strcmpcasenosensitive_internal
 #endif
 
-/* 
-   Compare two filename (fileName1,fileName2).
-   If iCaseSenisivity = 1, comparision is case sensitivity (like strcmp)
-   If iCaseSenisivity = 2, comparision is not case sensitivity (like strcmpi
-                                                                or strcasecmp)
-   If iCaseSenisivity = 0, case sensitivity is defaut of your operating system
-        (like 1 on Unix, 2 on Windows)
-
+/****i* januae-zip/unzStringFileNameCompare *************************************
+*
+*   NAME
+*       unzStringFileNameCompare()
+*
+*   SYNOPSIS
+*       int ZEXPORT unzStringFileNameCompare(const char *fileName1, const
+*       char *fileName2, int iCaseSensitivity);
+*
+*   FUNCTION
+*       Compare ZIP entry names using case-sensitive or ASCII case-insensitive
+*       comparison.
+*
+*   RESULT
+*       The comparison result from the selected string comparison.
+*
+*   NOTES
+*       Mode 1 is case-sensitive; mode 2 is case-insensitive. Mode 0 selects
+*       the compile-time default.
+*
+*************************************************************************
+*
 */
 extern int ZEXPORT unzStringFileNameCompare (fileName1,fileName2,iCaseSensitivity)
 	const char* fileName1;
@@ -270,9 +355,28 @@ extern int ZEXPORT unzStringFileNameCompare (fileName1,fileName2,iCaseSensitivit
 
 #define BUFREADCOMMENT (0x400)
 
-/*
-  Locate the Central directory of a zipfile (at the end, just before
-    the global comment)
+/****i* januae-zip/unzlocal_SearchCentralDir ************************************
+*
+*   NAME
+*       unzlocal_SearchCentralDir()
+*
+*   SYNOPSIS
+*       static uLong unzlocal_SearchCentralDir(struct zfile *fin);
+*
+*   FUNCTION
+*       Search backward near the end of the archive for the ZIP
+*       end-of-central-directory signature.
+*
+*   RESULT
+*       The located file offset, or zero when no signature is found or a
+*       read/allocation fails.
+*
+*   NOTES
+*       Searches at most 0xffff bytes back; offset zero also acts as the
+*       not-found sentinel.
+*
+*************************************************************************
+*
 */
 local uLong unzlocal_SearchCentralDir(fin)
 	struct zfile *fin;
@@ -330,14 +434,27 @@ local uLong unzlocal_SearchCentralDir(fin)
 	return uPosFound;
 }
 
-/*
-  Open a Zip file. path contain the full pathname (by example,
-     on a Windows NT computer "c:\\test\\zlib109.zip" or on an Unix computer
-	 "zlib/zlib109.zip".
-	 If the zipfile cannot be opened (file don't exist or in not valid), the
-	   return value is NULL.
-     Else, the return value is a unzFile Handle, usable with other function
-	   of this unzip package.
+/****i* januae-zip/unzOpen ******************************************************
+*
+*   NAME
+*       unzOpen()
+*
+*   SYNOPSIS
+*       unzFile ZEXPORT unzOpen(struct zfile *fin);
+*
+*   FUNCTION
+*       Parse the ZIP end record and allocate an archive cursor for the
+*       supplied zfile.
+*
+*   RESULT
+*       An allocated ZIP handle or NULL if the end record cannot be validated.
+*
+*   NOTES
+*       On success, unzClose() closes the supplied zfile. On failure, this
+*       function does not close fin. Multi-disk archives are rejected.
+*
+*************************************************************************
+*
 */
 extern unzFile ZEXPORT unzOpen (fin)
 	struct zfile *fin;
@@ -425,11 +542,28 @@ extern unzFile ZEXPORT unzOpen (fin)
 }
 
 
-/*
-  Close a ZipFile opened with unzipOpen.
-  If there is files inside the .Zip opened with unzipOpenCurrentFile (see later),
-    these files MUST be closed with unzipCloseCurrentFile before call unzipClose.
-  return UNZ_OK if there is no problem. */
+/****i* januae-zip/unzClose *****************************************************
+*
+*   NAME
+*       unzClose()
+*
+*   SYNOPSIS
+*       int ZEXPORT unzClose(unzFile file);
+*
+*   FUNCTION
+*       Release the archive cursor, its current entry stream if any, and the
+*       underlying zfile.
+*
+*   RESULT
+*       UNZ_OK on a non-NULL handle; UNZ_PARAMERROR for NULL.
+*
+*   NOTES
+*       Errors from closing the entry stream or underlying zfile are not
+*       propagated.
+*
+*************************************************************************
+*
+*/
 extern int ZEXPORT unzClose (file)
 	unzFile file;
 {
@@ -447,10 +581,27 @@ extern int ZEXPORT unzClose (file)
 }
 
 
-/*
-  Write info about the ZipFile in the *pglobal_info structure.
-  No preparation of the structure is needed
-  return UNZ_OK if there is no problem. */
+/****i* januae-zip/unzGetGlobalInfo *********************************************
+*
+*   NAME
+*       unzGetGlobalInfo()
+*
+*   SYNOPSIS
+*       int ZEXPORT unzGetGlobalInfo(unzFile file, unz_global_info
+*       *pglobal_info);
+*
+*   FUNCTION
+*       Copy the archive entry count and global comment length to the caller.
+*
+*   RESULT
+*       UNZ_OK or UNZ_PARAMERROR for a NULL archive handle.
+*
+*   NOTES
+*       pglobal_info is dereferenced without a NULL check.
+*
+*************************************************************************
+*
+*/
 extern int ZEXPORT unzGetGlobalInfo (file,pglobal_info)
 	unzFile file;
 	unz_global_info *pglobal_info;
@@ -464,8 +615,23 @@ extern int ZEXPORT unzGetGlobalInfo (file,pglobal_info)
 }
 
 
-/*
-   Translate date/time from Dos format to tm_unz (readable more easilty)
+/****i* januae-zip/unzlocal_DosDateToTmuDate ************************************
+*
+*   NAME
+*       unzlocal_DosDateToTmuDate()
+*
+*   SYNOPSIS
+*       static void unzlocal_DosDateToTmuDate(uLong ulDosDate, tm_unz *ptm);
+*
+*   FUNCTION
+*       Decode a ZIP DOS timestamp into date and time fields.
+*
+*   NOTES
+*       The date is interpreted in DOS year/month/day and two-second
+*       granularity; the output pointer is not validated.
+*
+*************************************************************************
+*
 */
 local void unzlocal_DosDateToTmuDate (ulDosDate, ptm)
     uLong ulDosDate;
@@ -496,6 +662,32 @@ local int unzlocal_GetCurrentFileInfoInternal OF((unzFile file,
                                                   char *szComment,
 												  uLong commentBufferSize));
 
+/****i* januae-zip/unzlocal_GetCurrentFileInfoInternal **************************
+*
+*   NAME
+*       unzlocal_GetCurrentFileInfoInternal()
+*
+*   SYNOPSIS
+*       static int unzlocal_GetCurrentFileInfoInternal(unzFile file,
+*       unz_file_info *pfile_info, unz_file_info_internal
+*       *pfile_info_internal, char *szFileName, uLong fileNameBufferSize,
+*       void *extraField, uLong extraFieldBufferSize, char *szComment,
+*       uLong commentBufferSize);
+*
+*   FUNCTION
+*       Read the current ZIP central-directory header and optionally copy its
+*       metadata, filename, extra field and comment.
+*
+*   RESULT
+*       UNZ_OK, UNZ_PARAMERROR, UNZ_BADZIPFILE or UNZ_ERRNO.
+*
+*   NOTES
+*       Optional output buffers are bounded by their supplied lengths. A
+*       full-length filename/comment copy is not necessarily NUL-terminated.
+*
+*************************************************************************
+*
+*/
 local int unzlocal_GetCurrentFileInfoInternal (file,
                                               pfile_info,
                                               pfile_info_internal,
@@ -656,10 +848,29 @@ local int unzlocal_GetCurrentFileInfoInternal (file,
 
 
 
-/*
-  Write info about the ZipFile in the *pglobal_info structure.
-  No preparation of the structure is needed
-  return UNZ_OK if there is no problem.
+/****i* januae-zip/unzGetCurrentFileInfo ****************************************
+*
+*   NAME
+*       unzGetCurrentFileInfo()
+*
+*   SYNOPSIS
+*       int ZEXPORT unzGetCurrentFileInfo(unzFile file, unz_file_info
+*       *pfile_info, char *szFileName, uLong fileNameBufferSize, void
+*       *extraField, uLong extraFieldBufferSize, char *szComment, uLong
+*       commentBufferSize);
+*
+*   FUNCTION
+*       Retrieve public metadata and optional central-directory fields for the
+*       selected entry.
+*
+*   RESULT
+*       The status returned by the internal central-directory reader.
+*
+*   NOTES
+*       A NULL optional data pointer suppresses the corresponding copy.
+*
+*************************************************************************
+*
 */
 extern int ZEXPORT unzGetCurrentFileInfo (file,
                                                   pfile_info,
@@ -681,9 +892,26 @@ extern int ZEXPORT unzGetCurrentFileInfo (file,
 												szComment,commentBufferSize);
 }
 
-/*
-  Set the current file of the zipfile to the first file.
-  return UNZ_OK if there is no problem
+/****i* januae-zip/unzGoToFirstFile *********************************************
+*
+*   NAME
+*       unzGoToFirstFile()
+*
+*   SYNOPSIS
+*       int ZEXPORT unzGoToFirstFile(unzFile file);
+*
+*   FUNCTION
+*       Select the first entry in the ZIP central directory and update its
+*       metadata.
+*
+*   RESULT
+*       UNZ_OK, UNZ_PARAMERROR or an entry-header read error.
+*
+*   NOTES
+*       Selection does not open the entry data stream.
+*
+*************************************************************************
+*
 */
 extern int ZEXPORT unzGoToFirstFile (file)
 	unzFile file;
@@ -703,10 +931,26 @@ extern int ZEXPORT unzGoToFirstFile (file)
 }
 
 
-/*
-  Set the current file of the zipfile to the next file.
-  return UNZ_OK if there is no problem
-  return UNZ_END_OF_LIST_OF_FILE if the actual file was the latest.
+/****i* januae-zip/unzGoToNextFile **********************************************
+*
+*   NAME
+*       unzGoToNextFile()
+*
+*   SYNOPSIS
+*       int ZEXPORT unzGoToNextFile(unzFile file);
+*
+*   FUNCTION
+*       Advance the central-directory cursor to the next entry.
+*
+*   RESULT
+*       UNZ_OK, UNZ_END_OF_LIST_OF_FILE, UNZ_PARAMERROR or a header read
+*       error.
+*
+*   NOTES
+*       Requires a current entry and does not open its data stream.
+*
+*************************************************************************
+*
 */
 extern int ZEXPORT unzGoToNextFile (file)
 	unzFile file;
@@ -733,13 +977,28 @@ extern int ZEXPORT unzGoToNextFile (file)
 }
 
 
-/*
-  Try locate the file szFileName in the zipfile.
-  For the iCaseSensitivity signification, see unzipStringFileNameCompare
-
-  return value :
-  UNZ_OK if the file is found. It becomes the current file.
-  UNZ_END_OF_LIST_OF_FILE if the file is not found
+/****i* januae-zip/unzLocateFile ************************************************
+*
+*   NAME
+*       unzLocateFile()
+*
+*   SYNOPSIS
+*       int ZEXPORT unzLocateFile(unzFile file, const char *szFileName, int
+*       iCaseSensitivity);
+*
+*   FUNCTION
+*       Search directory entries by name with the specified case-sensitivity
+*       mode.
+*
+*   RESULT
+*       UNZ_OK if found; UNZ_END_OF_LIST_OF_FILE if absent; otherwise a
+*       cursor/header error.
+*
+*   NOTES
+*       Restores the prior current-entry selection when the name is not found.
+*
+*************************************************************************
+*
 */
 extern int ZEXPORT unzLocateFile (file, szFileName, iCaseSensitivity)
 	unzFile file;
@@ -787,12 +1046,30 @@ extern int ZEXPORT unzLocateFile (file, szFileName, iCaseSensitivity)
 }
 
 
-/*
-  Read the local header of the current zipfile
-  Check the coherency of the local header and info in the end of central
-        directory about this file
-  store in *piSizeVar the size of extra info in local header
-        (filename and size of extra field data)
+/****i* januae-zip/unzlocal_CheckCurrentFileCoherencyHeader *********************
+*
+*   NAME
+*       unzlocal_CheckCurrentFileCoherencyHeader()
+*
+*   SYNOPSIS
+*       static int unzlocal_CheckCurrentFileCoherencyHeader(unz_s *s, uInt
+*       *piSizeVar, uLong *poffset_local_extrafield, uInt
+*       *psize_local_extrafield);
+*
+*   FUNCTION
+*       Validate the local ZIP entry header against the selected
+*       central-directory entry and determine its data and extra-field
+*       offsets.
+*
+*   RESULT
+*       UNZ_OK, UNZ_BADZIPFILE or UNZ_ERRNO.
+*
+*   NOTES
+*       Checks supported compression flags, method and sizes before the entry
+*       data stream is opened.
+*
+*************************************************************************
+*
 */
 local int unzlocal_CheckCurrentFileCoherencyHeader (s,piSizeVar,
 													poffset_local_extrafield,
@@ -880,9 +1157,27 @@ local int unzlocal_CheckCurrentFileCoherencyHeader (s,piSizeVar,
 	return err;
 }
 												
-/*
-  Open for reading data the current file in the zipfile.
-  If there is no error and the file is opened, the return value is UNZ_OK.
+/****i* januae-zip/unzOpenCurrentFile *******************************************
+*
+*   NAME
+*       unzOpenCurrentFile()
+*
+*   SYNOPSIS
+*       int ZEXPORT unzOpenCurrentFile(unzFile file);
+*
+*   FUNCTION
+*       Open the selected entry for stored or raw-DEFLATE data access,
+*       allocating decompression state and a read buffer.
+*
+*   RESULT
+*       UNZ_OK, UNZ_PARAMERROR, UNZ_BADZIPFILE or UNZ_INTERNALERROR.
+*
+*   NOTES
+*       With GTKMUI defined, unconditionally returns UNZ_PARAMERROR. The
+*       normal path replaces any already-open entry stream.
+*
+*************************************************************************
+*
 */
 extern int ZEXPORT unzOpenCurrentFile (file)
 	unzFile file;
@@ -979,15 +1274,28 @@ extern int ZEXPORT unzOpenCurrentFile (file)
 }
 
 
-/*
-  Read bytes from the current file.
-  buf contain buffer where data must be copied
-  len the size of buf.
-
-  return the number of byte copied if somes bytes are copied
-  return 0 if the end of file was reached
-  return <0 with error code if there is an error
-    (UNZ_ERRNO for IO error, or zLib error for uncompress error)
+/****i* januae-zip/unzReadCurrentFile *******************************************
+*
+*   NAME
+*       unzReadCurrentFile()
+*
+*   SYNOPSIS
+*       int ZEXPORT unzReadCurrentFile(unzFile file, voidp buf, unsigned len);
+*
+*   FUNCTION
+*       Copy up to len uncompressed entry bytes into buf, using stored-data
+*       reads or raw DEFLATE inflation.
+*
+*   RESULT
+*       Positive byte count, zero at end of entry, or a negative ZIP/zlib
+*       error code.
+*
+*   NOTES
+*       With GTKMUI defined, returns UNZ_PARAMERROR. The archive cursor must
+*       have an opened entry.
+*
+*************************************************************************
+*
 */
 extern int ZEXPORT unzReadCurrentFile  (file, buf, len)
 	unzFile file;
@@ -1117,8 +1425,27 @@ extern int ZEXPORT unzReadCurrentFile  (file, buf, len)
 }
 
 
-/*
-  Give the current position in uncompressed data
+/****i* januae-zip/unztell ******************************************************
+*
+*   NAME
+*       unztell()
+*
+*   SYNOPSIS
+*       z_off_t ZEXPORT unztell(unzFile file);
+*
+*   FUNCTION
+*       Report the total uncompressed bytes already delivered from the current
+*       entry.
+*
+*   RESULT
+*       Current uncompressed offset; UNZ_PARAMERROR for an absent archive or
+*       unopened entry.
+*
+*   NOTES
+*       The error code is returned through z_off_t.
+*
+*************************************************************************
+*
 */
 extern z_off_t ZEXPORT unztell (file)
 	unzFile file;
@@ -1137,8 +1464,27 @@ extern z_off_t ZEXPORT unztell (file)
 }
 
 
-/*
-  return 1 if the end of file was reached, 0 elsewhere 
+/****i* januae-zip/unzeof *******************************************************
+*
+*   NAME
+*       unzeof()
+*
+*   SYNOPSIS
+*       int ZEXPORT unzeof(unzFile file);
+*
+*   FUNCTION
+*       Test whether the current entry has no uncompressed bytes remaining.
+*
+*   RESULT
+*       1 at end, 0 otherwise; UNZ_PARAMERROR for a missing handle or entry
+*       stream.
+*
+*   NOTES
+*       The test uses the stored remaining-byte count, not the underlying
+*       archive EOF.
+*
+*************************************************************************
+*
 */
 extern int ZEXPORT unzeof (file)
 	unzFile file;
@@ -1161,17 +1507,30 @@ extern int ZEXPORT unzeof (file)
 
 
 
-/*
-  Read extra field from the current file (opened by unzOpenCurrentFile)
-  This is the local-header version of the extra field (sometimes, there is
-    more info in the local-header version than in the central-header)
-
-  if buf==NULL, it return the size of the local extra field that can be read
-
-  if buf!=NULL, len is the size of the buffer, the extra header is copied in
-	buf.
-  the return value is the number of bytes copied in buf, or (if <0) 
-	the error code
+/****i* januae-zip/unzGetLocalExtrafield ****************************************
+*
+*   NAME
+*       unzGetLocalExtrafield()
+*
+*   SYNOPSIS
+*       int ZEXPORT unzGetLocalExtrafield(unzFile file, voidp buf, unsigned
+*       len);
+*
+*   FUNCTION
+*       Inspect the local-header extra field of the current entry, optionally
+*       copying bytes to buf.
+*
+*   RESULT
+*       Remaining extra-field length when buf is NULL; bytes requested or a
+*       negative error otherwise.
+*
+*   NOTES
+*       len does not bound the underlying read: buf must hold the entire
+*       remaining local extra field. The stored extra-field position is not
+*       advanced.
+*
+*************************************************************************
+*
 */
 extern int ZEXPORT unzGetLocalExtrafield (file,buf,len)
 	unzFile file;
@@ -1216,9 +1575,28 @@ extern int ZEXPORT unzGetLocalExtrafield (file,buf,len)
 	return (int)read_now;
 }
 
-/*
-  Close the file in zip opened with unzipOpenCurrentFile
-  Return UNZ_CRCERROR if all the file was read but the CRC is not good
+/****i* januae-zip/unzCloseCurrentFile ******************************************
+*
+*   NAME
+*       unzCloseCurrentFile()
+*
+*   SYNOPSIS
+*       int ZEXPORT unzCloseCurrentFile(unzFile file);
+*
+*   FUNCTION
+*       Close the current entry stream, release its inflater and read buffer,
+*       and verify CRC if completely consumed.
+*
+*   RESULT
+*       UNZ_OK or UNZ_CRCERROR after a complete read; UNZ_PARAMERROR for
+*       invalid state.
+*
+*   NOTES
+*       With GTKMUI defined, returns UNZ_PARAMERROR. CRC is not checked after
+*       a partial read.
+*
+*************************************************************************
+*
 */
 extern int ZEXPORT unzCloseCurrentFile (file)
 	unzFile file;
@@ -1261,10 +1639,28 @@ extern int ZEXPORT unzCloseCurrentFile (file)
 }
 
 
-/*
-  Get the global comment string of the ZipFile, in the szComment buffer.
-  uSizeBuf is the size of the szComment buffer.
-  return the number of byte copied or an error code <0
+/****i* januae-zip/unzGetGlobalComment ******************************************
+*
+*   NAME
+*       unzGetGlobalComment()
+*
+*   SYNOPSIS
+*       int ZEXPORT unzGetGlobalComment(unzFile file, char *szComment,
+*       uLong uSizeBuf);
+*
+*   FUNCTION
+*       Read up to uSizeBuf bytes of the ZIP archive global comment.
+*
+*   RESULT
+*       Bytes read; UNZ_PARAMERROR for a NULL handle or UNZ_ERRNO on I/O
+*       failure.
+*
+*   NOTES
+*       szComment must be writable when a nonzero length is requested. A NUL
+*       terminator is added only when the buffer exceeds the comment length.
+*
+*************************************************************************
+*
 */
 extern int ZEXPORT unzGetGlobalComment (file, szComment, uSizeBuf)
 	unzFile file;
