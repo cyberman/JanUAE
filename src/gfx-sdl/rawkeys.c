@@ -42,10 +42,6 @@ static const int *modkeytable;
  * Table used to pick keymapping based on SDL gfx driver
  */
 static const struct sdl_raw_keymap keymaps[] = {
-#if (defined __i386__ || defined __x86_64__ || defined __powerpc__ || defined __ppc__) && defined __linux__
-    { SDLGFX_DRIVER_X11,     "x11pc",  x11pc_keymap,  x11pc_hotkeys,  0},
-    { SDLGFX_DRIVER_DGA,     "x11pc",  x11pc_keymap,  x11pc_hotkeys,  0},
-#endif
 #ifdef TARGET_AMIGAOS
 # ifdef __amigaos4__
     { SDLGFX_DRIVER_AMIGAOS4, "amiga", amiga_keymap,  amiga_hotkeys,  0},

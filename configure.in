@@ -246,8 +246,7 @@ OSDEP=od-unix
 
 case $host_os in
     linux*)
-      HOST_OS=linux
-      OSDEP=od-linux
+      AC_MSG_ERROR([Linux is not a supported JanUAE host target])
       ;;
     darwin*)
       AC_MSG_ERROR([Darwin is not a supported JanUAE target])
@@ -407,13 +406,8 @@ else
   THREADDEP=td-none
   THREADNAME=none
 fi
-if [[ "x$no_x" != "xyes" ]]; then
-  GFX_DEP=gfx-x11
-  GFX_NAME=x11
-else
-  GFX_DEP=
-  GXF_NAME=
-fi
+GFX_DEP=
+GFX_NAME=
 GUI_DEP=gui-none
 GUI_NAME=none
 GUI_LIBS=
@@ -453,13 +447,7 @@ MATHLIB=-lm
 dnl
 dnl  Override defaults for specfic targets
 dnl
-if [[ "$HOST_OS" = "linux" ]]; then
-  JOY_DEP=jd-linuxold
-  JOY_NAME="linux"
-  if [[ "$HOST_CPU" = "i386" ]]; then
-    NATMEM="0x50000000"
-  fi
-else if [[ "$OSDEP" = "od-amiga" ]]; then
+if [[ "$OSDEP" = "od-amiga" ]]; then
   TARGET=amiga
   TARGETDEP=t-amiga.h
   THREADDEP=td-amigaos
@@ -488,7 +476,6 @@ else if [[ "$OSDEP" = "od-amiga" ]]; then
     GTK_LIBS="-lgtk-mui -lgobject-2.0 -lglib-2.0 -liconv"
 
   fi
-fi
 fi
 
 dnl
@@ -538,9 +525,6 @@ AC_ARG_WITH(sdl-gl,
   AS_HELP_STRING([--with-sdl-gl], [Allow GL for 2D acceleration with SDL graphics]),
   [WANT_SDLGL=$withval], [])
 
-AC_ARG_WITH(curses,
-  AS_HELP_STRING([--with-curses], [Use ncurses library for graphics]),
-  [WANT_NCURSES=$withval], [])
 
 AC_ARG_WITH(libscg-prefix,
   AS_HELP_STRING([--with-libscg-prefix], [Absolute path to where libscg is installed (optional)]),
@@ -727,27 +711,6 @@ dnl  Check which graphics target to build
 dnl
 AC_MSG_CHECKING([for graphics target to build])
 
-dnl Check whether we wanted to use ncurses
-dnl
-dnl First check if we need to uses ncurses because no
-dnl other gfx support is available
-if [[ "x$WANT_NCURSES" != "xno" -a "x$WANT_SDL" = "xno" -a "x$GFX_DEP" = "x" ]]; then
- WANT_NCURSES=yes
-fi
-
-if [[ "x$WANT_NCURSES" = "xyes" ]]; then
- if [[ "x$HAVE_NCURSES_LIB" = "xyes" ]]; then
-  GFX_LIBS="-lncurses"
-  GFX_CFLAGS=
-  GFX_CPPFLAGS=
-  GFX_DEP=gfx-curses
-  GFX_NAME=ncurses
- else
-  AC_MSG_WARN([ncurses support wanted, but libncurses could not be found])
- fi
-fi
-
-
 dnl  Check whether we actually wanted to use SDL or whether
 dnl  we need to use SDL because we couldn't find any other
 dnl  graphics support
@@ -783,150 +746,10 @@ AC_MSG_RESULT("$GFX_NAME")
 dnl
 dnl  If we're using X, find out what extensions are wanted/available
 dnl
-if [[ "$GFX_DEP" = "gfx-x11" ]]; then
-  dnl If the user wants DGA, see if we have it.
-  dnl This must come after we checked for X11.
-
-  if [[ "x$WANT_DGA" = "xyes" ]]; then
-    TMP_SAVE_LIBS=$LIBS
-    LIBS="$X_LIBS $LIBS"
-    AC_CHECK_LIB(Xxf86dga, XF86DGAQueryExtension, HAVE_DGA=yes, HAVE_DGA=no, [ $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS ])
-    echo $LIBS
-    LIBS=$TMP_SAVE_LIBS
-    if [[ "x$HAVE_DGA" = "xno" ]]; then
-      AC_MSG_WARN([Could not find DGA extension, ignoring --enable-dga])
-      NR_ERRORS=`expr $NR_ERRORS + 1`
-      WANT_DGA=no
-    else
-      X_CFLAGS="$X_CFLAGS -DUSE_DGA_EXTENSION"
-      X_EXTRA_LIBS="$X_EXTRA_LIBS -lXxf86dga"
-    fi
-  fi
-
-  if [[ "x$WANT_VIDMODE" = "xyes" ]]; then
-    TMP_SAVE_LIBS=$LIBS
-    LIBS="$X_LIBS $LIBS"
-    AC_CHECK_LIB(Xxf86vm, XF86VidModeQueryExtension, HAVE_VIDMODE=yes, HAVE_VIDMODE=no, [ $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS ])
-    LIBS=$TMP_SAVE_LIBS
-    if [[ "x$HAVE_VIDMODE" = "xno" ]]; then
-      AC_MSG_WARN([Could not find VidMode extension, ignoring --enable-vidmode])
-      NR_ERRORS=`expr $NR_ERRORS + 1`
-      WANT_VIDMODE=no
-    else
-      X_CFLAGS="$X_CFLAGS -DUSE_VIDMODE_EXTENSION"
-      X_EXTRA_LIBS="$X_EXTRA_LIBS -lXxf86vm"
-    fi
-  fi
-
-  dnl Check if we can compile with XKB/XKBfile support
-
-  AC_MSG_CHECKING(whether to compile XKB extension support)
-  TMP_SAVE_LIBS=$LIBS
-  TMP_SAVE_CFLAGS=$CFLAGS
-  LIBS="$X_LIBS $LIBS -lxkbfile"
-  CFLAGS="$CFLAGS $X_CFLAGS"
-  AC_TRY_LINK([
-    #include "confdefs.h"
-    #include <stdio.h>
-    #ifdef HAVE_SYS_TYPES_H
-    # include <sys/types.h>
-    #endif
-    #include <X11/Xlib.h>
-    #include <X11/XKBlib.h>
-    #include <X11/extensions/XKBrules.h>],[
-    int major, minor;
-    XkbRF_RulesPtr rules;
-    XkbLibraryVersion (&major, &minor);
-    rules = XkbRF_Load ("dummy", "", True, True);
-  ],
-  AC_MSG_RESULT(yes)
-  X_CFLAGS="$X_CFLAGS -DUSE_XKB"
-  X_EXTRA_LIBS="$X_EXTRA_LIBS -lxkbfile"
-  xkb_rules_dir_found="no"
-  for xkb_rules_dir in /usr/share/X11/xkb/rules /usr/lib/X11/xkb/rules /usr/X11R6/lib/X11/xkb/rules
-  do
-	if test -d $xkb_rules_dir ; then
-		X_CFLAGS="$X_CFLAGS -DXKB_PATH=\\\"$xkb_rules_dir/\\\""
-		xkb_rules_dir_found="yes"
-		break
-	fi
-  done
-  if test "x$xkb_rules_dir_found" = "xno" ; then
-  	AC_MSG_ERROR([[Could not find xkb path.]])
-  fi,
-  AC_MSG_RESULT(no)
-  )
-  LIBS=$TMP_SAVE_LIBS
-  CFLAGS=$TMP_SAVE_CFLAGS
-
-dnl See if we can at least compile SHM support
-
-  if [[ "x$no_x" != "xyes" -a "x$ac_cv_header_sys_ipc_h" = "xyes" -a "x$ac_cv_header_sys_shm_h" = "xyes" ]]; then
-    AC_MSG_CHECKING(whether the X11 MIT-SHM extension can be compiled in)
-    TMP_SAVE_CFLAGS=$CFLAGS
-    TMP_SAVE_LIBS=$LIBS
-    CFLAGS="$CFLAGS $X_CFLAGS"
-    LIBS="$X_LIBS $LIBS $X_PRE_LIBS -lX11 -lXext $X_EXTRA_LIBS"
-    AC_TRY_LINK([
-  #include "confdefs.h"
-  #ifdef HAVE_SYS_TYPES_H
-  #include <sys/types.h>
-  #endif
-  #include <X11/Xlib.h>
-  #include <X11/Xutil.h>
-  #include <X11/keysym.h>
-  #include <X11/cursorfont.h>
-  #include <sys/ipc.h>
-  #include <sys/shm.h>
-  #include <X11/extensions/XShm.h>],[
-  static XShmSegmentInfo shminfo;
-  static Display *display;
-  XShmAttach(display, &shminfo);
-  XSync(display,0);
-  shmctl(shminfo.shmid, IPC_RMID, 0);
-  ],
-  SHM_SUPPORT_LINKS=1
-  AC_MSG_RESULT(yes),
-  SHM_SUPPORT_LINKS=0
-  AC_MSG_RESULT(no))
-  fi
-  CFLAGS=$TMP_SAVE_CFLAGS
-  LIBS=$TMP_SAVE_LIBS
-
-  GFX_CFLAGS="$X_CFLAGS"
-  GFX_CPPFLAGS="-DSHM_SUPPORT_LINKS=$SHM_SUPPORT_LINKS"
-  GFX_LIBS="$X_LIBS $X_PRE_LIBS -lXext -lX11 $X_EXTRA_LIBS"
-fi
-
-
-dnl
-dnl
 dnl  Check which sound target to use
 AC_MSG_CHECKING([for sound target to build])
 
 if [[ "x$WANT_AUDIO" != "xno" ]]; then
-  if [[ "x$SND_NAME" = "xnone" ]]; then
-    if [[ "x$ac_cv_header_sys_audioio_h" = "xyes" -o "x$ac_cv_header_sun_audioio_h" = "xyes" ]]; then
-      SND_DEP=sd-solaris
-      SND_NAME=Solaris/NetBSD
-      USE_SOUND=yes
-    else if [[ "x$WANT_ALSA" = "xyes" ]]; then
-      SND_DEP=sd-alsa
-      SND_LIBS="-lasound"
-      SND_NAME=ALSA
-      USE_SOUND=yes
-    else if [[ "x$HAVE_USS_SOUND" = "xyes" ]]; then
-      SND_DEP=sd-uss
-      if [[ "x$HAVE_LIBOSSAUDIO" = "xyes" ]]; then
-        SND_LIBS="-lossaudio"
-      fi
-      SND_NAME=OSS
-      USE_SOUND=yes
-    fi
-    fi
-    fi
-  fi
-
   dnl
   dnl  Did we actually want to use SDL for sound, or should we
   dnl  use it 'cos there's nothing else?
@@ -1369,27 +1192,19 @@ AC_CONFIG_FILES([Makefile
 		 src/md-68k/Makefile
 		 src/md-amd64-gcc/Makefile
 		 src/od-generic/Makefile
-		 src/od-linux/Makefile
 		 src/od-amiga/Makefile
 		 src/td-none/Makefile
 		 src/td-amigaos/Makefile
 		 src/td-posix/Makefile
 		 src/td-sdl/Makefile
 		 src/gfx-amigaos/Makefile
-		 src/gfx-x11/Makefile
 		 src/gfx-sdl/Makefile
-		 src/gfx-curses/Makefile
-		 src/gfx-svga/Makefile
-		 src/sd-alsa/Makefile
 		 src/sd-amigaos/Makefile
 		 src/sd-none/Makefile
 		 src/sd-sdl/Makefile
-		 src/sd-solaris/Makefile
-		 src/sd-uss/Makefile
 		 src/jd-none/Makefile
 		 src/jd-amigainput/Makefile
 		 src/jd-amigaos/Makefile
-		 src/jd-linuxold/Makefile
 		 src/jd-sdl/Makefile
 		 src/gui-none/Makefile
 		 src/gui-gtk/Makefile

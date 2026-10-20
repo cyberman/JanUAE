@@ -6,5 +6,4 @@
   * Copyright 2004-2005 Richard Drummond
   */
 
-#include "keymap/x11pc_rawkeys.h"
 #include "keymap/amiga_rawkeys.h"

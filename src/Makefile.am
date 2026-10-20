@@ -9,11 +9,11 @@ SUBDIRS = \
 
 DIST_SUBDIRS = \
 	md-generic md-68k md-i386-gcc md-ppc md-ppc-gcc md-amd64-gcc \
-	gfx-amigaos gfx-x11 gfx-sdl gfx-curses gfx-svga \
-	sd-none sd-alsa sd-amigaos sd-sdl sd-solaris sd-uss \
-	jd-none jd-amigainput jd-amigaos jd-linuxold jd-sdl \
+	gfx-amigaos gfx-sdl \
+	sd-none sd-amigaos sd-sdl \
+	jd-none jd-amigainput jd-amigaos jd-sdl \
 	gui-none gui-gtk gui-muirexx \
-	od-generic od-amiga od-linux \
+	od-generic od-amiga \
 	td-none td-amigaos td-posix td-sdl \
 	keymap \
 	caps dms
