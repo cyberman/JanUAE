@@ -46,6 +46,26 @@ typedef enum {
 } fpp_precision;
 
 
+/****i* januae-fpp/native_set_fpucw
+ *
+ *   NAME
+ *       native_set_fpucw()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void native_set_fpucw (uae_u32 m68k_cw)
+ *
+ *   FUNCTION
+ *       Configure host x87 precision and rounding from the emulated FPCR when
+ *       USE_X86_FPUCW is enabled.
+ *
+ *   INPUTS
+ *       m68k_cw -- emulated floating-point control word.
+ *
+ *   NOTES
+ *       Has no effect when USE_X86_FPUCW is disabled.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void native_set_fpucw (uae_u32 m68k_cw)
 {
 #if USE_X86_FPUCW
@@ -88,10 +108,58 @@ typedef uae_s64 tointtype;
 typedef uae_s32 tointtype;
 #endif
 
+/****i* januae-fpp/get_rounding_mode
+ *
+ *   NAME
+ *       get_rounding_mode()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE fpp_rounding_mode get_rounding_mode (const struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Extract the floating-point rounding selector from bits 4 and 5 of the
+ *       supplied FPSR field.
+ *
+ *   INPUTS
+ *       regs -- register state to inspect.
+ *
+ *   RESULT
+ *       A value in the fpp_rounding_mode range.
+ *
+ *   NOTES
+ *       Reads fpsr, not fpcr, in this implementation.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE fpp_rounding_mode get_rounding_mode (const struct regstruct *regs)
 {
     return (regs->fpsr >> 4) & 3;
 }
+
+/****i* januae-fpp/toint
+ *
+ *   NAME
+ *       toint()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE tointtype toint (fpp_rounding_mode mode, fptype src)
+ *
+ *   FUNCTION
+ *       Convert a floating-point operand to an integer using the selected rounding
+ *       operation.
+ *
+ *   INPUTS
+ *       mode -- requested rounding selector.
+ *       src -- operand to convert.
+ *
+ *   RESULT
+ *       Integer value after the selected conversion.
+ *
+ *   NOTES
+ *       Without USE_X86_FPUCW, the nearest case adds 0.5 before conversion; this
+ *       is not a complete IEEE nearest-even implementation.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE tointtype toint (fpp_rounding_mode mode, fptype src)
 {
@@ -110,6 +178,30 @@ STATIC_INLINE tointtype toint (fpp_rounding_mode mode, fptype src)
 	    return (tointtype) ceil (src);
     }
 }
+
+/****i* januae-fpp/get_fpsr
+ *
+ *   NAME
+ *       get_fpsr()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u32 get_fpsr (const struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Combine the stored low 24 FPSR bits with condition codes derived from
+ *       fp_result.
+ *
+ *   INPUTS
+ *       regs -- register state to inspect.
+ *
+ *   RESULT
+ *       FPSR value with zero, negative and, when available, infinity flags
+ *       recomputed.
+ *
+ *   NOTES
+ *       NaN detection is disabled in the current source.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE uae_u32 get_fpsr (const struct regstruct *regs)
 {
@@ -134,10 +226,52 @@ STATIC_INLINE uae_u32 get_fpsr (const struct regstruct *regs)
     return answer;
 }
 
+/****i* januae-fpp/fpp_get_fpsr
+ *
+ *   NAME
+ *       fpp_get_fpsr()
+ *
+ *   SYNOPSIS
+ *       uae_u32 fpp_get_fpsr (const struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Return the floating-point status word synthesized from the given register
+ *       state.
+ *
+ *   INPUTS
+ *       regs -- register state to inspect.
+ *
+ *   RESULT
+ *       Status word produced by get_fpsr().
+ *
+ ****************************************************************************/
+
 uae_u32 fpp_get_fpsr (const struct regstruct *regs)
 {
     return get_fpsr (regs);
 }
+
+/****i* januae-fpp/set_fpsr
+ *
+ *   NAME
+ *       set_fpsr()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void set_fpsr (struct regstruct *regs, uae_u32 x)
+ *
+ *   FUNCTION
+ *       Store an FPSR value and derive the comparison-result placeholder from its
+ *       condition bits.
+ *
+ *   INPUTS
+ *       regs -- register state to modify.
+ *       x -- status word to store.
+ *
+ *   NOTES
+ *       The placeholder is NaN, zero, -1 or 1; it does not reconstruct a prior
+ *       arithmetic result.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void set_fpsr (struct regstruct *regs, uae_u32 x)
 {
@@ -166,6 +300,29 @@ STATIC_INLINE void set_fpsr (struct regstruct *regs, uae_u32 x)
 /* E = MAX & F = 0 -> Infin */
 /* E = MAX & F # 0 -> NotANumber */
 /* E = biased by 127 (single) ,1023 (double) ,16383 (extended) */
+
+/****i* januae-fpp/to_pack
+ *
+ *   NAME
+ *       to_pack()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE fptype to_pack (uae_u32 wrd1, uae_u32 wrd2, uae_u32 wrd3)
+ *
+ *   FUNCTION
+ *       Decode three words of Motorola packed-decimal data via a decimal text
+ *       representation.
+ *
+ *   INPUTS
+ *       wrd1, wrd2, wrd3 -- packed sign, digits and exponent fields.
+ *
+ *   RESULT
+ *       Floating-point value parsed from the assembled decimal string.
+ *
+ *   NOTES
+ *       The sscanf() conversion result is not checked.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE fptype to_pack (uae_u32 wrd1, uae_u32 wrd2, uae_u32 wrd3)
 {
@@ -204,6 +361,28 @@ STATIC_INLINE fptype to_pack (uae_u32 wrd1, uae_u32 wrd2, uae_u32 wrd3)
     sscanf (str, "%le", &d);
     return d;
 }
+
+/****i* januae-fpp/from_pack
+ *
+ *   NAME
+ *       from_pack()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void from_pack (fptype src, uae_u32 * wrd1, uae_u32 * wrd2, uae_u32 * wrd3)
+ *
+ *   FUNCTION
+ *       Encode a floating-point number into three packed-decimal words using
+ *       formatted decimal digits.
+ *
+ *   INPUTS
+ *       src -- floating-point value.
+ *       wrd1, wrd2, wrd3 -- pointers receiving the packed words.
+ *
+ *   NOTES
+ *       Uses a 16-digit scientific-format intermediate; it is not a bit-exact
+ *       conversion of all packed-decimal values.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void from_pack (fptype src, uae_u32 * wrd1, uae_u32 * wrd2, uae_u32 * wrd3)
 {
@@ -250,6 +429,33 @@ STATIC_INLINE void from_pack (fptype src, uae_u32 * wrd1, uae_u32 * wrd2, uae_u3
 	*wrd1 |= t << 16;
     }
 }
+
+/****i* januae-fpp/get_fp_value
+ *
+ *   NAME
+ *       get_fp_value()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int get_fp_value (uae_u32 opcode, uae_u16 extra, fptype *src)
+ *
+ *   FUNCTION
+ *       Fetch an FPU instruction operand from an FP register, integer data
+ *       register, memory or immediate data.
+ *
+ *   INPUTS
+ *       opcode -- effective-address encoding.
+ *       extra -- operand format and register selector.
+ *       src -- destination for the decoded floating-point value.
+ *
+ *   RESULT
+ *       1 if the operand was decoded, otherwise 0.
+ *
+ *   NOTES
+ *       Supported formats include integer, single, double, extended and packed
+ *       values. Address-register increments and instruction-stream reads may
+ *       occur.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE int get_fp_value (uae_u32 opcode, uae_u16 extra, fptype *src)
 {
@@ -380,6 +586,34 @@ STATIC_INLINE int get_fp_value (uae_u32 opcode, uae_u16 extra, fptype *src)
     }
     return 1;
 }
+
+/****i* januae-fpp/put_fp_value
+ *
+ *   NAME
+ *       put_fp_value()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int put_fp_value (struct regstruct *regs, fptype value, uae_u32 opcode, uae_u16 extra)
+ *
+ *   FUNCTION
+ *       Write an FPU operand into an FP register, integer data register or encoded
+ *       memory destination.
+ *
+ *   INPUTS
+ *       regs -- register state to update.
+ *       value -- operand to store.
+ *       opcode -- effective-address encoding.
+ *       extra -- destination format and selector.
+ *
+ *   RESULT
+ *       1 for a handled destination; 0 for an unsupported mode or format.
+ *
+ *   NOTES
+ *       Integer destinations use the rounding selector returned by
+ *       get_rounding_mode(). Address-register updates are performed for increment
+ *       and decrement modes.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE int put_fp_value (struct regstruct *regs, fptype value, uae_u32 opcode, uae_u16 extra)
 {
@@ -519,6 +753,31 @@ STATIC_INLINE int put_fp_value (struct regstruct *regs, fptype value, uae_u32 op
     return 1;
 }
 
+/****i* januae-fpp/get_fp_ad
+ *
+ *   NAME
+ *       get_fp_ad()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int get_fp_ad (uae_u32 opcode, uae_u32 * ad)
+ *
+ *   FUNCTION
+ *       Resolve an instruction effective address for FPU condition and
+ *       state-transfer operations.
+ *
+ *   INPUTS
+ *       opcode -- addressing-mode and register fields.
+ *       ad -- destination for the resolved address.
+ *
+ *   RESULT
+ *       1 if a supported memory addressing mode was resolved, otherwise 0.
+ *
+ *   NOTES
+ *       May consume extension words. Register-direct and unsupported mode-7 forms
+ *       are rejected.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int get_fp_ad (uae_u32 opcode, uae_u32 * ad)
 {
     uae_u16 tmp;
@@ -570,6 +829,31 @@ STATIC_INLINE int get_fp_ad (uae_u32 opcode, uae_u32 * ad)
     }
     return 1;
 }
+
+/****i* januae-fpp/fpp_cond
+ *
+ *   NAME
+ *       fpp_cond()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int fpp_cond (uae_u32 opcode, int contition)
+ *
+ *   FUNCTION
+ *       Evaluate an emulated 68881 condition selector using the current
+ *       floating-point comparison result.
+ *
+ *   INPUTS
+ *       opcode -- instruction word (not inspected).
+ *       contition -- condition selector.
+ *
+ *   RESULT
+ *       0 or 1 for a recognized condition; -1 for an unknown selector.
+ *
+ *   NOTES
+ *       NaN state is treated as false because the NaN test is inactive in this
+ *       implementation.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE int fpp_cond (uae_u32 opcode, int contition)
 {
@@ -660,6 +944,29 @@ STATIC_INLINE int fpp_cond (uae_u32 opcode, int contition)
     return -1;
 }
 
+/****i* januae-fpp/fdbcc_opp
+ *
+ *   NAME
+ *       fdbcc_opp()
+ *
+ *   SYNOPSIS
+ *       void fdbcc_opp (uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
+ *
+ *   FUNCTION
+ *       Execute an FDBcc instruction by testing the floating-point condition and
+ *       updating the low word of the selected data register.
+ *
+ *   INPUTS
+ *       opcode -- instruction word including data-register number.
+ *       regs -- emulated CPU state.
+ *       extra -- floating-point condition selector.
+ *
+ *   NOTES
+ *       Consumes a signed word displacement; unsupported conditions invoke the
+ *       illegal-instruction handler.
+ *
+ ****************************************************************************/
+
 void fdbcc_opp (uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
 {
     uaecptr pc = (uae_u32) m68k_getpc (regs);
@@ -683,6 +990,29 @@ void fdbcc_opp (uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
 	    m68k_setpc (regs, pc + disp);
     }
 }
+
+/****i* januae-fpp/fscc_opp
+ *
+ *   NAME
+ *       fscc_opp()
+ *
+ *   SYNOPSIS
+ *       void fscc_opp (uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
+ *
+ *   FUNCTION
+ *       Execute FScc by writing an all-ones or zero byte to a data register or
+ *       memory destination.
+ *
+ *   INPUTS
+ *       opcode -- instruction and destination encoding.
+ *       regs -- emulated CPU state.
+ *       extra -- condition selector.
+ *
+ *   NOTES
+ *       Unsupported conditions or addressing modes invoke the illegal-instruction
+ *       handler.
+ *
+ ****************************************************************************/
 
 void fscc_opp (uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
 {
@@ -708,6 +1038,28 @@ void fscc_opp (uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
     }
 }
 
+/****i* januae-fpp/ftrapcc_opp
+ *
+ *   NAME
+ *       ftrapcc_opp()
+ *
+ *   SYNOPSIS
+ *       void ftrapcc_opp (uae_u32 opcode, struct regstruct *regs, uaecptr oldpc)
+ *
+ *   FUNCTION
+ *       Raise an emulated trap when the selected floating-point condition is true.
+ *
+ *   INPUTS
+ *       opcode -- instruction and condition selector.
+ *       regs -- emulated CPU state.
+ *       oldpc -- instruction address used for exception reporting.
+ *
+ *   NOTES
+ *       Reports trap vector 7 on a true condition; invalid conditions invoke the
+ *       illegal-instruction handler.
+ *
+ ****************************************************************************/
+
 void ftrapcc_opp (uae_u32 opcode, struct regstruct *regs, uaecptr oldpc)
 {
     int cc;
@@ -724,6 +1076,30 @@ void ftrapcc_opp (uae_u32 opcode, struct regstruct *regs, uaecptr oldpc)
     if (cc)
 	uae_Exception (7, regs, oldpc - 2);
 }
+
+/****i* januae-fpp/fbcc_opp
+ *
+ *   NAME
+ *       fbcc_opp()
+ *
+ *   SYNOPSIS
+ *       void fbcc_opp (uae_u32 opcode, struct regstruct *regs, uaecptr pc, uae_u32 extra)
+ *
+ *   FUNCTION
+ *       Execute a floating-point conditional branch using a signed word or
+ *       supplied long displacement.
+ *
+ *   INPUTS
+ *       opcode -- instruction word and condition selector.
+ *       regs -- emulated CPU state.
+ *       pc -- base address for branch and error handling.
+ *       extra -- displacement.
+ *
+ *   NOTES
+ *       Updates the program counter only when the condition is true; unknown
+ *       conditions invoke the illegal-instruction handler.
+ *
+ ****************************************************************************/
 
 void fbcc_opp (uae_u32 opcode, struct regstruct *regs, uaecptr pc, uae_u32 extra)
 {
@@ -743,6 +1119,29 @@ void fbcc_opp (uae_u32 opcode, struct regstruct *regs, uaecptr pc, uae_u32 extra
 	m68k_setpc (regs, pc + extra);
     }
 }
+
+/****i* januae-fpp/fsave_opp
+ *
+ *   NAME
+ *       fsave_opp()
+ *
+ *   SYNOPSIS
+ *       void fsave_opp (uae_u32 opcode, struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Write a floating-point internal-state frame to the addressed emulated
+ *       memory.
+ *
+ *   INPUTS
+ *       opcode -- instruction and destination encoding.
+ *       regs -- emulated CPU state.
+ *
+ *   NOTES
+ *       Emits a four-byte idle frame for CPU level 4 or later, or a 68881-style
+ *       frame for earlier levels; adjusts address registers for predecrement and
+ *       postincrement.
+ *
+ ****************************************************************************/
 
 void fsave_opp (uae_u32 opcode, struct regstruct *regs)
 {
@@ -798,6 +1197,28 @@ void fsave_opp (uae_u32 opcode, struct regstruct *regs)
     if ((opcode & 0x38) == 0x20)
 	m68k_areg (regs, opcode & 7) = ad;
 }
+
+/****i* januae-fpp/frestore_opp
+ *
+ *   NAME
+ *       frestore_opp()
+ *
+ *   SYNOPSIS
+ *       void frestore_opp (uae_u32 opcode, struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Inspect an FPU state-frame header and advance or retreat the effective
+ *       address by the encoded frame length.
+ *
+ *   INPUTS
+ *       opcode -- instruction and source encoding.
+ *       regs -- emulated CPU state.
+ *
+ *   NOTES
+ *       This routine adjusts addressing state but does not reconstruct
+ *       floating-point registers from frame contents.
+ *
+ ****************************************************************************/
 
 void frestore_opp (uae_u32 opcode, struct regstruct *regs)
 {
@@ -871,10 +1292,53 @@ void frestore_opp (uae_u32 opcode, struct regstruct *regs)
 	m68k_areg (regs, opcode & 7) = ad;
 }
 
+/****i* januae-fpp/fround
+ *
+ *   NAME
+ *       fround()
+ *
+ *   SYNOPSIS
+ *       static void fround (int reg)
+ *
+ *   FUNCTION
+ *       Round the selected FP register through a single-precision conversion.
+ *
+ *   INPUTS
+ *       reg -- floating-point register index.
+ *
+ *   NOTES
+ *       Stores the value after a C float cast back in the emulator FP register.
+ *
+ ****************************************************************************/
+
 static void fround (int reg)
 {
     regs.fp[reg] = (float)regs.fp[reg];
 }
+
+/****i* januae-fpp/fpp_opp
+ *
+ *   NAME
+ *       fpp_opp()
+ *
+ *   SYNOPSIS
+ *       void fpp_opp (uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
+ *
+ *   FUNCTION
+ *       Dispatch and interpret the primary MC68881 floating-point instruction
+ *       group.
+ *
+ *   INPUTS
+ *       opcode -- instruction and effective-address encoding.
+ *       regs -- emulated CPU state.
+ *       extra -- FPU extension word.
+ *
+ *   NOTES
+ *       Handles arithmetic, constants, conversions, comparison, register transfers
+ *       and FMOVEM; unsupported operand encodings invoke the illegal-instruction
+ *       handler.
+ *
+ ****************************************************************************/
 
 void fpp_opp (uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
 {
@@ -1398,6 +1862,31 @@ void fpp_opp (uae_u32 opcode, struct regstruct *regs, uae_u16 extra)
 
 #ifdef SAVESTATE
 
+/****i* januae-fpp/restore_fpu
+ *
+ *   NAME
+ *       restore_fpu()
+ *
+ *   SYNOPSIS
+ *       const uae_u8 *restore_fpu (const uae_u8 *src)
+ *
+ *   FUNCTION
+ *       Restore eight floating-point registers and the FPCR, FPSR and FPIAR from
+ *       the active saved-state stream.
+ *
+ *   INPUTS
+ *       src -- stream pointer returned unchanged by this function.
+ *
+ *   RESULT
+ *       The supplied src pointer, unchanged.
+ *
+ *   NOTES
+ *       Available only with SAVESTATE. The restoration helpers consume their own
+ *       current stream position. Restoring CPU level 2 promotes the configured CPU
+ *       level to 3.
+ *
+ ****************************************************************************/
+
 const uae_u8 *restore_fpu (const uae_u8 *src)
 {
     unsigned int model, i;
@@ -1420,6 +1909,31 @@ const uae_u8 *restore_fpu (const uae_u8 *src)
     regs.fpiar = restore_u32 ();
     return src;
 }
+
+/****i* januae-fpp/save_fpu
+ *
+ *   NAME
+ *       save_fpu()
+ *
+ *   SYNOPSIS
+ *       uae_u8 *save_fpu (uae_u32 *len, uae_u8 *dstptr)
+ *
+ *   FUNCTION
+ *       Serialize the emulated FPU model, eight registers and three control
+ *       registers into a saved-state record.
+ *
+ *   INPUTS
+ *       len -- receives the serialized byte count.
+ *       dstptr -- destination storage, or NULL to allocate a buffer.
+ *
+ *   RESULT
+ *       Pointer to the record, or NULL if the CPU level has no selected FPU model.
+ *
+ *   NOTES
+ *       Available only with SAVESTATE. When dstptr is NULL, the returned buffer is
+ *       allocated by this function and must be released by the caller.
+ *
+ ****************************************************************************/
 
 uae_u8 *save_fpu (uae_u32 *len, uae_u8 *dstptr)
 {

@@ -27,7 +27,31 @@
 
 uae_s32 temp_fp[3];  /* To convert between FP/integer */
 
-/* return register number, or -1 for failure */
+/****i* januae-fpp-jit/get_fp_value
+ *
+ *   NAME
+ *       get_fp_value()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int get_fp_value (uae_u32 opcode, uae_u16 extra)
+ *
+ *   FUNCTION
+ *       Emit host instructions that load a supported 68k floating-point operand
+ *       into an x87 register.
+ *
+ *   INPUTS
+ *       opcode -- source effective-address encoding.
+ *       extra -- source format and FPU register selector.
+ *
+ *   RESULT
+ *       Host FP-register identifier, or -1 when the operand cannot be compiled.
+ *
+ *   NOTES
+ *       Reads guest memory through generated accessors; packed operands and
+ *       several addressing modes are unsupported.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int get_fp_value (uae_u32 opcode, uae_u16 extra)
 {
     uaecptr tmppc;
@@ -233,7 +257,32 @@ STATIC_INLINE int get_fp_value (uae_u32 opcode, uae_u16 extra)
     return FS1;
 }
 
-/* return of -1 means failure, >=0 means OK */
+/****i* januae-fpp-jit/put_fp_value
+ *
+ *   NAME
+ *       put_fp_value()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int put_fp_value (int val, uae_u32 opcode, uae_u16 extra)
+ *
+ *   FUNCTION
+ *       Emit host instructions that store an x87 value to a supported guest FPU,
+ *       data-register or memory destination.
+ *
+ *   INPUTS
+ *       val -- x87 source register.
+ *       opcode -- destination effective-address encoding.
+ *       extra -- destination format and selector.
+ *
+ *   RESULT
+ *       0 on accepted emission; -1 for unsupported destinations.
+ *
+ *   NOTES
+ *       Conversions use the host x87 load/store helpers and a shared temporary
+ *       buffer.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int put_fp_value (int val, uae_u32 opcode, uae_u16 extra)
 {
     uae_u16 tmp;
@@ -428,7 +477,32 @@ STATIC_INLINE int put_fp_value (int val, uae_u32 opcode, uae_u16 extra)
     return 0;
 }
 
-/* return -1 for failure, or register number for success */
+/****i* januae-fpp-jit/get_fp_ad
+ *
+ *   NAME
+ *       get_fp_ad()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int get_fp_ad (uae_u32 opcode, uae_u32 * ad)
+ *
+ *   FUNCTION
+ *       Emit address calculation for the subset of effective-address modes
+ *       supported by the FPU JIT.
+ *
+ *   INPUTS
+ *       opcode -- addressing-mode and register encoding.
+ *       ad -- legacy output pointer, unused on successful emitted paths.
+ *
+ *   RESULT
+ *       Emitted host-register identifier, or -1 for an unsupported addressing
+ *       mode.
+ *
+ *   NOTES
+ *       Indexed and PC-relative forms are rejected; the supported paths place the
+ *       address in S1.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int get_fp_ad (uae_u32 opcode, uae_u32 * ad)
 {
     uae_u16 tmp;
@@ -487,6 +561,23 @@ STATIC_INLINE int get_fp_ad (uae_u32 opcode, uae_u32 * ad)
     abort();
 }
 
+/****i* januae-fpp-jit/comp_fdbcc_opp
+ *
+ *   NAME
+ *       comp_fdbcc_opp()
+ *
+ *   SYNOPSIS
+ *       void comp_fdbcc_opp (uae_u32 opcode, uae_u16 extra)
+ *
+ *   FUNCTION
+ *       Decline JIT compilation of FDBcc and request the interpreter fallback.
+ *
+ *   INPUTS
+ *       opcode -- instruction word.
+ *       extra -- FPU extension word.
+ *
+ ****************************************************************************/
+
 void comp_fdbcc_opp (uae_u32 opcode, uae_u16 extra)
 {
     FAIL(1);
@@ -497,6 +588,28 @@ void comp_fdbcc_opp (uae_u32 opcode, uae_u16 extra)
 	return;
     }
 }
+
+/****i* januae-fpp-jit/comp_fscc_opp
+ *
+ *   NAME
+ *       comp_fscc_opp()
+ *
+ *   SYNOPSIS
+ *       void comp_fscc_opp (uae_u32 opcode, uae_u16 extra)
+ *
+ *   FUNCTION
+ *       Emit a byte-valued floating-point condition test for a guest integer data
+ *       register.
+ *
+ *   INPUTS
+ *       opcode -- destination register encoding.
+ *       extra -- FPU condition selector.
+ *
+ *   NOTES
+ *       Compilation falls back when FPU JIT is disabled, the condition is
+ *       unsupported or the destination is not data-register direct.
+ *
+ ****************************************************************************/
 
 void comp_fscc_opp (uae_u32 opcode, uae_u16 extra)
 {
@@ -567,6 +680,23 @@ void comp_fscc_opp (uae_u32 opcode, uae_u16 extra)
     }
 }
 
+/****i* januae-fpp-jit/comp_ftrapcc_opp
+ *
+ *   NAME
+ *       comp_ftrapcc_opp()
+ *
+ *   SYNOPSIS
+ *       void comp_ftrapcc_opp (uae_u32 opcode, uaecptr oldpc)
+ *
+ *   FUNCTION
+ *       Decline JIT compilation of FTRAPcc and request the interpreter fallback.
+ *
+ *   INPUTS
+ *       opcode -- instruction word.
+ *       oldpc -- saved instruction address.
+ *
+ ****************************************************************************/
+
 void comp_ftrapcc_opp (uae_u32 opcode, uaecptr oldpc)
 {
     int cc;
@@ -576,6 +706,27 @@ void comp_ftrapcc_opp (uae_u32 opcode, uaecptr oldpc)
 }
 
 extern unsigned long foink3, oink;
+
+/****i* januae-fpp-jit/comp_fbcc_opp
+ *
+ *   NAME
+ *       comp_fbcc_opp()
+ *
+ *   SYNOPSIS
+ *       void comp_fbcc_opp (uae_u32 opcode)
+ *
+ *   FUNCTION
+ *       Compile a floating-point conditional branch into host flag tests and a
+ *       guest-PC selection.
+ *
+ *   INPUTS
+ *       opcode -- condition code and branch displacement size.
+ *
+ *   NOTES
+ *       Requires enabled FPU JIT and a recognized condition code. The source uses
+ *       host x87 flags for branch selection.
+ *
+ ****************************************************************************/
 
 void comp_fbcc_opp (uae_u32 opcode)
 {
@@ -724,6 +875,22 @@ x86 conditions
 0001    : 10
 1110    : 11
     */
+/****i* januae-fpp-jit/comp_fsave_opp
+ *
+ *   NAME
+ *       comp_fsave_opp()
+ *
+ *   SYNOPSIS
+ *       void comp_fsave_opp (uae_u32 opcode)
+ *
+ *   FUNCTION
+ *       Decline JIT compilation of FSAVE and request the interpreter fallback.
+ *
+ *   INPUTS
+ *       opcode -- instruction word.
+ *
+ ****************************************************************************/
+
 void comp_fsave_opp (uae_u32 opcode)
 {
     uae_u32 ad;
@@ -783,6 +950,22 @@ void comp_fsave_opp (uae_u32 opcode)
     if ((opcode & 0x38) == 0x20)
 	m68k_areg (&regs, opcode & 7) = ad;
 }
+
+/****i* januae-fpp-jit/comp_frestore_opp
+ *
+ *   NAME
+ *       comp_frestore_opp()
+ *
+ *   SYNOPSIS
+ *       void comp_frestore_opp (uae_u32 opcode)
+ *
+ *   FUNCTION
+ *       Decline JIT compilation of FRESTORE and request the interpreter fallback.
+ *
+ *   INPUTS
+ *       opcode -- instruction word.
+ *
+ ****************************************************************************/
 
 void comp_frestore_opp (uae_u32 opcode)
 {
@@ -895,6 +1078,28 @@ static uae_u16 x86_fpucw[]={
     0x177f, 0x177f, 0x177f, 0x177f, 0x177f, 0x177f, 0x177f, 0x177f, /* p3r2 */
     0x1b7f, 0x1b7f, 0x1b7f, 0x1b7f, 0x1b7f, 0x1b7f, 0x1b7f, 0x1b7f  /* p3r3 */
 };
+
+/****i* januae-fpp-jit/comp_fpp_opp
+ *
+ *   NAME
+ *       comp_fpp_opp()
+ *
+ *   SYNOPSIS
+ *       void comp_fpp_opp (uae_u32 opcode, uae_u16 extra)
+ *
+ *   FUNCTION
+ *       Compile supported MC68881 operations and register transfers into host x87
+ *       instructions.
+ *
+ *   INPUTS
+ *       opcode -- instruction and effective-address encoding.
+ *       extra -- FPU extension word.
+ *
+ *   NOTES
+ *       Unsupported operations or addressing modes request interpreted fallback;
+ *       behavior depends on currprefs.compfpu.
+ *
+ ****************************************************************************/
 
 void comp_fpp_opp (uae_u32 opcode, uae_u16 extra)
 {
