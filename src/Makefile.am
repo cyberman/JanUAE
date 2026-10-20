@@ -13,8 +13,8 @@ DIST_SUBDIRS = \
 	sd-none sd-alsa sd-amigaos sd-sdl sd-solaris sd-uss \
 	jd-none jd-amigainput jd-amigaos jd-linuxold jd-sdl \
 	gui-none gui-gtk gui-muirexx \
-	od-generic od-amiga od-linux od-win32 \
-	td-none td-amigaos td-posix td-sdl td-win32 \
+	od-generic od-amiga od-linux \
+	td-none td-amigaos td-posix td-sdl \
 	keymap \
 	caps dms
 
@@ -103,7 +103,7 @@ noinst_HEADERS = \
 	include/writelog.h \
 	include/xwin.h		include/zfile.h		\
 	targets/t-amiga.h	\
-	targets/t-unix.h	targets/t-win32.h
+	targets/t-unix.h
 
 dist_noinst_SCRIPTS = \
 	filesys.sh install_libscg

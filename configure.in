@@ -268,8 +268,11 @@ case $host_os in
       OSDEP=od-amiga
       ;;
     mingw32*)
-      HOST_OS=win32
-      OSDEP=od-win32
+      AC_MSG_ERROR([Win32 is not a supported JanUAE host target])
+      ;;
+    *)
+      AC_MSG_ERROR([Unsupported JanUAE host target: $host_os])
+      ;;
 esac
 
 AC_MSG_RESULT([$HOST_OS])
@@ -485,20 +488,13 @@ else if [[ "$OSDEP" = "od-amiga" ]]; then
     GTK_LIBS="-lgtk-mui -lgobject-2.0 -lglib-2.0 -liconv"
 
   fi
-else if [[ "$OSDEP" = "od-win32" ]]; then
-  TARGET=win32
-  TARGETDEP=t-win32.h
-  WANT_BSDSOCK=no
-fi
 fi
 fi
 
 dnl
-dnl Win32 build has its own writelog.c
+dnl Host writelog implementation
 dnl
-if [[ "$OSDEP" != "od-win32" ]]; then
-   EXTRAOBJS=writelog.o
-fi
+EXTRAOBJS=writelog.o
 
 
 
@@ -1375,12 +1371,10 @@ AC_CONFIG_FILES([Makefile
 		 src/od-generic/Makefile
 		 src/od-linux/Makefile
 		 src/od-amiga/Makefile
-		 src/od-win32/Makefile
 		 src/td-none/Makefile
 		 src/td-amigaos/Makefile
 		 src/td-posix/Makefile
 		 src/td-sdl/Makefile
-		 src/td-win32/Makefile
 		 src/gfx-amigaos/Makefile
 		 src/gfx-x11/Makefile
 		 src/gfx-sdl/Makefile
@@ -1405,7 +1399,6 @@ AC_CONFIG_FILES([Makefile
 ])
 
 AM_CONDITIONAL(TARGET_BIGENDIAN, test x$ac_cv_c_bigendian = xyes)
-AM_CONDITIONAL(TARGET_WIN32, test x$OSDEP = xod-win32)
 
 AC_SUBST(ac_cv_c_inline)
 AC_SUBST(WRCPRG)
