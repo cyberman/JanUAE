@@ -1,4 +1,4 @@
-# JanUAE
+# JanUÆ
 
 **The virtual 68k system for productive AmigaOS applications. Running on AROS.**
 
