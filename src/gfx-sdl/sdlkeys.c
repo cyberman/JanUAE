@@ -565,54 +565,23 @@ static struct uae_hotkeyseq sdl_hotkeys[] =
     { HOTKEYS_END }
 };
 
-/* Hotkeys for OS X
- * The F12 key doesn't seem to work under MacOS X (at least on the two systems
- * I've tried): key up/down events are only generated when the key is released,
- * so it's no use as a hot-key modifier. Use F11 instead.
- */
-static struct uae_hotkeyseq sdl_quartz_hotkeys[] =
-{
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_q, -1, -1,           INPUTEVENT_SPC_QUIT) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_r, -1, -1,           INPUTEVENT_SPC_SOFTRESET) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_LSHIFT, SDLK_r, -1,  INPUTEVENT_SPC_HARDRESET) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_d, -1, -1,           INPUTEVENT_SPC_ENTERDEBUGGER) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_s, -1, -1,           INPUTEVENT_SPC_TOGGLEFULLSCREEN) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_g, -1, -1,           INPUTEVENT_SPC_TOGGLEMOUSEGRAB) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_i, -1, -1,           INPUTEVENT_SPC_INHIBITSCREEN) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_p, -1, -1,           INPUTEVENT_SPC_SCREENSHOT) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_a, -1, -1,           INPUTEVENT_SPC_SWITCHINTERPOL) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_KP_PLUS, -1, -1,     INPUTEVENT_SPC_INCRFRAMERATE) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_KP_MINUS, -1, -1,    INPUTEVENT_SPC_DECRFRAMERATE) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_F1, -1, -1,	  INPUTEVENT_SPC_FLOPPY0) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_F2, -1, -1,	  INPUTEVENT_SPC_FLOPPY1) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_F3, -1, -1,	  INPUTEVENT_SPC_FLOPPY2) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_F4, -1, -1,	  INPUTEVENT_SPC_FLOPPY3) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_LSHIFT, SDLK_F1, -1, INPUTEVENT_SPC_EFLOPPY0) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_LSHIFT, SDLK_F2, -1, INPUTEVENT_SPC_EFLOPPY1) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_LSHIFT, SDLK_F3, -1, INPUTEVENT_SPC_EFLOPPY2) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_LSHIFT, SDLK_F4, -1, INPUTEVENT_SPC_EFLOPPY3) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_RETURN, -1, -1,      INPUTEVENT_SPC_ENTERGUI) },
-    { MAKE_HOTKEYSEQ (SDLK_F11, SDLK_f, -1, -1,		  INPUTEVENT_SPC_FREEZEBUTTON) },
-    { HOTKEYS_END }
-};
 
 /****i* januae-sdlkeys/get_default_cooked_hotkeys *****************************
 *
 *   NAME
-*       get_default_cooked_hotkeys() -- Get the default SDL keyboard shortcuts.
+*       get_default_cooked_hotkeys()
 *
 *   SYNOPSIS
 *       struct uae_hotkeyseq *get_default_cooked_hotkeys (void);
 *
 *   FUNCTION
-*       Select the Quartz shortcut table for SDLGFX_DRIVER_QUARTZ and the
-*       regular SDL table otherwise.
+*       Return the default SDL shortcut table.
 *
 *   RESULT
 *       Pointer to a static, HOTKEYS_END-terminated hotkey table.
 *
 *   NOTES
-*       Quartz uses F11 as the shortcut modifier; other SDL drivers use F12.
+*       SDL shortcuts use F12 as their modifier.
 *       The caller must not free the table.
 *
 ****************************************************************************
@@ -620,8 +589,5 @@ static struct uae_hotkeyseq sdl_quartz_hotkeys[] =
 */
 struct uae_hotkeyseq *get_default_cooked_hotkeys (void)
 {
-    if (get_sdlgfx_type() == SDLGFX_DRIVER_QUARTZ)
-	return sdl_quartz_hotkeys;
-    else
-	return sdl_hotkeys;
+    return sdl_hotkeys;
 }

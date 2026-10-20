@@ -147,10 +147,6 @@ int get_sdlgfx_type (void)
 		driver = SDLGFX_DRIVER_FBCON;
 	    else if (strcmp (name, "directfb") == 0)
 		driver = SDLGFX_DRIVER_DIRECTFB;
-	    else if (strcmp (name, "Quartz") == 0)
-		driver = SDLGFX_DRIVER_QUARTZ;
-	    else if (strcmp (name, "bwindow") == 0)
-		driver = SDLGFX_DRIVER_BWINDOW;
 	    else if (strcmp (name, "CGX") == 0)
 		driver = SDLGFX_DRIVER_CYBERGFX;
 	    else if (strcmp (name, "OS4") == 0)
@@ -1971,8 +1967,7 @@ void gfx_default_options (struct uae_prefs *p)
 {
     int type = get_sdlgfx_type ();
 
-    if (type == SDLGFX_DRIVER_AMIGAOS4 || type == SDLGFX_DRIVER_CYBERGFX ||
-	type == SDLGFX_DRIVER_BWINDOW  || type == SDLGFX_DRIVER_QUARTZ)
+    if (type == SDLGFX_DRIVER_AMIGAOS4 || type == SDLGFX_DRIVER_CYBERGFX)
         p->map_raw_keys = 1;
     else
         p->map_raw_keys = 0;

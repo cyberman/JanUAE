@@ -122,35 +122,6 @@ int get_fs_usage (const char *path, const char *disk, struct fs_usage *fsp)
 
 #else /* ! TARGET_AMIGAOS */
 
-#ifdef __BEOS__
-
-#include <be/kernel/fs_info.h>
-
-int get_fs_usage (const char *path, const char *disk, struct fs_usage *fsp)
-{
-    int result = -1;
-    dev_t device = dev_for_path (path);
-
-    if (device >0) {
-    	fs_info info;
-    	if (fs_stat_dev (device, &info) == 0) {
-	    fsp->fsu_blocks = adjust_blocks (info.total_blocks,
-					     info.block_size,
-					     512);
-	    fsp->fsu_bfree = fsp->fsu_bavail =
-			      adjust_blocks (info.free_blocks,
-					     info.block_size,
-					     512);
-	    fsp->fsu_files = info.total_nodes;
-	    fsp->fsu_ffree = info.free_nodes;
-
-	    result = 0;
-    	}
-    }
-    return result;
-};
-
-#else /* ! __BEOS__ */
 
 //int statfs ();
 
@@ -407,6 +378,5 @@ statfs (path, fsb)
 
 #endif /* _AIX && _I386 */
 
-#endif /* ! __BEOS__ */
 #endif /* ! TARGET_AMIGAOS */
 #endif /* ! _WIN32 */

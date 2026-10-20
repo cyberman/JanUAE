@@ -1992,7 +1992,7 @@ get_time (time_t t, long* days, long* mins, long* ticks)
     /* mins since midnight */
     /* ticks past minute @ 50Hz */
 
-# if !defined _WIN32 && !defined BEOS && !defined TARGET_AMIGAOS
+# if !defined _WIN32 && !defined TARGET_AMIGAOS
     /*
      * On Unix-like systems, t is in UTC. The Amiga
      * requires local time, so we have to take account of
@@ -2038,7 +2038,7 @@ put_time (long days, long mins, long ticks)
     /* Adjust for difference between Unix and Amiga epochs */
     t += diff;
 
-# if !defined _WIN32 && !defined BEOS
+# if !defined _WIN32
     /*
      * t is still in local time zone. For Unix-like systems
      * we need a time in UTC, so we have to take account of

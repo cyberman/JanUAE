@@ -75,39 +75,6 @@ frame_time_t linux_get_tsc_freq (void)
 }
 #endif
 
-#ifdef __BEOS__
-
-# include <be/kernel/OS.h>
-
-/****i* januae-machine/beos_get_tsc_freq ***********************************
-*
-*   NAME
-*       beos_get_tsc_freq()
-*
-*   SYNOPSIS
-*       static frame_time_t beos_get_tsc_freq (void);
-*
-*   FUNCTION
-*       Read the processor clock frequency from BeOS system information.
-*
-*   RESULT
-*       cpu_clock_speed from the system information structure.
-*
-*   NOTES
-*       Compiled only for BeOS.
-*
-****************************************************************************
-*
-*/
-static frame_time_t beos_get_tsc_freq (void)
-{
-    system_info info;
-
-    get_system_info (&info);
-
-    return info.cpu_clock_speed;
-}
-#endif
 
 static volatile frame_time_t last_time, best_time;
 static frame_time_t timebase;
@@ -293,10 +260,6 @@ int machdep_inithrtimer (void)
 
 #ifdef __linux__
 	timebase = linux_get_tsc_freq ();
-#else
-# ifdef __BEOS__
-	timebase = beos_get_tsc_freq ();
-# endif
 #endif
 
 	if (timebase <= 0) {

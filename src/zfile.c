@@ -296,73 +296,6 @@ int zfile_gettype (struct zfile *z)
     return ZFILE_UNKNOWN;
 }
 
-#if 0
-#define TMP_PREFIX "uae_"
-
-static struct zfile *createinputfile (struct zfile *z)
-{
-    FILE *f;
-    struct zfile *z2;
-    char *name;
-
-    z2 = zfile_create ();
-    if (!z->data) {
-	z2->name = strdup (z->name);
-	return z2;
-    }
-    name = tempnam (0, TMP_PREFIX);
-    f = fopen (name, "wb");
-    if (!f) return 0;
-    write_log ("created temporary file '%s'\n", name);
-    fwrite (z->data, z->size, 1, f);
-    fclose (f);
-    z2->name = name;
-    z2->deleteafterclose = 1;
-    return z2;
-}
-
-static struct zfile *createoutputfile (struct zfile *z)
-{
-    struct zfile *z2;
-    char *name;
-
-    name = tempnam (0, TMP_PREFIX);
-    z2 = zfile_create ();
-    z2->name = name;
-    z2->deleteafterclose = 1;
-    write_log ("allocated temporary file name '%s'\n", name);
-    return z2;
-}
-
-/* we want to delete temporary files as early as possible */
-static struct zfile *updateoutputfile (struct zfile *z)
-{
-    struct zfile *z2 = 0;
-    int size;
-    FILE *f = fopen (z->name, "rb");
-    for (;;) {
-	if (!f)
-	    break;
-        fseek (f, 0, SEEK_END);
-	size = ftell (f);
-	fseek (f, 0, SEEK_SET);
-	if (!size)
-	    break;
-        z2 = zfile_fopen_empty (z->name, size);
-	if (!z2)
-	    break;
-        fread (z2->data, size, 1, f);
-	fclose (f);
-	zfile_fclose (z);
-	return z2;
-    }
-    if (f)
-	fclose (f);
-    zfile_fclose (z);
-    zfile_fclose (z2);
-    return 0;
-}
-#endif
 
 static struct zfile *zuncompress (struct zfile *z);
 
@@ -575,21 +508,6 @@ static struct zfile *dms (struct zfile *z)
     return z;
 }
 
-#if 0
-static struct zfile *dms (struct zfile *z)
-{
-    char cmd[2048];
-    struct zfile *zi = createinputfile (z);
-    struct zfile *zo = createoutputfile (z);
-    if (zi && zo) {
-	sprintf(cmd, "xdms -q u \"%s\" +\"%s\"", zi->name, zo->name);
-	execute_command (cmd);
-    }
-    zfile_fclose (zi);
-    zfile_fclose (z);
-    return updateoutputfile (zo);
-}
-#endif
 
 static const char *ignoreextensions[] =
     { ".gif", ".jpg", ".png", ".xml", ".pdf", ".txt", 0 };

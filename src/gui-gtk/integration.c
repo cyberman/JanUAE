@@ -60,7 +60,6 @@
 #include "chooserwidget.h"
 #include "util.h"
 #include "chipsetspeedpanel.h"
-#include "chipsettypepanel.h"
 #include "integration.h"
 
 #include "od-amiga/j.h"

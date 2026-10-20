@@ -61,7 +61,6 @@
 #include "chooserwidget.h"
 #include "util.h"
 #include "chipsetspeedpanel.h"
-#include "chipsettypepanel.h"
 #include "display.h"
 
 //#define GUI_DEBUG 1

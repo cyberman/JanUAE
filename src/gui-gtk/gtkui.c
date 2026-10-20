@@ -69,7 +69,6 @@
 #include "gui-gtk/cpuspeedpanel.h"
 #include "gui-gtk/floppyfileentry.h"
 #include "gui-gtk/led.h"
-#include "gui-gtk/chipsettypepanel.h"
 #include "gui-gtk/chipsetspeedpanel.h"
 #include "gui-gtk/util.h"
 #include "gui-gtk/display.h"
@@ -162,7 +161,6 @@ static GtkWidget *power_led;
 
 static GtkWidget *ctpanel;
 static GtkWidget *cspanel;
-extern GtkWidget *chipsettype_panel;
 extern GtkWidget *chipsetspeed_panel;
 
 static GtkWidget *hdpanel;
@@ -361,16 +359,6 @@ static void set_cpu_state (void)
     //DebOut("exit\n");
 }
 
-#if 0
-static void set_chipset_state (void) {
-
-    chipsettypepanel_set_chipset_mask     (CHIPSETTYPEPANEL  (chipsettype_panel),  currprefs.chipset_mask);
-    chipsettypepanel_set_ntscmode         (CHIPSETTYPEPANEL  (chipsettype_panel),  currprefs.ntscmode);
-    chipsetspeedpanel_set_framerate       (CHIPSETSPEEDPANEL (chipsetspeed_panel), currprefs.gfx_framerate);
-    chipsetspeedpanel_set_collision_level (CHIPSETSPEEDPANEL (chipsetspeed_panel), currprefs.collision_level);
-    chipsetspeedpanel_set_immediate_blits (CHIPSETSPEEDPANEL (chipsetspeed_panel), currprefs.immediate_blits);
-}
-#endif
 
 static void set_sound_state (void)
 {

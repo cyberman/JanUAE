@@ -7,6 +7,4 @@
   */
 
 #include "keymap/x11pc_rawkeys.h"
-#include "keymap/quartz_rawkeys.h"
-#include "keymap/beos_rawkeys.h"
 #include "keymap/amiga_rawkeys.h"

@@ -9,12 +9,12 @@ SUBDIRS = \
 
 DIST_SUBDIRS = \
 	md-generic md-68k md-i386-gcc md-ppc md-ppc-gcc md-amd64-gcc \
-	gfx-amigaos gfx-beos gfx-x11 gfx-sdl gfx-curses gfx-svga \
-	sd-none sd-alsa sd-amigaos sd-beos sd-sdl sd-solaris sd-uss \
-	jd-none jd-amigainput jd-amigaos jd-beos jd-linuxold jd-sdl \
+	gfx-amigaos gfx-x11 gfx-sdl gfx-curses gfx-svga \
+	sd-none sd-alsa sd-amigaos sd-sdl sd-solaris sd-uss \
+	jd-none jd-amigainput jd-amigaos jd-linuxold jd-sdl \
 	gui-none gui-gtk gui-muirexx \
-	od-generic od-amiga od-beos od-linux od-macosx od-win32 \
-	td-none td-amigaos td-beos td-posix td-sdl td-win32 \
+	od-generic od-amiga od-linux od-win32 \
+	td-none td-amigaos td-posix td-sdl td-win32 \
 	keymap \
 	caps dms
 
@@ -43,11 +43,6 @@ DISTCLEANFILES = \
 bin_PROGRAMS  = \
 	uae readdisk
 
-if BUILD_MACOSX_BUNDLE
-bundle = @PACKAGE_NAME@.app
-bundle_contents = $(bundle)/Contents
-endif
-
 if TARGET_BIGENDIAN
 genlinetoscr_args = -b
 endif
@@ -56,19 +51,6 @@ endif
 uae$(EXEEXT):	$(uae_OBJECTS) $(uae_DEPENDENCIES)
 		@rm -f uae$(EXEEXT)
 		$(LINK) $(uae_LDFLAGS) $(uae_OBJECTS) $(uae_LDADD) $(LIBS) -L/usr/local/aros/lib -lgtk-mui -lgobject-2.0 -lglib-2.0 -liconv -lmui -larossupport -lamiga -larosc  -larosm
-if TARGET_BEOS
-		xres -o $@ @UAE_RSRCFILE@
-		mimeset -f $@
-endif
-if BUILD_MACOSX_BUNDLE
-		rm -fr $(bundle)
-		mkdir -p $(bundle_contents)/MacOS
-		mkdir -p $(bundle_contents)/Resources
-		$(INSTALL_DATA) od-macosx/Info.plist $(bundle_contents)
-		$(INSTALL_PROGRAM) uae$(EXEEXT) $(bundle_contents)/MacOS/
-		$(INSTALL_DATA) $(srcdir)/od-macosx/euae.icns $(bundle_contents)/Resources/
-endif
-
 noinst_LIBRARIES = \
 	libcpuemu.a
 
@@ -120,7 +102,7 @@ noinst_HEADERS = \
 	include/version.h                               \
 	include/writelog.h \
 	include/xwin.h		include/zfile.h		\
-	targets/t-amiga.h	targets/t-beos.h        \
+	targets/t-amiga.h	\
 	targets/t-unix.h	targets/t-win32.h
 
 dist_noinst_SCRIPTS = \

@@ -6,9 +6,6 @@
   * Copyright 2003-2005 Richard Drummond
   */
 
-#ifdef __BEOS__
-# include <be/kernel/OS.h>
-#else
 # ifdef TARGET_AMIGAOS
 #  include <dos/dos.h>
 #  include <proto/exec.h>
@@ -19,7 +16,6 @@
 #   include <SDL_timer.h>
 #  endif
 # endif
-#endif
 
 #define ONE_THOUSAND	1000
 #define ONE_MILLION	(1000 * 1000)
@@ -42,9 +38,6 @@
  * Sleep for ms milliseconds using an appropriate system-dependent sleep
  * functions.
  */
-#ifdef __BEOS__
-# define uae_msleep(msecs) snooze (msecs * ONE_THOUSAND)
-#else
 # if 0 //defined _WIN32
 #  define uae_msleep(msecs) Sleep (msecs)
 # else
@@ -81,6 +74,5 @@
 #   endif
 #  endif
 # endif
-#endif
 
 void sleep_test (void);

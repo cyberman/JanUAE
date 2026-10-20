@@ -18,8 +18,6 @@ dnl
 AC_PROG_CC
 AC_PROG_CPP
 AC_PROG_CXX
-AC_PROG_OBJC
-dnl AS_PROG_OBJC
 AM_PROG_AS
 AC_PROG_MAKE_SET
 AC_PROG_RANLIB
@@ -252,12 +250,10 @@ case $host_os in
       OSDEP=od-linux
       ;;
     darwin*)
-      HOST_OS=darwin
-      OSDEP=od-macosx
+      AC_MSG_ERROR([Darwin is not a supported JanUAE target])
       ;;
     beos)
-      HOST_OS=beos
-      OSDEP=od-beos
+      AC_MSG_ERROR([BeOS is not a supported JanUAE target])
       ;;
     amigaos)
       HOST_OS=amiga
@@ -385,13 +381,6 @@ if [[ "x$HAVEGCC27" = "xyes" -a "$HOST_CPU" = "i386" ]]; then
   CFLAGS=$SAVECFLAGS
 fi
 
-dnl on OS X, we don't want position-independent code, so
-dnl include the option -mdynamic-no-pic.
-dnl
-if [[ "$HOST_OS" = "darwin" ]]; then
-  OPTIMIZE_CFLAGS="$OPTIMIZE_CFLAGS -mdynamic-no-pic"
-fi
-
 if [[ "x$ac_cv_header_features_h" = "xyes" ]]; then
   AC_MSG_CHECKING(for glibc-2.0 or higher)
   AC_EGREP_CPP(yes,
@@ -467,26 +456,6 @@ if [[ "$HOST_OS" = "linux" ]]; then
   if [[ "$HOST_CPU" = "i386" ]]; then
     NATMEM="0x50000000"
   fi
-else if [[ "$OSDEP" = "od-beos" ]]; then
-  TARGET=beos
-  TARGETDEP=t-beos.h
-  THREADDEP=td-beos
-  THREADNAME="native BeOS"
-  GFX_DEP=gfx-beos
-  GFX_NAME="native BeOS"
-  GFX_LIBS="-lgame"
-  GUI_DEP="gui-beos"
-  GUI_NAME="native BeOS"
-  GUI_LIBS="-lbe -ltracker"
-  JOY_DEP=jd-beos
-  JOY_NAME="native BeOS"
-  JOY_LIBS="-ldevice"
-  SND_DEP=sd-beos
-  SND_NAME="native BeOS"
-  SND_LIBS="-lmedia"
-  WANT_BSDSOCK=no
-  MATHLIB=""
-  UAE_RSRCFILE="$OSDEP/uae.rsrc"
 else if [[ "$OSDEP" = "od-amiga" ]]; then
   TARGET=amiga
   TARGETDEP=t-amiga.h
@@ -520,7 +489,6 @@ else if [[ "$OSDEP" = "od-win32" ]]; then
   TARGET=win32
   TARGETDEP=t-win32.h
   WANT_BSDSOCK=no
-fi
 fi
 fi
 fi
@@ -577,10 +545,6 @@ AC_ARG_WITH(sdl-gl,
 AC_ARG_WITH(curses,
   AS_HELP_STRING([--with-curses], [Use ncurses library for graphics]),
   [WANT_NCURSES=$withval], [])
-
-AC_ARG_WITH(cocoa-gui,
-  AS_HELP_STRING([--with-cocoa-gui], [Use Cocoa for GUI on OS X]),
-  [WANT_COCOA_UI=$withval], [])
 
 AC_ARG_WITH(libscg-prefix,
   AS_HELP_STRING([--with-libscg-prefix], [Absolute path to where libscg is installed (optional)]),
@@ -644,40 +608,8 @@ AC_CHECK_LIB(ncurses, waddch, HAVE_NCURSES_LIB=yes, HAVE_NCURSES_LIB=no)
 dnl Check for SDL
 if [[ "x$WANT_SDL" != "xno" ]]; then
 
-  if [[ "$HOST_OS" = "darwin" ]]; then
+  AM_PATH_SDL(1.2.0,HAVE_SDL=yes,HAVE_SDL=no)
 
-    dnl Assume this is MacOS X and try to use SDL framework
-
-    SDL_CFLAGS="-I/Library/Frameworks/SDL.framework/Headers -D_REENTRANT"
-    SDL_LIBS="-framework Cocoa -framework SDL -lobjc"
-
-    AC_MSG_CHECKING(for SDL framework)
-
-    SAVE_CPPFLAGS=$CPPFLAGS
-    SAVE_LIBS=$LIBS
-    CPPFLAGS="$CPPFLAGS $SDL_CFLAGS"
-    LIBS="$LIBS $SDL_LIBS"
-
-    AC_TRY_LINK(
-    [
-      #include "confdefs.h"
-      #include <SDL.h>
-      #undef main
-    ],
-    [
-      SDL_Init(SDL_INIT_VIDEO);
-    ],
-    AC_MSG_RESULT(yes)
-    HAVE_SDL=yes
-    WANT_COCOA_UI=yes,
-    AC_MSG_RESULT(no)
-    HAVE_SDL=no)
-
-    CPPFLAGS="$SAVE_CPPFLAGS"
-    LIBS="$SAVE_LIBS"
-  else
-    AM_PATH_SDL(1.2.0,HAVE_SDL=yes,HAVE_SDL=no)
-  fi
 
   if [[ "x$WANT_SDL" = "xyes" -a "x$HAVE_SDL" = "xno" ]]; then
     AC_MSG_WARN([SDL support wanted, but libSDL could not be found])
@@ -835,11 +767,7 @@ if [[ "x$WANT_SDL" = "xyes" -o "x$GFX_DEP" = "x" ]]; then
       GFX_CPPFLAGS=""
       if [[ "x$WANT_SDLGL" = "xyes" ]]; then
         GFX_CFLAGS="-DUSE_GL"
-        if [[ "x$OSDEP" = "xod-macosx" ]]; then
-          GFX_LIBS="-framework OpenGL"
-        else
-          GFX_LIBS="-lGL -lGLU"
-        fi
+        GFX_LIBS="-lGL -lGLU"
       fi
     fi
   fi
@@ -1033,16 +961,6 @@ if [[ "x$WANT_UI" = "xno" ]]; then
   GUI_LIBS=
   GUI_NAME=none
 else
-  dnl Hack for building Cocoa gui on OS X
-  dnl We really should reall check for the presence of objc and Cocoa first
-  if [[ "$HOST_OS" = "darwin" ]]; then
-    if [[ "x$WANT_COCOA_UI" != "xno" -o "x$HAVE_GTK" = "xno" ]]; then
-      GUI_DEP=gui-cocoa
-      GUI_CFLAGS="$CFLAGS -DNO_MAIN_IN_MAIN_C"
-      GUI_LIBS="-framework Cocoa"
-      GUI_NAME="Cocoa"
-    fi
-  fi
   if [[ "$GUI_DEP" = "gui-none" ]]; then
     if [[ "x$HAVE_GTK" = "xno" ]]; then
       AC_MSG_WARN([UI wanted, but no UI useable target found])
@@ -1125,9 +1043,6 @@ if [[ "x$WANT_SCSIEMU" = "xyes" ]]; then
       NEED_THREAD_SUPPORT=yes
     else
     SCGLIBS="-lscg -lschily"
-    if [[ "$HOST_OS" = "darwin" ]]; then
-      SCGLIBS="$SCGLIBS -framework IOKit -framework CoreFoundation"
-    fi
     AC_MSG_RESULT(yes)
     AC_MSG_CHECKING([for libscg and libschily])
     OLDLIBS="$LIBS"
@@ -1324,11 +1239,6 @@ if [[ "x$WANT_THREADS" = "xyes" -o "x$NEED_THREAD_SUPPORT" = "xyes" ]]; then
     UAE_CFLAGS="$UAE_CFLAGS $PTHREAD_CFLAGS"
     UAE_LIBS="$UAE_LIBS $PTHREAD_LIBS"
 
-    dnl Hack to use named semaphores on OS X/darwin
-    dnl This needs to be properly checked when detecting pthreads!
-    if [[ "$HOST_OS" = "darwin" ]]; then
-      UAE_DEFINES="$UAE_DEFINES -DUSE_NAMED_SEMAPHORES"
-    fi
   fi
 
   UAE_DEFINES="$UAE_DEFINES -DSUPPORT_THREADS"
@@ -1465,25 +1375,19 @@ AC_CONFIG_FILES([Makefile
 		 src/od-generic/Makefile
 		 src/od-linux/Makefile
 		 src/od-amiga/Makefile
-		 src/od-beos/Makefile
-		 src/od-macosx/Makefile
-		 src/od-macosx/Info.plist
 		 src/od-win32/Makefile
 		 src/td-none/Makefile
 		 src/td-amigaos/Makefile
-		 src/td-beos/Makefile
 		 src/td-posix/Makefile
 		 src/td-sdl/Makefile
 		 src/td-win32/Makefile
 		 src/gfx-amigaos/Makefile
-		 src/gfx-beos/Makefile
 		 src/gfx-x11/Makefile
 		 src/gfx-sdl/Makefile
 		 src/gfx-curses/Makefile
 		 src/gfx-svga/Makefile
 		 src/sd-alsa/Makefile
 		 src/sd-amigaos/Makefile
-		 src/sd-beos/Makefile
 		 src/sd-none/Makefile
 		 src/sd-sdl/Makefile
 		 src/sd-solaris/Makefile
@@ -1491,12 +1395,9 @@ AC_CONFIG_FILES([Makefile
 		 src/jd-none/Makefile
 		 src/jd-amigainput/Makefile
 		 src/jd-amigaos/Makefile
-		 src/jd-beos/Makefile
 		 src/jd-linuxold/Makefile
 		 src/jd-sdl/Makefile
 		 src/gui-none/Makefile
-		 src/gui-beos/Makefile
-		 src/gui-cocoa/Makefile
 		 src/gui-gtk/Makefile
 		 src/gui-muirexx/Makefile
 		 src/keymap/Makefile
@@ -1504,9 +1405,7 @@ AC_CONFIG_FILES([Makefile
 ])
 
 AM_CONDITIONAL(TARGET_BIGENDIAN, test x$ac_cv_c_bigendian = xyes)
-AM_CONDITIONAL(TARGET_BEOS,  test x$OSDEP = xod-beos)
 AM_CONDITIONAL(TARGET_WIN32, test x$OSDEP = xod-win32)
-AM_CONDITIONAL(BUILD_MACOSX_BUNDLE, test x$OSDEP = xod-macosx)
 
 AC_SUBST(ac_cv_c_inline)
 AC_SUBST(WRCPRG)
