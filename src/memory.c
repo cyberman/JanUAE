@@ -87,6 +87,30 @@ uae_u8 *baseaddr[MEMORY_BANKS];
 #endif
 
 
+/****i* januae-memory/addr_valid ********************************************
+*
+*   NAME
+*       addr_valid() -- Report whether a guest-memory address is accepted.
+*
+*   SYNOPSIS
+*       int addr_valid (char *txt, uaecptr addr, uae_u32 len);
+*
+*   FUNCTION
+*       Accept the supplied address and length without performing a validity
+*       check. The validation branch is disabled in this implementation.
+*
+*   INPUTS
+*       txt - Text describing the address for diagnostics (currently unused).
+*       addr - Guest-memory address (currently unused).
+*       len - Requested byte count (currently unused).
+*
+*   RESULT
+*       Always 1.
+*
+****************************************************************************
+*
+*/
+
 int addr_valid (char *txt, uaecptr addr, uae_u32 len) {
 
   /* TODO! */
@@ -116,6 +140,34 @@ static int dummy_check (uaecptr addr, uae_u32 size) REGPARAM;
 
 #define MAX_ILG 20
 
+/****i* januae-memory/dummy_lget ********************************************
+*
+*   NAME
+*       dummy_lget() -- Read an unmapped longword.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 dummy_lget (uaecptr addr);
+*
+*   FUNCTION
+*       Read an unmapped longword, returning two copies of the current
+*       instruction-register word for 68000/68010 guests or zero for 68020 and
+*       later guests.
+*
+*   INPUTS
+*       addr - Guest address of the unmapped access.
+*
+*   RESULT
+*       Instruction-register word repeated in both halves, or zero for CPU level
+*       2 and above.
+*
+*   NOTES
+*       May log a limited number of illegal accesses; marks the read special for
+*       JIT.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 dummy_lget (uaecptr addr)
 {
 #ifdef JIT
@@ -131,6 +183,32 @@ uae_u32 REGPARAM2 dummy_lget (uaecptr addr)
 	return 0;
     return (regs.irc << 16) | regs.irc;
 }
+
+/****i* januae-memory/dummy_wget ********************************************
+*
+*   NAME
+*       dummy_wget() -- Read an unmapped word.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 dummy_wget (uaecptr addr);
+*
+*   FUNCTION
+*       Read an unmapped word, returning the current instruction-register word
+*       for 68000/68010 guests or zero for later CPU levels.
+*
+*   INPUTS
+*       addr - Guest address of the unmapped access.
+*
+*   RESULT
+*       Current instruction-register word, or zero for CPU level 2 and above.
+*
+*   NOTES
+*       May log a limited number of illegal accesses; marks the read special for
+*       JIT.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 REGPARAM2 dummy_wget (uaecptr addr)
 {
@@ -148,6 +226,34 @@ uae_u32 REGPARAM2 dummy_wget (uaecptr addr)
     return regs.irc;
 }
 
+/****i* januae-memory/dummy_bget ********************************************
+*
+*   NAME
+*       dummy_bget() -- Read an unmapped byte.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 dummy_bget (uaecptr addr);
+*
+*   FUNCTION
+*       Read an unmapped byte using the instruction-register high-byte shift at
+*       even guest addresses or the unshifted word at odd addresses for CPU
+*       levels below 2.
+*
+*   INPUTS
+*       addr - Guest address of the unmapped access.
+*
+*   RESULT
+*       Shifted or unshifted instruction-register value; zero for CPU level 2
+*       and above.
+*
+*   NOTES
+*       The odd-address return is not masked down to eight bits here; the caller
+*       applies its own access-width semantics. Marks the read special for JIT.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 dummy_bget (uaecptr addr)
 {
 #ifdef JIT
@@ -164,6 +270,30 @@ uae_u32 REGPARAM2 dummy_bget (uaecptr addr)
     return (addr & 1) ? regs.irc : regs.irc >> 8;
 }
 
+/****i* januae-memory/dummy_lput ********************************************
+*
+*   NAME
+*       dummy_lput() -- Write longword to Unmapped.
+*
+*   SYNOPSIS
+*       void REGPARAM2 dummy_lput (uaecptr addr, uae_u32 l);
+*
+*   FUNCTION
+*       Discard a longword write to unmapped memory, optionally reporting the
+*       illegal guest address.
+*
+*   INPUTS
+*       addr - Guest address of the unmapped access.
+*       l - 32-bit value to store.
+*
+*   NOTES
+*       The supplied value is ignored; the write is marked special when JIT is
+*       enabled.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 dummy_lput (uaecptr addr, uae_u32 l)
 {
 #ifdef JIT
@@ -176,6 +306,30 @@ void REGPARAM2 dummy_lput (uaecptr addr, uae_u32 l)
 	}
     }
 }
+/****i* januae-memory/dummy_wput ********************************************
+*
+*   NAME
+*       dummy_wput() -- Write word to Unmapped.
+*
+*   SYNOPSIS
+*       void REGPARAM2 dummy_wput (uaecptr addr, uae_u32 w);
+*
+*   FUNCTION
+*       Discard a word write to unmapped memory, optionally reporting the
+*       illegal guest address.
+*
+*   INPUTS
+*       addr - Guest address of the unmapped access.
+*       w - 16-bit value to store.
+*
+*   NOTES
+*       The supplied value is ignored; the write is marked special when JIT is
+*       enabled.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 dummy_wput (uaecptr addr, uae_u32 w)
 {
 #ifdef JIT
@@ -188,6 +342,30 @@ void REGPARAM2 dummy_wput (uaecptr addr, uae_u32 w)
 	}
     }
 }
+/****i* januae-memory/dummy_bput ********************************************
+*
+*   NAME
+*       dummy_bput() -- Write byte to Unmapped.
+*
+*   SYNOPSIS
+*       void REGPARAM2 dummy_bput (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Discard a byte write to unmapped memory, optionally reporting the
+*       illegal guest address.
+*
+*   INPUTS
+*       addr - Guest address of the unmapped access.
+*       b - Byte value supplied by the guest.
+*
+*   NOTES
+*       The supplied value is ignored; the write is marked special when JIT is
+*       enabled.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 dummy_bput (uaecptr addr, uae_u32 b)
 {
 #ifdef JIT
@@ -200,6 +378,32 @@ void REGPARAM2 dummy_bput (uaecptr addr, uae_u32 b)
 	}
     }
 }
+
+/****i* januae-memory/dummy_check *******************************************
+*
+*   NAME
+*       dummy_check() -- Reject memory spans in Unmapped.
+*
+*   SYNOPSIS
+*       int REGPARAM2 dummy_check (uaecptr addr, uae_u32 size);
+*
+*   FUNCTION
+*       Reject direct-range validation for the Unmapped bank.
+*
+*   INPUTS
+*       addr - Guest address of the unmapped access.
+*       size - Number of guest bytes in the range.
+*
+*   RESULT
+*       Always zero.
+*
+*   NOTES
+*       Dummy-bank checking may report an illegal access; the
+*       motherboard-resource bank variant is conditional.
+*
+****************************************************************************
+*
+*/
 
 int REGPARAM2 dummy_check (uaecptr addr, uae_u32 size)
 {
@@ -228,6 +432,33 @@ static int mbres_check (uaecptr addr, uae_u32 size) REGPARAM;
 
 static int mbres_val = 0;
 
+/****i* januae-memory/mbres_lget ********************************************
+*
+*   NAME
+*       mbres_lget() -- Read longword from A3000 motherboard resource.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 mbres_lget (uaecptr addr);
+*
+*   FUNCTION
+*       Read an longword from the A3000 motherboard-resource bank. Only byte
+*       reads at offset 3 expose the saved register value.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       Stored motherboard-resource register for a byte read at offset 3; zero
+*       otherwise.
+*
+*   NOTES
+*       Available only with AUTOCONFIG and A3000MBRES; marks the read as special
+*       when JIT is enabled.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 mbres_lget (uaecptr addr)
 {
 #ifdef JIT
@@ -238,6 +469,33 @@ uae_u32 REGPARAM2 mbres_lget (uaecptr addr)
 
     return 0;
 }
+
+/****i* januae-memory/mbres_wget ********************************************
+*
+*   NAME
+*       mbres_wget() -- Read word from A3000 motherboard resource.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 mbres_wget (uaecptr addr);
+*
+*   FUNCTION
+*       Read an word from the A3000 motherboard-resource bank. Only byte reads
+*       at offset 3 expose the saved register value.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       Stored motherboard-resource register for a byte read at offset 3; zero
+*       otherwise.
+*
+*   NOTES
+*       Available only with AUTOCONFIG and A3000MBRES; marks the read as special
+*       when JIT is enabled.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 REGPARAM2 mbres_wget (uaecptr addr)
 {
@@ -250,6 +508,33 @@ uae_u32 REGPARAM2 mbres_wget (uaecptr addr)
     return 0;
 }
 
+/****i* januae-memory/mbres_bget ********************************************
+*
+*   NAME
+*       mbres_bget() -- Read byte from A3000 motherboard resource.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 mbres_bget (uaecptr addr);
+*
+*   FUNCTION
+*       Read an byte from the A3000 motherboard-resource bank. Only byte reads
+*       at offset 3 expose the saved register value.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       Stored motherboard-resource register for a byte read at offset 3; zero
+*       otherwise.
+*
+*   NOTES
+*       Available only with AUTOCONFIG and A3000MBRES; marks the read as special
+*       when JIT is enabled.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 mbres_bget (uaecptr addr)
 {
 #ifdef JIT
@@ -261,6 +546,29 @@ uae_u32 REGPARAM2 mbres_bget (uaecptr addr)
     return (addr & 0xFFFF) == 3 ? mbres_val : 0;
 }
 
+/****i* januae-memory/mbres_lput ********************************************
+*
+*   NAME
+*       mbres_lput() -- Write longword to A3000 motherboard resource.
+*
+*   SYNOPSIS
+*       void REGPARAM2 mbres_lput (uaecptr addr, uae_u32 l);
+*
+*   FUNCTION
+*       Handle a longword write to the A3000 motherboard-resource bank.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       l - 32-bit value to store.
+*
+*   NOTES
+*       Only byte writes to offset 3 change the stored resource register. Other
+*       writes are ignored; JIT and illegal-access reporting remain active.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 mbres_lput (uaecptr addr, uae_u32 l)
 {
 #ifdef JIT
@@ -269,6 +577,29 @@ void REGPARAM2 mbres_lput (uaecptr addr, uae_u32 l)
     if (currprefs.illegal_mem)
 	write_log ("Illegal lput at %08lx\n", addr);
 }
+/****i* januae-memory/mbres_wput ********************************************
+*
+*   NAME
+*       mbres_wput() -- Write word to A3000 motherboard resource.
+*
+*   SYNOPSIS
+*       void REGPARAM2 mbres_wput (uaecptr addr, uae_u32 w);
+*
+*   FUNCTION
+*       Handle a word write to the A3000 motherboard-resource bank.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       w - 16-bit value to store.
+*
+*   NOTES
+*       Only byte writes to offset 3 change the stored resource register. Other
+*       writes are ignored; JIT and illegal-access reporting remain active.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 mbres_wput (uaecptr addr, uae_u32 w)
 {
 #ifdef JIT
@@ -277,6 +608,29 @@ void REGPARAM2 mbres_wput (uaecptr addr, uae_u32 w)
     if (currprefs.illegal_mem)
 	write_log ("Illegal wput at %08lx\n", addr);
 }
+/****i* januae-memory/mbres_bput ********************************************
+*
+*   NAME
+*       mbres_bput() -- Write byte to A3000 motherboard resource.
+*
+*   SYNOPSIS
+*       void REGPARAM2 mbres_bput (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Handle a byte write to the A3000 motherboard-resource bank.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       b - Byte value supplied by the guest.
+*
+*   NOTES
+*       Only byte writes to offset 3 change the stored resource register. Other
+*       writes are ignored; JIT and illegal-access reporting remain active.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 mbres_bput (uaecptr addr, uae_u32 b)
 {
 #ifdef JIT
@@ -288,6 +642,32 @@ void REGPARAM2 mbres_bput (uaecptr addr, uae_u32 b)
     if ((addr & 0xFFFF) == 3)
 	mbres_val = b;
 }
+
+/****i* januae-memory/mbres_check *******************************************
+*
+*   NAME
+*       mbres_check() -- Reject memory spans in A3000 motherboard resource.
+*
+*   SYNOPSIS
+*       int REGPARAM2 mbres_check (uaecptr addr, uae_u32 size);
+*
+*   FUNCTION
+*       Reject direct-range validation for the A3000 motherboard resource bank.
+*
+*   INPUTS
+*       addr - First guest address of the checked range.
+*       size - Number of guest bytes in the range.
+*
+*   RESULT
+*       Always zero.
+*
+*   NOTES
+*       Dummy-bank checking may report an illegal access; the
+*       motherboard-resource bank variant is conditional.
+*
+****************************************************************************
+*
+*/
 
 int REGPARAM2 mbres_check (uaecptr addr, uae_u32 size)
 {
@@ -310,10 +690,54 @@ static uae_u8 *chipmem_xlate (uaecptr addr) REGPARAM;
 
 /* AGA ce-chipram access */
 
+/****i* januae-memory/ce2_timeout *******************************************
+*
+*   NAME
+*       ce2_timeout() -- Account for one cycle-exact memory access.
+*
+*   SYNOPSIS
+*       static void ce2_timeout (void);
+*
+*   FUNCTION
+*       Wait for the next emulated CPU read cycle using wait_cpu_cycle_read().
+*
+*   NOTES
+*       Available only when AGA and CPUEMU_6 are enabled.
+*
+****************************************************************************
+*
+*/
+
 static void ce2_timeout (void)
 {
     wait_cpu_cycle_read (0, -1);
 }
+
+/****i* januae-memory/chipmem_lget_ce2 **************************************
+*
+*   NAME
+*       chipmem_lget_ce2() -- Read cycle-exact longword from Chip RAM.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 chipmem_lget_ce2 (uaecptr addr);
+*
+*   FUNCTION
+*       Select a masked Chip RAM address, wait for a CPU memory-read cycle, and
+*       fetch the 32-bit value.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       Value read from Chip RAM.
+*
+*   NOTES
+*       Compiled only with AGA and CPUEMU_6; JIT read-special markers are set
+*       when applicable.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 REGPARAM2 chipmem_lget_ce2 (uaecptr addr)
 {
@@ -329,6 +753,32 @@ uae_u32 REGPARAM2 chipmem_lget_ce2 (uaecptr addr)
     return do_get_mem_long (m);
 }
 
+/****i* januae-memory/chipmem_wget_ce2 **************************************
+*
+*   NAME
+*       chipmem_wget_ce2() -- Read cycle-exact word from Chip RAM.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 chipmem_wget_ce2 (uaecptr addr);
+*
+*   FUNCTION
+*       Select a masked Chip RAM address, wait for a CPU memory-read cycle, and
+*       fetch the 16-bit value.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       Value read from Chip RAM.
+*
+*   NOTES
+*       Compiled only with AGA and CPUEMU_6; JIT read-special markers are set
+*       when applicable.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 chipmem_wget_ce2 (uaecptr addr)
 {
     uae_u16 *m;
@@ -343,6 +793,32 @@ uae_u32 REGPARAM2 chipmem_wget_ce2 (uaecptr addr)
     return do_get_mem_word (m);
 }
 
+/****i* januae-memory/chipmem_bget_ce2 **************************************
+*
+*   NAME
+*       chipmem_bget_ce2() -- Read cycle-exact byte from Chip RAM.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 chipmem_bget_ce2 (uaecptr addr);
+*
+*   FUNCTION
+*       Select a masked Chip RAM address, wait for a CPU memory-read cycle, and
+*       fetch the 8-bit value.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       Value read from Chip RAM.
+*
+*   NOTES
+*       Compiled only with AGA and CPUEMU_6; JIT read-special markers are set
+*       when applicable.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 chipmem_bget_ce2 (uaecptr addr)
 {
 #ifdef JIT
@@ -353,6 +829,30 @@ uae_u32 REGPARAM2 chipmem_bget_ce2 (uaecptr addr)
     ce2_timeout ();
     return chipmemory[addr];
 }
+
+/****i* januae-memory/chipmem_lput_ce2 **************************************
+*
+*   NAME
+*       chipmem_lput_ce2() -- Write cycle-exact longword to Chip RAM.
+*
+*   SYNOPSIS
+*       void REGPARAM2 chipmem_lput_ce2 (uaecptr addr, uae_u32 l);
+*
+*   FUNCTION
+*       Select a masked Chip RAM address, wait for a CPU memory-read cycle, and
+*       store the 32-bit value.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       l - 32-bit value to store.
+*
+*   NOTES
+*       Compiled only with AGA and CPUEMU_6; JIT write-special markers are set
+*       when applicable.
+*
+****************************************************************************
+*
+*/
 
 void REGPARAM2 chipmem_lput_ce2 (uaecptr addr, uae_u32 l)
 {
@@ -368,6 +868,30 @@ void REGPARAM2 chipmem_lput_ce2 (uaecptr addr, uae_u32 l)
     do_put_mem_long (m, l);
 }
 
+/****i* januae-memory/chipmem_wput_ce2 **************************************
+*
+*   NAME
+*       chipmem_wput_ce2() -- Write cycle-exact word to Chip RAM.
+*
+*   SYNOPSIS
+*       void REGPARAM2 chipmem_wput_ce2 (uaecptr addr, uae_u32 w);
+*
+*   FUNCTION
+*       Select a masked Chip RAM address, wait for a CPU memory-read cycle, and
+*       store the 16-bit value.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       w - 16-bit value to store.
+*
+*   NOTES
+*       Compiled only with AGA and CPUEMU_6; JIT write-special markers are set
+*       when applicable.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 chipmem_wput_ce2 (uaecptr addr, uae_u32 w)
 {
     uae_u16 *m;
@@ -382,6 +906,30 @@ void REGPARAM2 chipmem_wput_ce2 (uaecptr addr, uae_u32 w)
     do_put_mem_word (m, w);
 }
 
+/****i* januae-memory/chipmem_bput_ce2 **************************************
+*
+*   NAME
+*       chipmem_bput_ce2() -- Write cycle-exact byte to Chip RAM.
+*
+*   SYNOPSIS
+*       void REGPARAM2 chipmem_bput_ce2 (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Select a masked Chip RAM address, wait for a CPU memory-read cycle, and
+*       store the 8-bit value.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       b - Byte value or range length, according to the signature.
+*
+*   NOTES
+*       Compiled only with AGA and CPUEMU_6; JIT write-special markers are set
+*       when applicable.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 chipmem_bput_ce2 (uaecptr addr, uae_u32 b)
 {
 #ifdef JIT
@@ -395,6 +943,32 @@ void REGPARAM2 chipmem_bput_ce2 (uaecptr addr, uae_u32 b)
 
 #endif
 
+/****i* januae-memory/chipmem_lget ******************************************
+*
+*   NAME
+*       chipmem_lget() -- Read longword from Chip RAM.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 chipmem_lget (uaecptr addr);
+*
+*   FUNCTION
+*       Read a 32-bit value from Chip RAM, converting the guest address using
+*       the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       32-bit memory value from the selected bank.
+*
+*   NOTES
+*       Uses direct host-memory access; the cycle-exact AGA implementation is
+*       separate.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 chipmem_lget (uaecptr addr)
 {
     uae_u32 *m;
@@ -404,6 +978,32 @@ uae_u32 REGPARAM2 chipmem_lget (uaecptr addr)
     m = (uae_u32 *)(chipmemory + addr);
     return do_get_mem_long (m);
 }
+
+/****i* januae-memory/chipmem_wget ******************************************
+*
+*   NAME
+*       chipmem_wget() -- Read word from Chip RAM.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 chipmem_wget (uaecptr addr);
+*
+*   FUNCTION
+*       Read a 16-bit value from Chip RAM, converting the guest address using
+*       the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       16-bit memory value from the selected bank.
+*
+*   NOTES
+*       Uses direct host-memory access; the cycle-exact AGA implementation is
+*       separate.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 REGPARAM2 chipmem_wget (uaecptr addr)
 {
@@ -415,12 +1015,62 @@ uae_u32 REGPARAM2 chipmem_wget (uaecptr addr)
     return do_get_mem_word (m);
 }
 
+/****i* januae-memory/chipmem_bget ******************************************
+*
+*   NAME
+*       chipmem_bget() -- Read byte from Chip RAM.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 chipmem_bget (uaecptr addr);
+*
+*   FUNCTION
+*       Read a 8-bit value from Chip RAM, converting the guest address using the
+*       bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       8-bit memory value from the selected bank.
+*
+*   NOTES
+*       Uses direct host-memory access; the cycle-exact AGA implementation is
+*       separate.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 chipmem_bget (uaecptr addr)
 {
     addr -= chipmem_start & chipmem_mask;
     addr &= chipmem_mask;
     return chipmemory[addr];
 }
+
+/****i* januae-memory/chipmem_lput ******************************************
+*
+*   NAME
+*       chipmem_lput() -- Write longword to Chip RAM.
+*
+*   SYNOPSIS
+*       void REGPARAM2 chipmem_lput (uaecptr addr, uae_u32 l);
+*
+*   FUNCTION
+*       Write a 32-bit value to Chip RAM, translating the guest address through
+*       the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       l - 32-bit value to store.
+*
+*   NOTES
+*       No bounds check or allocation check is performed by this access
+*       function.
+*
+****************************************************************************
+*
+*/
 
 void REGPARAM2 chipmem_lput (uaecptr addr, uae_u32 l)
 {
@@ -433,6 +1083,30 @@ void REGPARAM2 chipmem_lput (uaecptr addr, uae_u32 l)
 }
 
 
+/****i* januae-memory/chipmem_wput ******************************************
+*
+*   NAME
+*       chipmem_wput() -- Write word to Chip RAM.
+*
+*   SYNOPSIS
+*       void REGPARAM2 chipmem_wput (uaecptr addr, uae_u32 w);
+*
+*   FUNCTION
+*       Write a 16-bit value to Chip RAM, translating the guest address through
+*       the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       w - 16-bit value to store.
+*
+*   NOTES
+*       No bounds check or allocation check is performed by this access
+*       function.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 chipmem_wput (uaecptr addr, uae_u32 w)
 {
     uae_u16 *m;
@@ -443,6 +1117,30 @@ void REGPARAM2 chipmem_wput (uaecptr addr, uae_u32 w)
     do_put_mem_word (m, w);
 }
 
+/****i* januae-memory/chipmem_bput ******************************************
+*
+*   NAME
+*       chipmem_bput() -- Write byte to Chip RAM.
+*
+*   SYNOPSIS
+*       void REGPARAM2 chipmem_bput (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Write a 8-bit value to Chip RAM, translating the guest address through
+*       the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       b - Byte value supplied by the guest.
+*
+*   NOTES
+*       No bounds check or allocation check is performed by this access
+*       function.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 chipmem_bput (uaecptr addr, uae_u32 b)
 {
     addr -= chipmem_start & chipmem_mask;
@@ -450,12 +1148,64 @@ void REGPARAM2 chipmem_bput (uaecptr addr, uae_u32 b)
     chipmemory[addr] = b;
 }
 
+/****i* januae-memory/chipmem_check *****************************************
+*
+*   NAME
+*       chipmem_check() -- Check Chip RAM address span.
+*
+*   SYNOPSIS
+*       int REGPARAM2 chipmem_check (uaecptr addr, uae_u32 size);
+*
+*   FUNCTION
+*       Mask the guest address into the Chip RAM bank and compare the requested
+*       span against allocated_chipmem.
+*
+*   INPUTS
+*       addr - First guest address of the checked range.
+*       size - Number of guest bytes in the range.
+*
+*   RESULT
+*       Nonzero when the masked address plus the requested length does not
+*       exceed the configured bank size; otherwise zero.
+*
+*   NOTES
+*       The addition is performed without an independent overflow check.
+*
+****************************************************************************
+*
+*/
+
 int REGPARAM2 chipmem_check (uaecptr addr, uae_u32 size)
 {
     addr -= chipmem_start & chipmem_mask;
     addr &= chipmem_mask;
     return (addr + size) <= allocated_chipmem;
 }
+
+/****i* januae-memory/chipmem_xlate *****************************************
+*
+*   NAME
+*       chipmem_xlate() -- Translate a Chip RAM address.
+*
+*   SYNOPSIS
+*       uae_u8 REGPARAM2 *chipmem_xlate (uaecptr addr);
+*
+*   FUNCTION
+*       Convert the masked guest address into a pointer into the Chip RAM
+*       backing memory.
+*
+*   INPUTS
+*       addr - Guest address to translate into backing memory.
+*
+*   RESULT
+*       Direct host pointer at the translated offset.
+*
+*   NOTES
+*       No bounds check is performed; the backing allocation must exist.
+*
+****************************************************************************
+*
+*/
 
 uae_u8 REGPARAM2 *chipmem_xlate (uaecptr addr)
 {
@@ -477,6 +1227,28 @@ static void bogomem_bput (uaecptr, uae_u32) REGPARAM;
 static int bogomem_check (uaecptr addr, uae_u32 size) REGPARAM;
 static uae_u8 *bogomem_xlate (uaecptr addr) REGPARAM;
 
+/****i* januae-memory/bogomem_lget ******************************************
+*
+*   NAME
+*       bogomem_lget() -- Read longword from Bogo RAM.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 bogomem_lget (uaecptr addr);
+*
+*   FUNCTION
+*       Read a 32-bit value from Bogo RAM, converting the guest address using
+*       the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       32-bit memory value from the selected bank.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 bogomem_lget (uaecptr addr)
 {
     uae_u32 *m;
@@ -485,6 +1257,28 @@ uae_u32 REGPARAM2 bogomem_lget (uaecptr addr)
     m = (uae_u32 *)(bogomemory + addr);
     return do_get_mem_long (m);
 }
+
+/****i* januae-memory/bogomem_wget ******************************************
+*
+*   NAME
+*       bogomem_wget() -- Read word from Bogo RAM.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 bogomem_wget (uaecptr addr);
+*
+*   FUNCTION
+*       Read a 16-bit value from Bogo RAM, converting the guest address using
+*       the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       16-bit memory value from the selected bank.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 REGPARAM2 bogomem_wget (uaecptr addr)
 {
@@ -495,12 +1289,58 @@ uae_u32 REGPARAM2 bogomem_wget (uaecptr addr)
     return do_get_mem_word (m);
 }
 
+/****i* januae-memory/bogomem_bget ******************************************
+*
+*   NAME
+*       bogomem_bget() -- Read byte from Bogo RAM.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 bogomem_bget (uaecptr addr);
+*
+*   FUNCTION
+*       Read a 8-bit value from Bogo RAM, converting the guest address using the
+*       bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       8-bit memory value from the selected bank.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 bogomem_bget (uaecptr addr)
 {
     addr -= bogomem_start & bogomem_mask;
     addr &= bogomem_mask;
     return bogomemory[addr];
 }
+
+/****i* januae-memory/bogomem_lput ******************************************
+*
+*   NAME
+*       bogomem_lput() -- Write longword to Bogo RAM.
+*
+*   SYNOPSIS
+*       void REGPARAM2 bogomem_lput (uaecptr addr, uae_u32 l);
+*
+*   FUNCTION
+*       Write a 32-bit value to Bogo RAM, translating the guest address through
+*       the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       l - 32-bit value to store.
+*
+*   NOTES
+*       No bounds check or allocation check is performed by this access
+*       function.
+*
+****************************************************************************
+*
+*/
 
 void REGPARAM2 bogomem_lput (uaecptr addr, uae_u32 l)
 {
@@ -511,6 +1351,30 @@ void REGPARAM2 bogomem_lput (uaecptr addr, uae_u32 l)
     do_put_mem_long (m, l);
 }
 
+/****i* januae-memory/bogomem_wput ******************************************
+*
+*   NAME
+*       bogomem_wput() -- Write word to Bogo RAM.
+*
+*   SYNOPSIS
+*       void REGPARAM2 bogomem_wput (uaecptr addr, uae_u32 w);
+*
+*   FUNCTION
+*       Write a 16-bit value to Bogo RAM, translating the guest address through
+*       the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       w - 16-bit value to store.
+*
+*   NOTES
+*       No bounds check or allocation check is performed by this access
+*       function.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 bogomem_wput (uaecptr addr, uae_u32 w)
 {
     uae_u16 *m;
@@ -520,6 +1384,30 @@ void REGPARAM2 bogomem_wput (uaecptr addr, uae_u32 w)
     do_put_mem_word (m, w);
 }
 
+/****i* januae-memory/bogomem_bput ******************************************
+*
+*   NAME
+*       bogomem_bput() -- Write byte to Bogo RAM.
+*
+*   SYNOPSIS
+*       void REGPARAM2 bogomem_bput (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Write a 8-bit value to Bogo RAM, translating the guest address through
+*       the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       b - Byte value supplied by the guest.
+*
+*   NOTES
+*       No bounds check or allocation check is performed by this access
+*       function.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 bogomem_bput (uaecptr addr, uae_u32 b)
 {
     addr -= bogomem_start & bogomem_mask;
@@ -527,12 +1415,64 @@ void REGPARAM2 bogomem_bput (uaecptr addr, uae_u32 b)
     bogomemory[addr] = b;
 }
 
+/****i* januae-memory/bogomem_check *****************************************
+*
+*   NAME
+*       bogomem_check() -- Check Bogo RAM address span.
+*
+*   SYNOPSIS
+*       int REGPARAM2 bogomem_check (uaecptr addr, uae_u32 size);
+*
+*   FUNCTION
+*       Mask the guest address into the Bogo RAM bank and compare the requested
+*       span against allocated_bogomem.
+*
+*   INPUTS
+*       addr - First guest address of the checked range.
+*       size - Number of guest bytes in the range.
+*
+*   RESULT
+*       Nonzero when the masked address plus the requested length does not
+*       exceed the configured bank size; otherwise zero.
+*
+*   NOTES
+*       The addition is performed without an independent overflow check.
+*
+****************************************************************************
+*
+*/
+
 int REGPARAM2 bogomem_check (uaecptr addr, uae_u32 size)
 {
     addr -= bogomem_start & bogomem_mask;
     addr &= bogomem_mask;
     return (addr + size) <= allocated_bogomem;
 }
+
+/****i* januae-memory/bogomem_xlate *****************************************
+*
+*   NAME
+*       bogomem_xlate() -- Translate a Bogo RAM address.
+*
+*   SYNOPSIS
+*       uae_u8 REGPARAM2 *bogomem_xlate (uaecptr addr);
+*
+*   FUNCTION
+*       Convert the masked guest address into a pointer into the Bogo RAM
+*       backing memory.
+*
+*   INPUTS
+*       addr - Guest address to translate into backing memory.
+*
+*   RESULT
+*       Direct host pointer at the translated offset.
+*
+*   NOTES
+*       No bounds check is performed; the backing allocation must exist.
+*
+****************************************************************************
+*
+*/
 
 uae_u8 REGPARAM2 *bogomem_xlate (uaecptr addr)
 {
@@ -556,6 +1496,28 @@ static void a3000mem_bput (uaecptr, uae_u32) REGPARAM;
 static int a3000mem_check (uaecptr addr, uae_u32 size) REGPARAM;
 static uae_u8 *a3000mem_xlate (uaecptr addr) REGPARAM;
 
+/****i* januae-memory/a3000mem_lget *****************************************
+*
+*   NAME
+*       a3000mem_lget() -- Read longword from A3000 motherboard Fast RAM.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 a3000mem_lget (uaecptr addr);
+*
+*   FUNCTION
+*       Read a 32-bit value from A3000 motherboard Fast RAM, converting the
+*       guest address using the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       32-bit memory value from the selected bank.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 a3000mem_lget (uaecptr addr)
 {
     uae_u32 *m;
@@ -564,6 +1526,28 @@ uae_u32 REGPARAM2 a3000mem_lget (uaecptr addr)
     m = (uae_u32 *)(a3000memory + addr);
     return do_get_mem_long (m);
 }
+
+/****i* januae-memory/a3000mem_wget *****************************************
+*
+*   NAME
+*       a3000mem_wget() -- Read word from A3000 motherboard Fast RAM.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 a3000mem_wget (uaecptr addr);
+*
+*   FUNCTION
+*       Read a 16-bit value from A3000 motherboard Fast RAM, converting the
+*       guest address using the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       16-bit memory value from the selected bank.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 REGPARAM2 a3000mem_wget (uaecptr addr)
 {
@@ -574,12 +1558,58 @@ uae_u32 REGPARAM2 a3000mem_wget (uaecptr addr)
     return do_get_mem_word (m);
 }
 
+/****i* januae-memory/a3000mem_bget *****************************************
+*
+*   NAME
+*       a3000mem_bget() -- Read byte from A3000 motherboard Fast RAM.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 a3000mem_bget (uaecptr addr);
+*
+*   FUNCTION
+*       Read a 8-bit value from A3000 motherboard Fast RAM, converting the guest
+*       address using the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       8-bit memory value from the selected bank.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 a3000mem_bget (uaecptr addr)
 {
     addr -= a3000mem_start & a3000mem_mask;
     addr &= a3000mem_mask;
     return a3000memory[addr];
 }
+
+/****i* januae-memory/a3000mem_lput *****************************************
+*
+*   NAME
+*       a3000mem_lput() -- Write longword to A3000 motherboard Fast RAM.
+*
+*   SYNOPSIS
+*       void REGPARAM2 a3000mem_lput (uaecptr addr, uae_u32 l);
+*
+*   FUNCTION
+*       Write a 32-bit value to A3000 motherboard Fast RAM, translating the
+*       guest address through the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       l - 32-bit value to store.
+*
+*   NOTES
+*       No bounds check or allocation check is performed by this access
+*       function.
+*
+****************************************************************************
+*
+*/
 
 void REGPARAM2 a3000mem_lput (uaecptr addr, uae_u32 l)
 {
@@ -590,6 +1620,30 @@ void REGPARAM2 a3000mem_lput (uaecptr addr, uae_u32 l)
     do_put_mem_long (m, l);
 }
 
+/****i* januae-memory/a3000mem_wput *****************************************
+*
+*   NAME
+*       a3000mem_wput() -- Write word to A3000 motherboard Fast RAM.
+*
+*   SYNOPSIS
+*       void REGPARAM2 a3000mem_wput (uaecptr addr, uae_u32 w);
+*
+*   FUNCTION
+*       Write a 16-bit value to A3000 motherboard Fast RAM, translating the
+*       guest address through the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       w - 16-bit value to store.
+*
+*   NOTES
+*       No bounds check or allocation check is performed by this access
+*       function.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 a3000mem_wput (uaecptr addr, uae_u32 w)
 {
     uae_u16 *m;
@@ -599,6 +1653,30 @@ void REGPARAM2 a3000mem_wput (uaecptr addr, uae_u32 w)
     do_put_mem_word (m, w);
 }
 
+/****i* januae-memory/a3000mem_bput *****************************************
+*
+*   NAME
+*       a3000mem_bput() -- Write byte to A3000 motherboard Fast RAM.
+*
+*   SYNOPSIS
+*       void REGPARAM2 a3000mem_bput (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Write a 8-bit value to A3000 motherboard Fast RAM, translating the guest
+*       address through the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       b - Byte value supplied by the guest.
+*
+*   NOTES
+*       No bounds check or allocation check is performed by this access
+*       function.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 a3000mem_bput (uaecptr addr, uae_u32 b)
 {
     addr -= a3000mem_start & a3000mem_mask;
@@ -606,12 +1684,64 @@ void REGPARAM2 a3000mem_bput (uaecptr addr, uae_u32 b)
     a3000memory[addr] = b;
 }
 
+/****i* januae-memory/a3000mem_check ****************************************
+*
+*   NAME
+*       a3000mem_check() -- Check A3000 motherboard Fast RAM address span.
+*
+*   SYNOPSIS
+*       int REGPARAM2 a3000mem_check (uaecptr addr, uae_u32 size);
+*
+*   FUNCTION
+*       Mask the guest address into the A3000 motherboard Fast RAM bank and
+*       compare the requested span against allocated_a3000mem.
+*
+*   INPUTS
+*       addr - First guest address of the checked range.
+*       size - Number of guest bytes in the range.
+*
+*   RESULT
+*       Nonzero when the masked address plus the requested length does not
+*       exceed the configured bank size; otherwise zero.
+*
+*   NOTES
+*       The addition is performed without an independent overflow check.
+*
+****************************************************************************
+*
+*/
+
 int REGPARAM2 a3000mem_check (uaecptr addr, uae_u32 size)
 {
     addr -= a3000mem_start & a3000mem_mask;
     addr &= a3000mem_mask;
     return (addr + size) <= allocated_a3000mem;
 }
+
+/****i* januae-memory/a3000mem_xlate ****************************************
+*
+*   NAME
+*       a3000mem_xlate() -- Translate a A3000 motherboard Fast RAM address.
+*
+*   SYNOPSIS
+*       uae_u8 REGPARAM2 *a3000mem_xlate (uaecptr addr);
+*
+*   FUNCTION
+*       Convert the masked guest address into a pointer into the A3000
+*       motherboard Fast RAM backing memory.
+*
+*   INPUTS
+*       addr - Guest address to translate into backing memory.
+*
+*   RESULT
+*       Direct host pointer at the translated offset.
+*
+*   NOTES
+*       No bounds check is performed; the backing allocation must exist.
+*
+****************************************************************************
+*
+*/
 
 uae_u8 REGPARAM2 *a3000mem_xlate (uaecptr addr)
 {
@@ -637,6 +1767,31 @@ unsigned int kickmem_size = 0x80000;
  */
 static int a1000_kickstart_mode;
 static uae_u8 *a1000_bootrom;
+/****i* januae-memory/a1000_handle_kickstart ********************************
+*
+*   NAME
+*       a1000_handle_kickstart() -- Switch the Amiga 1000 boot ROM visibility.
+*
+*   SYNOPSIS
+*       static void a1000_handle_kickstart (int mode);
+*
+*   FUNCTION
+*       Select whether the 64 KiB Amiga 1000 bootstrap ROM is replicated into
+*       the lower 256 KiB of Kickstart memory or the later Kickstart image is
+*       restored from its upper half.
+*
+*   INPUTS
+*       mode - Nonzero to reveal the A1000 bootstrap ROM; zero to restore
+*       Kickstart.
+*
+*   NOTES
+*       Mode zero restores the Kickstart image and version; any other mode
+*       exposes the bootstrap ROM and clears the reported version.
+*
+****************************************************************************
+*
+*/
+
 static void a1000_handle_kickstart (int mode)
 {
     if (mode == 0) {
@@ -651,6 +1806,22 @@ static void a1000_handle_kickstart (int mode)
         kickstart_version = 0;
     }
 }
+
+/****i* januae-memory/a1000_reset *******************************************
+*
+*   NAME
+*       a1000_reset() -- Expose the Amiga 1000 bootstrap ROM again.
+*
+*   SYNOPSIS
+*       void a1000_reset (void);
+*
+*   FUNCTION
+*       Restore bootstrap-ROM visibility when an Amiga 1000 boot ROM was
+*       previously loaded.
+*
+****************************************************************************
+*
+*/
 
 void a1000_reset (void)
 {
@@ -670,6 +1841,28 @@ static void kickmem2_bput (uaecptr addr, uae_u32) REGPARAM;
 static int kickmem_check (uaecptr addr, uae_u32 size) REGPARAM;
 static uae_u8 *kickmem_xlate (uaecptr addr) REGPARAM;
 
+/****i* januae-memory/kickmem_lget ******************************************
+*
+*   NAME
+*       kickmem_lget() -- Read longword from Kickstart.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 kickmem_lget (uaecptr addr);
+*
+*   FUNCTION
+*       Read a 32-bit value from Kickstart, converting the guest address using
+*       the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest ROM address to access.
+*
+*   RESULT
+*       32-bit memory value from the selected bank.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 kickmem_lget (uaecptr addr)
 {
     uae_u32 *m;
@@ -678,6 +1871,28 @@ uae_u32 REGPARAM2 kickmem_lget (uaecptr addr)
     m = (uae_u32 *)(kickmemory + addr);
     return do_get_mem_long (m);
 }
+
+/****i* januae-memory/kickmem_wget ******************************************
+*
+*   NAME
+*       kickmem_wget() -- Read word from Kickstart.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 kickmem_wget (uaecptr addr);
+*
+*   FUNCTION
+*       Read a 16-bit value from Kickstart, converting the guest address using
+*       the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest ROM address to access.
+*
+*   RESULT
+*       16-bit memory value from the selected bank.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 REGPARAM2 kickmem_wget (uaecptr addr)
 {
@@ -688,12 +1903,58 @@ uae_u32 REGPARAM2 kickmem_wget (uaecptr addr)
     return do_get_mem_word (m);
 }
 
+/****i* januae-memory/kickmem_bget ******************************************
+*
+*   NAME
+*       kickmem_bget() -- Read byte from Kickstart.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 kickmem_bget (uaecptr addr);
+*
+*   FUNCTION
+*       Read a 8-bit value from Kickstart, converting the guest address using
+*       the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest ROM address to access.
+*
+*   RESULT
+*       8-bit memory value from the selected bank.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 kickmem_bget (uaecptr addr)
 {
     addr -= kickmem_start & kickmem_mask;
     addr &= kickmem_mask;
     return kickmemory[addr];
 }
+
+/****i* januae-memory/kickmem_lput ******************************************
+*
+*   NAME
+*       kickmem_lput() -- Write longword to Kickstart.
+*
+*   SYNOPSIS
+*       void REGPARAM2 kickmem_lput (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Write a longword to the Amiga 1000 Kickstart RAM while its boot ROM is
+*       visible; writes at lower ROM addresses restore normal Kickstart mapping.
+*
+*   INPUTS
+*       addr - Guest ROM address to access.
+*       b - 32-bit value proposed for the ROM write.
+*
+*   NOTES
+*       Outside Amiga 1000 boot-ROM mode, writes are rejected and may be logged.
+*       Writes at or above 0xfc0000 in boot mode modify the backing ROM bytes.
+*
+****************************************************************************
+*
+*/
 
 void REGPARAM2 kickmem_lput (uaecptr addr, uae_u32 b)
 {
@@ -714,6 +1975,30 @@ void REGPARAM2 kickmem_lput (uaecptr addr, uae_u32 b)
 	write_log ("Illegal kickmem lput at %08lx\n", addr);
 }
 
+/****i* januae-memory/kickmem_wput ******************************************
+*
+*   NAME
+*       kickmem_wput() -- Write word to Kickstart.
+*
+*   SYNOPSIS
+*       void REGPARAM2 kickmem_wput (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Write a word to the Amiga 1000 Kickstart RAM while its boot ROM is
+*       visible; writes at lower ROM addresses restore normal Kickstart mapping.
+*
+*   INPUTS
+*       addr - Guest ROM address to access.
+*       b - 16-bit value proposed for the ROM write.
+*
+*   NOTES
+*       Outside Amiga 1000 boot-ROM mode, writes are rejected and may be logged.
+*       Writes at or above 0xfc0000 in boot mode modify the backing ROM bytes.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 kickmem_wput (uaecptr addr, uae_u32 b)
 {
     uae_u16 *m;
@@ -733,6 +2018,30 @@ void REGPARAM2 kickmem_wput (uaecptr addr, uae_u32 b)
 	write_log ("Illegal kickmem wput at %08lx\n", addr);
 }
 
+/****i* januae-memory/kickmem_bput ******************************************
+*
+*   NAME
+*       kickmem_bput() -- Write byte to Kickstart.
+*
+*   SYNOPSIS
+*       void REGPARAM2 kickmem_bput (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Write a byte to the Amiga 1000 Kickstart RAM while its boot ROM is
+*       visible; writes at lower ROM addresses restore normal Kickstart mapping.
+*
+*   INPUTS
+*       addr - Guest ROM address to access.
+*       b - Byte value supplied by the guest.
+*
+*   NOTES
+*       Outside Amiga 1000 boot-ROM mode, writes are rejected and may be logged.
+*       Writes at or above 0xfc0000 in boot mode modify the backing ROM bytes.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 kickmem_bput (uaecptr addr, uae_u32 b)
 {
 #ifdef JIT
@@ -750,6 +2059,30 @@ void REGPARAM2 kickmem_bput (uaecptr addr, uae_u32 b)
 	write_log ("Illegal kickmem lput at %08lx\n", addr);
 }
 
+/****i* januae-memory/kickmem2_lput *****************************************
+*
+*   NAME
+*       kickmem2_lput() -- Write longword to writable Kickstart mapping.
+*
+*   SYNOPSIS
+*       void REGPARAM2 kickmem2_lput (uaecptr addr, uae_u32 l);
+*
+*   FUNCTION
+*       Write the 32-bit value directly to the masked Kickstart backing
+*       allocation.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       l - 32-bit value to store.
+*
+*   NOTES
+*       Used by the kickram_bank mapping; unlike kickmem writes, this path does
+*       not apply Amiga 1000 boot-ROM protection.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 kickmem2_lput (uaecptr addr, uae_u32 l)
 {
     uae_u32 *m;
@@ -761,6 +2094,30 @@ void REGPARAM2 kickmem2_lput (uaecptr addr, uae_u32 l)
     m = (uae_u32 *)(kickmemory + addr);
     do_put_mem_long (m, l);
 }
+
+/****i* januae-memory/kickmem2_wput *****************************************
+*
+*   NAME
+*       kickmem2_wput() -- Write word to writable Kickstart mapping.
+*
+*   SYNOPSIS
+*       void REGPARAM2 kickmem2_wput (uaecptr addr, uae_u32 w);
+*
+*   FUNCTION
+*       Write the 16-bit value directly to the masked Kickstart backing
+*       allocation.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       w - 16-bit value to store.
+*
+*   NOTES
+*       Used by the kickram_bank mapping; unlike kickmem writes, this path does
+*       not apply Amiga 1000 boot-ROM protection.
+*
+****************************************************************************
+*
+*/
 
 void REGPARAM2 kickmem2_wput (uaecptr addr, uae_u32 w)
 {
@@ -774,6 +2131,30 @@ void REGPARAM2 kickmem2_wput (uaecptr addr, uae_u32 w)
     do_put_mem_word (m, w);
 }
 
+/****i* januae-memory/kickmem2_bput *****************************************
+*
+*   NAME
+*       kickmem2_bput() -- Write byte to writable Kickstart mapping.
+*
+*   SYNOPSIS
+*       void REGPARAM2 kickmem2_bput (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Write the 8-bit value directly to the masked Kickstart backing
+*       allocation.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       b - Byte value supplied by the guest.
+*
+*   NOTES
+*       Used by the kickram_bank mapping; unlike kickmem writes, this path does
+*       not apply Amiga 1000 boot-ROM protection.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 kickmem2_bput (uaecptr addr, uae_u32 b)
 {
 #ifdef JIT
@@ -784,12 +2165,64 @@ void REGPARAM2 kickmem2_bput (uaecptr addr, uae_u32 b)
     kickmemory[addr] = b;
 }
 
+/****i* januae-memory/kickmem_check *****************************************
+*
+*   NAME
+*       kickmem_check() -- Check Kickstart address span.
+*
+*   SYNOPSIS
+*       int REGPARAM2 kickmem_check (uaecptr addr, uae_u32 size);
+*
+*   FUNCTION
+*       Mask the guest address into the Kickstart bank and compare the requested
+*       span against kickmem_size.
+*
+*   INPUTS
+*       addr - Guest ROM address to access.
+*       size - Number of guest bytes in the range.
+*
+*   RESULT
+*       Nonzero when the masked address plus the requested length does not
+*       exceed the configured bank size; otherwise zero.
+*
+*   NOTES
+*       The addition is performed without an independent overflow check.
+*
+****************************************************************************
+*
+*/
+
 int REGPARAM2 kickmem_check (uaecptr addr, uae_u32 size)
 {
     addr -= kickmem_start & kickmem_mask;
     addr &= kickmem_mask;
     return (addr + size) <= kickmem_size;
 }
+
+/****i* januae-memory/kickmem_xlate *****************************************
+*
+*   NAME
+*       kickmem_xlate() -- Translate a Kickstart address.
+*
+*   SYNOPSIS
+*       uae_u8 REGPARAM2 *kickmem_xlate (uaecptr addr);
+*
+*   FUNCTION
+*       Convert the masked guest address into a pointer into the Kickstart
+*       backing memory.
+*
+*   INPUTS
+*       addr - Guest ROM address to access.
+*
+*   RESULT
+*       Direct host pointer at the translated offset.
+*
+*   NOTES
+*       No bounds check is performed; the backing allocation must exist.
+*
+****************************************************************************
+*
+*/
 
 uae_u8 REGPARAM2 *kickmem_xlate (uaecptr addr)
 {
@@ -808,6 +2241,28 @@ static uae_u32 extendedkickmem_start;
 #define EXTENDED_ROM_CDTV 2
 
 #if defined CDTV || defined CD32 || defined(__AROS__)
+
+/****i* januae-memory/extromtype ********************************************
+*
+*   NAME
+*       extromtype() -- Classify the extended Kickstart image size.
+*
+*   SYNOPSIS
+*       static int extromtype (void);
+*
+*   FUNCTION
+*       Interpret the configured extended ROM allocation size as CD32 or CDTV
+*       format.
+*
+*   RESULT
+*       CD32 for 524288 bytes, CDTV for 262144 bytes, or zero for other sizes.
+*
+*   NOTES
+*       Compiled under CDTV, CD32 or __AROS__.
+*
+****************************************************************************
+*
+*/
 
 static int extromtype (void)
 {
@@ -829,6 +2284,31 @@ static void extendedkickmem_bput (uaecptr, uae_u32) REGPARAM;
 static int extendedkickmem_check (uaecptr addr, uae_u32 size) REGPARAM;
 static uae_u8 *extendedkickmem_xlate (uaecptr addr) REGPARAM;
 
+/****i* januae-memory/extendedkickmem_lget **********************************
+*
+*   NAME
+*       extendedkickmem_lget() -- Read longword from Extended Kickstart.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 extendedkickmem_lget (uaecptr addr);
+*
+*   FUNCTION
+*       Read a 32-bit value from Extended Kickstart, converting the guest
+*       address using the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       32-bit memory value from the selected bank.
+*
+*   NOTES
+*       Available with CDTV, CD32 or __AROS__; does not perform a bounds check.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 extendedkickmem_lget (uaecptr addr)
 {
     uae_u32 *m;
@@ -837,6 +2317,31 @@ uae_u32 REGPARAM2 extendedkickmem_lget (uaecptr addr)
     m = (uae_u32 *)(extendedkickmemory + addr);
     return do_get_mem_long (m);
 }
+
+/****i* januae-memory/extendedkickmem_wget **********************************
+*
+*   NAME
+*       extendedkickmem_wget() -- Read word from Extended Kickstart.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 extendedkickmem_wget (uaecptr addr);
+*
+*   FUNCTION
+*       Read a 16-bit value from Extended Kickstart, converting the guest
+*       address using the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       16-bit memory value from the selected bank.
+*
+*   NOTES
+*       Available with CDTV, CD32 or __AROS__; does not perform a bounds check.
+*
+****************************************************************************
+*
+*/
 
 uae_u32 REGPARAM2 extendedkickmem_wget (uaecptr addr)
 {
@@ -847,12 +2352,60 @@ uae_u32 REGPARAM2 extendedkickmem_wget (uaecptr addr)
     return do_get_mem_word (m);
 }
 
+/****i* januae-memory/extendedkickmem_bget **********************************
+*
+*   NAME
+*       extendedkickmem_bget() -- Read byte from Extended Kickstart.
+*
+*   SYNOPSIS
+*       uae_u32 REGPARAM2 extendedkickmem_bget (uaecptr addr);
+*
+*   FUNCTION
+*       Read a 8-bit value from Extended Kickstart, converting the guest address
+*       using the bank start and address mask.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*
+*   RESULT
+*       8-bit memory value from the selected bank.
+*
+*   NOTES
+*       Available with CDTV, CD32 or __AROS__; does not perform a bounds check.
+*
+****************************************************************************
+*
+*/
+
 uae_u32 REGPARAM2 extendedkickmem_bget (uaecptr addr)
 {
     addr -= extendedkickmem_start & extendedkickmem_mask;
     addr &= extendedkickmem_mask;
     return extendedkickmemory[addr];
 }
+
+/****i* januae-memory/extendedkickmem_lput **********************************
+*
+*   NAME
+*       extendedkickmem_lput() -- Write longword to Extended Kickstart.
+*
+*   SYNOPSIS
+*       void REGPARAM2 extendedkickmem_lput (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Ignore a longword write to the extended Kickstart ROM bank.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       b - Byte value or range length, according to the signature.
+*
+*   NOTES
+*       May report an illegal-memory write and mark the access special for JIT;
+*       no ROM bytes are modified.
+*
+****************************************************************************
+*
+*/
 
 void REGPARAM2 extendedkickmem_lput (uaecptr addr, uae_u32 b)
 {
@@ -863,6 +2416,29 @@ void REGPARAM2 extendedkickmem_lput (uaecptr addr, uae_u32 b)
 	write_log ("Illegal extendedkickmem lput at %08lx\n", addr);
 }
 
+/****i* januae-memory/extendedkickmem_wput **********************************
+*
+*   NAME
+*       extendedkickmem_wput() -- Write word to Extended Kickstart.
+*
+*   SYNOPSIS
+*       void REGPARAM2 extendedkickmem_wput (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Ignore a word write to the extended Kickstart ROM bank.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       b - Byte value or range length, according to the signature.
+*
+*   NOTES
+*       May report an illegal-memory write and mark the access special for JIT;
+*       no ROM bytes are modified.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 extendedkickmem_wput (uaecptr addr, uae_u32 b)
 {
 #ifdef JIT
@@ -871,6 +2447,29 @@ void REGPARAM2 extendedkickmem_wput (uaecptr addr, uae_u32 b)
     if (currprefs.illegal_mem)
 	write_log ("Illegal extendedkickmem wput at %08lx\n", addr);
 }
+
+/****i* januae-memory/extendedkickmem_bput **********************************
+*
+*   NAME
+*       extendedkickmem_bput() -- Write byte to Extended Kickstart.
+*
+*   SYNOPSIS
+*       void REGPARAM2 extendedkickmem_bput (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Ignore a byte write to the extended Kickstart ROM bank.
+*
+*   INPUTS
+*       addr - Guest address to access.
+*       b - Byte value supplied by the guest.
+*
+*   NOTES
+*       May report an illegal-memory write and mark the access special for JIT;
+*       no ROM bytes are modified.
+*
+****************************************************************************
+*
+*/
 
 void REGPARAM2 extendedkickmem_bput (uaecptr addr, uae_u32 b)
 {
@@ -881,12 +2480,64 @@ void REGPARAM2 extendedkickmem_bput (uaecptr addr, uae_u32 b)
 	write_log ("Illegal extendedkickmem lput at %08lx\n", addr);
 }
 
+/****i* januae-memory/extendedkickmem_check *********************************
+*
+*   NAME
+*       extendedkickmem_check() -- Check Extended Kickstart address span.
+*
+*   SYNOPSIS
+*       int REGPARAM2 extendedkickmem_check (uaecptr addr, uae_u32 size);
+*
+*   FUNCTION
+*       Mask the guest address into the Extended Kickstart bank and compare the
+*       requested span against extendedkickmem_size.
+*
+*   INPUTS
+*       addr - First guest address of the checked range.
+*       size - Number of guest bytes in the range.
+*
+*   RESULT
+*       Nonzero when the masked address plus the requested length does not
+*       exceed the configured bank size; otherwise zero.
+*
+*   NOTES
+*       The addition is performed without an independent overflow check.
+*
+****************************************************************************
+*
+*/
+
 int REGPARAM2 extendedkickmem_check (uaecptr addr, uae_u32 size)
 {
     addr -= extendedkickmem_start & extendedkickmem_mask;
     addr &= extendedkickmem_mask;
     return (addr + size) <= extendedkickmem_size;
 }
+
+/****i* januae-memory/extendedkickmem_xlate *********************************
+*
+*   NAME
+*       extendedkickmem_xlate() -- Translate a Extended Kickstart address.
+*
+*   SYNOPSIS
+*       uae_u8 REGPARAM2 *extendedkickmem_xlate (uaecptr addr);
+*
+*   FUNCTION
+*       Convert the masked guest address into a pointer into the Extended
+*       Kickstart backing memory.
+*
+*   INPUTS
+*       addr - Guest address to translate into backing memory.
+*
+*   RESULT
+*       Direct host pointer at the translated offset.
+*
+*   NOTES
+*       No bounds check is performed; the backing allocation must exist.
+*
+****************************************************************************
+*
+*/
 
 uae_u8 REGPARAM2 *extendedkickmem_xlate (uaecptr addr)
 {
@@ -899,12 +2550,61 @@ uae_u8 REGPARAM2 *extendedkickmem_xlate (uaecptr addr)
 
 /* Default memory access functions */
 
+/****i* januae-memory/default_check *****************************************
+*
+*   NAME
+*       default_check() -- Reject direct-range checking of an unsupported bank.
+*
+*   SYNOPSIS
+*       int REGPARAM2 default_check (uaecptr a, uae_u32 b);
+*
+*   FUNCTION
+*       Provide a non-validating default range-check callback.
+*
+*   INPUTS
+*       a - Guest address.
+*       b - Byte value or range length, according to the signature.
+*
+*   RESULT
+*       Always zero.
+*
+****************************************************************************
+*
+*/
+
 int REGPARAM2 default_check (uaecptr a, uae_u32 b)
 {
     return 0;
 }
 
 static int be_cnt;
+
+/****i* januae-memory/default_xlate *****************************************
+*
+*   NAME
+*       default_xlate() -- Diagnose unsupported direct-memory translation.
+*
+*   SYNOPSIS
+*       uae_u8 REGPARAM2 *default_xlate (uaecptr a);
+*
+*   FUNCTION
+*       Report a direct pointer translation request from an unsupported bank
+*       while the emulator runs, record CPU panic state or request reset as
+*       configured, then supply a non-null ROM-backed fallback pointer.
+*
+*   INPUTS
+*       a - Guest address.
+*
+*   RESULT
+*       Host pointer returned by kickmem_xlate(0).
+*
+*   NOTES
+*       Diagnostics are suppressed in compatible 68000 mode; repeated requests
+*       can request emulator reset rather than a debugger break.
+*
+****************************************************************************
+*
+*/
 
 uae_u8 REGPARAM2 *default_xlate (uaecptr a)
 {
@@ -1007,6 +2707,35 @@ addrbank extendedkickmem_bank = {
 };
 #endif
 
+/****i* januae-memory/decode_cloanto_rom ************************************
+*
+*   NAME
+*       decode_cloanto_rom() -- Decrypt a Cloanto-format Kickstart ROM.
+*
+*   SYNOPSIS
+*       static int decode_cloanto_rom (uae_u8 *mem, int size, int real_size);
+*
+*   FUNCTION
+*       Open the configured ROM key file and XOR each ROM byte with a repeating
+*       key, restarting the key sequence at the original ROM image boundary when
+*       appropriate.
+*
+*   INPUTS
+*       mem - Writable ROM image buffer.
+*       size - ROM buffer length in bytes.
+*       real_size - Original image size used to restart the key sequence.
+*
+*   RESULT
+*       One on completion, zero if the key file is missing or contains no bytes.
+*
+*   NOTES
+*       The no-key-data error path does not close the opened file or release the
+*       allocated key buffer.
+*
+****************************************************************************
+*
+*/
+
 static int decode_cloanto_rom (uae_u8 *mem, int size, int real_size)
 {
     struct zfile *keyf;
@@ -1052,6 +2781,32 @@ static int decode_cloanto_rom (uae_u8 *mem, int size, int real_size)
     return 1;
 }
 
+/****i* januae-memory/kickstart_checksum ************************************
+*
+*   NAME
+*       kickstart_checksum() -- Verify a Kickstart ROM checksum.
+*
+*   SYNOPSIS
+*       static int kickstart_checksum (uae_u8 *mem, int size);
+*
+*   FUNCTION
+*       Sum the ROM image as big-endian longwords with end-around carry and
+*       compare against the expected all-ones checksum.
+*
+*   INPUTS
+*       mem - Writable ROM image buffer.
+*       size - ROM buffer length in bytes.
+*
+*   RESULT
+*       Nonzero if accepted, zero if a checksum mismatch is rejected.
+*
+*   NOTES
+*       In SINGLEFILE builds, the checksum mismatch is not rejected.
+*
+****************************************************************************
+*
+*/
+
 static int kickstart_checksum (uae_u8 *mem, int size)
 {
     uae_u32 cksum = 0, prevck = 0;
@@ -1071,6 +2826,39 @@ static int kickstart_checksum (uae_u8 *mem, int size)
 #endif
     return 1;
 }
+
+/****i* januae-memory/read_kickstart ****************************************
+*
+*   NAME
+*       read_kickstart() -- Read and decode a Kickstart ROM image.
+*
+*   SYNOPSIS
+*       static int read_kickstart (struct zfile *f, uae_u8 *mem, int size, int
+*       dochecksum, int *cloanto_rom);
+*
+*   FUNCTION
+*       Read a Kickstart image from an already-open zfile, detect Cloanto
+*       encryption, duplicate a half-size image when needed, activate Amiga 1000
+*       boot mode for bootstrap ROMs, and optionally verify its checksum.
+*
+*   INPUTS
+*       f - Opened ROM image stream; ownership transfers to read_kickstart().
+*       mem - Writable ROM image buffer.
+*       size - ROM buffer length in bytes.
+*       dochecksum - Nonzero to require a matching Kickstart checksum.
+*       cloanto_rom - Optional pointer receiving the Cloanto encryption flag.
+*
+*   RESULT
+*       Number of ROM bytes accepted, or zero on failure.
+*
+*   NOTES
+*       Closes the supplied zfile. The optional cloanto_rom output receives
+*       whether the Cloanto header was present. Failed reads or checksum checks
+*       may already have modified the destination.
+*
+****************************************************************************
+*
+*/
 
 static int read_kickstart (struct zfile *f, uae_u8 *mem, int size, int dochecksum, int *cloanto_rom)
 {
@@ -1119,6 +2907,31 @@ static int read_kickstart (struct zfile *f, uae_u8 *mem, int size, int dochecksu
 
 
 #if defined CDTV || defined CD32 || defined(__AROS__)
+/****i* januae-memory/load_extendedkickstart ********************************
+*
+*   NAME
+*       load_extendedkickstart() -- Load an optional extended Kickstart image.
+*
+*   SYNOPSIS
+*       static int load_extendedkickstart (void);
+*
+*   FUNCTION
+*       Open the configured CDTV or CD32 extended-ROM file, choose a 256 KiB or
+*       512 KiB backing allocation from file length, read its contents and
+*       initialize the bank mask.
+*
+*   RESULT
+*       One after opening and processing the image; zero if no file was
+*       specified or opening failed.
+*
+*   NOTES
+*       The return from read_kickstart() is not used to determine success.
+*       Available with CDTV, CD32 or __AROS__.
+*
+****************************************************************************
+*
+*/
+
 static int load_extendedkickstart (void)
 {
     struct zfile *f;
@@ -1155,6 +2968,31 @@ static int load_extendedkickstart (void)
 }
 #endif
 
+/****i* januae-memory/kickstart_fix_checksum ********************************
+*
+*   NAME
+*       kickstart_fix_checksum() -- Recompute the writable Kickstart image
+*       checksum.
+*
+*   SYNOPSIS
+*       static void kickstart_fix_checksum (uae_u8 *mem, int size);
+*
+*   FUNCTION
+*       Zero the checksum longword and store the end-around-carry complement
+*       over all ROM longwords at the size-dependent checksum offset.
+*
+*   INPUTS
+*       mem - Writable ROM image buffer.
+*       size - ROM buffer length in bytes.
+*
+*   NOTES
+*       Operates in place; assumes the buffer holds a Kickstart image of the
+*       supplied size.
+*
+****************************************************************************
+*
+*/
+
 static void kickstart_fix_checksum (uae_u8 *mem, int size)
 {
     uae_u32 cksum = 0, prevck = 0;
@@ -1177,6 +3015,30 @@ static void kickstart_fix_checksum (uae_u8 *mem, int size)
     mem[ch++] = cksum >> 8;
     mem[ch++] = cksum >> 0;
 }
+
+/****i* januae-memory/load_kickstart ****************************************
+*
+*   NAME
+*       load_kickstart() -- Load the selected primary Kickstart ROM.
+*
+*   SYNOPSIS
+*       static int load_kickstart (void);
+*
+*   FUNCTION
+*       Read the configured Kickstart file, set its address mask, optionally
+*       perform KickShift replacements and update the emulated Kickstart
+*       version.
+*
+*   RESULT
+*       One if the image is accepted; zero if loading fails.
+*
+*   NOTES
+*       In native m68k AmigaOS builds an existing host ROM can be copied when no
+*       file was opened; otherwise a missing file is an error.
+*
+****************************************************************************
+*
+*/
 
 static int load_kickstart (void)
 {
@@ -1236,10 +3098,57 @@ static int load_kickstart (void)
 
 #ifndef NATMEM_OFFSET
 
+/****i* januae-memory/mapped_malloc_ordinary ********************************
+*
+*   NAME
+*       mapped_malloc() -- Allocate ordinary host memory for an emulated bank.
+*
+*   SYNOPSIS
+*       uae_u8 *mapped_malloc (size_t s, const char *file);
+*
+*   FUNCTION
+*       Allocate the requested number of host bytes using malloc().
+*
+*   INPUTS
+*       s - Requested allocation size in host bytes.
+*       file - Allocation label for the host memory subsystem.
+*
+*   RESULT
+*       Allocated host pointer, or null if allocation fails.
+*
+*   NOTES
+*       This implementation is selected when NATMEM_OFFSET is undefined; the
+*       file label is ignored.
+*
+****************************************************************************
+*
+*/
+
 uae_u8 *mapped_malloc (size_t s, const char *file)
 {
     return malloc (s);
 }
+
+/****i* januae-memory/mapped_free_ordinary **********************************
+*
+*   NAME
+*       mapped_free() -- Release ordinary emulated bank storage.
+*
+*   SYNOPSIS
+*       void mapped_free (uae_u8 *p);
+*
+*   FUNCTION
+*       Pass the supplied host pointer to free().
+*
+*   INPUTS
+*       p - Host pointer to release.
+*
+*   NOTES
+*       This implementation is selected when NATMEM_OFFSET is undefined.
+*
+****************************************************************************
+*
+*/
 
 void mapped_free (uae_u8 *p)
 {
@@ -1254,6 +3163,25 @@ void mapped_free (uae_u8 *p)
 #include <sys/mman.h>
 
 shmpiece *shm_start;
+
+/****i* januae-memory/dumplist **********************************************
+*
+*   NAME
+*       dumplist() -- Log remappable shared-memory entries.
+*
+*   SYNOPSIS
+*       static void dumplist(void);
+*
+*   FUNCTION
+*       Enumerate the tracked shared-memory mappings and print each host
+*       attachment address, segment identifier, links and size.
+*
+*   NOTES
+*       Compiled only with NATMEM_OFFSET.
+*
+****************************************************************************
+*
+*/
 
 static void dumplist(void)
 {
@@ -1276,6 +3204,32 @@ static void dumplist(void)
  * If nothing is mapped at <base> then, direct memory access will
  * be disabled for the VM and 0 will be returned.
  */
+/****i* januae-memory/find_shmpiece *****************************************
+*
+*   NAME
+*       find_shmpiece() -- Find the shared-memory mapping at a host address.
+*
+*   SYNOPSIS
+*       static shmpiece *find_shmpiece (uae_u8 *base);
+*
+*   FUNCTION
+*       Traverse the shared-memory mapping list for an entry whose native
+*       address equals the supplied pointer.
+*
+*   INPUTS
+*       base - Host address of the mapping or allocation.
+*
+*   RESULT
+*       Matching mapping record, or null when absent.
+*
+*   NOTES
+*       Failure disables direct native-memory access by clearing canbang.
+*       Available only with NATMEM_OFFSET.
+*
+****************************************************************************
+*
+*/
+
 static shmpiece *find_shmpiece (uae_u8 *base)
 {
     shmpiece *x = shm_start;
@@ -1299,6 +3253,30 @@ static shmpiece *find_shmpiece (uae_u8 *base)
  * Any anomalies found when processing this range, will cause direct
  * memory access to be disabled in the VM.
  */
+/****i* januae-memory/delete_shmmaps ****************************************
+*
+*   NAME
+*       delete_shmmaps() -- Detach direct-native mappings over a guest range.
+*
+*   SYNOPSIS
+*       static void delete_shmmaps (uae_u32 start, uae_u32 size);
+*
+*   FUNCTION
+*       Walk the emulated address range and detach the corresponding host
+*       shared-memory attachments, removing their records from the mapping list.
+*
+*   INPUTS
+*       start - Guest address of the first mapped region.
+*       size - Byte length of the guest range to detach.
+*
+*   NOTES
+*       A missing or oversized mapping disables direct access and stops the
+*       operation. Available only with NATMEM_OFFSET.
+*
+****************************************************************************
+*
+*/
+
 static void delete_shmmaps (uae_u32 start, uae_u32 size)
 {
     if (!canbang)
@@ -1345,6 +3323,31 @@ static void delete_shmmaps (uae_u32 start, uae_u32 size)
  * memory so that it can be accessed by the VM using direct memory
  * access at the VM address <start>.
  */
+/****i* januae-memory/add_shmmaps *******************************************
+*
+*   NAME
+*       add_shmmaps() -- Attach shared memory for a directly mapped bank.
+*
+*   SYNOPSIS
+*       static void add_shmmaps (uae_u32 start, addrbank *what);
+*
+*   FUNCTION
+*       Map the existing shared-memory segment for a bank at NATMEM_OFFSET plus
+*       the supplied guest address and link the attachment into the mapping
+*       list.
+*
+*   INPUTS
+*       start - Guest address of the first mapped region.
+*       what - Address-bank descriptor to map.
+*
+*   NOTES
+*       Requires NATMEM_OFFSET and enabled direct access. A failed shmat()
+*       disables direct mapping; the allocation of its list node is not checked.
+*
+****************************************************************************
+*
+*/
+
 static void add_shmmaps (uae_u32 start, addrbank *what)
 {
     shmpiece *x = shm_start;
@@ -1391,6 +3394,36 @@ static void add_shmmaps (uae_u32 start, addrbank *what)
  * direct memory access will be disabled and memory allocated via
  * malloc().
  */
+/****i* januae-memory/mapped_malloc_native **********************************
+*
+*   NAME
+*       mapped_malloc() -- Allocate remappable shared memory for an emulated
+*       bank.
+*
+*   SYNOPSIS
+*       uae_u8 *mapped_malloc (size_t s, const char *file);
+*
+*   FUNCTION
+*       Allocate a private shared-memory segment and attach it at a host
+*       address, tracking the segment so it can later be remapped into the
+*       native 68k address region.
+*
+*   INPUTS
+*       s - Requested allocation size in host bytes.
+*       file - Allocation label for the host memory subsystem.
+*
+*   RESULT
+*       Host pointer to attached storage, or the fallback malloc() result.
+*
+*   NOTES
+*       Available under NATMEM_OFFSET. If shared-memory setup fails, disables
+*       direct access and retries with ordinary malloc(); failed mapping-record
+*       allocation is not checked.
+*
+****************************************************************************
+*
+*/
+
 uae_u8 *mapped_malloc (size_t s, const char *file)
 {
     int id;
@@ -1435,6 +3468,29 @@ uae_u8 *mapped_malloc (size_t s, const char *file)
 }
 
 #ifndef WIN32
+/****i* januae-memory/mapped_free_native ************************************
+*
+*   NAME
+*       mapped_free() -- Detach and release remappable emulated memory.
+*
+*   SYNOPSIS
+*       void mapped_free (uae_u8 *base);
+*
+*   FUNCTION
+*       Find the allocation in the shared-memory mapping list and detach it, or
+*       free an ordinary allocation when no mapping is registered.
+*
+*   INPUTS
+*       base - Host address of the mapping or allocation.
+*
+*   NOTES
+*       Available with NATMEM_OFFSET and without WIN32. Disables direct access
+*       if the registered mapping is not found.
+*
+****************************************************************************
+*
+*/
+
 void mapped_free (uae_u8 *base)
 {
     shmpiece *x;
@@ -1457,6 +3513,22 @@ void mapped_free (uae_u8 *base)
 #endif
 #endif
 
+/****i* januae-memory/init_mem_banks ****************************************
+*
+*   NAME
+*       init_mem_banks() -- Reset every emulated memory bank to the dummy bank.
+*
+*   SYNOPSIS
+*       static void init_mem_banks (void);
+*
+*   FUNCTION
+*       Replace all entries in the guest memory bank table with the unmapped
+*       default bank.
+*
+****************************************************************************
+*
+*/
+
 static void init_mem_banks (void)
 {
     int i;
@@ -1468,11 +3540,48 @@ static void init_mem_banks (void)
 //#endif
 }
 
+/****i* januae-memory/clearexec *********************************************
+*
+*   NAME
+*       clearexec() -- Invalidate the emulated ExecBase pointer.
+*
+*   SYNOPSIS
+*       void clearexec (void);
+*
+*   FUNCTION
+*       Clear the four-byte guest memory location at Chip RAM offset four when
+*       Chip RAM is allocated.
+*
+****************************************************************************
+*
+*/
+
 void clearexec (void)
 {
     if (chipmemory)
 	memset (chipmemory + 4, 0,  4);
 }
+
+/****i* januae-memory/allocate_memory ***************************************
+*
+*   NAME
+*       allocate_memory() -- Match guest RAM allocations to current preferences.
+*
+*   SYNOPSIS
+*       static void allocate_memory (void);
+*
+*   FUNCTION
+*       Reallocate Chip, Bogo and optional A3000 motherboard RAM when the
+*       configured sizes change, update masks and backing-bank pointers, and
+*       restore saved RAM when requested.
+*
+*   NOTES
+*       Allocation failures are logged; failed banks can remain without backing
+*       storage. This routine does not report failure to its caller.
+*
+****************************************************************************
+*
+*/
 
 static void allocate_memory (void)
 {
@@ -1542,6 +3651,26 @@ static void allocate_memory (void)
     bogomem_bank.baseaddr = bogomemory;
 }
 
+/****i* januae-memory/map_overlay *******************************************
+*
+*   NAME
+*       map_overlay() -- Select RAM or ROM at guest address zero.
+*
+*   SYNOPSIS
+*       void map_overlay (int chip);
+*
+*   FUNCTION
+*       Map Chip RAM (optionally the cycle-exact bank) or the primary Kickstart
+*       ROM over the low guest-memory address range. When appropriate, refresh
+*       the CPU program counter after mapping.
+*
+*   INPUTS
+*       chip - Nonzero to expose Chip RAM, zero to expose Kickstart ROM.
+*
+****************************************************************************
+*
+*/
+
 void map_overlay (int chip)
 {
     int i = allocated_chipmem > 0x200000 ? (allocated_chipmem >> 16) : 32;
@@ -1559,6 +3688,28 @@ void map_overlay (int chip)
     if (savestate_state != STATE_RESTORE && savestate_state != STATE_REWIND)
         m68k_setpc (&regs, m68k_getpc (&regs));
 }
+
+/****i* januae-memory/memory_reset ******************************************
+*
+*   NAME
+*       memory_reset() -- Rebuild the emulated memory map.
+*
+*   SYNOPSIS
+*       void memory_reset (void);
+*
+*   FUNCTION
+*       Synchronize memory preferences, initialize backing RAM, load or
+*       synthesize Kickstart ROMs as needed, and map chipset, CIA, clock,
+*       expansion, cartridge and optional CD32/CDTV banks.
+*
+*   NOTES
+*       If primary ROM loading fails, requests an emulator restart and returns
+*       without completing the remaining mappings. Mappings and optional
+*       features depend on build flags and preferences.
+*
+****************************************************************************
+*
+*/
 
 void memory_reset (void)
 {
@@ -1712,6 +3863,27 @@ void memory_reset (void)
 #endif
 }
 
+/****i* januae-memory/memory_init *******************************************
+*
+*   NAME
+*       memory_init() -- Initialize the emulator memory subsystem.
+*
+*   SYNOPSIS
+*       void memory_init (void);
+*
+*   FUNCTION
+*       Initialize allocation state, allocate and clear Kickstart backing
+*       storage, initialize fallback ROM and optional cartridge support, and
+*       install the initial dummy-bank map.
+*
+*   NOTES
+*       The code does not check the Kickstart backing allocation before clearing
+*       it.
+*
+****************************************************************************
+*
+*/
+
 void memory_init (void)
 {
     allocated_chipmem = 0;
@@ -1747,6 +3919,27 @@ void memory_init (void)
 
     init_mem_banks ();
 }
+
+/****i* januae-memory/memory_cleanup ****************************************
+*
+*   NAME
+*       memory_cleanup() -- Release guest-memory allocations and support state.
+*
+*   SYNOPSIS
+*       void memory_cleanup (void);
+*
+*   FUNCTION
+*       Detach optional native mappings, free Chip, Bogo, Kickstart and optional
+*       A3000 memory, clear allocation state, and release cartridge and
+*       runtime-area storage.
+*
+*   NOTES
+*       The extended Kickstart backing allocation is not explicitly freed by
+*       this routine.
+*
+****************************************************************************
+*
+*/
 
 void memory_cleanup (void)
 {
@@ -1786,6 +3979,35 @@ void memory_cleanup (void)
 	mapped_free (rtarea);
     rtarea = 0;
 }
+
+/****i* januae-memory/map_banks *********************************************
+*
+*   NAME
+*       map_banks() -- Install an emulated address-bank mapping.
+*
+*   SYNOPSIS
+*       void map_banks (addrbank *bank, int start, int size, int realsize);
+*
+*   FUNCTION
+*       Map a bank into consecutive 64 KiB guest memory slots, repeating the
+*       real allocation size as needed and mirroring the mapping across 24-bit
+*       address-space aliases.
+*
+*   INPUTS
+*       bank - Bank descriptor to install.
+*       start - Starting 64 KiB guest bank index.
+*       size - Number of 64 KiB guest banks to map.
+*       realsize - Backing allocation size in bytes; zero uses the mapped-range
+*       size.
+*
+*   NOTES
+*       Invalid mappings in which the requested range is smaller than real
+*       allocation size terminate the process with abort(). Updates invalidate
+*       translated code-cache mappings.
+*
+****************************************************************************
+*
+*/
 
 void map_banks (addrbank *bank, int start, int size, int realsize)
 {
@@ -1852,11 +4074,61 @@ void map_banks (addrbank *bank, int start, int size, int realsize)
 
 /* memory save/restore code */
 
+/****i* januae-memory/save_cram *********************************************
+*
+*   NAME
+*       save_cram() -- Expose Chip RAM for SaveState serialization.
+*
+*   SYNOPSIS
+*       uae_u8 *save_cram (uae_u32 *len);
+*
+*   FUNCTION
+*       Return the current Chip RAM backing pointer and its configured byte
+*       count.
+*
+*   INPUTS
+*       len - Output pointer for serialized or backing-memory length.
+*
+*   RESULT
+*       Pointer to Chip RAM backing storage.
+*
+*   NOTES
+*       Under SAVESTATE. The returned pointer is not a new allocation.
+*
+****************************************************************************
+*
+*/
+
 uae_u8 *save_cram (uae_u32 *len)
 {
     *len = allocated_chipmem;
     return chipmemory;
 }
+
+/****i* januae-memory/save_bram *********************************************
+*
+*   NAME
+*       save_bram() -- Expose Bogo RAM for SaveState serialization.
+*
+*   SYNOPSIS
+*       uae_u8 *save_bram (uae_u32 *len);
+*
+*   FUNCTION
+*       Return the current Bogo RAM backing pointer and its configured byte
+*       count.
+*
+*   INPUTS
+*       len - Output pointer for serialized or backing-memory length.
+*
+*   RESULT
+*       Pointer to Bogo RAM backing storage.
+*
+*   NOTES
+*       Under SAVESTATE. The returned pointer is not a new allocation.
+*
+****************************************************************************
+*
+*/
 
 uae_u8 *save_bram (uae_u32 *len)
 {
@@ -1864,17 +4136,89 @@ uae_u8 *save_bram (uae_u32 *len)
     return bogomemory;
 }
 
+/****i* januae-memory/restore_cram ******************************************
+*
+*   NAME
+*       restore_cram() -- Record a Chip RAM SaveState restore source.
+*
+*   SYNOPSIS
+*       void restore_cram (uae_u32 len, size_t filepos);
+*
+*   FUNCTION
+*       Remember the source file position and update the pending Chip RAM
+*       allocation size for subsequent restoration.
+*
+*   INPUTS
+*       len - Saved size of guest RAM in bytes.
+*       filepos - Byte position of saved RAM contents in the SaveState stream.
+*
+*   NOTES
+*       Under SAVESTATE. The function does not copy RAM data immediately.
+*
+****************************************************************************
+*
+*/
+
 void restore_cram (uae_u32 len, size_t filepos)
 {
     chip_filepos = filepos;
     changed_prefs.chipmem_size = len;
 }
 
+/****i* januae-memory/restore_bram ******************************************
+*
+*   NAME
+*       restore_bram() -- Record a Bogo RAM SaveState restore source.
+*
+*   SYNOPSIS
+*       void restore_bram (uae_u32 len, size_t filepos);
+*
+*   FUNCTION
+*       Remember the source file position and update the pending Bogo RAM
+*       allocation size for subsequent restoration.
+*
+*   INPUTS
+*       len - Saved size of guest RAM in bytes.
+*       filepos - Byte position of saved RAM contents in the SaveState stream.
+*
+*   NOTES
+*       Under SAVESTATE. The function does not copy RAM data immediately.
+*
+****************************************************************************
+*
+*/
+
 void restore_bram (uae_u32 len, size_t filepos)
 {
     bogo_filepos = filepos;
     changed_prefs.bogomem_size = len;
 }
+
+/****i* januae-memory/restore_rom *******************************************
+*
+*   NAME
+*       restore_rom() -- Read saved Kickstart metadata and ROM pathname.
+*
+*   SYNOPSIS
+*       const uae_u8 *restore_rom (const uae_u8 *src);
+*
+*   FUNCTION
+*       Consume the ROM metadata fields from SaveState input and update the
+*       pending ROM-file preference if the named image exists.
+*
+*   INPUTS
+*       src - Pointer to serialized ROM metadata.
+*
+*   RESULT
+*       Pointer advanced past the consumed saved ROM filename fields.
+*
+*   NOTES
+*       Under SAVESTATE. The metadata reads use the existing restore_u32()
+*       stream state rather than the src pointer.
+*
+****************************************************************************
+*
+*/
 
 const uae_u8 *restore_rom (const uae_u8 *src)
 {
@@ -1891,6 +4235,36 @@ const uae_u8 *restore_rom (const uae_u8 *src)
     }
     return src;
 }
+
+/****i* januae-memory/save_rom **********************************************
+*
+*   NAME
+*       save_rom() -- Serialize primary Kickstart metadata and pathname.
+*
+*   SYNOPSIS
+*       uae_u8 *save_rom (int first, uae_u32 *len, uae_u8 *dstptr);
+*
+*   FUNCTION
+*       Describe the primary Kickstart ROM by mapped address, effective size,
+*       type, version, CRC, human-readable label and configured ROM pathname.
+*
+*   INPUTS
+*       first - Nonzero to reset the ROM enumeration to its first entry.
+*       len - Output pointer for serialized or backing-memory length.
+*       dstptr - Optional caller-supplied output buffer.
+*
+*   RESULT
+*       Destination buffer pointer, or null after the supported ROM entry has
+*       already been emitted.
+*
+*   NOTES
+*       Under SAVESTATE. A caller-provided destination must be sufficiently
+*       large; the routine sets len to the bytes written and does not include
+*       ROM contents in the current implementation.
+*
+****************************************************************************
+*
+*/
 
 uae_u8 *save_rom (int first, uae_u32 *len, uae_u8 *dstptr)
 {
