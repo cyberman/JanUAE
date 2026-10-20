@@ -288,17 +288,8 @@ case $host_cpu in
        HOST_CPU=i386
        MDFPP_H=fpp-ieee.h       
        ;;
-     amd64 | x86_64)
-       HOST_CPU=amd64
-       MDFPP_H=fpp-ieee.h       
-       ;;
-     powerpc)
-       HOST_CPU=ppc
-       MDFPP_H=fpp-ieee.h
-       ;;
-     m68k)
-       HOST_CPU=68k
-       MDFPP_H=fpp-ieee.h
+     *)
+       AC_MSG_ERROR([JanUAE requires an i386 AROS host target])
        ;;
 esac
 
@@ -352,9 +343,9 @@ else
 fi
 
 if test $ac_cv_prog_gcc = yes; then
-  if [[ "$HOST_CPU" = i386 -o "$HOST_CPU" = ppc -o "$HOST_CPU" = amd64 ]]; then
-    MACHDEP="$MACHDEP-gcc"
-  fi
+  MACHDEP="$MACHDEP-gcc"
+else
+  AC_MSG_ERROR([JanUAE/pc-i386 requires GCC for its host machine backend])
 fi
 
 dnl
@@ -642,12 +633,8 @@ if [[ "x$HAVE_GCC27" = "xyes" -a "$HOST_CPU" = "i386" -a "x$DO_PROFILING" = "xno
   dnl many registers, which all end up on the stack).
   UAE_CFLAGS="$UAE_CFLAGS -fno-strength-reduce -DREGPARAM=\"__attribute__((regparm(3)))\""
   UAE_DEFINES="$UAE_DEFINES -DUNALIGNED_PROFITABLE"
-else if [[ "x$HAVE_GCC27" = "xyes" -a "$HOST_CPU" = "68k" ]]; then
-  UAE_CFLAGS="$UAE_CFLAGS -DREGPARAM=\"__attribute__((regparm(4)))\""
-  UAE_DEFINES="$UAE_DEFINES -DUNALIGNED_PROFITABLE -DM68K_FLAG_OPT=1 -DSTATIC_INLINE=\"static inline\""
 else
   UAE_CFLAGS="$UAE_CFLAGS -DREGPARAM="
-fi
 fi
 
 
@@ -655,7 +642,7 @@ dnl
 dnl  Check whether to build with optimized CCR flags handling
 dnl
 if [[ "x$HAVE_GCC27" = "xyes" ]]; then
-  if [[ "$HOST_CPU" = "i386" -o "$HOST_CPU" = "ppc" -o "$HOST_CPU" = "68k" ]]; then
+  if [[ "$HOST_CPU" = "i386" ]]; then
     GENCPUOPTS="--optimized-flags"
   fi
 fi
@@ -1183,10 +1170,6 @@ AC_CONFIG_FILES([Makefile
 		 src/caps/Makefile
 		 src/md-generic/Makefile
 		 src/md-i386-gcc/Makefile
-		 src/md-ppc-gcc/Makefile
-		 src/md-ppc/Makefile
-		 src/md-68k/Makefile
-		 src/md-amd64-gcc/Makefile
 		 src/od-generic/Makefile
 		 src/od-amiga/Makefile
 		 src/td-none/Makefile

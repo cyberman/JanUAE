@@ -8,7 +8,7 @@ SUBDIRS = \
 	@OSDEP@ keymap dms caps
 
 DIST_SUBDIRS = \
-	md-generic md-68k md-i386-gcc md-ppc md-ppc-gcc md-amd64-gcc \
+	md-generic md-i386-gcc \
 	gfx-amigaos gfx-sdl \
 	sd-none sd-amigaos sd-sdl \
 	jd-none jd-amigainput jd-amigaos jd-sdl \
