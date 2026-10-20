@@ -227,6 +227,28 @@ static prefs_attr_t prefs_attr_table[] = {
     {0,                        0, 0, 0}
 };
 
+/****i* januae-config/lookup_attr
+*
+*   NAME
+*       lookup_attr() -- Find a registered preference attribute.
+*
+*   SYNOPSIS
+*       static prefs_attr_t *lookup_attr (const char *key);
+*
+*   FUNCTION
+*       Search the static preference-attribute table by exact key and return its
+*       entry.
+*
+*   INPUTS
+*       key - Registered attribute or option key.
+*
+*   RESULT
+*       Pointer to the matching mutable entry, or NULL if absent.
+*
+***************************************************************************
+*
+*/
+
 static prefs_attr_t *lookup_attr (const char *key)
 {
     prefs_attr_t *attr = &prefs_attr_table[0];
@@ -238,6 +260,22 @@ static prefs_attr_t *lookup_attr (const char *key)
     }
     return 0;
 }
+
+/****i* januae-config/prefs_dump_help
+*
+*   NAME
+*       prefs_dump_help() -- List registered preference attributes.
+*
+*   SYNOPSIS
+*       static void prefs_dump_help (void);
+*
+*   FUNCTION
+*       Write help text for every preference attribute to the emulator log,
+*       prefixing target-specific entries with the target name.
+*
+***************************************************************************
+*
+*/
 
 static void prefs_dump_help (void)
 {
@@ -254,6 +292,27 @@ static void prefs_dump_help (void)
     }
 }
 
+/****i* januae-config/prefs_set_attr
+*
+*   NAME
+*       prefs_set_attr() -- Replace a registered preference value.
+*
+*   SYNOPSIS
+*       void prefs_set_attr (const char *key, const char *value);
+*
+*   FUNCTION
+*       Store the supplied value pointer in a matching attribute, freeing its
+*       previous non-NULL value. Unknown keys are ignored. The caller transfers
+*       ownership of the supplied pointer.
+*
+*   INPUTS
+*       key - Registered attribute or option key.
+*       value - Option text or attribute value, as applicable.
+*
+***************************************************************************
+*
+*/
+
 void prefs_set_attr (const char *key, const char *value)
 {
     prefs_attr_t *attr = lookup_attr (key);
@@ -264,6 +323,28 @@ void prefs_set_attr (const char *key, const char *value)
         attr->value = value;
     }
 }
+
+/****i* januae-config/prefs_get_attr
+*
+*   NAME
+*       prefs_get_attr() -- Read a registered preference value.
+*
+*   SYNOPSIS
+*       const char *prefs_get_attr (const char *key);
+*
+*   FUNCTION
+*       Find the matching attribute and return its stored value without copying
+*       it.
+*
+*   INPUTS
+*       key - Registered attribute or option key.
+*
+*   RESULT
+*       Stored value pointer, or NULL for an unknown key or unset value.
+*
+***************************************************************************
+*
+*/
 
 const char *prefs_get_attr (const char *key)
 {
@@ -277,6 +358,29 @@ const char *prefs_get_attr (const char *key)
 
 
 
+/****i* januae-config/match_string
+*
+*   NAME
+*       match_string() -- Find an enumerated option.
+*
+*   SYNOPSIS
+*       static int match_string (const char *table[], const char *str);
+*
+*   FUNCTION
+*       Compare the supplied text case-insensitively against a NULL-terminated
+*       table.
+*
+*   INPUTS
+*       table - NULL-terminated array of recognized strings.
+*       str - Text to locate.
+*
+*   RESULT
+*       Zero-based table index, or -1 if no entry matches.
+*
+***************************************************************************
+*
+*/
+
 static int match_string (const char *table[], const char *str)
 {
     int i;
@@ -285,6 +389,31 @@ static int match_string (const char *table[], const char *str)
             return i;
     return -1;
 }
+
+/****i* januae-config/cfgfile_subst_path
+*
+*   NAME
+*       cfgfile_subst_path() -- Substitute a leading path prefix.
+*
+*   SYNOPSIS
+*       char *cfgfile_subst_path (const char *path, const char *subst, const
+*       char *file);
+*
+*   FUNCTION
+*       Replace a matching literal filename prefix with another path,
+*       normalizing the join separator; otherwise duplicate the filename.
+*
+*   INPUTS
+*       path - Path prefix or mutable directory buffer, as applicable.
+*       subst - Replacement directory prefix.
+*       file - Filename whose prefix may be replaced.
+*
+*   RESULT
+*       Allocated string which the caller must free.
+*
+***************************************************************************
+*
+*/
 
 char *cfgfile_subst_path (const char *path, const char *subst, const char *file)
 {
@@ -306,6 +435,28 @@ char *cfgfile_subst_path (const char *path, const char *subst, const char *file)
     return my_strdup (file);
 }
 
+/****i* januae-config/subst_home
+*
+*   NAME
+*       subst_home() -- Expand a home-directory prefix in place.
+*
+*   SYNOPSIS
+*       static void subst_home (char *f, int n);
+*
+*   FUNCTION
+*       When HOME is set, expand a leading tilde path into the supplied buffer,
+*       truncating to its capacity and terminating the result. A missing HOME
+*       leaves the buffer unchanged.
+*
+*   INPUTS
+*       f - Destination configuration output stream or mutable path as
+*       applicable.
+*       n - Capacity of the mutable pathname buffer in bytes.
+*
+***************************************************************************
+*
+*/
+
 static void subst_home (char *f, int n)
 {
     const char *home = getenv ("HOME");
@@ -318,10 +469,53 @@ static void subst_home (char *f, int n)
     }
 }
 
+/****i* januae-config/cfgfile_subst_home
+*
+*   NAME
+*       cfgfile_subst_home() -- Expand a stored configuration path.
+*
+*   SYNOPSIS
+*       void cfgfile_subst_home (char *path, unsigned int maxlen);
+*
+*   FUNCTION
+*       Apply the HOME-based path substitution to the caller's mutable path
+*       buffer.
+*
+*   INPUTS
+*       path - Path prefix or mutable directory buffer, as applicable.
+*       maxlen - Destination capacity, in bytes.
+*
+***************************************************************************
+*
+*/
+
 void cfgfile_subst_home (char *path, unsigned int maxlen)
 {
     subst_home (path, maxlen);
 }
+
+/****i* januae-config/cfgfile_write
+*
+*   NAME
+*       cfgfile_write() -- Write a formatted configuration line.
+*
+*   SYNOPSIS
+*       void cfgfile_write (FILE *f, const char *format,...);
+*
+*   FUNCTION
+*       Format into a fixed CONFIG_BLEN temporary buffer and pass the result as
+*       the fprintf format string. Neither formatting bounds nor write failures
+*       are checked.
+*
+*   INPUTS
+*       f - Destination configuration output stream or mutable path as
+*       applicable.
+*       format - printf-style configuration format string.
+*       ... - Additional arguments interpreted by the format string.
+*
+***************************************************************************
+*
+*/
 
 void cfgfile_write (FILE *f, const char *format,...)
 {
@@ -333,6 +527,28 @@ void cfgfile_write (FILE *f, const char *format,...)
     fprintf (f, tmp);
     va_end (parms);
 }
+
+/****i* januae-config/cfgfile_write_path_option
+*
+*   NAME
+*       cfgfile_write_path_option() -- Write a target-specific directory setting.
+*
+*   SYNOPSIS
+*       static void cfgfile_write_path_option (FILE *f, const char *key);
+*
+*   FUNCTION
+*       Read the registered directory preference, substitute a leading HOME
+*       prefix with tilde where applicable, and write a target-prefixed
+*       key-value line.
+*
+*   INPUTS
+*       f - Destination configuration output stream or mutable path as
+*       applicable.
+*       key - Registered attribute or option key.
+*
+***************************************************************************
+*
+*/
 
 static void cfgfile_write_path_option (FILE *f, const char *key)
 {
@@ -348,6 +564,31 @@ static void cfgfile_write_path_option (FILE *f, const char *key)
     if (out_path)
         free (out_path);
 }
+
+/****i* januae-config/cfgfile_write_file_option
+*
+*   NAME
+*       cfgfile_write_file_option() -- Write a path-valued option.
+*
+*   SYNOPSIS
+*       static void cfgfile_write_file_option (FILE *f, const char *option,
+*       const char *subst_key, const char *value);
+*
+*   FUNCTION
+*       Write a key-value pair, substituting a configured base path with
+*       UNEXPANDED outside GTKMUI builds. GTKMUI writes the value without that
+*       substitution.
+*
+*   INPUTS
+*       f - Destination configuration output stream or mutable path as
+*       applicable.
+*       option - Configuration key being parsed or emitted.
+*       subst_key - Registered base-path attribute name.
+*       value - Option text or attribute value, as applicable.
+*
+***************************************************************************
+*
+*/
 
 static void cfgfile_write_file_option (FILE *f, const char *option, const char *subst_key, const char *value)
 {
@@ -365,6 +606,30 @@ static void cfgfile_write_file_option (FILE *f, const char *option, const char *
     if (out_path)
         free (out_path);
 }
+
+/****i* januae-config/save_options
+*
+*   NAME
+*       save_options() -- Serialize emulator preferences.
+*
+*   SYNOPSIS
+*       void save_options (FILE *f, const struct uae_prefs *p, int type);
+*
+*   FUNCTION
+*       Write configuration metadata, preserved unknown options and the selected
+*       hardware and host preferences to the destination stream.
+*       Feature-specific entries depend on build options.
+*
+*   INPUTS
+*       f - Destination configuration output stream or mutable path as
+*       applicable.
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       type - Configuration section mask or defaults selector.
+*
+***************************************************************************
+*
+*/
 
 void save_options (FILE *f, const struct uae_prefs *p, int type)
 {
@@ -627,6 +892,34 @@ void save_options (FILE *f, const struct uae_prefs *p, int type)
 #endif
 }
 
+/****i* januae-config/cfgfile_yesno
+*
+*   NAME
+*       cfgfile_yesno() -- Parse a Boolean configuration setting.
+*
+*   SYNOPSIS
+*       int cfgfile_yesno (const char *option, const char *value, const char
+*       *name, int *location);
+*
+*   FUNCTION
+*       Match a named key exactly and parse accepted yes/no, y/n and true/false
+*       spellings, ignoring case. Leave the destination unchanged on invalid
+*       text.
+*
+*   INPUTS
+*       option - Configuration key being parsed or emitted.
+*       value - Option text or attribute value, as applicable.
+*       name - Expected option key or guest-memory key address as applicable.
+*       location - Destination for the decoded option value.
+*
+*   RESULT
+*       0 for a different key, 1 for a recognized value, -1 for invalid Boolean
+*       text.
+*
+***************************************************************************
+*
+*/
+
 int cfgfile_yesno (const char *option, const char *value, const char *name, int *location)
 {
     if (strcmp (option, name) != 0)
@@ -643,6 +936,34 @@ int cfgfile_yesno (const char *option, const char *value, const char *name, int 
     }
     return 1;
 }
+
+/****i* januae-config/cfgfile_intval
+*
+*   NAME
+*       cfgfile_intval() -- Parse a signed integer configuration setting.
+*
+*   SYNOPSIS
+*       int cfgfile_intval (const char *option, const char *value, const char
+*       *name, int *location, int scale);
+*
+*   FUNCTION
+*       Match a named key, parse decimal or a lowercase 0x-prefixed hexadecimal
+*       value, and multiply by the requested scale. Assignment precedes
+*       trailing-text validation.
+*
+*   INPUTS
+*       option - Configuration key being parsed or emitted.
+*       value - Option text or attribute value, as applicable.
+*       name - Expected option key or guest-memory key address as applicable.
+*       location - Destination for the decoded option value.
+*       scale - Scale factor applied to a parsed integer.
+*
+*   RESULT
+*       0 for a different key, 1 for a fully parsed value, -1 for invalid text.
+*
+***************************************************************************
+*
+*/
 
 int cfgfile_intval (const char *option, const char *value, const char *name, int *location, int scale)
 {
@@ -664,6 +985,34 @@ int cfgfile_intval (const char *option, const char *value, const char *name, int
     return 1;
 }
 
+/****i* januae-config/cfgfile_uintval
+*
+*   NAME
+*       cfgfile_uintval() -- Parse an unsigned integer configuration setting.
+*
+*   SYNOPSIS
+*       int cfgfile_uintval (const char *option, const char *value, const char
+*       *name, unsigned int *location, int scale);
+*
+*   FUNCTION
+*       Match a named key, parse decimal or lowercase 0x-prefixed hexadecimal
+*       text, and multiply by scale. Assignment precedes validation of the
+*       complete value.
+*
+*   INPUTS
+*       option - Configuration key being parsed or emitted.
+*       value - Option text or attribute value, as applicable.
+*       name - Expected option key or guest-memory key address as applicable.
+*       location - Destination for the decoded option value.
+*       scale - Scale factor applied to a parsed integer.
+*
+*   RESULT
+*       0 for a different key, 1 for a fully parsed value, -1 for invalid text.
+*
+***************************************************************************
+*
+*/
+
 int cfgfile_uintval (const char *option, const char *value, const char *name, unsigned int *location, int scale)
 {
     int base = 10;
@@ -684,6 +1033,35 @@ int cfgfile_uintval (const char *option, const char *value, const char *name, un
     return 1;
 }
 
+/****i* januae-config/cfgfile_strval
+*
+*   NAME
+*       cfgfile_strval() -- Parse a named enumerated configuration setting.
+*
+*   SYNOPSIS
+*       int cfgfile_strval (const char *option, const char *value, const char
+*       *name, int *location, const char *table[], int more);
+*
+*   FUNCTION
+*       Match a key and look up its case-insensitive value in a string table.
+*       With more nonzero, an unknown value is left for another parser.
+*
+*   INPUTS
+*       option - Configuration key being parsed or emitted.
+*       value - Option text or attribute value, as applicable.
+*       name - Expected option key or guest-memory key address as applicable.
+*       location - Destination for the decoded option value.
+*       table - NULL-terminated array of recognized strings.
+*       more - Nonzero to defer unrecognized values to other parsers.
+*
+*   RESULT
+*       0 for unmatched key or deferred value, 1 for a match, -1 for a rejected
+*       value.
+*
+***************************************************************************
+*
+*/
+
 int cfgfile_strval (const char *option, const char *value, const char *name, int *location, const char *table[], int more)
 {
     int val;
@@ -700,6 +1078,33 @@ int cfgfile_strval (const char *option, const char *value, const char *name, int
     *location = val;
     return 1;
 }
+
+/****i* januae-config/cfgfile_string
+*
+*   NAME
+*       cfgfile_string() -- Store a bounded string option.
+*
+*   SYNOPSIS
+*       int cfgfile_string (const char *option, const char *value, const char
+*       *name, char *location, int maxsz);
+*
+*   FUNCTION
+*       Match an exact key, copy at most maxsz minus one bytes, and explicitly
+*       terminate the destination. maxsz must be positive.
+*
+*   INPUTS
+*       option - Configuration key being parsed or emitted.
+*       value - Option text or attribute value, as applicable.
+*       name - Expected option key or guest-memory key address as applicable.
+*       location - Destination for the decoded option value.
+*       maxsz - Destination buffer capacity, including a terminator.
+*
+*   RESULT
+*       1 if the key matched, otherwise 0.
+*
+***************************************************************************
+*
+*/
 
 int cfgfile_string (const char *option, const char *value, const char *name, char *location, int maxsz)
 {
@@ -718,6 +1123,30 @@ int cfgfile_string (const char *option, const char *value, const char *name, cha
  * TODO: Collect path handling tools in one place and cleanly
  * handle platform-specific differences.
  */
+/****i* januae-config/strdup_path_expand
+*
+*   NAME
+*       strdup_path_expand() -- Duplicate and normalize a configuration directory.
+*
+*   SYNOPSIS
+*       static const char *strdup_path_expand (const char *src);
+*
+*   FUNCTION
+*       Duplicate a path, expand leading ~/ with HOME when available, and append
+*       a separator when the source lacks one. The implementation dereferences
+*       the allocation before its NULL check.
+*
+*   INPUTS
+*       src - Input path, guest pointer or source text as applicable.
+*
+*   RESULT
+*       Allocated, separator-terminated string on success; allocation failure is
+*       not safely handled.
+*
+***************************************************************************
+*
+*/
+
 static const char *strdup_path_expand (const char *src)
 {
     char *path = 0;
@@ -761,6 +1190,32 @@ static const char *strdup_path_expand (const char *src)
     return path;
 }
 
+/****i* januae-config/cfgfile_path
+*
+*   NAME
+*       cfgfile_path() -- Apply a registered directory setting.
+*
+*   SYNOPSIS
+*       static int cfgfile_path (const char *option, const char *value, const
+*       char *key);
+*
+*   FUNCTION
+*       Match an attribute key and expand the supplied directory before storing
+*       it in the attribute table. A failed allocation still counts as a
+*       recognized option.
+*
+*   INPUTS
+*       option - Configuration key being parsed or emitted.
+*       value - Option text or attribute value, as applicable.
+*       key - Registered attribute or option key.
+*
+*   RESULT
+*       1 for the matching key, otherwise 0.
+*
+***************************************************************************
+*
+*/
+
 static int cfgfile_path (const char *option, const char *value, const char *key)
 {
     if (strcmp (option, key) == 0) {
@@ -773,6 +1228,32 @@ static int cfgfile_path (const char *option, const char *value, const char *key)
     }
     return 0;
 }
+
+/****i* januae-config/getintval
+*
+*   NAME
+*       getintval() -- Parse a delimited numeric field.
+*
+*   SYNOPSIS
+*       static int getintval (char **p, int *result, int delim);
+*
+*   FUNCTION
+*       Split a mutable field at the required delimiter and parse decimal or
+*       lowercase 0x hexadecimal text. The field and cursor may be modified even
+*       when numeric validation fails.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       result - Parsed integer output.
+*       delim - Delimiter byte separating fields.
+*
+*   RESULT
+*       1 for a fully parsed field, otherwise 0.
+*
+***************************************************************************
+*
+*/
 
 static int getintval (char **p, int *result, int delim)
 {
@@ -796,6 +1277,31 @@ static int getintval (char **p, int *result, int delim)
 
     return 1;
 }
+
+/****i* januae-config/getintval2
+*
+*   NAME
+*       getintval2() -- Parse a final or delimited numeric field.
+*
+*   SYNOPSIS
+*       static int getintval2 (char **p, int *result, int delim);
+*
+*   FUNCTION
+*       Parse a numeric field with an optional delimiter. On invalid text the
+*       cursor is set to NULL; the input may already have been split.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       result - Parsed integer output.
+*       delim - Delimiter byte separating fields.
+*
+*   RESULT
+*       1 for valid numeric text, otherwise 0.
+*
+***************************************************************************
+*
+*/
 
 static int getintval2 (char **p, int *result, int delim)
 {
@@ -827,6 +1333,27 @@ static int getintval2 (char **p, int *result, int delim)
     return 1;
 }
 
+/****i* januae-config/set_chipset_mask
+*
+*   NAME
+*       set_chipset_mask() -- Convert a chipset selection into capability bits.
+*
+*   SYNOPSIS
+*       static void set_chipset_mask (struct uae_prefs *p, int val);
+*
+*   FUNCTION
+*       Set the ECS Agnus, ECS Denise and AGA bits according to the supplied
+*       selection, treating values greater than three as AGA-capable.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       val - Selected chipset category.
+*
+***************************************************************************
+*
+*/
+
 static void set_chipset_mask (struct uae_prefs *p, int val)
 {
     p->chipset_mask = (val == 0 ? 0
@@ -835,6 +1362,33 @@ static void set_chipset_mask (struct uae_prefs *p, int val)
                        : val == 3 ? CSMASK_ECS_DENISE | CSMASK_ECS_AGNUS
                        : CSMASK_AGA | CSMASK_ECS_DENISE | CSMASK_ECS_AGNUS);
 }
+
+/****i* januae-config/cfgfile_parse_host
+*
+*   NAME
+*       cfgfile_parse_host() -- Parse a host-related configuration option.
+*
+*   SYNOPSIS
+*       static int cfgfile_parse_host (struct uae_prefs *p, char *option, char
+*       *value);
+*
+*   FUNCTION
+*       Dispatch input-device, target-prefixed and host settings into the
+*       preference structure. The option buffer is normalized in place;
+*       feature-specific settings are conditional.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       option - Configuration key being parsed or emitted.
+*       value - Option text or attribute value, as applicable.
+*
+*   RESULT
+*       Nonzero for a handled option, otherwise zero.
+*
+***************************************************************************
+*
+*/
 
 static int cfgfile_parse_host (struct uae_prefs *p, char *option, char *value)
 {
@@ -1190,6 +1744,33 @@ static int cfgfile_parse_host (struct uae_prefs *p, char *option, char *value)
     return 0;
 }
 
+/****i* januae-config/cfgfile_parse_hardware
+*
+*   NAME
+*       cfgfile_parse_hardware() -- Parse an emulated-hardware configuration option.
+*
+*   SYNOPSIS
+*       static int cfgfile_parse_hardware (struct uae_prefs *p, char *option,
+*       char *value);
+*
+*   FUNCTION
+*       Match CPU, chipset, memory, drives, filesystem and other hardware
+*       options, including conditional JIT and FILESYS options. Malformed
+*       recognized filesystem values are logged and treated as handled.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       option - Configuration key being parsed or emitted.
+*       value - Option text or attribute value, as applicable.
+*
+*   RESULT
+*       Nonzero for a handled option, otherwise zero.
+*
+***************************************************************************
+*
+*/
+
 static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *value)
 {
     int tmpval, dummy, i;
@@ -1464,6 +2045,35 @@ static int cfgfile_parse_hardware (struct uae_prefs *p, char *option, char *valu
     return 0;
 }
 
+/****i* januae-config/cfgfile_parse_option
+*
+*   NAME
+*       cfgfile_parse_option() -- Dispatch a configuration key to its category.
+*
+*   SYNOPSIS
+*       int cfgfile_parse_option (struct uae_prefs *p, char *option, char
+*       *value, int type);
+*
+*   FUNCTION
+*       Ignore category-declaration keys, then dispatch to hardware or host
+*       parsers according to type. A positive type marks otherwise unknown keys
+*       handled.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       option - Configuration key being parsed or emitted.
+*       value - Option text or attribute value, as applicable.
+*       type - Configuration section mask or defaults selector.
+*
+*   RESULT
+*       Nonzero when the option is accepted or filtered by category; zero when
+*       unhandled.
+*
+***************************************************************************
+*
+*/
+
 int cfgfile_parse_option (struct uae_prefs *p, char *option, char *value, int type)
 {
     if (!strcmp (option, "config_hardware"))
@@ -1482,6 +2092,32 @@ int cfgfile_parse_option (struct uae_prefs *p, char *option, char *value, int ty
         return 1;
     return 0;
 }
+
+/****i* januae-config/cfgfile_separate_line
+*
+*   NAME
+*       cfgfile_separate_line() -- Split a key-value configuration line.
+*
+*   SYNOPSIS
+*       static int cfgfile_separate_line (char *line, char *line1b, char
+*       *line2b);
+*
+*   FUNCTION
+*       Split at the first equals sign, trim surrounding key whitespace and
+*       value whitespace, and copy both fields into caller-provided buffers. The
+*       input buffer is modified.
+*
+*   INPUTS
+*       line - Mutable configuration text; NULL clears queued overrides.
+*       line1b - Output or supplied option-key buffer.
+*       line2b - Output or supplied option-value buffer.
+*
+*   RESULT
+*       1 when an equals sign is present, otherwise 0.
+*
+***************************************************************************
+*
+*/
 
 static int cfgfile_separate_line (char *line, char *line1b, char *line2b)
 {
@@ -1514,6 +2150,28 @@ static int cfgfile_separate_line (char *line, char *line1b, char *line2b)
     return 1;
 }
 
+/****i* januae-config/isobsolete
+*
+*   NAME
+*       isobsolete() -- Recognize obsolete configuration names.
+*
+*   SYNOPSIS
+*       static int isobsolete (char *s);
+*
+*   FUNCTION
+*       Compare against the obsolete-key table and legacy gfx_opengl or gfx_3d
+*       prefixes, logging recognized obsolete names.
+*
+*   INPUTS
+*       s - Option name or raw command text as applicable.
+*
+*   RESULT
+*       1 for an obsolete key, otherwise 0.
+*
+***************************************************************************
+*
+*/
+
 static int isobsolete (char *s)
 {
     int i = 0;
@@ -1534,6 +2192,31 @@ static int isobsolete (char *s)
     }
     return 0;
 }
+
+/****i* januae-config/cfgfile_parse_separated_line
+*
+*   NAME
+*       cfgfile_parse_separated_line() -- Apply and retain a parsed configuration option.
+*
+*   SYNOPSIS
+*       static void cfgfile_parse_separated_line (struct uae_prefs *p, char
+*       *line1b, char *line2b, int type);
+*
+*   FUNCTION
+*       Parse a separated key-value pair, discard obsolete entries, and add
+*       previously unseen entries to all_lines. Record an unknown flag when
+*       parsing did not recognize the option.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       line1b - Output or supplied option-key buffer.
+*       line2b - Output or supplied option-value buffer.
+*       type - Configuration section mask or defaults selector.
+*
+***************************************************************************
+*
+*/
 
 static void cfgfile_parse_separated_line (struct uae_prefs *p, char *line1b, char *line2b, int type)
 {
@@ -1562,6 +2245,28 @@ static void cfgfile_parse_separated_line (struct uae_prefs *p, char *line1b, cha
     }
 }
 
+/****i* januae-config/cfgfile_parse_line
+*
+*   NAME
+*       cfgfile_parse_line() -- Parse one configuration line.
+*
+*   SYNOPSIS
+*       void cfgfile_parse_line (struct uae_prefs *p, char *line, int type);
+*
+*   FUNCTION
+*       Separate an editable key-value line and pass valid fields to the
+*       configuration parser; incomplete lines are logged and ignored.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       line - Mutable configuration text; NULL clears queued overrides.
+*       type - Configuration section mask or defaults selector.
+*
+***************************************************************************
+*
+*/
+
 void cfgfile_parse_line (struct uae_prefs *p, char *line, int type)
 {
     char line1b[CONFIG_BLEN], line2b[CONFIG_BLEN];
@@ -1572,6 +2277,29 @@ void cfgfile_parse_line (struct uae_prefs *p, char *line, int type)
     return;
 }
 
+/****i* januae-config/subst
+*
+*   NAME
+*       subst() -- Expand an unexpanded configured path in place.
+*
+*   SYNOPSIS
+*       static void subst (const char *p, char *f, int n);
+*
+*   FUNCTION
+*       Replace the UNEXPANDED prefix with the given directory in a bounded
+*       destination string; always terminate the destination buffer.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       f - Destination configuration output stream or mutable path as
+*       applicable.
+*       n - Capacity of the mutable pathname buffer in bytes.
+*
+***************************************************************************
+*
+*/
+
 static void subst (const char *p, char *f, int n)
 {
     char *str = cfgfile_subst_path (UNEXPANDED, p, f);
@@ -1579,6 +2307,31 @@ static void subst (const char *p, char *f, int n)
     f[n - 1] = '\0';
     free (str);
 }
+
+/****i* januae-config/cfg_fgets
+*
+*   NAME
+*       cfg_fgets() -- Read a configuration line.
+*
+*   SYNOPSIS
+*       static char *cfg_fgets (char *line, int max, FILE *fh);
+*
+*   FUNCTION
+*       Read from FILE when supplied; under SINGLEFILE, read from the embedded
+*       configuration string and reset its internal cursor at end of input.
+*
+*   INPUTS
+*       line - Mutable configuration text; NULL clears queued overrides.
+*       max - Maximum argument count.
+*       fh - Opened configuration stream; NULL selects SINGLEFILE where enabled.
+*
+*   RESULT
+*       Destination buffer on a read line, otherwise NULL. SINGLEFILE has an
+*       unchecked copy length.
+*
+***************************************************************************
+*
+*/
 
 static char *cfg_fgets (char *line, int max, FILE *fh)
 {
@@ -1615,6 +2368,35 @@ static char *cfg_fgets (char *line, int max, FILE *fh)
 #endif
     return 0;
 }
+
+/****i* januae-config/cfgfile_load_2
+*
+*   NAME
+*       cfgfile_load_2() -- Load or inspect configuration from a file.
+*
+*   SYNOPSIS
+*       static int cfgfile_load_2 (struct uae_prefs *p, const char *filename,
+*       int real, int *type);
+*
+*   FUNCTION
+*       Parse config sections and, in real mode, update preferences, apply
+*       queued overrides and substitute floppy/ROM directory prefixes.
+*       Inspection mode extracts only the description and section flags.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       filename - Configuration filename or hardfile path.
+*       real - Nonzero to apply full preferences, zero to inspect metadata.
+*       type - Configuration section mask or defaults selector.
+*
+*   RESULT
+*       1 on completed reading; 0 if the file cannot be opened outside
+*       SINGLEFILE.
+*
+***************************************************************************
+*
+*/
 
 static int cfgfile_load_2 (struct uae_prefs *p, const char *filename, int real, int *type)
 {
@@ -1694,10 +2476,64 @@ static int cfgfile_load_2 (struct uae_prefs *p, const char *filename, int real, 
     return 1;
 }
 
+/****i* januae-config/cfgfile_load
+*
+*   NAME
+*       cfgfile_load() -- Load a configuration into preferences.
+*
+*   SYNOPSIS
+*       int cfgfile_load (struct uae_prefs *p, const char *filename, int *type);
+*
+*   FUNCTION
+*       Invoke the full configuration-file loader, including queued overrides
+*       and path expansion.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       filename - Configuration filename or hardfile path.
+*       type - Configuration section mask or defaults selector.
+*
+*   RESULT
+*       1 for completed reading; 0 if the file could not be opened outside
+*       SINGLEFILE.
+*
+***************************************************************************
+*
+*/
+
 int cfgfile_load (struct uae_prefs *p, const char *filename, int *type)
 {
     return cfgfile_load_2 (p, filename, 1, type);
 }
+
+/****i* januae-config/cfgfile_save
+*
+*   NAME
+*       cfgfile_save() -- Write a complete configuration file.
+*
+*   SYNOPSIS
+*       int cfgfile_save (const struct uae_prefs *p, const char *filename, int
+*       type);
+*
+*   FUNCTION
+*       Open the destination for writing, then serialize selected host and
+*       hardware preferences. A zero type selects both sections; errors during
+*       writing and close are not propagated.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       filename - Configuration filename or hardfile path.
+*       type - Configuration section mask or defaults selector.
+*
+*   RESULT
+*       1 when the file was opened and serialization attempted; 0 if open
+*       failed.
+*
+***************************************************************************
+*
+*/
 
 int cfgfile_save (const struct uae_prefs *p, const char *filename, int type)
 {
@@ -1713,6 +2549,32 @@ int cfgfile_save (const struct uae_prefs *p, const char *filename, int type)
     return 1;
 }
 
+/****i* januae-config/cfgfile_get_description
+*
+*   NAME
+*       cfgfile_get_description() -- Read configuration metadata without applying it.
+*
+*   SYNOPSIS
+*       int cfgfile_get_description (const char *filename, char *description,
+*       int *type);
+*
+*   FUNCTION
+*       Load a configuration in inspection mode and optionally copy its
+*       description into a caller-owned buffer. The description copy is not
+*       length-bounded.
+*
+*   INPUTS
+*       filename - Configuration filename or hardfile path.
+*       description - Optional output buffer for the configuration description.
+*       type - Configuration section mask or defaults selector.
+*
+*   RESULT
+*       1 if the file was read, otherwise 0.
+*
+***************************************************************************
+*
+*/
+
 int cfgfile_get_description (const char *filename, char *description, int *type)
 {
     int result = 0;
@@ -1726,6 +2588,22 @@ int cfgfile_get_description (const char *filename, char *description, int *type)
     free (p);
     return result;
 }
+
+/****i* januae-config/cfgfile_show_usage
+*
+*   NAME
+*       cfgfile_show_usage() -- Display available configuration options.
+*
+*   SYNOPSIS
+*       void cfgfile_show_usage (void);
+*
+*   FUNCTION
+*       Log the command-line configuration option table and registered
+*       preference-attribute help.
+*
+***************************************************************************
+*
+*/
 
 void cfgfile_show_usage (void)
 {
@@ -1741,6 +2619,28 @@ void cfgfile_show_usage (void)
    because the new way of doing things is painful for me (it requires me
    to type a couple hundred characters when invoking UAE).  The following
    is far less annoying to use.  */
+/****i* januae-config/parse_gfx_specs
+*
+*   NAME
+*       parse_gfx_specs() -- Apply a legacy graphics specification.
+*
+*   SYNOPSIS
+*       static void parse_gfx_specs (struct uae_prefs *p, char *spec);
+*
+*   FUNCTION
+*       Split width:height:modifiers and update display dimensions, centering,
+*       line doubling, fullscreen and aspect settings. Invalid syntax produces
+*       log output.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       spec - Colon-delimited legacy option argument.
+*
+***************************************************************************
+*
+*/
+
 static void parse_gfx_specs (struct uae_prefs *p, char *spec)
 {
     char *x0 = my_strdup (spec);
@@ -1778,6 +2678,27 @@ static void parse_gfx_specs (struct uae_prefs *p, char *spec)
     write_log ("Type \"uae -h\" for detailed help.\n");
     free (x0);
 }
+
+/****i* januae-config/parse_sound_spec
+*
+*   NAME
+*       parse_sound_spec() -- Apply a legacy audio specification.
+*
+*   SYNOPSIS
+*       static void parse_sound_spec (struct uae_prefs *p, char *spec);
+*
+*   FUNCTION
+*       Split optional colon-separated audio fields and update sound mode,
+*       stereo selection, sample bits and frequency using decimal conversion.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       spec - Colon-delimited legacy option argument.
+*
+***************************************************************************
+*
+*/
 
 static void parse_sound_spec (struct uae_prefs *p, char *spec)
 {
@@ -1823,6 +2744,27 @@ static void parse_sound_spec (struct uae_prefs *p, char *spec)
 }
 
 
+/****i* januae-config/parse_joy_spec
+*
+*   NAME
+*       parse_joy_spec() -- Apply legacy joystick-port mappings.
+*
+*   SYNOPSIS
+*       static void parse_joy_spec (struct uae_prefs *p, char *spec);
+*
+*   FUNCTION
+*       Decode two device selectors for the emulated ports. Invalid or duplicate
+*       selectors are logged; fallback port assignments are still written.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       spec - Colon-delimited legacy option argument.
+*
+***************************************************************************
+*
+*/
+
 static void parse_joy_spec (struct uae_prefs *p, char *spec)
 {
     int v0 = 2, v1 = 0;
@@ -1861,6 +2803,27 @@ bad:
     p->jport1 = v1;
 }
 
+/****i* januae-config/parse_filesys_spec
+*
+*   NAME
+*       parse_filesys_spec() -- Parse a legacy mounted-directory argument.
+*
+*   SYNOPSIS
+*       static void parse_filesys_spec (int readonly, const char *spec);
+*
+*   FUNCTION
+*       Split a volume specification at the first colon and pass its components
+*       to FILESYS support when compiled. The implementation currently clears
+*       the host path before registration.
+*
+*   INPUTS
+*       readonly - Nonzero requests a read-only directory mount.
+*       spec - Colon-delimited legacy option argument.
+*
+***************************************************************************
+*
+*/
+
 static void parse_filesys_spec (int readonly, const char *spec)
 {
     char buf[256];
@@ -1893,6 +2856,26 @@ static void parse_filesys_spec (int readonly, const char *spec)
         write_log ("Usage: [-m | -M] VOLNAME:mount_point\n");
     }
 }
+
+/****i* januae-config/parse_hardfile_spec
+*
+*   NAME
+*       parse_hardfile_spec() -- Parse a legacy hardfile argument.
+*
+*   SYNOPSIS
+*       static void parse_hardfile_spec (char *spec);
+*
+*   FUNCTION
+*       Split sectors:heads:reserved:blocksize:filename and register a
+*       filesystem hardfile unit when FILESYS is enabled. Parsing and
+*       registration errors are logged.
+*
+*   INPUTS
+*       spec - Colon-delimited legacy option argument.
+*
+***************************************************************************
+*
+*/
 
 static void parse_hardfile_spec (char *spec)
 {
@@ -1934,6 +2917,28 @@ static void parse_hardfile_spec (char *spec)
     return;
 }
 
+/****i* januae-config/parse_cpu_specs
+*
+*   NAME
+*       parse_cpu_specs() -- Apply a legacy CPU specification.
+*
+*   SYNOPSIS
+*       static void parse_cpu_specs (struct uae_prefs *p, char *spec);
+*
+*   FUNCTION
+*       Select a CPU level from the first digit and interpret optional
+*       address-width and compatibility modifiers, logging unsupported
+*       combinations.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       spec - Colon-delimited legacy option argument.
+*
+***************************************************************************
+*
+*/
+
 static void parse_cpu_specs (struct uae_prefs *p, char *spec)
 {
     if (*spec < '0' || *spec > '4') {
@@ -1970,6 +2975,33 @@ static void parse_cpu_specs (struct uae_prefs *p, char *spec)
 }
 
 /* Returns the number of args used up (0 or 1).  */
+/****i* januae-config/parse_cmdline_option
+*
+*   NAME
+*       parse_cmdline_option() -- Apply a legacy single-letter command-line option.
+*
+*   SYNOPSIS
+*       int parse_cmdline_option (struct uae_prefs *p, char c, char *arg);
+*
+*   FUNCTION
+*       Record the option and optional argument, then update the selected
+*       preference fields or mount configuration. Missing required arguments are
+*       logged and not recorded.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       c - Single-letter legacy option.
+*       arg - Optional argument for the legacy command-line option.
+*
+*   RESULT
+*       1 if the option is classified as requiring an argument, otherwise 0;
+*       this is not a success indicator.
+*
+***************************************************************************
+*
+*/
+
 int parse_cmdline_option (struct uae_prefs *p, char c, char *arg)
 {
     struct strlist *u = xcalloc (sizeof (struct strlist), 1);
@@ -2107,6 +3139,25 @@ int parse_cmdline_option (struct uae_prefs *p, char c, char *arg)
     return !! strchr (arg_required, c);
 }
 
+/****i* januae-config/cfgfile_addcfgparam
+*
+*   NAME
+*       cfgfile_addcfgparam() -- Queue or clear a temporary configuration override.
+*
+*   SYNOPSIS
+*       void cfgfile_addcfgparam (char *line);
+*
+*   FUNCTION
+*       Split and queue a key-value override, or free the entire temporary list
+*       when line is NULL. Invalid lines are ignored.
+*
+*   INPUTS
+*       line - Mutable configuration text; NULL clears queued overrides.
+*
+***************************************************************************
+*
+*/
+
 void cfgfile_addcfgparam (char *line)
 {
     struct strlist *u;
@@ -2132,6 +3183,32 @@ void cfgfile_addcfgparam (char *line)
     u->next = temp_lines;
     temp_lines = u;
 }
+
+/****i* januae-config/cmdlineparser
+*
+*   NAME
+*       cmdlineparser() -- Split a command string into arguments.
+*
+*   SYNOPSIS
+*       unsigned int cmdlineparser (const char *s, char *outp[], unsigned int
+*       max);
+*
+*   FUNCTION
+*       Tokenize spaces, quotes and backslashes into dynamically duplicated
+*       argument strings, up to max entries. The local token buffer does not
+*       enforce MAX_DPATH.
+*
+*   INPUTS
+*       s - Option name or raw command text as applicable.
+*       outp - Caller-owned array receiving allocated argument strings.
+*       max - Maximum argument count.
+*
+*   RESULT
+*       Number of argument pointers stored; caller owns each allocated string.
+*
+***************************************************************************
+*
+*/
 
 unsigned int cmdlineparser (const char *s, char *outp[], unsigned int max)
 {
@@ -2187,6 +3264,36 @@ unsigned int cmdlineparser (const char *s, char *outp[], unsigned int max)
 }
 
 #define UAELIB_MAX_PARSE 100
+
+/****i* januae-config/cfgfile_modify
+*
+*   NAME
+*       cfgfile_modify() -- Read or modify configuration through the host interface.
+*
+*   SYNOPSIS
+*       uae_u32 cfgfile_modify (uae_u32 index, char *parms, uae_u32 size, char
+*       *out, uae_u32 outsize);
+*
+*   FUNCTION
+*       Initialize and iterate a stored configuration snapshot, filter keys, or
+*       apply option pairs to changed_prefs. Search state is shared between
+*       calls, and errors use numeric status codes.
+*
+*   INPUTS
+*       index - Configuration enumeration cursor; all-bits-one starts a request.
+*       parms - Host command string or guest memory address, as applicable.
+*       size - Command input length in bytes.
+*       out - Host result buffer or guest result address, as applicable.
+*       outsize - Result buffer capacity in bytes.
+*
+*   RESULT
+*       A status code: 0 for ordinary completion, 0xffffffff for an available
+*       entry or initialized store, 5 for no match/unknown option, 10 for
+*       size/end failure, or 20 when the store is unavailable.
+*
+***************************************************************************
+*
+*/
 
 uae_u32 cfgfile_modify (uae_u32 index, char *parms, uae_u32 size, char *out, uae_u32 outsize)
 {
@@ -2333,6 +3440,35 @@ end:
     return err;
 }
 
+/****i* januae-config/cfgfile_uaelib_modify
+*
+*   NAME
+*       cfgfile_uaelib_modify() -- Bridge the configuration interface to guest memory.
+*
+*   SYNOPSIS
+*       uae_u32 cfgfile_uaelib_modify (uae_u32 index, uae_u32 parms, uae_u32
+*       size, uae_u32 out, uae_u32 outsize);
+*
+*   FUNCTION
+*       Copy the guest argument string into host memory, invoke cfgfile_modify,
+*       and copy a bounded response back to guest memory as zero-terminated
+*       bytes.
+*
+*   INPUTS
+*       index - Configuration enumeration cursor; all-bits-one starts a request.
+*       parms - Host command string or guest memory address, as applicable.
+*       size - Command input length in bytes.
+*       out - Host result buffer or guest result address, as applicable.
+*       outsize - Result buffer capacity in bytes.
+*
+*   RESULT
+*       Status code returned by cfgfile_modify, or 10 on local allocation
+*       failure.
+*
+***************************************************************************
+*
+*/
+
 uae_u32 cfgfile_uaelib_modify (uae_u32 index, uae_u32 parms, uae_u32 size, uae_u32 out, uae_u32 outsize)
 {
     char *p, *parms_p = NULL, *out_p = NULL;
@@ -2373,6 +3509,34 @@ end:
     return ret;
 }
 
+/****i* januae-config/cfgfile_uaelib
+*
+*   NAME
+*       cfgfile_uaelib() -- Read a configuration value from guest memory.
+*
+*   SYNOPSIS
+*       uae_u32 cfgfile_uaelib (int mode, uae_u32 name, uae_u32 dst, uae_u32
+*       maxlen);
+*
+*   FUNCTION
+*       For mode zero, find a case-insensitive option name in current
+*       preferences and copy the stored value into guest memory, bounded by
+*       maxlen.
+*
+*   INPUTS
+*       mode - Requested configuration query mode.
+*       name - Expected option key or guest-memory key address as applicable.
+*       dst - Guest destination address.
+*       maxlen - Destination capacity, in bytes.
+*
+*   RESULT
+*       Guest destination address for a found key, otherwise zero. Nonzero mode
+*       is unsupported.
+*
+***************************************************************************
+*
+*/
+
 uae_u32 cfgfile_uaelib (int mode, uae_u32 name, uae_u32 dst, uae_u32 maxlen)
 {
     char tmp[CONFIG_BLEN];
@@ -2406,6 +3570,27 @@ uae_u32 cfgfile_uaelib (int mode, uae_u32 name, uae_u32 dst, uae_u32 maxlen)
     return 0;
 }
 
+/****i* januae-config/default_prefs_mini
+*
+*   NAME
+*       default_prefs_mini() -- Apply compact A500 default hardware preferences.
+*
+*   SYNOPSIS
+*       static void default_prefs_mini (struct uae_prefs *p, int type);
+*
+*   FUNCTION
+*       Set a minimal A500 description, one floppy drive, a 68000 CPU with
+*       24-bit addressing, and 512 KiB each of chip and slow RAM.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       type - Configuration section mask or defaults selector.
+*
+***************************************************************************
+*
+*/
+
 static void default_prefs_mini (struct uae_prefs *p, int type)
 {
     strcpy (p->description, "UAE default A500 configuration");
@@ -2418,6 +3603,28 @@ static void default_prefs_mini (struct uae_prefs *p, int type)
     p->chipmem_size = 0x00080000;
     p->bogomem_size = 0x00080000;
 }
+
+/****i* januae-config/default_prefs
+*
+*   NAME
+*       default_prefs() -- Initialize emulator preferences to defaults.
+*
+*   SYNOPSIS
+*       void default_prefs (struct uae_prefs *p, int type);
+*
+*   FUNCTION
+*       Reset the preference structure, initialize shared emulated hardware and
+*       host defaults, feature-dependent values, and default input mappings.
+*       UAE_MINI overrides selected hardware defaults.
+*
+*   INPUTS
+*       p - Preference structure to inspect or modify, or path prefix as
+*       applicable.
+*       type - Configuration section mask or defaults selector.
+*
+***************************************************************************
+*
+*/
 
 void default_prefs (struct uae_prefs *p, int type)
 {
