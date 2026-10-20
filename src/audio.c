@@ -42,6 +42,28 @@
 
 int audio_channel_mask = 15;
 
+/****i* januae-audio/debugchannel
+ *
+ *   NAME
+ *       debugchannel()
+ *
+ *   SYNOPSIS
+ *       static int debugchannel (unsigned int ch)
+ *
+ *   FUNCTION
+ *       Test whether an audio channel is enabled in the compile-time debug mask.
+ *
+ *   INPUTS
+ *       ch -- zero-based audio channel number.
+ *
+ *   RESULT
+ *       Nonzero when the channel bit is set, otherwise zero.
+ *
+ *   NOTES
+ *       The mask is DEBUG_CHANNEL_MASK, not the runtime audio_channel_mask.
+ *
+ ****************************************************************************/
+
 static int debugchannel (unsigned int ch)
 {
     if ((1 << ch) & DEBUG_CHANNEL_MASK) return 1;
@@ -83,6 +105,23 @@ struct audio_channel_data {
     int sinc_queue_length;
 };
 
+/****i* januae-audio/current_hpos
+ *
+ *   NAME
+ *       current_hpos()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE unsigned int current_hpos (void)
+ *
+ *   FUNCTION
+ *       Calculate the current horizontal position from emulated cycles elapsed since
+ *       the last hsync event.
+ *
+ *   RESULT
+ *       Cycle count divided by CYCLE_UNIT.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE unsigned int current_hpos (void)
 {
     return (get_cycles () - eventtab[ev_hsync].oldcycles) / CYCLE_UNIT;
@@ -103,6 +142,23 @@ unsigned int obtainedfreq;
 
 
 #ifndef MULTIPLICATION_PROFITABLE
+/****i* januae-audio/init_sound_table16
+ *
+ *   NAME
+ *       init_sound_table16()
+ *
+ *   SYNOPSIS
+ *       void init_sound_table16 (void)
+ *
+ *   FUNCTION
+ *       Populate the 64-volume by 256-sample lookup table for 16-bit mixing.
+ *
+ *   NOTES
+ *       Available when MULTIPLICATION_PROFITABLE is not defined. Stereo preferences
+ *       scale each table entry.
+ *
+ ****************************************************************************/
+
 void init_sound_table16 (void)
 {
     int i,j;
@@ -113,6 +169,22 @@ void init_sound_table16 (void)
 }
 
 #ifdef HAVE_8BIT_AUDIO_SUPPORT
+/****i* januae-audio/init_sound_table8
+ *
+ *   NAME
+ *       init_sound_table8()
+ *
+ *   SYNOPSIS
+ *       void init_sound_table8 (void)
+ *
+ *   FUNCTION
+ *       Populate the volume/sample lookup table for 8-bit output.
+ *
+ *   NOTES
+ *       Requires HAVE_8BIT_AUDIO_SUPPORT and the lookup-table mixing build.
+ *
+ ****************************************************************************/
+
 void init_sound_table8 (void)
 {
     int i,j;
@@ -148,6 +220,26 @@ static int saved_ptr;
 static int mixed_on, mixed_stereo_size, mixed_mul1, mixed_mul2;
 
 #ifdef HAVE_STEREO_SUPPORT
+/****i* januae-audio/put_sound_word_right
+ *
+ *   NAME
+ *       put_sound_word_right()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void put_sound_word_right (uae_u32 w)
+ *
+ *   FUNCTION
+ *       Write a right-channel output word or retain it for mixed-stereo processing.
+ *
+ *   INPUTS
+ *       w -- unsigned output sample word.
+ *
+ *   NOTES
+ *       Requires HAVE_STEREO_SUPPORT. When mixed stereo is enabled, the sample is
+ *       deferred in the right-channel delay buffer.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void put_sound_word_right (uae_u32 w)
 {
     if (mixed_on) {
@@ -156,6 +248,27 @@ STATIC_INLINE void put_sound_word_right (uae_u32 w)
     }
     PUT_SOUND_WORD_RIGHT (w);
 }
+
+/****i* januae-audio/put_sound_word_left
+ *
+ *   NAME
+ *       put_sound_word_left()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void put_sound_word_left (uae_u32    w)
+ *
+ *   FUNCTION
+ *       Write a left-channel word and, in mixed-stereo mode, emit the delayed
+ *       cross-mixed pair.
+ *
+ *   INPUTS
+ *       w -- unsigned left-channel sample word.
+ *
+ *   NOTES
+ *       Requires HAVE_STEREO_SUPPORT. Mixed stereo advances saved_ptr using
+ *       mixed_stereo_size as a mask.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void put_sound_word_left (uae_u32	w)
 {
@@ -183,6 +296,27 @@ STATIC_INLINE void put_sound_word_left (uae_u32	w)
 #define DO_CHANNEL(v, c) do { (v) &= audio_channel[c].adk_mask; data += v; } while (0);
 
 
+
+/****i* januae-audio/sinc_prehandler
+ *
+ *   NAME
+ *       sinc_prehandler()
+ *
+ *   SYNOPSIS
+ *       static void sinc_prehandler (unsigned long best_evtime)
+ *
+ *   FUNCTION
+ *       Age pending band-limited step changes and enqueue any new Paula output
+ *       transitions.
+ *
+ *   INPUTS
+ *       best_evtime -- elapsed audio time expressed in horizontal-position units.
+ *
+ *   NOTES
+ *       Transitions are maintained separately for the four audio channels; the queue
+ *       is truncated when full.
+ *
+ ****************************************************************************/
 
 static void sinc_prehandler (unsigned long best_evtime)
 {
@@ -223,6 +357,27 @@ static void sinc_prehandler (unsigned long best_evtime)
 
 /* this interpolator performs BLEP mixing (bleps are shaped like integrated sinc
  * functions) with a type of BLEP that matches the filtering configuration. */
+/****i* januae-audio/samplexx_sinc_handler
+ *
+ *   NAME
+ *       samplexx_sinc_handler()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void samplexx_sinc_handler (int *datasp)
+ *
+ *   FUNCTION
+ *       Reconstruct four filtered audio-channel values from integral-windowed sinc
+ *       transition queues.
+ *
+ *   INPUTS
+ *       datasp -- writable array for four signed sample values.
+ *
+ *   NOTES
+ *       The active filter table is selected from the power-LED state. Each result is
+ *       clamped to the signed 16-bit range.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void samplexx_sinc_handler (int *datasp)
 {
     int i, n;
@@ -261,6 +416,23 @@ STATIC_INLINE void samplexx_sinc_handler (int *datasp)
     }
 }
 
+/****i* januae-audio/sample16i_sinc_handler
+ *
+ *   NAME
+ *       sample16i_sinc_handler()
+ *
+ *   SYNOPSIS
+ *       static void sample16i_sinc_handler (void)
+ *
+ *   FUNCTION
+ *       Mix the four reconstructed sinc-filtered channels into one 16-bit mono
+ *       sample.
+ *
+ *   NOTES
+ *       Checks the backend sound buffer after writing.
+ *
+ ****************************************************************************/
+
 static void sample16i_sinc_handler (void)
 {
     int datas[4], data1;
@@ -271,6 +443,22 @@ static void sample16i_sinc_handler (void)
     PUT_SOUND_WORD_MONO (data1);
     check_sound_buffers ();
 }
+
+/****i* januae-audio/sample16_handler
+ *
+ *   NAME
+ *       sample16_handler()
+ *
+ *   SYNOPSIS
+ *       void sample16_handler (void)
+ *
+ *   FUNCTION
+ *       Mix the current masked, volume-scaled Paula samples into 16-bit mono output.
+ *
+ *   NOTES
+ *       Calls the backend buffer check after writing a sample.
+ *
+ ****************************************************************************/
 
 void sample16_handler (void)
 {
@@ -296,6 +484,23 @@ void sample16_handler (void)
     }
     check_sound_buffers ();
 }
+
+/****i* januae-audio/sample16i_rh_handler
+ *
+ *   NAME
+ *       sample16i_rh_handler()
+ *
+ *   SYNOPSIS
+ *       static void sample16i_rh_handler (void)
+ *
+ *   FUNCTION
+ *       Mix 16-bit mono audio using linear interpolation between the last and current
+ *       sample of each channel.
+ *
+ *   NOTES
+ *       The interpolation ratio uses each channel period and remaining event time.
+ *
+ ****************************************************************************/
 
 static void sample16i_rh_handler (void)
 {
@@ -347,6 +552,23 @@ static void sample16i_rh_handler (void)
     }
     check_sound_buffers ();
 }
+
+/****i* januae-audio/sample16i_crux_handler
+ *
+ *   NAME
+ *       sample16i_crux_handler()
+ *
+ *   SYNOPSIS
+ *       static void sample16i_crux_handler (void)
+ *
+ *   FUNCTION
+ *       Mix 16-bit mono audio using a finite interval around the next sample
+ *       boundary.
+ *
+ *   NOTES
+ *       Uses scaled_sample_evtime to weight prior and current channel samples.
+ *
+ ****************************************************************************/
 
 static void sample16i_crux_handler (void)
 {
@@ -420,6 +642,22 @@ static void sample16i_crux_handler (void)
 }
 
 #ifdef HAVE_8BIT_AUDIO_SUPPORT
+/****i* januae-audio/sample8_handler
+ *
+ *   NAME
+ *       sample8_handler()
+ *
+ *   SYNOPSIS
+ *       void sample8_handler (void)
+ *
+ *   FUNCTION
+ *       Mix four Paula channels into one 8-bit mono sample.
+ *
+ *   NOTES
+ *       Available with HAVE_8BIT_AUDIO_SUPPORT.
+ *
+ ****************************************************************************/
+
 void sample8_handler (void)
 {
     uae_u32 data0 = audio_channel[0].current_sample;
@@ -447,6 +685,24 @@ void sample8_handler (void)
 #endif
 
 #ifdef HAVE_STEREO_SUPPORT
+/****i* januae-audio/sample16ss_handler
+ *
+ *   NAME
+ *       sample16ss_handler()
+ *
+ *   SYNOPSIS
+ *       void sample16ss_handler (void)
+ *
+ *   FUNCTION
+ *       Write four masked, volume-scaled Paula samples as separate 16-bit stereo
+ *       words.
+ *
+ *   NOTES
+ *       Available with HAVE_STEREO_SUPPORT; preserves individual channel values
+ *       rather than reducing them to one stereo pair.
+ *
+ ****************************************************************************/
+
 void sample16ss_handler (void)
 {
     uae_u32 data0 = audio_channel[0].current_sample;
@@ -471,6 +727,23 @@ void sample16ss_handler (void)
     check_sound_buffers ();
 }
 
+/****i* januae-audio/sample16si_sinc_handler
+ *
+ *   NAME
+ *       sample16si_sinc_handler()
+ *
+ *   SYNOPSIS
+ *       static void sample16si_sinc_handler (void)
+ *
+ *   FUNCTION
+ *       Produce a 16-bit stereo pair from sinc-filtered Paula channel values.
+ *
+ *   NOTES
+ *       Combines channels zero and three for left output, and one and two for right
+ *       output.
+ *
+ ****************************************************************************/
+
 static void sample16si_sinc_handler (void)
 {
     int datas[4], data1, data2;
@@ -484,6 +757,24 @@ static void sample16si_sinc_handler (void)
     put_sound_word_right (data2);
     check_sound_buffers ();
 }
+
+/****i* januae-audio/sample16s_handler
+ *
+ *   NAME
+ *       sample16s_handler()
+ *
+ *   SYNOPSIS
+ *       void sample16s_handler (void)
+ *
+ *   FUNCTION
+ *       Mix channels zero and three into the left word and channels one and two into
+ *       the right word.
+ *
+ *   NOTES
+ *       Available with HAVE_STEREO_SUPPORT. Mixed-stereo processing may delay and
+ *       cross-mix the samples.
+ *
+ ****************************************************************************/
 
 void sample16s_handler (void)
 {
@@ -517,6 +808,23 @@ void sample16s_handler (void)
 
     check_sound_buffers ();
 }
+
+/****i* januae-audio/sample16si_crux_handler
+ *
+ *   NAME
+ *       sample16si_crux_handler()
+ *
+ *   SYNOPSIS
+ *       static void sample16si_crux_handler (void)
+ *
+ *   FUNCTION
+ *       Generate a stereo pair with interval-weighted interpolation of the four Paula
+ *       channels.
+ *
+ *   NOTES
+ *       Uses three scaled sample intervals as the interpolation horizon.
+ *
+ ****************************************************************************/
 
 static void sample16si_crux_handler (void)
 {
@@ -595,6 +903,23 @@ static void sample16si_crux_handler (void)
     check_sound_buffers ();
 }
 
+/****i* januae-audio/sample16si_rh_handler
+ *
+ *   NAME
+ *       sample16si_rh_handler()
+ *
+ *   SYNOPSIS
+ *       static void sample16si_rh_handler (void)
+ *
+ *   FUNCTION
+ *       Generate a stereo pair by linearly interpolating each Paula channel before
+ *       mixing.
+ *
+ *   NOTES
+ *       Uses the channel periods and event times to calculate sample weights.
+ *
+ ****************************************************************************/
+
 static void sample16si_rh_handler (void)
 {
     unsigned long delta, ratio;
@@ -654,6 +979,23 @@ static void sample16si_rh_handler (void)
 }
 
 #ifdef HAVE_8BIT_AUDIO_SUPPORT
+/****i* januae-audio/sample8s_handler
+ *
+ *   NAME
+ *       sample8s_handler()
+ *
+ *   SYNOPSIS
+ *       void sample8s_handler (void)
+ *
+ *   FUNCTION
+ *       Mix Paula channels zero and three for left output, and one and two for right
+ *       8-bit output.
+ *
+ *   NOTES
+ *       Requires HAVE_STEREO_SUPPORT and HAVE_8BIT_AUDIO_SUPPORT.
+ *
+ ****************************************************************************/
+
 void sample8s_handler (void)
 {
     uae_u32 data0 = audio_channel[0].current_sample;
@@ -687,24 +1029,104 @@ void sample8s_handler (void)
 #endif
 #else
 #ifdef HAVE_8BIT_AUDIO_SUPPORT
+/****i* januae-audio-fallback/sample8s_handler
+ *
+ *   NAME
+ *       sample8s_handler()
+ *
+ *   SYNOPSIS
+ *       void sample8s_handler (void)
+ *
+ *   FUNCTION
+ *       Delegate the stereo 8-bit sample callback to the mono 8-bit handler.
+ *
+ *   NOTES
+ *       Compiled in the no-stereo branch when HAVE_8BIT_AUDIO_SUPPORT is enabled.
+ *
+ ****************************************************************************/
+
 void sample8s_handler (void)
 {
     sample8_handler();
 }
 #endif
 
+/****i* januae-audio-fallback/sample16s_handler
+ *
+ *   NAME
+ *       sample16s_handler()
+ *
+ *   SYNOPSIS
+ *       void sample16s_handler (void)
+ *
+ *   FUNCTION
+ *       Delegate the stereo 16-bit callback to the mono 16-bit sample handler.
+ *
+ *   NOTES
+ *       Compiled when HAVE_STEREO_SUPPORT is absent.
+ *
+ ****************************************************************************/
+
 void sample16s_handler (void)
 {
     sample16_handler ();
 }
+/****i* januae-audio-fallback/sample16si_crux_handler
+ *
+ *   NAME
+ *       sample16si_crux_handler()
+ *
+ *   SYNOPSIS
+ *       static void sample16si_crux_handler (void)
+ *
+ *   FUNCTION
+ *       Delegate stereo crux interpolation to the corresponding mono sample handler.
+ *
+ *   NOTES
+ *       Compiled when HAVE_STEREO_SUPPORT is absent.
+ *
+ ****************************************************************************/
+
 static void sample16si_crux_handler (void)
 {
     sample16i_crux_handler ();
 }
+/****i* januae-audio-fallback/sample16si_rh_handler
+ *
+ *   NAME
+ *       sample16si_rh_handler()
+ *
+ *   SYNOPSIS
+ *       static void sample16si_rh_handler (void)
+ *
+ *   FUNCTION
+ *       Delegate stereo linear interpolation to the corresponding mono handler.
+ *
+ *   NOTES
+ *       Compiled when HAVE_STEREO_SUPPORT is absent.
+ *
+ ****************************************************************************/
+
 static void sample16si_rh_handler (void)
 {
     sample16i_rh_handler ();
 }
+/****i* januae-audio-fallback/sample16si_sinc_handler
+ *
+ *   NAME
+ *       sample16si_sinc_handler()
+ *
+ *   SYNOPSIS
+ *       static void sample16si_sinc_handler (void)
+ *
+ *   FUNCTION
+ *       Delegate stereo sinc interpolation to the corresponding mono handler.
+ *
+ *   NOTES
+ *       Compiled when HAVE_STEREO_SUPPORT is absent.
+ *
+ ****************************************************************************/
+
 static void sample16si_sinc_handler (void)
 {
     sample16i_sinc_handler ();
@@ -712,6 +1134,29 @@ static void sample16si_sinc_handler (void)
 #endif
 
 #ifdef HAVE_ULAW_AUDIO_SUPPORT
+/****i* januae-audio/int2ulaw
+ *
+ *   NAME
+ *       int2ulaw()
+ *
+ *   SYNOPSIS
+ *       static uae_u8 int2ulaw (int ch)
+ *
+ *   FUNCTION
+ *       Convert a signed integer sample to the piecewise encoded 8-bit mu-law
+ *       representation used by this backend.
+ *
+ *   INPUTS
+ *       ch -- signed audio sample to encode.
+ *
+ *   RESULT
+ *       One mu-law sample byte.
+ *
+ *   NOTES
+ *       Available only with HAVE_ULAW_AUDIO_SUPPORT.
+ *
+ ****************************************************************************/
+
 static uae_u8 int2ulaw (int ch)
 {
     int mask;
@@ -744,6 +1189,23 @@ static uae_u8 int2ulaw (int ch)
     return (uae_u8)(mask & ch);
 }
 
+/****i* januae-audio/sample_ulaw_handler
+ *
+ *   NAME
+ *       sample_ulaw_handler()
+ *
+ *   SYNOPSIS
+ *       void sample_ulaw_handler (void)
+ *
+ *   FUNCTION
+ *       Mix enabled Paula channels and write a mu-law encoded mono sample.
+ *
+ *   NOTES
+ *       Channels masked by ADKCON are omitted; the backend buffer is checked after
+ *       writing.
+ *
+ ****************************************************************************/
+
 void sample_ulaw_handler (void)
 {
     unsigned int nr;
@@ -760,6 +1222,24 @@ void sample_ulaw_handler (void)
     check_sound_buffers ();
 }
 #endif
+
+/****i* januae-audio/switch_audio_interpol
+ *
+ *   NAME
+ *       switch_audio_interpol()
+ *
+ *   SYNOPSIS
+ *       void switch_audio_interpol (void)
+ *
+ *   FUNCTION
+ *       Select the next requested 16-bit interpolation mode in the sequence raw, rh,
+ *       crux and sinc.
+ *
+ *   NOTES
+ *       Updates changed_prefs rather than currprefs. Returns without changing the
+ *       mode for configured 8-bit output.
+ *
+ ****************************************************************************/
 
 void switch_audio_interpol (void)
 {
@@ -785,6 +1265,23 @@ void switch_audio_interpol (void)
     return;
 }
 
+/****i* januae-audio/schedule_audio
+ *
+ *   NAME
+ *       schedule_audio()
+ *
+ *   SYNOPSIS
+ *       void schedule_audio (void)
+ *
+ *   FUNCTION
+ *       Select the earliest pending Paula channel event and schedule the global audio
+ *       event.
+ *
+ *   NOTES
+ *       Deactivates the event if all four channels have no scheduled transition.
+ *
+ ****************************************************************************/
+
 void schedule_audio (void)
 {
     unsigned long best = MAX_EV;
@@ -809,6 +1306,27 @@ void schedule_audio (void)
  * since it was common to all.
  * Needs further cleaning up and a better name - or replacing entirely.
  */
+/****i* januae-audio/update_sound
+ *
+ *   NAME
+ *       update_sound()
+ *
+ *   SYNOPSIS
+ *       void update_sound (unsigned int freq)
+ *
+ *   FUNCTION
+ *       Recalculate emulated cycles between output samples from the obtained backend
+ *       frequency.
+ *
+ *   INPUTS
+ *       freq -- vertical refresh frequency used when synchronizing audio to video.
+ *
+ *   NOTES
+ *       Leaves scaled_sample_evtime unchanged when obtainedfreq is zero; timing
+ *       calculation depends on video-sync mode.
+ *
+ ****************************************************************************/
+
 void update_sound (unsigned int freq)
 {
     if (obtainedfreq) {
@@ -823,10 +1341,46 @@ void update_sound (unsigned int freq)
     }
 }
 
+/****i* januae-audio/isirq
+ *
+ *   NAME
+ *       isirq()
+ *
+ *   SYNOPSIS
+ *       static int isirq (unsigned int nr)
+ *
+ *   FUNCTION
+ *       Inspect the audio interrupt-request bit for one Paula channel.
+ *
+ *   INPUTS
+ *       nr -- zero-based audio channel number.
+ *
+ *   RESULT
+ *       The channel request bit, or zero if clear.
+ *
+ ****************************************************************************/
+
 static int isirq (unsigned int nr)
 {
     return INTREQR () & (0x80 << nr);
 }
+
+/****i* januae-audio/setirq
+ *
+ *   NAME
+ *       setirq()
+ *
+ *   SYNOPSIS
+ *       static void setirq (unsigned int nr, unsigned int debug)
+ *
+ *   FUNCTION
+ *       Set the emulated audio interrupt-request bit for the selected channel.
+ *
+ *   INPUTS
+ *       nr -- zero-based audio channel number.
+ *       debug -- diagnostic state value used only when DEBUG_AUDIO is enabled.
+ *
+ ****************************************************************************/
 
 static void setirq (unsigned int nr, unsigned int debug)
 {
@@ -836,6 +1390,27 @@ static void setirq (unsigned int nr, unsigned int debug)
 #endif
     INTREQ (0x8000 | (0x80 << nr));
 }
+
+/****i* januae-audio/newsample
+ *
+ *   NAME
+ *       newsample()
+ *
+ *   SYNOPSIS
+ *       static void newsample (unsigned int nr, sample8_t sample)
+ *
+ *   FUNCTION
+ *       Update the current and previous sample values of an audio channel.
+ *
+ *   INPUTS
+ *       nr -- zero-based audio channel number.
+ *       sample -- newly decoded sample value.
+ *
+ *   NOTES
+ *       A channel disabled by audio_channel_mask receives zero instead of the
+ *       supplied sample.
+ *
+ ****************************************************************************/
 
 static void newsample (unsigned int nr, sample8_t sample)
 {
@@ -848,6 +1423,27 @@ static void newsample (unsigned int nr, sample8_t sample)
     cdp->last_sample = cdp->current_sample;
     cdp->current_sample = sample;
 }
+
+/****i* januae-audio/state23
+ *
+ *   NAME
+ *       state23()
+ *
+ *   SYNOPSIS
+ *       static void state23 (struct audio_channel_data *cdp)
+ *
+ *   FUNCTION
+ *       Maintain a channel DMA fetch request and sample-word countdown during states
+ *       two and three.
+ *
+ *   INPUTS
+ *       cdp -- audio channel whose DMA word counters are to be advanced.
+ *
+ *   NOTES
+ *       When the word count reaches one, the channel reloads length and location and
+ *       marks a pending interrupt.
+ *
+ ****************************************************************************/
 
 static void state23 (struct audio_channel_data *cdp)
 {
@@ -869,6 +1465,27 @@ static void state23 (struct audio_channel_data *cdp)
 	cdp->wlen = (cdp->wlen - 1) & 0xFFFF;
     }
 }
+
+/****i* januae-audio/audio_handler
+ *
+ *   NAME
+ *       audio_handler()
+ *
+ *   SYNOPSIS
+ *       static void audio_handler (unsigned int nr, int timed)
+ *
+ *   FUNCTION
+ *       Advance one Paula audio channel through its DMA, interrupt and two-byte
+ *       sample states.
+ *
+ *   INPUTS
+ *       nr -- zero-based audio channel number.
+ *       timed -- event-context flag forwarded on recursive state transitions.
+ *
+ *   NOTES
+ *       May change the adjacent channel period or volume through ADKCON attachments.
+ *
+ ****************************************************************************/
 
 static void audio_handler (unsigned int nr, int timed)
 {
@@ -1005,6 +1622,24 @@ static void audio_handler (unsigned int nr, int timed)
     }
 }
 
+/****i* januae-audio/audio_reset
+ *
+ *   NAME
+ *       audio_reset()
+ *
+ *   SYNOPSIS
+ *       void audio_reset (void)
+ *
+ *   FUNCTION
+ *       Reset or reconstruct the four Paula channel states and reschedule their audio
+ *       events.
+ *
+ *   NOTES
+ *       During saved-state restoration, preserves restored channel fields and
+ *       recomputes DMA enablement.
+ *
+ ****************************************************************************/
+
 void audio_reset (void)
 {
     int i;
@@ -1043,6 +1678,23 @@ void audio_reset (void)
     events_schedule ();
 }
 
+/****i* januae-audio/sound_prefs_changed
+ *
+ *   NAME
+ *       sound_prefs_changed()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int sound_prefs_changed (void)
+ *
+ *   FUNCTION
+ *       Compare proposed sound preferences with the currently active sound
+ *       configuration.
+ *
+ *   RESULT
+ *       Nonzero if a monitored audio preference differs; otherwise zero.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int sound_prefs_changed (void)
 {
     return (changed_prefs.produce_sound != currprefs.produce_sound
@@ -1058,6 +1710,24 @@ STATIC_INLINE int sound_prefs_changed (void)
 	    || changed_prefs.sound_interpol != currprefs.sound_interpol
 	    || changed_prefs.sound_volume != currprefs.sound_volume);
 }
+
+/****i* januae-audio/check_prefs_changed_audio
+ *
+ *   NAME
+ *       check_prefs_changed_audio()
+ *
+ *   SYNOPSIS
+ *       void check_prefs_changed_audio (void)
+ *
+ *   FUNCTION
+ *       Apply pending audio preferences, reconfigure backend playback, and choose the
+ *       active sample handler.
+ *
+ *   NOTES
+ *       Backend reinitialization failure may disable production of sound. The
+ *       interpolation prehandler is selected only for sinc modes.
+ *
+ ****************************************************************************/
 
 void check_prefs_changed_audio (void)
 {
@@ -1130,6 +1800,23 @@ void check_prefs_changed_audio (void)
     }
 }
 
+/****i* januae-audio/update_audio
+ *
+ *   NAME
+ *       update_audio()
+ *
+ *   SYNOPSIS
+ *       void update_audio (void)
+ *
+ *   FUNCTION
+ *       Advance Paula sample and channel events up to the current emulated CPU cycle.
+ *
+ *   NOTES
+ *       Returns without processing while audio production is disabled or saved state
+ *       is being restored.
+ *
+ ****************************************************************************/
+
 void update_audio (void)
 {
     unsigned long int n_cycles;
@@ -1188,6 +1875,19 @@ void update_audio (void)
     last_cycles = get_cycles () - n_cycles;
 }
 
+/****i* januae-audio/audio_evhandler
+ *
+ *   NAME
+ *       audio_evhandler()
+ *
+ *   SYNOPSIS
+ *       void audio_evhandler (void)
+ *
+ *   FUNCTION
+ *       Process elapsed Paula audio time and reschedule the next audio event.
+ *
+ ****************************************************************************/
+
 void audio_evhandler (void)
 {
     update_audio ();
@@ -1198,6 +1898,26 @@ void audio_evhandler (void)
 extern uae_u8 cycle_line[];
 #endif
 uae_u16	dmacon;
+
+/****i* januae-audio/audio_hsync
+ *
+ *   NAME
+ *       audio_hsync()
+ *
+ *   SYNOPSIS
+ *       void audio_hsync (int dmaaction)
+ *
+ *   FUNCTION
+ *       Perform horizontal-sync audio DMA reads and update each channel DMA enable
+ *       state.
+ *
+ *   INPUTS
+ *       dmaaction -- nonzero when DMA word fetches are permitted during this hsync.
+ *
+ *   NOTES
+ *       On CPUEMU_6 builds, records DMA bus use in cycle_line.
+ *
+ ****************************************************************************/
 
 void audio_hsync (int dmaaction)
 {
@@ -1262,6 +1982,27 @@ void audio_hsync (int dmaaction)
     }
 }
 
+/****i* januae-audio/AUDxDAT
+ *
+ *   NAME
+ *       AUDxDAT()
+ *
+ *   SYNOPSIS
+ *       void AUDxDAT (unsigned int nr, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the data register of one Paula audio channel and start inactive-channel
+ *       processing.
+ *
+ *   INPUTS
+ *       nr -- zero-based audio channel number.
+ *       v -- new audio data word.
+ *
+ *   NOTES
+ *       May immediately advance the channel state and reschedule audio events.
+ *
+ ****************************************************************************/
+
 void AUDxDAT (unsigned int nr, uae_u16 v)
 {
     struct audio_channel_data *cdp = audio_channel + nr;
@@ -1283,6 +2024,23 @@ void AUDxDAT (unsigned int nr, uae_u16 v)
     }
 }
 
+/****i* januae-audio/AUDxLCH
+ *
+ *   NAME
+ *       AUDxLCH()
+ *
+ *   SYNOPSIS
+ *       void AUDxLCH (unsigned int nr, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Replace the upper 16 bits of the channel DMA source address.
+ *
+ *   INPUTS
+ *       nr -- zero-based audio channel number.
+ *       v -- high address word.
+ *
+ ****************************************************************************/
+
 void AUDxLCH (unsigned int nr, uae_u16 v)
 {
     update_audio ();
@@ -1293,6 +2051,24 @@ void AUDxLCH (unsigned int nr, uae_u16 v)
 #endif
 }
 
+/****i* januae-audio/AUDxLCL
+ *
+ *   NAME
+ *       AUDxLCL()
+ *
+ *   SYNOPSIS
+ *       void AUDxLCL (unsigned int nr, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Replace the low 16 bits of the channel DMA source address, clearing the low
+ *       alignment bit.
+ *
+ *   INPUTS
+ *       nr -- zero-based audio channel number.
+ *       v -- low address word.
+ *
+ ****************************************************************************/
+
 void AUDxLCL (unsigned int nr, uae_u16 v)
 {
     update_audio ();
@@ -1302,6 +2078,28 @@ void AUDxLCL (unsigned int nr, uae_u16 v)
 	write_log ("AUD%dLCL: %04.4X %08.8X\n", nr, v, m68k_getpc (&regs));
 #endif
 }
+
+/****i* januae-audio/AUDxPER
+ *
+ *   NAME
+ *       AUDxPER()
+ *
+ *   SYNOPSIS
+ *       void AUDxPER (unsigned int nr, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Set the channel sampling period after applying the emulated timing
+ *       constraints.
+ *
+ *   INPUTS
+ *       nr -- zero-based audio channel number.
+ *       v -- raw period register value.
+ *
+ *   NOTES
+ *       A zero period becomes PERIOD_MAX - 1; very short periods are constrained by
+ *       sound mode and interpolation.
+ *
+ ****************************************************************************/
 
 void AUDxPER (unsigned int nr, uae_u16 v)
 {
@@ -1335,6 +2133,23 @@ void AUDxPER (unsigned int nr, uae_u16 v)
 #endif
 }
 
+/****i* januae-audio/AUDxLEN
+ *
+ *   NAME
+ *       AUDxLEN()
+ *
+ *   SYNOPSIS
+ *       void AUDxLEN (unsigned int nr, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Set the DMA buffer length register for an audio channel.
+ *
+ *   INPUTS
+ *       nr -- zero-based audio channel number.
+ *       v -- new length word.
+ *
+ ****************************************************************************/
+
 void AUDxLEN (unsigned int nr, uae_u16 v)
 {
     update_audio ();
@@ -1344,6 +2159,27 @@ void AUDxLEN (unsigned int nr, uae_u16 v)
 	write_log ("AUD%dLEN: %d %08.8X\n", nr, v, m68k_getpc (&regs));
 #endif
 }
+
+/****i* januae-audio/AUDxVOL
+ *
+ *   NAME
+ *       AUDxVOL()
+ *
+ *   SYNOPSIS
+ *       void AUDxVOL (unsigned int nr, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Set the channel volume and, in lookup-table builds, select the matching
+ *       table.
+ *
+ *   INPUTS
+ *       nr -- zero-based audio channel number.
+ *       v -- raw volume register value.
+ *
+ *   NOTES
+ *       Volume is limited to the range zero through 63.
+ *
+ ****************************************************************************/
 
 void AUDxVOL (unsigned int nr, uae_u16 v)
 {
@@ -1358,6 +2194,26 @@ void AUDxVOL (unsigned int nr, uae_u16 v)
 	write_log ("AUD%dVOL: %d %08.8X\n", nr, v2, m68k_getpc (&regs));
 #endif
 }
+
+/****i* januae-audio/audio_update_irq
+ *
+ *   NAME
+ *       audio_update_irq()
+ *
+ *   SYNOPSIS
+ *       void audio_update_irq (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Report changes in Paula interrupt-request bits when audio diagnostics are
+ *       enabled.
+ *
+ *   INPUTS
+ *       v -- value of the emulated INTREQ update.
+ *
+ *   NOTES
+ *       Has no effect in builds without DEBUG_AUDIO.
+ *
+ ****************************************************************************/
 
 void audio_update_irq (uae_u16 v)
 {
@@ -1380,6 +2236,20 @@ void audio_update_irq (uae_u16 v)
 #endif
 }
 
+/****i* januae-audio/audio_update_adkmasks
+ *
+ *   NAME
+ *       audio_update_adkmasks()
+ *
+ *   SYNOPSIS
+ *       void audio_update_adkmasks (void)
+ *
+ *   FUNCTION
+ *       Derive the four audio channel output masks from the current ADKCON volume and
+ *       period attachment bits.
+ *
+ ****************************************************************************/
+
 void audio_update_adkmasks (void)
 {
     unsigned long t = adkcon | (adkcon >> 4);
@@ -1398,10 +2268,42 @@ void audio_update_adkmasks (void)
 #endif
 }
 
+/****i* januae-audio/audio_setup
+ *
+ *   NAME
+ *       audio_setup()
+ *
+ *   SYNOPSIS
+ *       int audio_setup (void)
+ *
+ *   FUNCTION
+ *       Prepare the selected host sound backend.
+ *
+ *   RESULT
+ *       The value returned by setup_sound().
+ *
+ ****************************************************************************/
+
 int audio_setup (void)
 {
     return setup_sound ();
 }
+
+/****i* januae-audio/audio_init
+ *
+ *   NAME
+ *       audio_init()
+ *
+ *   SYNOPSIS
+ *       int audio_init (void)
+ *
+ *   FUNCTION
+ *       Initialize host audio and refresh Paula output timing.
+ *
+ *   RESULT
+ *       The value returned by init_sound().
+ *
+ ****************************************************************************/
 
 int audio_init (void)
 {
@@ -1410,20 +2312,75 @@ int audio_init (void)
     return result;
 }
 
+/****i* januae-audio/audio_close
+ *
+ *   NAME
+ *       audio_close()
+ *
+ *   SYNOPSIS
+ *       void audio_close (void)
+ *
+ *   FUNCTION
+ *       Close the selected host sound backend.
+ *
+ ****************************************************************************/
+
 void audio_close (void)
 {
     close_sound ();
 }
+
+/****i* januae-audio/audio_pause
+ *
+ *   NAME
+ *       audio_pause()
+ *
+ *   SYNOPSIS
+ *       void audio_pause (void)
+ *
+ *   FUNCTION
+ *       Request playback pause from the host audio backend.
+ *
+ ****************************************************************************/
 
 void audio_pause (void)
 {
     pause_sound ();
 }
 
+/****i* januae-audio/audio_resume
+ *
+ *   NAME
+ *       audio_resume()
+ *
+ *   SYNOPSIS
+ *       void audio_resume (void)
+ *
+ *   FUNCTION
+ *       Request playback resume from the host audio backend.
+ *
+ ****************************************************************************/
+
 void audio_resume (void)
 {
     resume_sound ();
 }
+
+/****i* januae-audio/audio_volume
+ *
+ *   NAME
+ *       audio_volume()
+ *
+ *   SYNOPSIS
+ *       void audio_volume (int volume)
+ *
+ *   FUNCTION
+ *       Forward an output volume setting to the host audio backend.
+ *
+ *   INPUTS
+ *       volume -- requested host sound volume.
+ *
+ ****************************************************************************/
 
 void audio_volume (int volume)
 {
@@ -1431,6 +2388,31 @@ void audio_volume (int volume)
 }
 
 #ifdef SAVESTATE
+
+/****i* januae-audio/restore_audio
+ *
+ *   NAME
+ *       restore_audio()
+ *
+ *   SYNOPSIS
+ *       const uae_u8 *restore_audio (unsigned int channel, const uae_u8 *src)
+ *
+ *   FUNCTION
+ *       Restore the stored state of one Paula channel from the active saved-state
+ *       stream.
+ *
+ *   INPUTS
+ *       channel -- zero-based audio channel number.
+ *       src -- caller-supplied pointer returned without alteration.
+ *
+ *   RESULT
+ *       The supplied src pointer, unchanged.
+ *
+ *   NOTES
+ *       Requires SAVESTATE. The restore helpers advance their own stream position
+ *       independently of src.
+ *
+ ****************************************************************************/
 
 const uae_u8 *restore_audio (unsigned int channel, const uae_u8 *src)
 {
@@ -1455,6 +2437,31 @@ const uae_u8 *restore_audio (unsigned int channel, const uae_u8 *src)
 #endif /* SAVESTATE */
 
 #if defined SAVESTATE || defined DEBUGGER
+
+/****i* januae-audio/save_audio
+ *
+ *   NAME
+ *       save_audio()
+ *
+ *   SYNOPSIS
+ *       uae_u8 *save_audio (unsigned int channel, uae_u32 *len, uae_u8 *dstptr)
+ *
+ *   FUNCTION
+ *       Write one Paula channel state to the active saved-state stream.
+ *
+ *   INPUTS
+ *       channel -- zero-based audio channel number.
+ *       len -- receives the value of the local destination-pointer difference.
+ *       dstptr -- caller-owned buffer, or NULL to allocate one.
+ *
+ *   RESULT
+ *       The supplied destination or newly allocated buffer.
+ *
+ *   NOTES
+ *       Requires SAVESTATE or DEBUGGER. The local destination pointer is not advanced
+ *       while fields are written through global save helpers, so *len is set to zero.
+ *
+ ****************************************************************************/
 
 uae_u8 *save_audio (unsigned int channel, uae_u32 *len, uae_u8 *dstptr)
 {
