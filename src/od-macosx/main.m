@@ -48,6 +48,25 @@ static int     gArgc;
 static char  **gArgv;
 BOOL           gFinderLaunch;
 
+/****i* januae-od-macosx/getApplicationName *******************************
+*
+*   NAME
+*       getApplicationName()
+*
+*   SYNOPSIS
+*       NSString *getApplicationName (void);
+*
+*   FUNCTION
+*       Return the main bundle CFBundleName, falling back to the current
+*       process name if the bundle name is absent or empty.
+*
+*   RESULT
+*       An NSString provided by the bundle dictionary or NSProcessInfo. The
+*       caller does not acquire ownership.
+*
+*************************************************************************
+*
+*/
 NSString *getApplicationName (void)
 {
     NSDictionary *dict;
@@ -76,7 +95,28 @@ in Tiger or later */
 
 @implementation EUAE_Application
 
-/* Invoked from the Quit menu item */
+/****i* januae-od-macosx/EUAE_Application_terminate ***********************
+*
+*   NAME
+*       -[EUAE_Application terminate:]
+*
+*   SYNOPSIS
+*       - (void)terminate:(id)sender;
+*
+*   FUNCTION
+*       Request emulator termination by queuing an SDL_QUIT event when
+*       USE_SDL is enabled.
+*
+*   INPUTS
+*       sender - Unused menu sender.
+*
+*   NOTES
+*       The non-SDL branch has no termination action; this method does not
+*       invoke the superclass termination handler.
+*
+*************************************************************************
+*
+*/
 - (void)terminate:(id)sender
 {
 #ifdef USE_SDL
@@ -89,6 +129,24 @@ in Tiger or later */
 #endif
 }
 
+/****i* januae-od-macosx/EUAE_Application_sendEvent ***********************
+*
+*   NAME
+*       -[EUAE_Application sendEvent:]
+*
+*   SYNOPSIS
+*       - (void)sendEvent:(NSEvent *)anEvent;
+*
+*   FUNCTION
+*       Forward non-key events and Command-modified key-up or key-down
+*       events to NSApplication; suppress other key events.
+*
+*   INPUTS
+*       anEvent - Cocoa event submitted to the application.
+*
+*************************************************************************
+*
+*/
 - (void)sendEvent:(NSEvent *)anEvent
 {
     if (NSKeyDown == [anEvent type] || NSKeyUp == [anEvent type]) {
@@ -104,7 +162,28 @@ in Tiger or later */
 /* The main class of the application, the application's delegate */
 @implementation EUAE_Main
 
-/* Set the working directory to the .app's parent directory */
+/****i* januae-od-macosx/EUAE_Main_setupWorkingDirectory ******************
+*
+*   NAME
+*       -[EUAE_Main setupWorkingDirectory:]
+*
+*   SYNOPSIS
+*       - (void) setupWorkingDirectory:(BOOL)shouldChdir;
+*
+*   FUNCTION
+*       When requested, change the current working directory to the parent
+*       of the application bundle.
+*
+*   INPUTS
+*       shouldChdir - Whether to attempt the directory change.
+*
+*   NOTES
+*       File-system path conversion must succeed; chdir() failure is
+*       ignored. The directory change affects the process.
+*
+*************************************************************************
+*
+*/
 - (void) setupWorkingDirectory:(BOOL)shouldChdir
 {
     if (shouldChdir) {
@@ -120,6 +199,25 @@ in Tiger or later */
     }
 }
 
+/****i* januae-od-macosx/setApplicationMenu *******************************
+*
+*   NAME
+*       setApplicationMenu()
+*
+*   SYNOPSIS
+*       static void setApplicationMenu (void);
+*
+*   FUNCTION
+*       Install the Cocoa application menu with About, visibility and Quit
+*       actions.
+*
+*   NOTES
+*       The standard Command-key menu shortcuts are intentionally left
+*       unset for the emulator.
+*
+*************************************************************************
+*
+*/
 static void setApplicationMenu (void)
 {
     /* warning: this code is very odd */
@@ -168,6 +266,24 @@ static void setApplicationMenu (void)
 }
 
 /* Create a window menu */
+/****i* januae-od-macosx/setupWindowMenu **********************************
+*
+*   NAME
+*       setupWindowMenu()
+*
+*   SYNOPSIS
+*       static void setupWindowMenu (void);
+*
+*   FUNCTION
+*       Install the Cocoa Window menu with a Minimize command.
+*
+*   NOTES
+*       The Minimize command has no key equivalent, preserving Command-key
+*       delivery to emulation.
+*
+*************************************************************************
+*
+*/
 static void setupWindowMenu (void)
 {
     NSMenu      *windowMenu;
@@ -196,6 +312,30 @@ static void setupWindowMenu (void)
 }
 
 /* Replacement for NSApplicationMain */
+/****i* januae-od-macosx/CustomApplicationMain ****************************
+*
+*   NAME
+*       CustomApplicationMain()
+*
+*   SYNOPSIS
+*       static void CustomApplicationMain (int argc, char **argv);
+*
+*   FUNCTION
+*       Initialize the Cocoa application, optionally request foreground
+*       activation through CPS, create menus and a delegate, then run the
+*       application event loop.
+*
+*   INPUTS
+*       argc - Argument count; not used by this function.
+*       argv - Argument vector; not used by this function.
+*
+*   NOTES
+*       Returns after NSApp run ends and releases its delegate and
+*       autorelease pool. The launch callback performs emulator startup.
+*
+*************************************************************************
+*
+*/
 static void CustomApplicationMain (int argc, char **argv)
 {
     NSAutoreleasePool	*pool = [[NSAutoreleasePool alloc] init];
@@ -231,12 +371,59 @@ static void CustomApplicationMain (int argc, char **argv)
     [pool release];
 }
 
+/****i* januae-od-macosx/EUAE_Main_applicationShouldOpenUntitledFile ******
+*
+*   NAME
+*       -[EUAE_Main applicationShouldOpenUntitledFile:]
+*
+*   SYNOPSIS
+*       - (BOOL) applicationShouldOpenUntitledFile:(NSApplication *)sender;
+*
+*   FUNCTION
+*       Suppress creation of an untitled document at application startup.
+*
+*   INPUTS
+*       sender - Unused application object.
+*
+*   RESULT
+*       Always NO.
+*
+*************************************************************************
+*
+*/
 - (BOOL) applicationShouldOpenUntitledFile:(NSApplication *)sender
 {
     return NO;
 }
 
 extern NSString *finderLaunchFilename;
+/****i* januae-od-macosx/EUAE_Main_application_openFile *******************
+*
+*   NAME
+*       -[EUAE_Main application:openFile:]
+*
+*   SYNOPSIS
+*       - (BOOL) application:(NSApplication *)theApplication
+*       openFile:(NSString *)filename;
+*
+*   FUNCTION
+*       Store a copy of the Finder-selected file name, releasing any
+*       previously retained name.
+*
+*   INPUTS
+*       theApplication - Unused application object.
+*       filename - File path supplied by Cocoa; may be nil.
+*
+*   RESULT
+*       YES when filename is non-nil; otherwise NO.
+*
+*   NOTES
+*       The saved global finderLaunchFilename is retained until replaced or
+*       released elsewhere.
+*
+*************************************************************************
+*
+*/
 - (BOOL) application:(NSApplication *)theApplication openFile:(NSString *)filename
 {
     if (filename != nil) {
@@ -249,7 +436,29 @@ extern NSString *finderLaunchFilename;
     return NO;
 }
 
-/* Called when the internal event loop has just started running */
+/****i* januae-od-macosx/EUAE_Main_applicationDidFinishLaunching **********
+*
+*   NAME
+*       -[EUAE_Main applicationDidFinishLaunching:]
+*
+*   SYNOPSIS
+*       - (void) applicationDidFinishLaunching: (NSNotification *) note;
+*
+*   FUNCTION
+*       Set the working directory for Finder launches, initialize SDL when
+*       enabled, run the emulator if initialization returns nonzero, then
+*       terminate the process.
+*
+*   INPUTS
+*       note - Unused launch notification.
+*
+*   NOTES
+*       With USE_SDL, real_main() is skipped if init_sdl() returns false.
+*       The process exits with EXIT_SUCCESS regardless of that outcome.
+*
+*************************************************************************
+*
+*/
 - (void) applicationDidFinishLaunching: (NSNotification *) note
 {
     /* Set the working directory to the .app's parent directory */
@@ -278,7 +487,33 @@ extern NSString *finderLaunchFilename;
 #  undef main
 #endif
 
-/* Main entry point to executable - should *not* be SDL_main! */
+/****i* januae-od-macosx/main *********************************************
+*
+*   NAME
+*       main()
+*
+*   SYNOPSIS
+*       int main (int argc, char **argv);
+*
+*   FUNCTION
+*       Record launch arguments and run the Cocoa application. A Finder
+*       process-serial-number argument selects Finder launch handling and
+*       configures the per-user log path.
+*
+*   INPUTS
+*       argc - Argument count.
+*       argv - Argument vector.
+*
+*   RESULT
+*       0 if the Cocoa application loop returns.
+*
+*   NOTES
+*       Finder launches pass an effective single argument to the emulator;
+*       the original argv pointer is retained.
+*
+*************************************************************************
+*
+*/
 int main (int argc, char **argv)
 {
     char logfile_path[MAX_PATH] = "~/Library/Logs/E-UAE.log";
@@ -303,24 +538,92 @@ int main (int argc, char **argv)
 }
 
 
-/* Dummy for now */
+/****i* januae-od-macosx/setup_brkhandler *********************************
+*
+*   NAME
+*       setup_brkhandler()
+*
+*   SYNOPSIS
+*       void setup_brkhandler (void);
+*
+*   FUNCTION
+*       Perform no signal-handler setup on the Cocoa target.
+*
+*************************************************************************
+*
+*/
 void setup_brkhandler (void)
 {
 }
 
 
-/*
- * Handle target-specific cfgfile options
- */
+/****i* januae-od-macosx/target_save_options ******************************
+*
+*   NAME
+*       target_save_options()
+*
+*   SYNOPSIS
+*       void target_save_options (FILE *f, const struct uae_prefs *p);
+*
+*   FUNCTION
+*       Write no Cocoa-specific configuration settings.
+*
+*   INPUTS
+*       f - Unused output stream.
+*       p - Unused preference set.
+*
+*************************************************************************
+*
+*/
 void target_save_options (FILE *f, const struct uae_prefs *p)
 {
 }
 
+/****i* januae-od-macosx/target_parse_option ******************************
+*
+*   NAME
+*       target_parse_option()
+*
+*   SYNOPSIS
+*       int target_parse_option (struct uae_prefs *p, const char *option,
+*       const char *value);
+*
+*   FUNCTION
+*       Decline all Cocoa-specific configuration options.
+*
+*   INPUTS
+*       p - Unused preference set.
+*       option - Unused option name.
+*       value - Unused option value.
+*
+*   RESULT
+*       Always 0.
+*
+*************************************************************************
+*
+*/
 int target_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     return 0;
 }
 
+/****i* januae-od-macosx/target_default_options ***************************
+*
+*   NAME
+*       target_default_options()
+*
+*   SYNOPSIS
+*       void target_default_options (struct uae_prefs *p);
+*
+*   FUNCTION
+*       Leave the Cocoa-specific preferences unchanged.
+*
+*   INPUTS
+*       p - Unused preference set.
+*
+*************************************************************************
+*
+*/
 void target_default_options (struct uae_prefs *p)
 {
 }
