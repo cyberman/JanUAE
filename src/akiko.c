@@ -68,6 +68,27 @@ static int scl_out, scl_in, scl_dir, oscl, sda_out, sda_in, sda_dir, osda;
 static int sda_dir_nvram;
 static int state = I2C_WAIT;
 
+/****i* januae-akiko/nvram_write
+ *
+ *   NAME
+ *       nvram_write()
+ *
+ *   SYNOPSIS
+ *       static void nvram_write (unsigned int offset, unsigned int len)
+ *
+ *   FUNCTION
+ *       Persist a slice of the emulated CD32 EEPROM to the configured flash file.
+ *
+ *   INPUTS
+ *       offset -- file and EEPROM byte offset.
+ *       len -- number of bytes to write.
+ *
+ *   NOTES
+ *       If the file does not exist, creates it and first writes the full 1024-byte
+ *       image. File-open and write failures are not reported.
+ *
+ ****************************************************************************/
+
 static void nvram_write (unsigned int offset, unsigned int len)
 {
     struct zfile *f = zfile_fopen (currprefs.flashfile, "rb+");
@@ -81,6 +102,23 @@ static void nvram_write (unsigned int offset, unsigned int len)
     zfile_fclose (f);
 }
 
+/****i* januae-akiko/nvram_read
+ *
+ *   NAME
+ *       nvram_read()
+ *
+ *   SYNOPSIS
+ *       static void nvram_read (void)
+ *
+ *   FUNCTION
+ *       Load the configured flash file into the 1024-byte emulated EEPROM.
+ *
+ *   NOTES
+ *       The EEPROM is zero-filled before reading. A missing or unreadable file leaves
+ *       zeroed data; short reads are not reported.
+ *
+ ****************************************************************************/
+
 static void nvram_read (void)
 {
     struct zfile *f;
@@ -91,6 +129,23 @@ static void nvram_read (void)
     zfile_fread (cd32_nvram, NVRAM_SIZE, 1, f);
     zfile_fclose (f);
 }
+
+/****i* januae-akiko/i2c_do
+ *
+ *   NAME
+ *       i2c_do()
+ *
+ *   SYNOPSIS
+ *       static void i2c_do (void)
+ *
+ *   FUNCTION
+ *       Advance the emulated EEPROM serial protocol on clock and data transitions.
+ *
+ *   NOTES
+ *       Recognizes START and STOP sequences, device and word addresses, data
+ *       transfers and ACK; a completed write stores the containing 16-byte page.
+ *
+ ****************************************************************************/
 
 static void i2c_do (void)
 {
@@ -217,6 +272,27 @@ static void i2c_do (void)
     }
 }
 
+/****i* januae-akiko/akiko_nvram_write
+ *
+ *   NAME
+ *       akiko_nvram_write()
+ *
+ *   SYNOPSIS
+ *       static void akiko_nvram_write (int offset, uae_u32 v)
+ *
+ *   FUNCTION
+ *       Update the emulated SCL/SDA signals or their direction register.
+ *
+ *   INPUTS
+ *       offset -- 0 for signal levels; 2 for direction bits.
+ *       v -- register byte; bits 7 and 6 carry SCL and SDA.
+ *
+ *   NOTES
+ *       Signal changes invoke the EEPROM protocol state machine. Other offsets have
+ *       no effect.
+ *
+ ****************************************************************************/
+
 static void akiko_nvram_write (int offset, uae_u32 v)
 {
     int sda;
@@ -242,6 +318,28 @@ static void akiko_nvram_write (int offset, uae_u32 v)
 	osda = sda;
     }
 }
+
+/****i* januae-akiko/akiko_nvram_read
+ *
+ *   NAME
+ *       akiko_nvram_read()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 akiko_nvram_read (int offset)
+ *
+ *   FUNCTION
+ *       Read the emulated EEPROM serial data or direction bits.
+ *
+ *   INPUTS
+ *       offset -- 0 for SCL/SDA levels; 2 for direction bits.
+ *
+ *   RESULT
+ *       Bit 7 represents SCL and bit 6 represents SDA; other bits are clear.
+ *
+ *   NOTES
+ *       Reads of an unsupported offset return zero.
+ *
+ ****************************************************************************/
 
 static uae_u32 akiko_nvram_read (int offset)
 {
@@ -275,6 +373,23 @@ static uae_u32 akiko_buffer[8];
 static int akiko_read_offset, akiko_write_offset;
 static uae_u32 akiko_result[8];
 
+/****i* januae-akiko/akiko_c2p_do
+ *
+ *   NAME
+ *       akiko_c2p_do()
+ *
+ *   SYNOPSIS
+ *       static void akiko_c2p_do (void)
+ *
+ *   FUNCTION
+ *       Transpose eight 32-bit chunky input words into eight bitplane output words.
+ *
+ *   NOTES
+ *       Replaces all eight entries of akiko_result; input words are read in reverse
+ *       array order.
+ *
+ ****************************************************************************/
+
 static void akiko_c2p_do (void)
 {
     int i;
@@ -287,6 +402,27 @@ static void akiko_c2p_do (void)
     }
 }
 
+/****i* januae-akiko/akiko_c2p_write
+ *
+ *   NAME
+ *       akiko_c2p_write()
+ *
+ *   SYNOPSIS
+ *       static void akiko_c2p_write (int offset, uae_u32 v)
+ *
+ *   FUNCTION
+ *       Store a byte in the emulated Akiko chunky-to-planar input FIFO.
+ *
+ *   INPUTS
+ *       offset -- byte offset within a 32-bit word, from 0 through 3.
+ *       v -- byte value to insert.
+ *
+ *   NOTES
+ *       Writing offset 3 clears the current input word; offset 0 advances its
+ *       eight-word ring index and every write resets the output index.
+ *
+ ****************************************************************************/
+
 static void akiko_c2p_write (int offset, uae_u32 v)
 {
     if (offset == 3) akiko_buffer[akiko_write_offset] = 0;
@@ -297,6 +433,29 @@ static void akiko_c2p_write (int offset, uae_u32 v)
     }
     akiko_read_offset = 0;
 }
+
+/****i* januae-akiko/akiko_c2p_read
+ *
+ *   NAME
+ *       akiko_c2p_read()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 akiko_c2p_read (int offset)
+ *
+ *   FUNCTION
+ *       Read the selected byte from the chunky-to-planar conversion output.
+ *
+ *   INPUTS
+ *       offset -- byte offset within a 32-bit word, from 0 through 3.
+ *
+ *   RESULT
+ *       The shifted conversion word; the caller uses its low byte.
+ *
+ *   NOTES
+ *       The first read at offset 3 triggers conversion. Offset 0 advances the
+ *       eight-word read index and resets the write index.
+ *
+ ****************************************************************************/
 
 static uae_u32 akiko_c2p_read (int offset)
 {
@@ -364,15 +523,78 @@ static uae_u8 *sector_buffer_info_1, *sector_buffer_info_2;
 
 static int unitnum = -1;
 
+/****i* januae-akiko/frombcd
+ *
+ *   NAME
+ *       frombcd()
+ *
+ *   SYNOPSIS
+ *       static uae_u8 frombcd (uae_u8 v)
+ *
+ *   FUNCTION
+ *       Decode a packed two-digit BCD byte into an integer.
+ *
+ *   INPUTS
+ *       v -- packed BCD input.
+ *
+ *   RESULT
+ *       Ten times its high nibble plus its low nibble.
+ *
+ *   NOTES
+ *       No BCD digit validation is performed.
+ *
+ ****************************************************************************/
+
 static uae_u8 frombcd (uae_u8 v)
 {
     return (v >> 4) * 10 + (v & 15);
 }
 
+/****i* januae-akiko/tobcd
+ *
+ *   NAME
+ *       tobcd()
+ *
+ *   SYNOPSIS
+ *       static uae_u8 tobcd (uae_u8 v)
+ *
+ *   FUNCTION
+ *       Encode an integer as a packed two-digit BCD byte.
+ *
+ *   INPUTS
+ *       v -- value to encode.
+ *
+ *   RESULT
+ *       Packed quotient by ten and remainder as high and low nibbles.
+ *
+ *   NOTES
+ *       Values outside two decimal digits are not rejected.
+ *
+ ****************************************************************************/
+
 static uae_u8 tobcd (uae_u8 v)
 {
     return ((v / 10) << 4) | (v % 10);
 }
+
+/****i* januae-akiko/fromlongbcd
+ *
+ *   NAME
+ *       fromlongbcd()
+ *
+ *   SYNOPSIS
+ *       static int fromlongbcd (uae_u8 *p)
+ *
+ *   FUNCTION
+ *       Decode three consecutive BCD bytes into a packed minute/second/frame integer.
+ *
+ *   INPUTS
+ *       p -- pointer to three BCD-encoded bytes.
+ *
+ *   RESULT
+ *       The three decoded decimal values in bits 16, 8 and 0.
+ *
+ ****************************************************************************/
 
 static int fromlongbcd (uae_u8 *p)
 {
@@ -380,6 +602,27 @@ static int fromlongbcd (uae_u8 *p)
 }
 
 /* convert minutes, seconds and frames -> logical sector number */
+/****i* januae-akiko/msf2lsn
+ *
+ *   NAME
+ *       msf2lsn()
+ *
+ *   SYNOPSIS
+ *       static int msf2lsn (int msf)
+ *
+ *   FUNCTION
+ *       Convert a packed minute/second/frame position into a logical CD sector
+ *       number.
+ *
+ *   INPUTS
+ *       msf -- minute, second and frame fields in bits 16, 8 and 0.
+ *
+ *   RESULT
+ *       Frame position at 75 frames per second minus the 150-frame lead-in, clamped
+ *       to zero.
+ *
+ ****************************************************************************/
+
 static int msf2lsn (int msf)
 {
     int sector = (((msf >> 16) & 0xff) * 60 * 75 + ((msf >> 8) & 0xff) * 75 + ((msf >> 0) & 0xff)) - 150;
@@ -389,6 +632,26 @@ static int msf2lsn (int msf)
 }
 
 /* convert logical sector number -> minutes, seconds and frames */
+/****i* januae-akiko/lsn2msf
+ *
+ *   NAME
+ *       lsn2msf()
+ *
+ *   SYNOPSIS
+ *       static int lsn2msf (int sectors)
+ *
+ *   FUNCTION
+ *       Convert a logical CD sector number into a packed minute/second/frame
+ *       position.
+ *
+ *   INPUTS
+ *       sectors -- logical sector index.
+ *
+ *   RESULT
+ *       Minute, second and frame fields with the 150-frame lead-in included.
+ *
+ ****************************************************************************/
+
 static int lsn2msf (int sectors)
 {
     int msf;
@@ -398,6 +661,23 @@ static int lsn2msf (int sectors)
     msf |= (sectors % 75) << 0;
     return msf;
 }
+
+/****i* januae-akiko/cdaudiostop
+ *
+ *   NAME
+ *       cdaudiostop()
+ *
+ *   SYNOPSIS
+ *       static void cdaudiostop (void)
+ *
+ *   FUNCTION
+ *       Stop emulated CD audio playback and clear playback and pause flags.
+ *
+ *   NOTES
+ *       When a device unit is selected, sends pause, stop and pause commands to the
+ *       CD backend.
+ *
+ ****************************************************************************/
 
 static void cdaudiostop (void)
 {
@@ -411,6 +691,30 @@ static void cdaudiostop (void)
 }
 
 static uae_u32 last_play_end;
+/****i* januae-akiko/cd_play_audio
+ *
+ *   NAME
+ *       cd_play_audio()
+ *
+ *   SYNOPSIS
+ *       static int cd_play_audio (uae_u32 startmsf, uae_u32 endmsf, int scan)
+ *
+ *   FUNCTION
+ *       Request CD audio playback through the selected drive.
+ *
+ *   INPUTS
+ *       startmsf -- packed start position.
+ *       endmsf -- packed end position, or 0xffffffff to reuse the last end.
+ *       scan -- scan mode forwarded to the backend.
+ *
+ *   RESULT
+ *       The result of sys_command_play().
+ *
+ *   NOTES
+ *       An explicit end position becomes the saved end for the next playback request.
+ *
+ ****************************************************************************/
+
 static int cd_play_audio (uae_u32 startmsf, uae_u32 endmsf, int scan)
 {
     if (endmsf == 0xffffffff)
@@ -423,6 +727,31 @@ static int cd_play_audio (uae_u32 startmsf, uae_u32 endmsf, int scan)
 
 /* read qcode */
 static uae_u32 last_play_pos;
+/****i* januae-akiko/cd_qcode
+ *
+ *   NAME
+ *       cd_qcode()
+ *
+ *   SYNOPSIS
+ *       static int cd_qcode (uae_u8 *d)
+ *
+ *   FUNCTION
+ *       Translate the backend subchannel-Q status into the Akiko result layout.
+ *
+ *   INPUTS
+ *       d -- writable buffer for 11 bytes, or NULL to update the saved playback
+ *       position only.
+ *
+ *   RESULT
+ *       Always zero.
+ *
+ *   NOTES
+ *       Clears the supplied buffer before querying the backend. Unsupported or
+ *       unavailable status leaves it zero; successful status populates BCD
+ *       track/index/position fields.
+ *
+ ****************************************************************************/
+
 static int cd_qcode (uae_u8 *d)
 {
     const uae_u8 *buf, *s;
@@ -474,6 +803,27 @@ static int cd_qcode (uae_u8 *d)
 }
 
 /* read toc */
+/****i* januae-akiko/cdrom_toc
+ *
+ *   NAME
+ *       cdrom_toc()
+ *
+ *   SYNOPSIS
+ *       static int cdrom_toc (void)
+ *
+ *   FUNCTION
+ *       Load the selected CD drive table of contents into Akiko TOC entries.
+ *
+ *   RESULT
+ *       Zero on success; one if the backend provides no TOC; minus one if the entry
+ *       count exceeds the fixed table.
+ *
+ *   NOTES
+ *       Derives the data-track end and lead-out from available track records; the
+ *       table can hold at most 103 entries.
+ *
+ ****************************************************************************/
+
 static int cdrom_toc (void)
 {
     int i, j;
@@ -519,6 +869,28 @@ static int cdrom_toc (void)
 }
 
 /* open device */
+/****i* januae-akiko/sys_cddev_open
+ *
+ *   NAME
+ *       sys_cddev_open()
+ *
+ *   SYNOPSIS
+ *       static int sys_cddev_open (void)
+ *
+ *   FUNCTION
+ *       Choose and open the preferred CD-ROM device unit for Akiko emulation.
+ *
+ *   RESULT
+ *       Zero when device information is obtained; one if no candidate or device
+ *       information is available.
+ *
+ *   NOTES
+ *       Prefers a recognized CD32/CDTV data disc, otherwise an audio disc or the
+ *       first CD-ROM unit. A failed final reopen is logged but not by itself treated
+ *       as failure.
+ *
+ ****************************************************************************/
+
 static int sys_cddev_open (void)
 {
     int first = -1;
@@ -581,6 +953,19 @@ static int sys_cddev_open (void)
 }
 
 /* close device */
+/****i* januae-akiko/sys_cddev_close
+ *
+ *   NAME
+ *       sys_cddev_close()
+ *
+ *   SYNOPSIS
+ *       static void sys_cddev_close (void)
+ *
+ *   FUNCTION
+ *       Stop audio and close the selected CD-ROM backend unit.
+ *
+ ****************************************************************************/
+
 static void sys_cddev_close (void)
 {
     cdaudiostop ();
@@ -588,6 +973,26 @@ static void sys_cddev_close (void)
 }
 
 static int command_lengths[] = { 1,2,1,1,12,2,1,1,4,1,-1,-1,-1,-1,-1 };
+
+/****i* januae-akiko/cdrom_return_data
+ *
+ *   NAME
+ *       cdrom_return_data()
+ *
+ *   SYNOPSIS
+ *       static void cdrom_return_data (int len)
+ *
+ *   FUNCTION
+ *       Write a command result and its checksum into the emulated result ring.
+ *
+ *   INPUTS
+ *       len -- number of result bytes to write.
+ *
+ *   NOTES
+ *       Ignores nonpositive lengths. Advances the eight-bit completion offset and
+ *       sets the data-available status flag.
+ *
+ ****************************************************************************/
 
 static void cdrom_return_data (int len)
 {
@@ -615,10 +1020,48 @@ static void cdrom_return_data (int len)
     cdrom_status1 |= CDSTATUS_DATA_AVAILABLE;
 }
 
+/****i* januae-akiko/cdrom_command_something
+ *
+ *   NAME
+ *       cdrom_command_something()
+ *
+ *   SYNOPSIS
+ *       static int cdrom_command_something (void)
+ *
+ *   FUNCTION
+ *       Handle the unimplemented Akiko CD-ROM command placeholder.
+ *
+ *   RESULT
+ *       Zero; no result bytes are produced.
+ *
+ *   NOTES
+ *       The caller separately sets the flag used to emit successive TOC entries.
+ *
+ ****************************************************************************/
+
 static int cdrom_command_something (void)
 {
     return 0;
 }
+
+/****i* januae-akiko/cdrom_command_media_status
+ *
+ *   NAME
+ *       cdrom_command_media_status()
+ *
+ *   SYNOPSIS
+ *       static int cdrom_command_media_status (void)
+ *
+ *   FUNCTION
+ *       Place the selected drive media-present status into the Akiko result buffer.
+ *
+ *   RESULT
+ *       Two result bytes.
+ *
+ *   NOTES
+ *       Queries the backend device information without checking for a NULL result.
+ *
+ ****************************************************************************/
 
 static int cdrom_command_media_status (void)
 {
@@ -630,6 +1073,26 @@ static int cdrom_command_media_status (void)
 }
 
 /* check if cd drive door is open or closed */
+/****i* januae-akiko/cdrom_command_door_status
+ *
+ *   NAME
+ *       cdrom_command_door_status()
+ *
+ *   SYNOPSIS
+ *       static int cdrom_command_door_status (void)
+ *
+ *   FUNCTION
+ *       Build the Akiko disc-present result and refresh the drive TOC.
+ *
+ *   RESULT
+ *       Twenty result bytes.
+ *
+ *   NOTES
+ *       Updates cdrom_disk from the selected unit state; unit information is
+ *       dereferenced without a NULL check.
+ *
+ ****************************************************************************/
+
 static int cdrom_command_door_status (void)
 {
     struct device_info di;
@@ -647,6 +1110,26 @@ static int cdrom_command_door_status (void)
 }
 
 /* return one TOC entry */
+/****i* januae-akiko/cdrom_return_toc_entry
+ *
+ *   NAME
+ *       cdrom_return_toc_entry()
+ *
+ *   SYNOPSIS
+ *       static int cdrom_return_toc_entry (void)
+ *
+ *   FUNCTION
+ *       Copy the current 13-byte TOC entry into an Akiko command result.
+ *
+ *   RESULT
+ *       Fifteen result bytes.
+ *
+ *   NOTES
+ *       Without TOC entries, reports CDS_ERROR. Otherwise advances the entry index
+ *       and wraps at the entry count.
+ *
+ ****************************************************************************/
+
 static int cdrom_return_toc_entry (void)
 {
     cdrom_result_buffer[0] = 6;
@@ -663,6 +1146,25 @@ static int cdrom_return_toc_entry (void)
 }
 
 /* pause CD audio */
+/****i* januae-akiko/cdrom_command_pause
+ *
+ *   NAME
+ *       cdrom_command_pause()
+ *
+ *   SYNOPSIS
+ *       static int cdrom_command_pause (void)
+ *
+ *   FUNCTION
+ *       Pause CD audio playback if it is active and not already paused.
+ *
+ *   RESULT
+ *       Two result bytes.
+ *
+ *   NOTES
+ *       Records the previous playback state and resets TOC iteration.
+ *
+ ****************************************************************************/
+
 static int cdrom_command_pause (void)
 {
     cdrom_toc_counter = -1;
@@ -678,6 +1180,22 @@ static int cdrom_command_pause (void)
 }
 
 /* unpause CD audio */
+/****i* januae-akiko/cdrom_command_unpause
+ *
+ *   NAME
+ *       cdrom_command_unpause()
+ *
+ *   SYNOPSIS
+ *       static int cdrom_command_unpause (void)
+ *
+ *   FUNCTION
+ *       Resume CD audio playback only when it is currently paused and active.
+ *
+ *   RESULT
+ *       Two result bytes.
+ *
+ ****************************************************************************/
+
 static int cdrom_command_unpause (void)
 {
     cdrom_result_buffer[0] = cdrom_command;
@@ -692,6 +1210,26 @@ static int cdrom_command_unpause (void)
 }
 
 /* seek	head/play CD audio/read	data sectors */
+/****i* januae-akiko/cdrom_command_multi
+ *
+ *   NAME
+ *       cdrom_command_multi()
+ *
+ *   SYNOPSIS
+ *       static int cdrom_command_multi (void)
+ *
+ *   FUNCTION
+ *       Handle the combined CD seek, data-read and audio-play command.
+ *
+ *   RESULT
+ *       Two result bytes.
+ *
+ *   NOTES
+ *       Decodes BCD positions, selects playback or sector transfer, and reports
+ *       missing media. Audio playback errors are represented in the result flags.
+ *
+ ****************************************************************************/
+
 static int cdrom_command_multi (void)
 {
     int seekpos = fromlongbcd (cdrom_command_buffer + 1);
@@ -742,6 +1280,26 @@ static int cdrom_command_multi (void)
 }
 
 /* return subq entry */
+/****i* januae-akiko/cdrom_command_subq
+ *
+ *   NAME
+ *       cdrom_command_subq()
+ *
+ *   SYNOPSIS
+ *       static int cdrom_command_subq (void)
+ *
+ *   FUNCTION
+ *       Prepare an Akiko CD subchannel-Q command response.
+ *
+ *   RESULT
+ *       Fifteen result bytes.
+ *
+ *   NOTES
+ *       Delegates to cd_qcode(), which always returns zero; a missing backend status
+ *       is not reflected as an error by this command.
+ *
+ ****************************************************************************/
+
 static int cdrom_command_subq (void)
 {
     cdrom_result_buffer[0] = cdrom_command;
@@ -750,6 +1308,23 @@ static int cdrom_command_subq (void)
 	cdrom_result_buffer[1] = CDS_ERROR;
     return 15;
 }
+
+/****i* januae-akiko/cdrom_run_command
+ *
+ *   NAME
+ *       cdrom_run_command()
+ *
+ *   SYNOPSIS
+ *       static void cdrom_run_command (void)
+ *
+ *   FUNCTION
+ *       Fetch a pending command and checksum from the emulated CD command ring.
+ *
+ *   NOTES
+ *       Reads the command only when no other command is active; unknown command
+ *       lengths default to one byte. Records checksum failure for later reporting.
+ *
+ ****************************************************************************/
 
 static void cdrom_run_command (void)
 {
@@ -799,6 +1374,23 @@ static void cdrom_run_command (void)
     }
 }
 
+/****i* januae-akiko/cdrom_run_command_run
+ *
+ *   NAME
+ *       cdrom_run_command_run()
+ *
+ *   SYNOPSIS
+ *       static void cdrom_run_command_run (void)
+ *
+ *   FUNCTION
+ *       Execute the active Akiko CD command and, when applicable, write its result.
+ *
+ *   NOTES
+ *       Dispatches the low command nibble. Unsupported commands produce no result;
+ *       checksum failure sets the error bit on results that are produced.
+ *
+ ****************************************************************************/
+
 static void cdrom_run_command_run (void)
 {
     int len;
@@ -840,6 +1432,23 @@ static void cdrom_run_command_run (void)
 static uae_sem_t akiko_sem;
 
 /* DMA transfer one CD sector */
+/****i* januae-akiko/cdrom_run_read
+ *
+ *   NAME
+ *       cdrom_run_read()
+ *
+ *   SYNOPSIS
+ *       static void cdrom_run_read (void)
+ *
+ *   FUNCTION
+ *       Transfer one buffered CD data sector into emulated DMA memory when requested.
+ *
+ *   NOTES
+ *       Requires enabled transfer control, a writable mask slot and a valid sector
+ *       offset. Uses the Akiko semaphore when examining the shared sector cache.
+ *
+ ****************************************************************************/
+
 static void cdrom_run_read (void)
 {
     int i, j, sector;
@@ -890,6 +1499,23 @@ static void cdrom_run_read (void)
 
 
 
+/****i* januae-akiko/akiko_handler
+ *
+ *   NAME
+ *       akiko_handler()
+ *
+ *   SYNOPSIS
+ *       static void akiko_handler (void)
+ *
+ *   FUNCTION
+ *       Poll the selected CD drive for media changes and pending TOC results.
+ *
+ *   NOTES
+ *       Returns when the previous command result remains pending; the media-state
+ *       poll interval is counted in handler invocations.
+ *
+ ****************************************************************************/
+
 static void akiko_handler (void)
 {
     static int mediacheckcnt;
@@ -926,6 +1552,23 @@ static void akiko_handler (void)
     }
 }
 
+/****i* januae-akiko/akiko_internal
+ *
+ *   NAME
+ *       akiko_internal()
+ *
+ *   SYNOPSIS
+ *       static void akiko_internal (void)
+ *
+ *   FUNCTION
+ *       Advance pending Akiko CD command acquisition and dispatch.
+ *
+ *   NOTES
+ *       Decrements the active-command delay and dispatches it when the delay reaches
+ *       zero.
+ *
+ ****************************************************************************/
+
 static void akiko_internal (void)
 {
     cdrom_run_command ();
@@ -937,6 +1580,23 @@ static void akiko_internal (void)
 }
 
 extern int cd32_enabled;
+
+/****i* januae-akiko/AKIKO_hsync_handler
+ *
+ *   NAME
+ *       AKIKO_hsync_handler()
+ *
+ *   SYNOPSIS
+ *       void AKIKO_hsync_handler (void)
+ *
+ *   FUNCTION
+ *       Service the emulated CD32 Akiko hardware from horizontal synchronization.
+ *
+ *   NOTES
+ *       Does nothing unless cd32_enabled is set. Periodically advances CD sector DMA
+ *       and the frame status flag, then services commands and media status.
+ *
+ ****************************************************************************/
 
 void AKIKO_hsync_handler (void)
 {
@@ -960,6 +1620,29 @@ void AKIKO_hsync_handler (void)
 static volatile int akiko_thread_running;
 
 /* cdrom data buffering thread */
+/****i* januae-akiko/akiko_thread
+ *
+ *   NAME
+ *       akiko_thread()
+ *
+ *   SYNOPSIS
+ *       static void *akiko_thread (void *null)
+ *
+ *   FUNCTION
+ *       Populate the rotating CD sector cache in a background CD-backend thread.
+ *
+ *   INPUTS
+ *       null -- unused thread argument.
+ *
+ *   RESULT
+ *       NULL when the worker exits.
+ *
+ *   NOTES
+ *       Opens and closes the thread-specific CD interface. Swaps cached sector
+ *       buffers under akiko_sem and sets akiko_thread_running to -1 on exit.
+ *
+ ****************************************************************************/
+
 static void *akiko_thread (void *null)
 {
     int i;
@@ -1017,16 +1700,78 @@ static void *akiko_thread (void *null)
     return 0;
 }
 
+/****i* januae-akiko/akiko_get_long
+ *
+ *   NAME
+ *       akiko_get_long()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u8 akiko_get_long (uae_u32 v, int offset)
+ *
+ *   FUNCTION
+ *       Extract a selected big-endian byte from a 32-bit Akiko register.
+ *
+ *   INPUTS
+ *       v -- 32-bit register value.
+ *       offset -- byte index 0 through 3.
+ *
+ *   RESULT
+ *       Selected byte.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE uae_u8 akiko_get_long (uae_u32 v, int offset)
 {
     return v >> ((3 - offset) * 8);
 }
+
+/****i* januae-akiko/akiko_put_long
+ *
+ *   NAME
+ *       akiko_put_long()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void akiko_put_long (uae_u32 *p, int offset, int v)
+ *
+ *   FUNCTION
+ *       Replace a selected big-endian byte in a 32-bit Akiko register.
+ *
+ *   INPUTS
+ *       p -- writable register word.
+ *       offset -- byte index 0 through 3.
+ *       v -- new register-byte value.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void akiko_put_long (uae_u32 *p, int offset, int v)
 {
     *p &= ~(0xff << ((3 - offset) * 8));
     *p |= v << ((3 - offset) * 8);
 }
+
+/****i* januae-akiko/akiko_bget2
+ *
+ *   NAME
+ *       akiko_bget2()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u32 akiko_bget2 (uaecptr addr, int msg)
+ *
+ *   FUNCTION
+ *       Read an emulated Akiko register and advance pending CD commands.
+ *
+ *   INPUTS
+ *       addr -- memory-mapped Akiko address; only its low 16 bits are decoded.
+ *       msg -- whether register-read debugging may be emitted.
+ *
+ *   RESULT
+ *       Selected register value, or zero for unrecognized offsets.
+ *
+ *   NOTES
+ *       Handles controller state, command pointers, EEPROM lines and chunky-to-planar
+ *       output.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE uae_u32 akiko_bget2 (uaecptr addr, int msg)
 {
@@ -1122,10 +1867,51 @@ STATIC_INLINE uae_u32 akiko_bget2 (uaecptr addr, int msg)
     return v;
 }
 
+/****i* januae-akiko/akiko_bget
+ *
+ *   NAME
+ *       akiko_bget()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 akiko_bget (uaecptr addr)
+ *
+ *   FUNCTION
+ *       Read one byte through the Akiko memory-bank interface.
+ *
+ *   INPUTS
+ *       addr -- emulated register address.
+ *
+ *   RESULT
+ *       Result of akiko_bget2() with diagnostic flag enabled.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 akiko_bget (uaecptr addr)
 {
     return akiko_bget2 (addr, 1);
 }
+
+/****i* januae-akiko/akiko_wget
+ *
+ *   NAME
+ *       akiko_wget()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 akiko_wget (uaecptr addr)
+ *
+ *   FUNCTION
+ *       Read a big-endian 16-bit Akiko register value using two byte accesses.
+ *
+ *   INPUTS
+ *       addr -- emulated register address.
+ *
+ *   RESULT
+ *       Assembled 16-bit value.
+ *
+ *   NOTES
+ *       Each byte access advances the internal CD command state.
+ *
+ ****************************************************************************/
 
 uae_u32 REGPARAM2 akiko_wget (uaecptr addr)
 {
@@ -1140,6 +1926,28 @@ uae_u32 REGPARAM2 akiko_wget (uaecptr addr)
 
     return v;
 }
+
+/****i* januae-akiko/akiko_lget
+ *
+ *   NAME
+ *       akiko_lget()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 akiko_lget (uaecptr addr)
+ *
+ *   FUNCTION
+ *       Read a big-endian 32-bit Akiko register value using four byte accesses.
+ *
+ *   INPUTS
+ *       addr -- emulated register address.
+ *
+ *   RESULT
+ *       Assembled 32-bit value.
+ *
+ *   NOTES
+ *       Each byte access advances the internal CD command state.
+ *
+ ****************************************************************************/
 
 uae_u32 REGPARAM2 akiko_lget (uaecptr addr)
 {
@@ -1156,6 +1964,28 @@ uae_u32 REGPARAM2 akiko_lget (uaecptr addr)
 
     return v;
 }
+
+/****i* januae-akiko/akiko_bput2
+ *
+ *   NAME
+ *       akiko_bput2()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void REGPARAM2 akiko_bput2 (uaecptr addr, uae_u32 v, int msg)
+ *
+ *   FUNCTION
+ *       Write one byte to an emulated Akiko register and advance pending CD commands.
+ *
+ *   INPUTS
+ *       addr -- emulated register address, masked to 16 bits.
+ *       v -- low byte of the value to write.
+ *       msg -- whether write diagnostics may be emitted.
+ *
+ *   NOTES
+ *       Updates CD controller flags, DMA masks, command pointers, EEPROM state or
+ *       chunky-to-planar input depending on the offset.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void REGPARAM2 akiko_bput2 (uaecptr addr, uae_u32 v, int msg)
 {
@@ -1248,10 +2078,48 @@ STATIC_INLINE void REGPARAM2 akiko_bput2 (uaecptr addr, uae_u32 v, int msg)
     akiko_internal ();
 }
 
+/****i* januae-akiko/akiko_bput
+ *
+ *   NAME
+ *       akiko_bput()
+ *
+ *   SYNOPSIS
+ *       void REGPARAM2 akiko_bput (uaecptr addr, uae_u32 v)
+ *
+ *   FUNCTION
+ *       Write one byte through the Akiko memory-bank interface.
+ *
+ *   INPUTS
+ *       addr -- emulated register address.
+ *       v -- value; only the low byte is used.
+ *
+ ****************************************************************************/
+
 void REGPARAM2 akiko_bput (uaecptr addr, uae_u32 v)
 {
     akiko_bput2 (addr, v, 1);
 }
+
+/****i* januae-akiko/akiko_wput
+ *
+ *   NAME
+ *       akiko_wput()
+ *
+ *   SYNOPSIS
+ *       void REGPARAM2 akiko_wput (uaecptr addr, uae_u32 v)
+ *
+ *   FUNCTION
+ *       Write a big-endian 16-bit Akiko value through two byte accesses.
+ *
+ *   INPUTS
+ *       addr -- emulated register address, masked to 12 bits.
+ *       v -- value to write.
+ *
+ *   NOTES
+ *       The low byte is written before the high byte; each access advances CD command
+ *       processing.
+ *
+ ****************************************************************************/
 
 void REGPARAM2 akiko_wput (uaecptr addr, uae_u32 v)
 {
@@ -1262,6 +2130,27 @@ void REGPARAM2 akiko_wput (uaecptr addr, uae_u32 v)
     akiko_bput2 (addr + 1, v & 0xff, 0);
     akiko_bput2 (addr + 0, v >> 8, 0);
 }
+
+/****i* januae-akiko/akiko_lput
+ *
+ *   NAME
+ *       akiko_lput()
+ *
+ *   SYNOPSIS
+ *       void REGPARAM2 akiko_lput (uaecptr addr, uae_u32 v)
+ *
+ *   FUNCTION
+ *       Write a big-endian 32-bit Akiko value through four byte accesses.
+ *
+ *   INPUTS
+ *       addr -- emulated register address.
+ *       v -- value to write.
+ *
+ *   NOTES
+ *       The least significant byte is written first, with a command-state update
+ *       after every byte access.
+ *
+ ****************************************************************************/
 
 void REGPARAM2 akiko_lput (uaecptr addr, uae_u32 v)
 {
@@ -1279,6 +2168,23 @@ static uae_thread_id akiko_tid;
 
 
 static int cdromok = 0;
+
+/****i* januae-akiko/akiko_reset
+ *
+ *   NAME
+ *       akiko_reset()
+ *
+ *   SYNOPSIS
+ *       void akiko_reset (void)
+ *
+ *   FUNCTION
+ *       Reset Akiko EEPROM protocol state and release active CD resources.
+ *
+ *   NOTES
+ *       Stops CD audio, reloads the EEPROM image, terminates the sector worker and
+ *       frees allocated sector buffers when CD support was initialized.
+ *
+ ****************************************************************************/
 
 void akiko_reset (void)
 {
@@ -1318,6 +2224,23 @@ extern uae_u8 *extendedkickmemory;
 
 static const uae_u8 patchdata[] = {0x0c,0x82,0x00,0x00,0x03,0xe8,0x64,0x00,0x00,0x46};
 
+/****i* januae-akiko/patchrom
+ *
+ *   NAME
+ *       patchrom()
+ *
+ *   SYNOPSIS
+ *       static void patchrom (void)
+ *
+ *   FUNCTION
+ *       Replace one extended Kickstart delay-loop instruction sequence.
+ *
+ *   NOTES
+ *       Scans the first 512 KiB of extendedkickmemory only on its first call. Logs
+ *       success or failure; later calls do not repeat the scan.
+ *
+ ****************************************************************************/
+
 static void patchrom (void)
 {
     static int patch_done = 0;
@@ -1344,10 +2267,43 @@ static void patchrom (void)
     }
 }
 
+/****i* januae-akiko/akiko_free
+ *
+ *   NAME
+ *       akiko_free()
+ *
+ *   SYNOPSIS
+ *       void akiko_free (void)
+ *
+ *   FUNCTION
+ *       Release Akiko CD-ROM and EEPROM runtime state by invoking akiko_reset().
+ *
+ ****************************************************************************/
+
 void akiko_free (void)
 {
     akiko_reset ();
 }
+
+/****i* januae-akiko/akiko_init
+ *
+ *   NAME
+ *       akiko_init()
+ *
+ *   SYNOPSIS
+ *       int akiko_init (void)
+ *
+ *   FUNCTION
+ *       Initialize the Akiko CD backend, sector cache, semaphore and worker.
+ *
+ *   RESULT
+ *       Zero if device_func_init() reports no device support; otherwise one.
+ *
+ *   NOTES
+ *       Disc detection may fail without changing the return value. Cache allocations
+ *       and thread creation are not checked for success.
+ *
+ ****************************************************************************/
 
 int akiko_init (void)
 {
@@ -1382,6 +2338,30 @@ int akiko_init (void)
 
 
 #ifdef SAVESTATE
+
+/****i* januae-akiko/save_akiko
+ *
+ *   NAME
+ *       save_akiko()
+ *
+ *   SYNOPSIS
+ *       uae_u8 *save_akiko (uae_u32 *len)
+ *
+ *   FUNCTION
+ *       Serialize Akiko CD control, EEPROM signal directions, C2P and audio-playback
+ *       state.
+ *
+ *   INPUTS
+ *       len -- receives the reported serialized length.
+ *
+ *   RESULT
+ *       Newly allocated save buffer.
+ *
+ *   NOTES
+ *       Requires SAVESTATE. The local destination pointer is never advanced while
+ *       save helpers write data, so *len is set to zero.
+ *
+ ****************************************************************************/
 
 uae_u8 *save_akiko (uae_u32 *len)
 {
@@ -1428,6 +2408,29 @@ uae_u8 *save_akiko (uae_u32 *len)
     *len = dst - dstbak;
     return dstbak;
 }
+
+/****i* januae-akiko/restore_akiko
+ *
+ *   NAME
+ *       restore_akiko()
+ *
+ *   SYNOPSIS
+ *       const uae_u8 *restore_akiko (const uae_u8 *src)
+ *
+ *   FUNCTION
+ *       Restore saved Akiko controller, C2P and CD audio playback state.
+ *
+ *   INPUTS
+ *       src -- caller-provided source pointer, not advanced by this routine.
+ *
+ *   RESULT
+ *       The original src pointer, unchanged.
+ *
+ *   NOTES
+ *       Requires SAVESTATE. Reads from the save-state helper stream and may issue a
+ *       CD audio play request.
+ *
+ ****************************************************************************/
 
 const uae_u8 *restore_akiko (const uae_u8 *src)
 {
@@ -1486,11 +2489,45 @@ const uae_u8 *restore_akiko (const uae_u8 *src)
 #endif /* SAVESTATE */
 
 
+/****i* januae-akiko/akiko_entergui
+ *
+ *   NAME
+ *       akiko_entergui()
+ *
+ *   SYNOPSIS
+ *       void akiko_entergui (void)
+ *
+ *   FUNCTION
+ *       Pause CD audio through the backend while entering the emulator GUI.
+ *
+ *   NOTES
+ *       The request is sent only while cdrom_playing is set; it does not update
+ *       cdrom_paused.
+ *
+ ****************************************************************************/
+
 void akiko_entergui (void)
 {
     if (cdrom_playing)
 	sys_command_pause (DF_IOCTL, unitnum, 1);
 }
+/****i* januae-akiko/akiko_exitgui
+ *
+ *   NAME
+ *       akiko_exitgui()
+ *
+ *   SYNOPSIS
+ *       void akiko_exitgui (void)
+ *
+ *   FUNCTION
+ *       Resume CD audio through the backend when leaving the emulator GUI.
+ *
+ *   NOTES
+ *       The request is sent only while cdrom_playing is set; it does not update
+ *       cdrom_paused.
+ *
+ ****************************************************************************/
+
 void akiko_exitgui (void)
 {
     if (cdrom_playing)
