@@ -255,12 +255,10 @@ case $host_os in
       AC_MSG_ERROR([BeOS is not a supported JanUAE target])
       ;;
     amigaos)
-      HOST_OS=amiga
-      OSDEP=od-amiga
+      AC_MSG_ERROR([AmigaOS is not a supported JanUAE host target])
       ;;
     morphos)
-      HOST_OS=morphos
-      OSDEP=od-amiga
+      AC_MSG_ERROR([MorphOS is not a supported JanUAE host target])
       ;;
     aros)
       HOST_OS=aros
@@ -454,8 +452,6 @@ if [[ "$OSDEP" = "od-amiga" ]]; then
   THREADNAME="native AmigaOS"
   GFX_DEP=gfx-amigaos
   GFX_NAME="native AmigaOS"
-  GUI_DEP=gui-muirexx
-  GUI_NAME="MUIRexx"
   SND_DEP=sd-amigaos
   SND_NAME="native AmigaOS/AHI"
   if [[ "x$HAVE_AMIGAINPUT" = "xyes" ]]; then
@@ -1208,7 +1204,6 @@ AC_CONFIG_FILES([Makefile
 		 src/jd-sdl/Makefile
 		 src/gui-none/Makefile
 		 src/gui-gtk/Makefile
-		 src/gui-muirexx/Makefile
 		 src/keymap/Makefile
 		 src/test/Makefile
 ])

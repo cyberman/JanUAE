@@ -12,7 +12,7 @@ DIST_SUBDIRS = \
 	gfx-amigaos gfx-sdl \
 	sd-none sd-amigaos sd-sdl \
 	jd-none jd-amigainput jd-amigaos jd-sdl \
-	gui-none gui-gtk gui-muirexx \
+	gui-none gui-gtk \
 	od-generic od-amiga \
 	td-none td-amigaos td-posix td-sdl \
 	keymap \
