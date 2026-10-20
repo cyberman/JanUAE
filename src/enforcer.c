@@ -48,10 +48,29 @@ static addrbank saved_dummy_bank;
 static addrbank saved_chipmem_bank;
 
 
-/*************************************************************
- Returns the first node entry of an exec list or 0 if
- empty
-*************************************************************/
+/****i* januae-enforcer/amiga_list_first ************************************
+*
+*   NAME
+*       amiga_list_first() -- Find the first Exec list node.
+*
+*   SYNOPSIS
+*       static uae_u32 amiga_list_first (uae_u32 list);
+*
+*   FUNCTION
+*       Read the head of a guest Exec list and disregard the tail
+*       sentinel.
+*
+*   INPUTS
+*       list - Guest address of the list header.
+*
+*   RESULT
+*       Guest address of the first node, or zero for an empty or invalidly
+*       linked list.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 amiga_list_first (uae_u32 list)
 {
     uae_u32 node = get_long (list);      /* lh_Head */
@@ -62,10 +81,28 @@ static uae_u32 amiga_list_first (uae_u32 list)
     return node;
 }
 
-/*************************************************************
- Returns the next node of an exec node or 0 if it was the
- last element
-*************************************************************/
+/****i* januae-enforcer/amiga_node_next *************************************
+*
+*   NAME
+*       amiga_node_next() -- Advance an Exec list traversal.
+*
+*   SYNOPSIS
+*       static uae_u32 amiga_node_next (uae_u32 node);
+*
+*   FUNCTION
+*       Read the successor of a guest Exec node and disregard the tail
+*       sentinel.
+*
+*   INPUTS
+*       node - Guest address of the current node.
+*
+*   RESULT
+*       Guest address of the next node, or zero at the end of the list.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 amiga_node_next (uae_u32 node)
 {
     uae_u32 next = get_long (node);    /* ln_Succ */
@@ -76,11 +113,30 @@ static uae_u32 amiga_node_next (uae_u32 node)
     return next;
 }
 
-/*************************************************************
- Converts an amiga address to a native one or NULL if this
- is not possible, Size specified the number of bytes you
- want to access
-*************************************************************/
+/****i* januae-enforcer/amiga2native ****************************************
+*
+*   NAME
+*       amiga2native() -- Translate a checked guest memory range.
+*
+*   SYNOPSIS
+*       static uae_u8 *amiga2native (uae_u32 aptr, int size);
+*
+*   FUNCTION
+*       Look up the memory bank for a guest address and use its address
+*       translator when the requested range passes the bank check.
+*
+*   INPUTS
+*       aptr - Guest start address.
+*       size - Number of bytes that must be accessible.
+*
+*   RESULT
+*       Host pointer to the guest range, or NULL when the bank check
+*       fails.
+*
+****************************************************************************
+*
+*/
+
 static uae_u8 *amiga2native (uae_u32 aptr, int size)
 {
     addrbank bank = get_mem_bank (aptr);
@@ -92,9 +148,36 @@ static uae_u8 *amiga2native (uae_u32 aptr, int size)
     return NULL;
 }
 
-/*************************************************************
- Writes the Hunk and Offset of the given Address into buf
-*************************************************************/
+/****i* januae-enforcer/enforcer_decode_hunk_and_offset *********************
+*
+*   NAME
+*       enforcer_decode_hunk_and_offset() -- Describe a program counter
+*       using SegTracker.
+*
+*   SYNOPSIS
+*       static int enforcer_decode_hunk_and_offset (char *buf, uae_u32
+*       pc);
+*
+*   FUNCTION
+*       Search the guest Exec semaphore list for SegTracker, locate the
+*       segment containing pc, and format its hunk number and offset in
+*       buf.
+*
+*   INPUTS
+*       buf - Writable destination for the formatted description.
+*       pc - Guest program counter to locate.
+*
+*   RESULT
+*       1 when a matching segment is found; otherwise 0.
+*
+*   NOTES
+*       The implementation does not receive a buffer capacity and writes
+*       with sprintf.
+*
+****************************************************************************
+*
+*/
+
 static int enforcer_decode_hunk_and_offset (char *buf, uae_u32 pc)
 {
     uae_u32 sysbase = get_long(4);
@@ -161,9 +244,36 @@ static int enforcer_decode_hunk_and_offset (char *buf, uae_u32 pc)
     return 0;
 }
 
-/*************************************************************
- Display the enforcer hit
-*************************************************************/
+/****i* januae-enforcer/enforcer_display_hit ********************************
+*
+*   NAME
+*       enforcer_display_hit() -- Report a monitored memory access.
+*
+*   SYNOPSIS
+*       static void enforcer_display_hit (const char *addressmode, uae_u32
+*       pc, uaecptr addr);
+*
+*   FUNCTION
+*       Collect guest CPU registers, stack words, nearby disassembly, and
+*       available SegTracker information; write the report and request a
+*       screen flash.
+*
+*   INPUTS
+*       addressmode - Text identifying the offending access.
+*       pc - Guest program counter.
+*       addr - Guest memory address being accessed.
+*
+*   RESULT
+*       No value is returned.
+*
+*   NOTES
+*       The report is skipped while another hit is being displayed or when
+*       the guest Exec base or current task is unavailable.
+*
+****************************************************************************
+*
+*/
+
 static void enforcer_display_hit (const char *addressmode, uae_u32 pc, uaecptr addr)
 {
     uae_u32 a7;
@@ -354,6 +464,28 @@ static void     chipmem_bput2  (uaecptr addr, uae_u32 b) REGPARAM;
 static int      chipmem_check2 (uaecptr addr, uae_u32 size) REGPARAM;
 static uae_u8 * chipmem_xlate2 (uaecptr addr) REGPARAM;
 
+/****i* januae-enforcer/chipmem_lget2 ***************************************
+*
+*   NAME
+*       chipmem_lget2() -- Read a monitored chip-memory longword.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 chipmem_lget2 (uaecptr addr);
+*
+*   FUNCTION
+*       Normalize addr to the chip-memory bank, report an access within
+*       the monitored low-memory range, and read a big-endian longword.
+*
+*   INPUTS
+*       addr - Guest chip-memory address.
+*
+*   RESULT
+*       32-bit longword read from chip memory.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 chipmem_lget2 (uaecptr addr)
 {
     uae_u32 *m;
@@ -367,6 +499,28 @@ static uae_u32 REGPARAM2 chipmem_lget2 (uaecptr addr)
 
     return do_get_mem_long (m);
 }
+
+/****i* januae-enforcer/chipmem_wget2 ***************************************
+*
+*   NAME
+*       chipmem_wget2() -- Read a monitored chip-memory word.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 chipmem_wget2 (uaecptr addr);
+*
+*   FUNCTION
+*       Normalize addr to chip memory, report access to the monitored
+*       low-memory range, and read a big-endian word.
+*
+*   INPUTS
+*       addr - Guest chip-memory address.
+*
+*   RESULT
+*       16-bit word value returned as uae_u32.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 REGPARAM2 chipmem_wget2 (uaecptr addr)
 {
@@ -382,6 +536,28 @@ static uae_u32 REGPARAM2 chipmem_wget2 (uaecptr addr)
     return do_get_mem_word (m);
 }
 
+/****i* januae-enforcer/chipmem_bget2 ***************************************
+*
+*   NAME
+*       chipmem_bget2() -- Read a monitored chip-memory byte.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 chipmem_bget2 (uaecptr addr);
+*
+*   FUNCTION
+*       Normalize addr to chip memory, report an access in the monitored
+*       low-memory range, and return the addressed byte.
+*
+*   INPUTS
+*       addr - Guest chip-memory address.
+*
+*   RESULT
+*       8-bit byte value returned as uae_u32.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 chipmem_bget2 (uaecptr addr)
 {
     addr -= chipmem_start & chipmem_mask;
@@ -392,6 +568,29 @@ static uae_u32 REGPARAM2 chipmem_bget2 (uaecptr addr)
 
     return chipmemory[addr];
 }
+
+/****i* januae-enforcer/chipmem_lput2 ***************************************
+*
+*   NAME
+*       chipmem_lput2() -- Write a monitored chip-memory longword.
+*
+*   SYNOPSIS
+*       static void REGPARAM2 chipmem_lput2 (uaecptr addr, uae_u32 l);
+*
+*   FUNCTION
+*       Normalize addr to the chip-memory bank, report access in the
+*       monitored low-memory range, and write a big-endian longword.
+*
+*   INPUTS
+*       addr - Guest chip-memory address.
+*       l - Longword to store.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void REGPARAM2 chipmem_lput2 (uaecptr addr, uae_u32 l)
 {
@@ -407,6 +606,29 @@ static void REGPARAM2 chipmem_lput2 (uaecptr addr, uae_u32 l)
     do_put_mem_long (m, l);
 }
 
+/****i* januae-enforcer/chipmem_wput2 ***************************************
+*
+*   NAME
+*       chipmem_wput2() -- Write a monitored chip-memory word.
+*
+*   SYNOPSIS
+*       static void REGPARAM2 chipmem_wput2 (uaecptr addr, uae_u32 w);
+*
+*   FUNCTION
+*       Normalize addr to chip memory, report access in the monitored
+*       low-memory range, and write a big-endian word.
+*
+*   INPUTS
+*       addr - Guest chip-memory address.
+*       w - Word to store.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void REGPARAM2 chipmem_wput2 (uaecptr addr, uae_u32 w)
 {
     uae_u16 *m;
@@ -421,6 +643,29 @@ static void REGPARAM2 chipmem_wput2 (uaecptr addr, uae_u32 w)
     do_put_mem_word (m, w);
 }
 
+/****i* januae-enforcer/chipmem_bput2 ***************************************
+*
+*   NAME
+*       chipmem_bput2() -- Write a monitored chip-memory byte.
+*
+*   SYNOPSIS
+*       static void REGPARAM2 chipmem_bput2 (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Normalize addr to chip memory, report access in the monitored
+*       low-memory range, and store the low eight bits of b.
+*
+*   INPUTS
+*       addr - Guest chip-memory address.
+*       b - Value to store.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void REGPARAM2 chipmem_bput2 (uaecptr addr, uae_u32 b)
 {
     addr -= chipmem_start & chipmem_mask;
@@ -431,12 +676,61 @@ static void REGPARAM2 chipmem_bput2 (uaecptr addr, uae_u32 b)
     chipmemory[addr] = b;
 }
 
+/****i* januae-enforcer/chipmem_check2 **************************************
+*
+*   NAME
+*       chipmem_check2() -- Check a chip-memory address range.
+*
+*   SYNOPSIS
+*       static int REGPARAM2 chipmem_check2 (uaecptr addr, uae_u32 size);
+*
+*   FUNCTION
+*       Normalize addr to the chip-memory bank and compare the end of the
+*       requested range with allocated_chipmem.
+*
+*   INPUTS
+*       addr - Guest chip-memory address.
+*       size - Requested byte count.
+*
+*   RESULT
+*       Nonzero when the normalized end is at or below allocated_chipmem;
+*       zero otherwise.
+*
+****************************************************************************
+*
+*/
+
 static int REGPARAM2 chipmem_check2 (uaecptr addr, uae_u32 size)
 {
     addr -= chipmem_start & chipmem_mask;
     addr &= chipmem_mask;
     return (addr + size) <= allocated_chipmem;
 }
+
+/****i* januae-enforcer/chipmem_xlate2 **************************************
+*
+*   NAME
+*       chipmem_xlate2() -- Translate a chip-memory address.
+*
+*   SYNOPSIS
+*       static uae_u8 * REGPARAM2 chipmem_xlate2 (uaecptr addr);
+*
+*   FUNCTION
+*       Normalize addr to the chip-memory bank and return its host-memory
+*       address.
+*
+*   INPUTS
+*       addr - Guest chip-memory address.
+*
+*   RESULT
+*       Pointer into chipmemory at the normalized offset.
+*
+*   NOTES
+*       No separate range check is performed.
+*
+****************************************************************************
+*
+*/
 
 static uae_u8 * REGPARAM2 chipmem_xlate2 (uaecptr addr)
 {
@@ -462,6 +756,28 @@ static void     dummy_wput2    (uaecptr addr, uae_u32 w) REGPARAM;
 static void     dummy_bput2    (uaecptr addr, uae_u32 b) REGPARAM;
 static int      dummy_check2   (uaecptr addr, uae_u32 size) REGPARAM;
 
+/****i* januae-enforcer/dummy_lget2 *****************************************
+*
+*   NAME
+*       dummy_lget2() -- Handle a monitored unmapped longword read.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 dummy_lget2 (uaecptr addr);
+*
+*   FUNCTION
+*       Report the attempted read from the dummy memory bank and flag a
+*       special read when JIT is enabled.
+*
+*   INPUTS
+*       addr - Guest address being read.
+*
+*   RESULT
+*       The fixed value 0xbadedeef.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 dummy_lget2 (uaecptr addr)
 {
 #ifdef JIT
@@ -474,6 +790,33 @@ static uae_u32 REGPARAM2 dummy_lget2 (uaecptr addr)
 #ifdef JIT
 static int warned_JIT_0xF10000 = 0;
 #endif
+
+/****i* januae-enforcer/dummy_wget2 *****************************************
+*
+*   NAME
+*       dummy_wget2() -- Handle a monitored unmapped word read.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 dummy_wget2 (uaecptr addr);
+*
+*   FUNCTION
+*       Report the attempted word read from the dummy memory bank, subject
+*       to the JIT-specific address exception.
+*
+*   INPUTS
+*       addr - Guest address being read.
+*
+*   RESULT
+*       0xbadf normally; zero for JIT reads in 0x00f10000 through
+*       0x00f7ffff.
+*
+*   NOTES
+*       In the JIT exception range, a hit is reported only on the first
+*       access. JIT builds mark the access as a special read.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 REGPARAM2 dummy_wget2 (uaecptr addr)
 {
@@ -492,6 +835,28 @@ static uae_u32 REGPARAM2 dummy_wget2 (uaecptr addr)
     return 0xbadf;
 }
 
+/****i* januae-enforcer/dummy_bget2 *****************************************
+*
+*   NAME
+*       dummy_bget2() -- Handle a monitored unmapped byte read.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 dummy_bget2 (uaecptr addr);
+*
+*   FUNCTION
+*       Report the attempted byte read from the dummy memory bank and flag
+*       a special read when JIT is enabled.
+*
+*   INPUTS
+*       addr - Guest address being read.
+*
+*   RESULT
+*       The fixed value 0xbadedeef.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 dummy_bget2 (uaecptr addr)
 {
 #ifdef JIT
@@ -501,6 +866,29 @@ static uae_u32 REGPARAM2 dummy_bget2 (uaecptr addr)
     return 0xbadedeef;
 }
 
+/****i* januae-enforcer/dummy_lput2 *****************************************
+*
+*   NAME
+*       dummy_lput2() -- Handle a monitored unmapped longword write.
+*
+*   SYNOPSIS
+*       static void REGPARAM2 dummy_lput2 (uaecptr addr, uae_u32 l);
+*
+*   FUNCTION
+*       Report an attempted write to the dummy memory bank and flag a
+*       special write when JIT is enabled.
+*
+*   INPUTS
+*       addr - Guest destination address.
+*       l - Attempted longword value; not stored.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void REGPARAM2 dummy_lput2 (uaecptr addr, uae_u32 l)
 {
 #ifdef JIT
@@ -508,6 +896,29 @@ static void REGPARAM2 dummy_lput2 (uaecptr addr, uae_u32 l)
 #endif
     enforcer_display_hit ("LONG WRITE to", GET_PC, addr);
 }
+
+/****i* januae-enforcer/dummy_wput2 *****************************************
+*
+*   NAME
+*       dummy_wput2() -- Handle a monitored unmapped word write.
+*
+*   SYNOPSIS
+*       static void REGPARAM2 dummy_wput2 (uaecptr addr, uae_u32 w);
+*
+*   FUNCTION
+*       Report an attempted write to the dummy memory bank and flag a
+*       special write when JIT is enabled.
+*
+*   INPUTS
+*       addr - Guest destination address.
+*       w - Attempted word value; not stored.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
 
 static void REGPARAM2 dummy_wput2 (uaecptr addr, uae_u32 w)
 {
@@ -517,6 +928,29 @@ static void REGPARAM2 dummy_wput2 (uaecptr addr, uae_u32 w)
     enforcer_display_hit ("WORD WRITE to", GET_PC, addr);
 }
 
+/****i* januae-enforcer/dummy_bput2 *****************************************
+*
+*   NAME
+*       dummy_bput2() -- Handle a monitored unmapped byte write.
+*
+*   SYNOPSIS
+*       static void REGPARAM2 dummy_bput2 (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Report an attempted write to the dummy memory bank and flag a
+*       special write when JIT is enabled.
+*
+*   INPUTS
+*       addr - Guest destination address.
+*       b - Attempted byte value; not stored.
+*
+*   RESULT
+*       No value is returned.
+*
+****************************************************************************
+*
+*/
+
 static void REGPARAM2 dummy_bput2 (uaecptr addr, uae_u32 b)
 {
 #ifdef JIT
@@ -524,6 +958,29 @@ static void REGPARAM2 dummy_bput2 (uaecptr addr, uae_u32 b)
 #endif
     enforcer_display_hit ("BYTE WRITE to", GET_PC, addr);
 }
+
+/****i* januae-enforcer/dummy_check2 ****************************************
+*
+*   NAME
+*       dummy_check2() -- Reject a monitored dummy-bank range.
+*
+*   SYNOPSIS
+*       static int REGPARAM2 dummy_check2 (uaecptr addr, uae_u32 size);
+*
+*   FUNCTION
+*       Report a memory-range check in the dummy bank, marking a special
+*       read when JIT is enabled.
+*
+*   INPUTS
+*       addr - Guest start address.
+*       size - Requested byte count; not used.
+*
+*   RESULT
+*       0 for every request.
+*
+****************************************************************************
+*
+*/
 
 static int REGPARAM2 dummy_check2 (uaecptr addr, uae_u32 size)
 {
@@ -540,11 +997,29 @@ const addrbank enforcer_dummy_bank = {
     default_xlate, dummy_check2, NULL
 };
 
-/*************************************************************
- enable the enforcer like support, maybe later this make MMU
- exceptions so enforcer can use it. Returns 1 if enforcer
- is enabled
-*************************************************************/
+/****i* januae-enforcer/enforcer_enable *************************************
+*
+*   NAME
+*       enforcer_enable() -- Enable emulated low-memory access
+*       diagnostics.
+*
+*   SYNOPSIS
+*       int enforcer_enable (void);
+*
+*   FUNCTION
+*       Save the existing chip-memory and dummy address banks on first
+*       activation and replace them with monitored banks.
+*
+*   RESULT
+*       1 for every call.
+*
+*   NOTES
+*       Repeated calls preserve the previously saved banks.
+*
+****************************************************************************
+*
+*/
+
 int enforcer_enable (void)
 {
     extern addrbank chipmem_bank, dummy_bank;
@@ -562,9 +1037,26 @@ int enforcer_enable (void)
     return 1;
 }
 
-/*************************************************************
- Disable Enforcer like support
-*************************************************************/
+/****i* januae-enforcer/enforcer_disable ************************************
+*
+*   NAME
+*       enforcer_disable() -- Disable emulated low-memory access
+*       diagnostics.
+*
+*   SYNOPSIS
+*       int enforcer_disable (void);
+*
+*   FUNCTION
+*       Restore the original chip-memory and dummy address banks if
+*       diagnostics were enabled.
+*
+*   RESULT
+*       1 for every call.
+*
+****************************************************************************
+*
+*/
+
 int enforcer_disable (void)
 {
     if (enforcer_installed) {
