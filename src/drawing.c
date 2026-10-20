@@ -187,12 +187,52 @@ int framecnt = 0;
 static int frame_redraw_necessary;
 static int picasso_redraw_necessary;
 
+/****i* januae-drawing/count_frame
+*
+*   NAME
+*       count_frame() -- Advance the frame-skip counter.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void count_frame (void);
+*
+*   FUNCTION
+*       Increment framecnt and wrap it to zero at the configured graphics
+*       frame-rate threshold; the counter is not clamped against an invalid
+*       threshold.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE void count_frame (void)
 {
     framecnt++;
     if (framecnt >= currprefs.gfx_framerate)
 	framecnt = 0;
 }
+
+/****i* januae-drawing/coord_native_to_amiga_x
+*
+*   NAME
+*       coord_native_to_amiga_x() -- Map a native horizontal coordinate to the emulated display.
+*
+*   SYNOPSIS
+*       int coord_native_to_amiga_x (int x);
+*
+*   FUNCTION
+*       Apply the current left-border offset and low-resolution scaling, then
+*       translate to the hardware display origin.
+*
+*   INPUTS
+*       x - Horizontal destination or source coordinate in native pixels, as
+*       applicable.
+*
+*   RESULT
+*       Horizontal coordinate in the emulated display coordinate system.
+*
+***************************************************************************
+*
+*/
 
 int coord_native_to_amiga_x (int x)
 {
@@ -211,6 +251,30 @@ int coord_native_to_amiga_x (int x)
  * is also used in od-amiga/j-mouse.c
  *
  *********************************************/
+/****i* januae-drawing/coord_native_to_amiga_y
+*
+*   NAME
+*       coord_native_to_amiga_y() -- Map a native scanline to an Amiga scanline.
+*
+*   SYNOPSIS
+*       int coord_native_to_amiga_y (int y);
+*
+*   FUNCTION
+*       Clamp the input to the configured native screen range and look up the
+*       emulated line with the current vertical adjustment. A valid
+*       native2amiga_line_map must already exist.
+*
+*   INPUTS
+*       y - Vertical line or font-row coordinate.
+*
+*   RESULT
+*       Mapped scanline after adjustment; an unmapped native line can contribute
+*       a negative map entry.
+*
+***************************************************************************
+*
+*/
+
 int coord_native_to_amiga_y (int y) {
   int res;
 
@@ -229,6 +293,29 @@ int coord_native_to_amiga_y (int y) {
   return res;
 }
 
+/****i* januae-drawing/res_shift_from_window
+*
+*   NAME
+*       res_shift_from_window() -- Scale a horizontal window distance.
+*
+*   SYNOPSIS
+*       STATIC_INLINE int res_shift_from_window (int x);
+*
+*   FUNCTION
+*       Apply the current signed resolution shift using an integer right shift
+*       for nonnegative res_shift and a left shift otherwise.
+*
+*   INPUTS
+*       x - Horizontal destination or source coordinate in native pixels, as
+*       applicable.
+*
+*   RESULT
+*       Scaled integer coordinate.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE int res_shift_from_window (int x)
 {
     if (res_shift >= 0)
@@ -236,12 +323,51 @@ STATIC_INLINE int res_shift_from_window (int x)
     return x << -res_shift;
 }
 
+/****i* januae-drawing/res_shift_from_amiga
+*
+*   NAME
+*       res_shift_from_amiga() -- Scale an Amiga horizontal distance.
+*
+*   SYNOPSIS
+*       STATIC_INLINE int res_shift_from_amiga (int x);
+*
+*   FUNCTION
+*       Apply the signed resolution shift to the supplied coordinate; this
+*       implementation uses the same shifts as res_shift_from_window.
+*
+*   INPUTS
+*       x - Horizontal destination or source coordinate in native pixels, as
+*       applicable.
+*
+*   RESULT
+*       Scaled integer coordinate.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE int res_shift_from_amiga (int x)
 {
     if (res_shift >= 0)
 	return x >> res_shift;
     return x << -res_shift;
 }
+
+/****i* januae-drawing/notice_screen_contents_lost
+*
+*   NAME
+*       notice_screen_contents_lost() -- Request reconstruction of the visible image.
+*
+*   SYNOPSIS
+*       void notice_screen_contents_lost (void);
+*
+*   FUNCTION
+*       Mark both the Picasso and native frame as requiring redraw; the native
+*       redraw counter is set to two.
+*
+***************************************************************************
+*
+*/
 
 void notice_screen_contents_lost (void)
 {
@@ -253,6 +379,26 @@ static struct decision *dp_for_drawing;
 static struct draw_info *dip_for_drawing;
 
 /* Record DIW of the current line for use by centering code.  */
+/****i* januae-drawing/record_diw_line
+*
+*   NAME
+*       record_diw_line() -- Accumulate horizontal display-window extrema.
+*
+*   SYNOPSIS
+*       void record_diw_line (int first, int last);
+*
+*   FUNCTION
+*       Expand the tracked DIW minimum and maximum with the supplied first and
+*       last positions; this does not write pixels.
+*
+*   INPUTS
+*       first - First DIW position of the line.
+*       last - Last DIW position of the line.
+*
+***************************************************************************
+*
+*/
+
 void record_diw_line (int first, int last)
 {
     if (last > max_diwstop)
@@ -280,6 +426,23 @@ static int unpainted;
 /* Initialize the variables necessary for drawing a line.
  * This involves setting up start/stop positions and display window
  * borders.  */
+/****i* januae-drawing/pfield_init_linetoscr
+*
+*   NAME
+*       pfield_init_linetoscr() -- Establish one line's visible playfield boundaries.
+*
+*   SYNOPSIS
+*       static void pfield_init_linetoscr (void);
+*
+*   FUNCTION
+*       Derive clipped playfield and source-pixel offsets from the current
+*       decision and draw-info records. AGA border sprites may extend the draw
+*       area; sprite data outside the fetched display region is cleared.
+*
+***************************************************************************
+*
+*/
+
 static void pfield_init_linetoscr (void)
 {
     /* First, get data fetch start/stop in DIW coordinates.  */
@@ -365,6 +528,28 @@ static void pfield_init_linetoscr (void)
     }
 }
 
+/****i* januae-drawing/fill_line_8
+*
+*   NAME
+*       fill_line_8() -- Fill an 8-bit destination interval with border color.
+*
+*   SYNOPSIS
+*       static void fill_line_8 (uae_u8 *buf, unsigned int start, unsigned int
+*       stop);
+*
+*   FUNCTION
+*       Write color-zero pixels or blanking black to a half-open range of 8-bit
+*       framebuffer elements, combining aligned groups of four bytes.
+*
+*   INPUTS
+*       buf - Caller-owned framebuffer line to fill.
+*       start - Inclusive first destination pixel or window coordinate.
+*       stop - Exclusive last destination pixel or window coordinate.
+*
+***************************************************************************
+*
+*/
+
 static void fill_line_8 (uae_u8 *buf, unsigned int start, unsigned int stop)
 {
     uae_u8 *b = (uae_u8 *)buf;
@@ -388,6 +573,28 @@ static void fill_line_8 (uae_u8 *buf, unsigned int start, unsigned int stop)
 	b[stop++] = (uae_u8) col;
 }
 
+/****i* januae-drawing/fill_line_16
+*
+*   NAME
+*       fill_line_16() -- Fill a 16-bit destination interval with border color.
+*
+*   SYNOPSIS
+*       static void fill_line_16 (uae_u8 *buf, unsigned int start, unsigned int
+*       stop);
+*
+*   FUNCTION
+*       Fill a half-open interval of 16-bit pixels with the selected border
+*       value, using aligned pairs where possible.
+*
+*   INPUTS
+*       buf - Caller-owned framebuffer line to fill.
+*       start - Inclusive first destination pixel or window coordinate.
+*       stop - Exclusive last destination pixel or window coordinate.
+*
+***************************************************************************
+*
+*/
+
 static void fill_line_16 (uae_u8 *buf, unsigned int start, unsigned int stop)
 {
     uae_u16 *b = (uae_u16 *)buf;
@@ -410,6 +617,28 @@ static void fill_line_16 (uae_u8 *buf, unsigned int start, unsigned int stop)
 	b[stop] = (uae_u16)col;
 }
 
+/****i* januae-drawing/fill_line_32
+*
+*   NAME
+*       fill_line_32() -- Fill a 32-bit destination interval with border color.
+*
+*   SYNOPSIS
+*       static void fill_line_32 (uae_u8 *buf, unsigned int start, unsigned int
+*       stop);
+*
+*   FUNCTION
+*       Store the current border or blanking color in each 32-bit pixel of the
+*       specified half-open interval.
+*
+*   INPUTS
+*       buf - Caller-owned framebuffer line to fill.
+*       start - Inclusive first destination pixel or window coordinate.
+*       stop - Exclusive last destination pixel or window coordinate.
+*
+***************************************************************************
+*
+*/
+
 static void fill_line_32 (uae_u8 *buf, unsigned int start, unsigned int stop)
 {
     uae_u32 *b = (uae_u32 *)buf;
@@ -418,6 +647,23 @@ static void fill_line_32 (uae_u8 *buf, unsigned int start, unsigned int stop)
     for (i = start; i < stop; i++)
 	b[i] = col;
 }
+
+/****i* januae-drawing/fill_line
+*
+*   NAME
+*       fill_line() -- Fill the current screen line with its border color.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void fill_line (void);
+*
+*   FUNCTION
+*       Fill the active line buffer using the current visible width, pixel size
+*       and left-border offset. The fast path writes full 32-bit groups and
+*       assumes a valid display buffer.
+*
+***************************************************************************
+*
+*/
 
 STATIC_INLINE void fill_line (void)
 {
@@ -472,6 +718,28 @@ STATIC_INLINE void fill_line (void)
 
 #include "linetoscr.c"
 
+/****i* januae-drawing/pfield_do_linetoscr
+*
+*   NAME
+*       pfield_do_linetoscr() -- Copy decoded playfield indices into display pixels.
+*
+*   SYNOPSIS
+*       static void pfield_do_linetoscr (int start, int stop);
+*
+*   FUNCTION
+*       Dispatch the selected AGA or OCS/ECS conversion for 8-, 16- or 32-bit
+*       destination pixels and the active stretch/shrink ratio. Update the
+*       consumed source-pixel index; unsupported pixel sizes have no conversion
+*       case.
+*
+*   INPUTS
+*       start - Inclusive first destination pixel or window coordinate.
+*       stop - Exclusive last destination pixel or window coordinate.
+*
+***************************************************************************
+*
+*/
+
 static void pfield_do_linetoscr (int start, int stop)
 {
 #ifdef AGA
@@ -519,6 +787,26 @@ static void pfield_do_linetoscr (int start, int stop)
 #endif
 }
 
+/****i* januae-drawing/pfield_do_fill_line
+*
+*   NAME
+*       pfield_do_fill_line() -- Fill a border interval at the selected pixel depth.
+*
+*   SYNOPSIS
+*       static void pfield_do_fill_line (int start, int stop);
+*
+*   FUNCTION
+*       Dispatch an 8-, 16- or 32-bit border fill for the current scanline
+*       buffer. Unsupported pixel depths cause no write.
+*
+*   INPUTS
+*       start - Inclusive first destination pixel or window coordinate.
+*       stop - Exclusive last destination pixel or window coordinate.
+*
+***************************************************************************
+*
+*/
+
 static void pfield_do_fill_line (int start, int stop)
 {
     switch (gfxvidinfo.pixbytes) {
@@ -527,6 +815,26 @@ static void pfield_do_fill_line (int start, int stop)
     case 4: fill_line_32 (xlinebuffer, start, stop); break;
     }
 }
+
+/****i* januae-drawing/dummy_worker
+*
+*   NAME
+*       dummy_worker() -- Ignore a scanline interval.
+*
+*   SYNOPSIS
+*       static void dummy_worker (int start, int stop);
+*
+*   FUNCTION
+*       Intentionally do nothing. Used when replaying color changes solely to
+*       advance HAM decoding state or hardware settings.
+*
+*   INPUTS
+*       start - Inclusive first destination pixel or window coordinate.
+*       stop - Exclusive last destination pixel or window coordinate.
+*
+***************************************************************************
+*
+*/
 
 static void dummy_worker (int start, int stop)
 {
@@ -539,6 +847,23 @@ static int ham_decode_pixel;
 /* Decode HAM in the invisible portion of the display (left of VISIBLE_LEFT_BORDER),
    but don't draw anything in.  This is done to prepare HAM_LASTCOLOR for later,
    when decode_ham runs.  */
+/****i* januae-drawing/init_ham_decoding
+*
+*   NAME
+*       init_ham_decoding() -- Initialize hold-and-modify color state for a line.
+*
+*   SYNOPSIS
+*       static void init_ham_decoding (void);
+*
+*   FUNCTION
+*       Set the initial palette color and decode any invisible pixels preceding
+*       the visible border, preserving HAM color carry into the visible
+*       interval. Handle OCS/ECS HAM6 and conditional AGA HAM6/HAM8.
+*
+***************************************************************************
+*
+*/
+
 static void init_ham_decoding (void)
 {
     int unpainted_amiga = res_shift_from_window (unpainted);
@@ -593,6 +918,27 @@ static void init_ham_decoding (void)
 	}
     }
 }
+
+/****i* januae-drawing/decode_ham
+*
+*   NAME
+*       decode_ham() -- Decode a visible interval of HAM color indices.
+*
+*   SYNOPSIS
+*       static void decode_ham (int pix, int stoppos);
+*
+*   FUNCTION
+*       Advance the current HAM pixel cursor, converting indexed or HAM6/HAM8
+*       values into full colors in ham_linebuf. The prior HAM color persists
+*       across successive intervals.
+*
+*   INPUTS
+*       pix - Starting visible window coordinate.
+*       stoppos - Ending visible window coordinate.
+*
+***************************************************************************
+*
+*/
 
 static void decode_ham (int pix, int stoppos)
 {
@@ -652,6 +998,23 @@ static void decode_ham (int pix, int stoppos)
     }
 }
 
+/****i* januae-drawing/gen_pfield_tables
+*
+*   NAME
+*       gen_pfield_tables() -- Build sprite and dual-playfield lookup tables.
+*
+*   SYNOPSIS
+*       static void gen_pfield_tables (void);
+*
+*   FUNCTION
+*       Populate the 256-entry dual-playfield priority, sprite-mask and
+*       collision lookup arrays, including optional AGA priority tables. The
+*       OCS/ECS sprite encoding for indices above 127 is preserved.
+*
+***************************************************************************
+*
+*/
+
 static void gen_pfield_tables (void)
 {
     int i;
@@ -699,6 +1062,34 @@ static void gen_pfield_tables (void)
    what an optimizing compiler will do with this code.  All callers of this
    function only pass in constant arguments (except for E).  This means
    that many of the if statements will go away completely after inlining.  */
+/****i* januae-drawing/draw_sprites_1
+*
+*   NAME
+*       draw_sprites_1() -- Composite a sprite interval into playfield pixel data.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void draw_sprites_1 (struct sprite_entry *e, int ham, int
+*       dualpf, int doubling, int skip, int has_attach, int aga);
+*
+*   FUNCTION
+*       Mask sprite pairs against the current playfield priority, resolve
+*       attached sprites and HAM or dual-playfield palette paths, and write the
+*       selected indices or colors. Scaling and AGA behavior are controlled by
+*       the caller's flags.
+*
+*   INPUTS
+*       e - Sprite entry with pixel range, position and attachment state.
+*       ham - Nonzero selects the hold-and-modify color path.
+*       dualpf - Nonzero selects dual-playfield priority handling.
+*       doubling - Nonzero duplicates each sprite pixel horizontally.
+*       skip - Shift controlling skipped input sprite pixels.
+*       has_attach - Nonzero indicates an attached sprite pair.
+*       aga - Nonzero selects AGA-specific color and priority handling.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE void draw_sprites_1 (struct sprite_entry *e, int ham, int dualpf,
     int doubling, int skip, int has_attach, int aga)
 {
@@ -823,22 +1214,288 @@ STATIC_INLINE void draw_sprites_1 (struct sprite_entry *e, int ham, int dualpf,
 /* See comments above.  Do not touch if you don't know what's going on.
  * (We do _not_ want the following to be inlined themselves).  */
 /* lores bitplane, lores sprites */
+/****i* januae-drawing/draw_sprites_normal_sp_lo_nat
+*
+*   NAME
+*       draw_sprites_normal_sp_lo_nat() -- Composite a specialized normal sprite path.
+*
+*   SYNOPSIS
+*       static void NOINLINE draw_sprites_normal_sp_lo_nat (struct sprite_entry
+*       *e);
+*
+*   FUNCTION
+*       Composite the current sprite entry using normal palette,
+*       single-playfield priority, low-resolution bitplanes and unattached
+*       sprite decoding.
+*
+*   INPUTS
+*       e - Sprite entry with pixel range, position and attachment state.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE draw_sprites_normal_sp_lo_nat (struct sprite_entry *e) { draw_sprites_1	(e, 0, 0, 0, 0, 0, 0); }
+/****i* januae-drawing/draw_sprites_normal_dp_lo_nat
+*
+*   NAME
+*       draw_sprites_normal_dp_lo_nat() -- Composite a specialized normal sprite path.
+*
+*   SYNOPSIS
+*       static void NOINLINE draw_sprites_normal_dp_lo_nat (struct sprite_entry
+*       *e);
+*
+*   FUNCTION
+*       Composite the current sprite entry using normal palette, dual-playfield
+*       priority, low-resolution bitplanes and unattached sprite decoding.
+*
+*   INPUTS
+*       e - Sprite entry with pixel range, position and attachment state.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE draw_sprites_normal_dp_lo_nat (struct sprite_entry *e) { draw_sprites_1	(e, 0, 1, 0, 0, 0, 0); }
+/****i* januae-drawing/draw_sprites_ham_sp_lo_nat
+*
+*   NAME
+*       draw_sprites_ham_sp_lo_nat() -- Composite a specialized ham sprite path.
+*
+*   SYNOPSIS
+*       static void NOINLINE draw_sprites_ham_sp_lo_nat (struct sprite_entry
+*       *e);
+*
+*   FUNCTION
+*       Composite the current sprite entry using hold-and-modify,
+*       single-playfield priority, low-resolution bitplanes and unattached
+*       sprite decoding.
+*
+*   INPUTS
+*       e - Sprite entry with pixel range, position and attachment state.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE draw_sprites_ham_sp_lo_nat (struct sprite_entry *e) { draw_sprites_1	(e, 1, 0, 0, 0, 0, 0); }
+/****i* januae-drawing/draw_sprites_normal_sp_lo_at
+*
+*   NAME
+*       draw_sprites_normal_sp_lo_at() -- Composite a specialized normal sprite path.
+*
+*   SYNOPSIS
+*       static void NOINLINE draw_sprites_normal_sp_lo_at (struct sprite_entry
+*       *e);
+*
+*   FUNCTION
+*       Composite the current sprite entry using normal palette,
+*       single-playfield priority, low-resolution bitplanes and attached sprite
+*       decoding.
+*
+*   INPUTS
+*       e - Sprite entry with pixel range, position and attachment state.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE draw_sprites_normal_sp_lo_at (struct sprite_entry *e) { draw_sprites_1	(e, 0, 0, 0, 0, 1, 0); }
+/****i* januae-drawing/draw_sprites_normal_dp_lo_at
+*
+*   NAME
+*       draw_sprites_normal_dp_lo_at() -- Composite a specialized normal sprite path.
+*
+*   SYNOPSIS
+*       static void NOINLINE draw_sprites_normal_dp_lo_at (struct sprite_entry
+*       *e);
+*
+*   FUNCTION
+*       Composite the current sprite entry using normal palette, dual-playfield
+*       priority, low-resolution bitplanes and attached sprite decoding.
+*
+*   INPUTS
+*       e - Sprite entry with pixel range, position and attachment state.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE draw_sprites_normal_dp_lo_at (struct sprite_entry *e) { draw_sprites_1	(e, 0, 1, 0, 0, 1, 0); }
+/****i* januae-drawing/draw_sprites_ham_sp_lo_at
+*
+*   NAME
+*       draw_sprites_ham_sp_lo_at() -- Composite a specialized ham sprite path.
+*
+*   SYNOPSIS
+*       static void NOINLINE draw_sprites_ham_sp_lo_at (struct sprite_entry *e);
+*
+*   FUNCTION
+*       Composite the current sprite entry using hold-and-modify,
+*       single-playfield priority, low-resolution bitplanes and attached sprite
+*       decoding.
+*
+*   INPUTS
+*       e - Sprite entry with pixel range, position and attachment state.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE draw_sprites_ham_sp_lo_at (struct sprite_entry *e) { draw_sprites_1		(e, 1, 0, 0, 0, 1, 0); }
 /* hires bitplane, lores sprites */
+/****i* januae-drawing/draw_sprites_normal_sp_hi_nat
+*
+*   NAME
+*       draw_sprites_normal_sp_hi_nat() -- Composite a specialized normal sprite path.
+*
+*   SYNOPSIS
+*       static void NOINLINE draw_sprites_normal_sp_hi_nat (struct sprite_entry
+*       *e);
+*
+*   FUNCTION
+*       Composite the current sprite entry using normal palette,
+*       single-playfield priority, high-resolution bitplanes and unattached
+*       sprite decoding.
+*
+*   INPUTS
+*       e - Sprite entry with pixel range, position and attachment state.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE draw_sprites_normal_sp_hi_nat (struct sprite_entry *e) { draw_sprites_1	(e, 0, 0, 1, 0, 0, 0); }
+/****i* januae-drawing/draw_sprites_normal_dp_hi_nat
+*
+*   NAME
+*       draw_sprites_normal_dp_hi_nat() -- Composite a specialized normal sprite path.
+*
+*   SYNOPSIS
+*       static void NOINLINE draw_sprites_normal_dp_hi_nat (struct sprite_entry
+*       *e);
+*
+*   FUNCTION
+*       Composite the current sprite entry using normal palette, dual-playfield
+*       priority, high-resolution bitplanes and unattached sprite decoding.
+*
+*   INPUTS
+*       e - Sprite entry with pixel range, position and attachment state.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE draw_sprites_normal_dp_hi_nat (struct sprite_entry *e) { draw_sprites_1	(e, 0, 1, 1, 0, 0, 0); }
+/****i* januae-drawing/draw_sprites_ham_sp_hi_nat
+*
+*   NAME
+*       draw_sprites_ham_sp_hi_nat() -- Composite a specialized ham sprite path.
+*
+*   SYNOPSIS
+*       static void NOINLINE draw_sprites_ham_sp_hi_nat (struct sprite_entry
+*       *e);
+*
+*   FUNCTION
+*       Composite the current sprite entry using hold-and-modify,
+*       single-playfield priority, high-resolution bitplanes and unattached
+*       sprite decoding.
+*
+*   INPUTS
+*       e - Sprite entry with pixel range, position and attachment state.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE draw_sprites_ham_sp_hi_nat (struct sprite_entry *e) { draw_sprites_1	(e, 1, 0, 1, 0, 0, 0); }
+/****i* januae-drawing/draw_sprites_normal_sp_hi_at
+*
+*   NAME
+*       draw_sprites_normal_sp_hi_at() -- Composite a specialized normal sprite path.
+*
+*   SYNOPSIS
+*       static void NOINLINE draw_sprites_normal_sp_hi_at (struct sprite_entry
+*       *e);
+*
+*   FUNCTION
+*       Composite the current sprite entry using normal palette,
+*       single-playfield priority, high-resolution bitplanes and attached sprite
+*       decoding.
+*
+*   INPUTS
+*       e - Sprite entry with pixel range, position and attachment state.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE draw_sprites_normal_sp_hi_at (struct sprite_entry *e) { draw_sprites_1	(e, 0, 0, 1, 0, 1, 0); }
+/****i* januae-drawing/draw_sprites_normal_dp_hi_at
+*
+*   NAME
+*       draw_sprites_normal_dp_hi_at() -- Composite a specialized normal sprite path.
+*
+*   SYNOPSIS
+*       static void NOINLINE draw_sprites_normal_dp_hi_at (struct sprite_entry
+*       *e);
+*
+*   FUNCTION
+*       Composite the current sprite entry using normal palette, dual-playfield
+*       priority, high-resolution bitplanes and attached sprite decoding.
+*
+*   INPUTS
+*       e - Sprite entry with pixel range, position and attachment state.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE draw_sprites_normal_dp_hi_at (struct sprite_entry *e) { draw_sprites_1	(e, 0, 1, 1, 0, 1, 0); }
+/****i* januae-drawing/draw_sprites_ham_sp_hi_at
+*
+*   NAME
+*       draw_sprites_ham_sp_hi_at() -- Composite a specialized ham sprite path.
+*
+*   SYNOPSIS
+*       static void NOINLINE draw_sprites_ham_sp_hi_at (struct sprite_entry *e);
+*
+*   FUNCTION
+*       Composite the current sprite entry using hold-and-modify,
+*       single-playfield priority, high-resolution bitplanes and attached sprite
+*       decoding.
+*
+*   INPUTS
+*       e - Sprite entry with pixel range, position and attachment state.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE draw_sprites_ham_sp_hi_at (struct sprite_entry *e) { draw_sprites_1		(e, 1, 0, 1, 0, 1, 0); }
 
 #ifdef AGA
 /* not very optimized */
+/****i* januae-drawing/draw_sprites_aga
+*
+*   NAME
+*       draw_sprites_aga() -- Render an AGA sprite using the active bitplane resolution.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void draw_sprites_aga (struct sprite_entry *e);
+*
+*   FUNCTION
+*       Select doubling or skipping from RES_HIRES and the playfield resolution,
+*       then composite the entry with AGA color and priority handling. Available
+*       only in AGA builds.
+*
+*   INPUTS
+*       e - Sprite entry with pixel range, position and attachment state.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE void draw_sprites_aga (struct sprite_entry *e)
 {
     int diff = RES_HIRES - bplres;
@@ -848,6 +1505,25 @@ STATIC_INLINE void draw_sprites_aga (struct sprite_entry *e)
 	draw_sprites_1 (e, dp_for_drawing->ham_seen, bpldualpf, -diff, 0, e->has_attached, 1);
 }
 #endif
+
+/****i* januae-drawing/draw_sprites_ecs
+*
+*   NAME
+*       draw_sprites_ecs() -- Select an OCS/ECS sprite compositor.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void draw_sprites_ecs (struct sprite_entry *e);
+*
+*   FUNCTION
+*       Choose the specialized attached/nonattached, HAM/dual-playfield and
+*       low-/high-resolution sprite path for the current entry.
+*
+*   INPUTS
+*       e - Sprite entry with pixel range, position and attachment state.
+*
+***************************************************************************
+*
+*/
 
 STATIC_INLINE void draw_sprites_ecs (struct sprite_entry *e)
 {
@@ -889,6 +1565,23 @@ STATIC_INLINE void draw_sprites_ecs (struct sprite_entry *e)
 
 #ifdef AGA
 /* clear possible bitplane data outside DIW area */
+/****i* januae-drawing/clear_bitplane_border_aga
+*
+*   NAME
+*       clear_bitplane_border_aga() -- Clear excess bitplane indices behind border sprites.
+*
+*   SYNOPSIS
+*       static void clear_bitplane_border_aga (void);
+*
+*   FUNCTION
+*       Zero the decoded pixel-buffer intervals outside the real playfield but
+*       inside the expanded sprite border. Available only when AGA support is
+*       compiled.
+*
+***************************************************************************
+*
+*/
+
 static void clear_bitplane_border_aga (void)
 {
     int len, shift = lores_shift - bplres;
@@ -909,6 +1602,23 @@ static void clear_bitplane_border_aga (void)
 #endif
 
 /* emulate OCS/ECS only undocumented "SWIV" hardware feature */
+/****i* januae-drawing/weird_bitplane_fix
+*
+*   NAME
+*       weird_bitplane_fix() -- Apply an OCS/ECS special playfield masking behavior.
+*
+*   SYNOPSIS
+*       static void weird_bitplane_fix (void);
+*
+*   FUNCTION
+*       Clamp certain decoded playfield pixel indices above sixteen to sixteen
+*       over the current visible fetch region; this is used by a specific
+*       non-AGA priority configuration.
+*
+***************************************************************************
+*
+*/
+
 static void weird_bitplane_fix (void)
 {
     int i, shift = lores_shift - bplres;
@@ -938,6 +1648,29 @@ static void weird_bitplane_fix (void)
 /* We use the compiler's inlining ability to ensure that PLANES is in effect a compile time
    constant.  That will cause some unnecessary code to be optimized away.
    Don't touch this if you don't know what you are doing.  */
+/****i* januae-drawing/pfield_doline_1
+*
+*   NAME
+*       pfield_doline_1() -- Transpose planar source words into chunky pixel indices.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void pfield_doline_1 (uae_u32 *pixels, int wordcount, int
+*       planes);
+*
+*   FUNCTION
+*       Read the requested number of 32-pixel words from one to eight bitplane
+*       streams, interleave their bits and advance their source pointers. Planes
+*       seven and eight require AGA support.
+*
+*   INPUTS
+*       pixels - Writable chunky-pixel destination buffer.
+*       wordcount - Number of source words per bitplane to convert.
+*       planes - Number of bitplanes to interleave.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE void pfield_doline_1 (uae_u32 *pixels, int wordcount, int planes)
 {
     while (wordcount-- > 0) {
@@ -995,16 +1728,196 @@ STATIC_INLINE void pfield_doline_1 (uae_u32 *pixels, int wordcount, int planes)
 
 /* See above for comments on inlining.  These functions should _not_
    be inlined themselves.  */
+/****i* januae-drawing/pfield_doline_n1
+*
+*   NAME
+*       pfield_doline_n1() -- Convert 1-plane captured bitplane words.
+*
+*   SYNOPSIS
+*       static void NOINLINE pfield_doline_n1 (uae_u32 *data, int count);
+*
+*   FUNCTION
+*       Call the planar-to-chunky converter with a fixed 1-plane count for the
+*       requested word span. Advances the selected source-plane pointers.
+*
+*   INPUTS
+*       data - Writable chunky-pixel destination buffer.
+*       count - Number of 32-pixel bitplane word groups.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE pfield_doline_n1 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 1); }
+/****i* januae-drawing/pfield_doline_n2
+*
+*   NAME
+*       pfield_doline_n2() -- Convert 2-plane captured bitplane words.
+*
+*   SYNOPSIS
+*       static void NOINLINE pfield_doline_n2 (uae_u32 *data, int count);
+*
+*   FUNCTION
+*       Call the planar-to-chunky converter with a fixed 2-plane count for the
+*       requested word span. Advances the selected source-plane pointers.
+*
+*   INPUTS
+*       data - Writable chunky-pixel destination buffer.
+*       count - Number of 32-pixel bitplane word groups.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE pfield_doline_n2 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 2); }
+/****i* januae-drawing/pfield_doline_n3
+*
+*   NAME
+*       pfield_doline_n3() -- Convert 3-plane captured bitplane words.
+*
+*   SYNOPSIS
+*       static void NOINLINE pfield_doline_n3 (uae_u32 *data, int count);
+*
+*   FUNCTION
+*       Call the planar-to-chunky converter with a fixed 3-plane count for the
+*       requested word span. Advances the selected source-plane pointers.
+*
+*   INPUTS
+*       data - Writable chunky-pixel destination buffer.
+*       count - Number of 32-pixel bitplane word groups.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE pfield_doline_n3 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 3); }
+/****i* januae-drawing/pfield_doline_n4
+*
+*   NAME
+*       pfield_doline_n4() -- Convert 4-plane captured bitplane words.
+*
+*   SYNOPSIS
+*       static void NOINLINE pfield_doline_n4 (uae_u32 *data, int count);
+*
+*   FUNCTION
+*       Call the planar-to-chunky converter with a fixed 4-plane count for the
+*       requested word span. Advances the selected source-plane pointers.
+*
+*   INPUTS
+*       data - Writable chunky-pixel destination buffer.
+*       count - Number of 32-pixel bitplane word groups.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE pfield_doline_n4 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 4); }
+/****i* januae-drawing/pfield_doline_n5
+*
+*   NAME
+*       pfield_doline_n5() -- Convert 5-plane captured bitplane words.
+*
+*   SYNOPSIS
+*       static void NOINLINE pfield_doline_n5 (uae_u32 *data, int count);
+*
+*   FUNCTION
+*       Call the planar-to-chunky converter with a fixed 5-plane count for the
+*       requested word span. Advances the selected source-plane pointers.
+*
+*   INPUTS
+*       data - Writable chunky-pixel destination buffer.
+*       count - Number of 32-pixel bitplane word groups.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE pfield_doline_n5 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 5); }
+/****i* januae-drawing/pfield_doline_n6
+*
+*   NAME
+*       pfield_doline_n6() -- Convert 6-plane captured bitplane words.
+*
+*   SYNOPSIS
+*       static void NOINLINE pfield_doline_n6 (uae_u32 *data, int count);
+*
+*   FUNCTION
+*       Call the planar-to-chunky converter with a fixed 6-plane count for the
+*       requested word span. Advances the selected source-plane pointers.
+*
+*   INPUTS
+*       data - Writable chunky-pixel destination buffer.
+*       count - Number of 32-pixel bitplane word groups.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE pfield_doline_n6 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 6); }
 #ifdef AGA
+/****i* januae-drawing/pfield_doline_n7
+*
+*   NAME
+*       pfield_doline_n7() -- Convert 7-plane captured bitplane words.
+*
+*   SYNOPSIS
+*       static void NOINLINE pfield_doline_n7 (uae_u32 *data, int count);
+*
+*   FUNCTION
+*       Call the planar-to-chunky converter with a fixed 7-plane count for the
+*       requested word span. Requires AGA compilation.
+*
+*   INPUTS
+*       data - Writable chunky-pixel destination buffer.
+*       count - Number of 32-pixel bitplane word groups.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE pfield_doline_n7 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 7); }
+/****i* januae-drawing/pfield_doline_n8
+*
+*   NAME
+*       pfield_doline_n8() -- Convert 8-plane captured bitplane words.
+*
+*   SYNOPSIS
+*       static void NOINLINE pfield_doline_n8 (uae_u32 *data, int count);
+*
+*   FUNCTION
+*       Call the planar-to-chunky converter with a fixed 8-plane count for the
+*       requested word span. Requires AGA compilation.
+*
+*   INPUTS
+*       data - Writable chunky-pixel destination buffer.
+*       count - Number of 32-pixel bitplane word groups.
+*
+***************************************************************************
+*
+*/
+
 static void NOINLINE pfield_doline_n8 (uae_u32 *data, int count) { pfield_doline_1 (data, count, 8); }
 #endif
+
+/****i* januae-drawing/pfield_doline
+*
+*   NAME
+*       pfield_doline() -- Convert one captured bitplane line into pixel indices.
+*
+*   SYNOPSIS
+*       static void pfield_doline (int lineno);
+*
+*   FUNCTION
+*       Select a specialized planar-to-chunky routine for the current plane
+*       count and draw length, clearing the destination for zero planes. Under
+*       SMART_UPDATE, source pointers reference the recorded line data.
+*
+*   INPUTS
+*       lineno - Emulated or native line number, as expected by the function.
+*
+***************************************************************************
+*
+*/
 
 static void pfield_doline (int lineno)
 {
@@ -1041,6 +1954,23 @@ static void pfield_doline (int lineno)
     }
 }
 
+/****i* januae-drawing/init_row_map
+*
+*   NAME
+*       init_row_map() -- Map native scanlines to frame-buffer row addresses.
+*
+*   SYNOPSIS
+*       void init_row_map (void);
+*
+*   FUNCTION
+*       Populate row_map from the graphics buffer and byte stride, including one
+*       trailing row pointer. Abort if the native height exceeds MAX_VIDHEIGHT;
+*       a NULL buffer is logged but still used in pointer arithmetic.
+*
+***************************************************************************
+*
+*/
+
 void init_row_map (void)
 {
     int i, j;
@@ -1056,6 +1986,24 @@ void init_row_map (void)
     for (i = 0; i < gfxvidinfo.height + 1; i++, j += gfxvidinfo.rowbytes)
 	row_map[i] = gfxvidinfo.bufmem + j;
 }
+
+/****i* januae-drawing/init_aspect_maps
+*
+*   NAME
+*       init_aspect_maps() -- Rebuild vertical aspect and native scanline maps.
+*
+*   SYNOPSIS
+*       void init_aspect_maps (void);
+*
+*   FUNCTION
+*       Allocate forward and reverse line maps for current height, aspect
+*       correction and line doubling; mark skipped or offscreen positions with
+*       minus one. Returns without changing maps if screen height is zero.
+*       Allocation failures are not checked.
+*
+***************************************************************************
+*
+*/
 
 void init_aspect_maps (void)
 {
@@ -1136,6 +2084,26 @@ void init_aspect_maps (void)
  * A raster line has been built in the graphics buffer. Tell the graphics code
  * to do anything necessary to display it.
  */
+/****i* januae-drawing/do_flush_line_1
+*
+*   NAME
+*       do_flush_line_1() -- Queue or flush one native scanline.
+*
+*   SYNOPSIS
+*       static void do_flush_line_1 (int lineno);
+*
+*   FUNCTION
+*       Update the earliest and latest drawn-line bounds, then flush the line
+*       immediately or aggregate adjacent lines into a graphics backend block
+*       according to maxblocklines.
+*
+*   INPUTS
+*       lineno - Emulated or native line number, as expected by the function.
+*
+***************************************************************************
+*
+*/
+
 static void do_flush_line_1 (int lineno) {
 
     if (lineno < first_drawn_line)
@@ -1159,6 +2127,25 @@ static void do_flush_line_1 (int lineno) {
     }
 }
 
+/****i* januae-drawing/do_flush_line
+*
+*   NAME
+*       do_flush_line() -- Flush one native scanline through the block controller.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void do_flush_line (int lineno);
+*
+*   FUNCTION
+*       Forward the native scanline number to do_flush_line_1 for tracking and
+*       submission.
+*
+*   INPUTS
+*       lineno - Emulated or native line number, as expected by the function.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE void do_flush_line (int lineno) {
 
   //JWLOG("lineno: %d\n",lineno);
@@ -1172,6 +2159,27 @@ STATIC_INLINE void do_flush_line (int lineno) {
  * Note that the actual flush_screen() call is a no-op for all reasonable
  * systems.
  */
+
+/****i* januae-drawing/do_flush_screen
+*
+*   NAME
+*       do_flush_screen() -- Submit accumulated screen updates and release the lock.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void do_flush_screen (int start, int stop);
+*
+*   FUNCTION
+*       Flush a pending line block, unlock the display, then issue a visible
+*       range update or a synchronization-only flush when vertical
+*       synchronization is active.
+*
+*   INPUTS
+*       start - Inclusive first destination pixel or window coordinate.
+*       stop - Exclusive last destination pixel or window coordinate.
+*
+***************************************************************************
+*
+*/
 
 STATIC_INLINE void do_flush_screen (int start, int stop)
 {
@@ -1194,6 +2202,27 @@ static enum { color_match_acolors, color_match_full } color_match_type;
 
 /* Set up colors_for_drawing to the state at the beginning of the currently drawn
    line.  Try to avoid copying color tables around whenever possible.  */
+/****i* januae-drawing/adjust_drawing_colors
+*
+*   NAME
+*       adjust_drawing_colors() -- Select the color table for the current draw line.
+*
+*   SYNOPSIS
+*       static void adjust_drawing_colors (int ctable, int need_full);
+*
+*   FUNCTION
+*       Reuse or copy a cached color table. Copy only host pixel colors when
+*       full hardware registers are not needed; upgrade to a full table on
+*       demand.
+*
+*   INPUTS
+*       ctable - Index of the captured color table.
+*       need_full - Nonzero requests complete hardware color-register state.
+*
+***************************************************************************
+*
+*/
+
 static void adjust_drawing_colors (int ctable, int need_full)
 {
     if (drawing_color_matches != ctable) {
@@ -1215,6 +2244,23 @@ static void adjust_drawing_colors (int ctable, int need_full)
 /* We only save hardware registers during the hardware frame. Now, when
  * drawing the frame, we expand the data into a slightly more useful
  * form. */
+/****i* januae-drawing/pfield_expand_dp_bplcon
+*
+*   NAME
+*       pfield_expand_dp_bplcon() -- Derive effective display mode from captured control registers.
+*
+*   SYNOPSIS
+*       static void pfield_expand_dp_bplcon (void);
+*
+*   FUNCTION
+*       Update bitplane resolution, plane count, HAM/EHB modes, dual-playfield
+*       priority and sprite masking. When compiled for AGA, include additional
+*       color, border and sprite controls.
+*
+***************************************************************************
+*
+*/
+
 static void pfield_expand_dp_bplcon (void)
 {
     bplres = dp_for_drawing->bplres;
@@ -1248,6 +2294,27 @@ static void pfield_expand_dp_bplcon (void)
 	brdsprt = 0;
 #endif
 }
+/****i* januae-drawing/pfield_expand_dp_bplcon2
+*
+*   NAME
+*       pfield_expand_dp_bplcon2() -- Replay a captured bitplane-control register write.
+*
+*   SYNOPSIS
+*       static void pfield_expand_dp_bplcon2 (int regno, int v);
+*
+*   FUNCTION
+*       Apply a supported BPLCON0/BPLCON2 write, or BPLCON3/BPLCON4 with AGA
+*       enabled, then recompute effective playfield mode and resolution shift.
+*       Unsupported register numbers leave the captured fields unchanged.
+*
+*   INPUTS
+*       regno - Encoded bitplane-control register number.
+*       v - New bitplane-control register value.
+*
+***************************************************************************
+*
+*/
+
 static void pfield_expand_dp_bplcon2 (int regno, int v)
 {
     regno -= 0x1000;
@@ -1274,6 +2341,28 @@ static void pfield_expand_dp_bplcon2 (int regno, int v)
     pfield_expand_dp_bplcon ();
     res_shift = lores_shift - bplres;
 }
+
+/****i* januae-drawing/do_color_changes
+*
+*   NAME
+*       do_color_changes() -- Render a scanline while replaying raster register changes.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void do_color_changes (line_draw_func worker_border,
+*       line_draw_func worker_pfield);
+*
+*   FUNCTION
+*       Partition the visible interval at recorded color-change positions,
+*       dispatch border or playfield workers, and update palette or BPLCON state
+*       for the following interval.
+*
+*   INPUTS
+*       worker_border - Callback to render border intervals.
+*       worker_pfield - Callback to render playfield intervals.
+*
+***************************************************************************
+*
+*/
 
 STATIC_INLINE void do_color_changes (line_draw_func worker_border, line_draw_func worker_pfield)
 {
@@ -1329,6 +2418,26 @@ STATIC_INLINE void do_color_changes (line_draw_func worker_border, line_draw_fun
 /* move color changes in horizontal cycles 0 to HBLANK_OFFSET to previous line
  * cycles 0 to HBLANK_OFFSET must be visible in right border
  */
+/****i* januae-drawing/mungedip
+*
+*   NAME
+*       mungedip() -- Move early horizontal blank changes into the preceding line.
+*
+*   SYNOPSIS
+*       static void mungedip (int lineno);
+*
+*   FUNCTION
+*       Advance the last-color-change boundary to absorb events before
+*       HBLANK_OFFSET from the next draw-info record, updating both records'
+*       counts and first-entry indices.
+*
+*   INPUTS
+*       lineno - Emulated or native line number, as expected by the function.
+*
+***************************************************************************
+*
+*/
+
 static void mungedip (int lineno)
 {
     int i = dip_for_drawing->last_color_change;
@@ -1356,6 +2465,29 @@ enum double_how {
     dh_line,
     dh_emerg
 };
+
+/****i* januae-drawing/pfield_draw_line
+*
+*   NAME
+*       pfield_draw_line() -- Compose and submit one emulated video line.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void pfield_draw_line (int lineno, int gfx_ypos, int
+*       follow_ypos);
+*
+*   FUNCTION
+*       Respect remembered, black, doubled and decided line states; convert
+*       bitplanes and HAM, composite sprites, apply color changes and submit the
+*       resulting native line or pair.
+*
+*   INPUTS
+*       lineno - Emulated or native line number, as expected by the function.
+*       gfx_ypos - Destination native scanline.
+*       follow_ypos - Optional doubled native line, or -1 for none.
+*
+***************************************************************************
+*
+*/
 
 STATIC_INLINE void pfield_draw_line (int lineno, int gfx_ypos, int follow_ypos)
 {
@@ -1531,6 +2663,23 @@ STATIC_INLINE void pfield_draw_line (int lineno, int gfx_ypos, int follow_ypos)
     }
 }
 
+/****i* januae-drawing/center_image
+*
+*   NAME
+*       center_image() -- Compute horizontal and vertical viewport placement.
+*
+*   SYNOPSIS
+*       static void center_image (void);
+*
+*   FUNCTION
+*       Adjust visible borders, native buffer offsets and frame vertical
+*       position from the observed display window and centering preferences.
+*       Request redraw when placement changes.
+*
+***************************************************************************
+*
+*/
+
 static void center_image (void)
 {
     int prev_x_adjust = visible_left_border;
@@ -1616,11 +2765,44 @@ static void center_image (void)
     //JWLOG("exit\n");
 }
 
+/****i* januae-drawing/lores_reset
+*
+*   NAME
+*       lores_reset() -- Set horizontal scaling from low-resolution preferences.
+*
+*   SYNOPSIS
+*       static void lores_reset (void);
+*
+*   FUNCTION
+*       Assign the low-resolution factor and shift according to
+*       currprefs.gfx_lores.
+*
+***************************************************************************
+*
+*/
+
 static void lores_reset (void)
 {
     lores_factor = currprefs.gfx_lores ? 1 : 2;
     lores_shift = currprefs.gfx_lores ? 0 : 1;
 }
+
+/****i* januae-drawing/init_drawing_frame
+*
+*   NAME
+*       init_drawing_frame() -- Prepare line states and viewport for a new frame.
+*
+*   SYNOPSIS
+*       static void init_drawing_frame (void);
+*
+*   FUNCTION
+*       Initialize hardware drawing state, clear or preserve remembered line
+*       markers, reset flush bounds and redraw counters, and recenter the
+*       visible image.
+*
+***************************************************************************
+*
+*/
 
 static void init_drawing_frame (void)
 {
@@ -1709,6 +2891,27 @@ static const char *numbers = { /* ugly  0123456789CHD% */
 "+++++++---+++-++++++++++++++----+++++++++++++++++--+++--++++++++++++++++++++-++++++-++++----------"
 };
 
+/****i* januae-drawing/putpixel
+*
+*   NAME
+*       putpixel() -- Write a status-overlay pixel at the current destination depth.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void putpixel (int x, xcolnr c8);
+*
+*   FUNCTION
+*       Store the selected color in the active scanline buffer for 8-, 16- or
+*       32-bit pixels. The 24-bit case is intentionally unsupported.
+*
+*   INPUTS
+*       x - Horizontal destination or source coordinate in native pixels, as
+*       applicable.
+*       c8 - Host pixel value; converted according to output depth.
+*
+***************************************************************************
+*
+*/
+
 STATIC_INLINE void putpixel (int x, xcolnr c8)
 {
     switch (gfxvidinfo.pixbytes)
@@ -1734,6 +2937,29 @@ STATIC_INLINE void putpixel (int x, xcolnr c8)
     }
 }
 
+/****i* januae-drawing/write_tdnumber
+*
+*   NAME
+*       write_tdnumber() -- Render one row of a status-overlay glyph.
+*
+*   SYNOPSIS
+*       static void write_tdnumber (int x, int y, int num);
+*
+*   FUNCTION
+*       Interpret the requested glyph row from the fixed bitmap font and draw
+*       its foreground and background pixels; other glyph characters leave
+*       pixels unchanged.
+*
+*   INPUTS
+*       x - Horizontal destination or source coordinate in native pixels, as
+*       applicable.
+*       y - Vertical line or font-row coordinate.
+*       num - Index into the fixed status-overlay character set.
+*
+***************************************************************************
+*
+*/
+
 static void write_tdnumber (int x, int y, int num)
 {
     int j;
@@ -1748,6 +2974,25 @@ static void write_tdnumber (int x, int y, int num)
 	numptr++;
     }
 }
+
+/****i* januae-drawing/draw_status_line
+*
+*   NAME
+*       draw_status_line() -- Draw one row of the on-screen drive and device indicators.
+*
+*   SYNOPSIS
+*       static void draw_status_line (int line);
+*
+*   FUNCTION
+*       Render LED shapes, labels and counters in the configured screen corner,
+*       using current GUI activity data and the status font.
+*
+*   INPUTS
+*       line - Native output scanline for the status overlay.
+*
+***************************************************************************
+*
+*/
 
 static void draw_status_line (int line)
 {
@@ -1867,6 +3112,23 @@ static void draw_status_line (int line)
  * So if we are in rootless mode, we don't draw
  * anything here.
  **************************************************/
+/****i* januae-drawing/finish_drawing_frame
+*
+*   NAME
+*       finish_drawing_frame() -- Render the completed native frame and flush it to the host.
+*
+*   SYNOPSIS
+*       void finish_drawing_frame (void);
+*
+*   FUNCTION
+*       Skip drawing after the AROS main window is closed; otherwise lock the
+*       screen, draw decided lines under SMART_UPDATE, optionally render status
+*       LEDs and flush. If locking fails, request a full redraw.
+*
+***************************************************************************
+*
+*/
+
 void finish_drawing_frame (void) {
 
   int i;
@@ -1920,6 +3182,26 @@ void finish_drawing_frame (void) {
     do_flush_screen (first_drawn_line, last_drawn_line);
 }
 
+/****i* januae-drawing/hardware_line_completed
+*
+*   NAME
+*       hardware_line_completed() -- Handle completion of one emulated hardware scanline.
+*
+*   SYNOPSIS
+*       void hardware_line_completed (int lineno);
+*
+*   FUNCTION
+*       Without SMART_UPDATE, map the completed Amiga line to a native position
+*       and draw it when visible. Under SMART_UPDATE this function performs no
+*       work.
+*
+*   INPUTS
+*       lineno - Emulated or native line number, as expected by the function.
+*
+***************************************************************************
+*
+*/
+
 void hardware_line_completed (int lineno)
 {
 #ifndef SMART_UPDATE
@@ -1935,6 +3217,23 @@ void hardware_line_completed (int lineno)
     }
 #endif
 }
+
+/****i* januae-drawing/check_picasso
+*
+*   NAME
+*       check_picasso() -- Apply a pending Picasso96 display mode switch.
+*
+*   SYNOPSIS
+*       STATIC_INLINE void check_picasso (void);
+*
+*   FUNCTION
+*       When PICASSO96 is compiled, refresh an invalidated Picasso image, switch
+*       the visible graphics state and request fresh colors and a full redraw;
+*       otherwise this function is empty.
+*
+***************************************************************************
+*
+*/
 
 STATIC_INLINE void check_picasso (void)
 {
@@ -1961,6 +3260,22 @@ STATIC_INLINE void check_picasso (void)
 #endif
 }
 
+/****i* januae-drawing/redraw_frame
+*
+*   NAME
+*       redraw_frame() -- Force a drawing pass and request screen flush.
+*
+*   SYNOPSIS
+*       void redraw_frame (void);
+*
+*   FUNCTION
+*       Reset drawn-line bounds, render a frame, then explicitly flush the
+*       screen with a zero-length range.
+*
+***************************************************************************
+*
+*/
+
 void redraw_frame (void)
 {
     last_drawn_line = 0;
@@ -1968,6 +3283,27 @@ void redraw_frame (void)
     finish_drawing_frame ();
     flush_screen (0, 0);
 }
+
+/****i* januae-drawing/vsync_handle_redraw
+*
+*   NAME
+*       vsync_handle_redraw() -- Finish a drawing interval at vertical synchronization.
+*
+*   SYNOPSIS
+*       void vsync_handle_redraw (int long_frame, int lof_changed);
+*
+*   FUNCTION
+*       Complete a frame when interlace timing permits, handle queued state
+*       restoration and preference updates, update frame skipping and Picasso
+*       state, and start the next drawing frame when due.
+*
+*   INPUTS
+*       long_frame - Nonzero reports a long video frame.
+*       lof_changed - Nonzero reports a change of long/short-field state.
+*
+***************************************************************************
+*
+*/
 
 void vsync_handle_redraw (int long_frame, int lof_changed)
 {
@@ -2041,6 +3377,29 @@ void vsync_handle_redraw (int long_frame, int lof_changed)
 #endif
 }
 
+/****i* januae-drawing/hsync_record_line_state
+*
+*   NAME
+*       hsync_record_line_state() -- Record the rendering status of a completed hardware line.
+*
+*   SYNOPSIS
+*       void hsync_record_line_state (int lineno, enum nln_how how, int
+*       changed);
+*
+*   FUNCTION
+*       If frame skipping is inactive, update one or two scanline state entries
+*       according to normal, doubled, black, upper or lower transition state and
+*       whether content has changed.
+*
+*   INPUTS
+*       lineno - Emulated or native line number, as expected by the function.
+*       how - Recorded raster-line transition category.
+*       changed - Nonzero indicates changed rendered contents.
+*
+***************************************************************************
+*
+*/
+
 void hsync_record_line_state (int lineno, enum nln_how how, int changed)
 {
     char *state;
@@ -2080,10 +3439,42 @@ void hsync_record_line_state (int lineno, enum nln_how how, int changed)
     }
 }
 
+/****i* januae-drawing/notice_interlace_seen
+*
+*   NAME
+*       notice_interlace_seen() -- Mark the current video frame as interlaced.
+*
+*   SYNOPSIS
+*       void notice_interlace_seen (void);
+*
+*   FUNCTION
+*       Set the frame-level interlace marker, influencing the frame-flush and
+*       line-doubling logic.
+*
+***************************************************************************
+*
+*/
+
 void notice_interlace_seen (void)
 {
     interlace_seen = 1;
 }
+
+/****i* januae-drawing/reset_drawing
+*
+*   NAME
+*       reset_drawing() -- Reset viewport mappings and rendering state.
+*
+*   SYNOPSIS
+*       void reset_drawing (void);
+*
+*   FUNCTION
+*       Clear scanline decisions and sprite buffers, reconstruct row and aspect
+*       maps, initialize a drawing frame and require a complete screen redraw.
+*
+***************************************************************************
+*
+*/
 
 void reset_drawing (void)
 {
@@ -2109,6 +3500,22 @@ void reset_drawing (void)
 
     notice_screen_contents_lost ();
 }
+
+/****i* januae-drawing/drawing_init
+*
+*   NAME
+*       drawing_init() -- Initialize the video drawing subsystem.
+*
+*   SYNOPSIS
+*       void drawing_init (void);
+*
+*   FUNCTION
+*       Build playfield lookup tables, initialize optional Picasso96 screen
+*       state and reset drawing.
+*
+***************************************************************************
+*
+*/
 
 void drawing_init (void)
 {
