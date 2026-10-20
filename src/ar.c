@@ -198,6 +198,28 @@ static void hrtmon_unmap_banks(void);
 void check_prefs_changed_carts(int in_memory_reset);
 int action_replay_unload(int in_memory_reset);
 
+/****i* januae-cartridge/hrtmem_lget ****************************************
+*
+*   NAME
+*       hrtmem_lget() -- Read HRTMon memory as a longword.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 hrtmem_lget (uaecptr addr);
+*
+*   FUNCTION
+*       Translate a guest address relative to hrtmem_start using
+*       hrtmem_mask, then read a longword from the HRTMon image.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*
+*   RESULT
+*       32-bit value.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 hrtmem_lget (uaecptr addr)
 {
     uae_u32 *m;
@@ -206,6 +228,28 @@ static uae_u32 REGPARAM2 hrtmem_lget (uaecptr addr)
     m = (uae_u32 *)(hrtmemory + addr);
     return do_get_mem_long (m);
 }
+
+/****i* januae-cartridge/hrtmem_wget ****************************************
+*
+*   NAME
+*       hrtmem_wget() -- Read HRTMon memory as a word.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 hrtmem_wget (uaecptr addr);
+*
+*   FUNCTION
+*       Translate a guest address relative to hrtmem_start using
+*       hrtmem_mask, then read a word from the HRTMon image.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*
+*   RESULT
+*       16-bit value.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 REGPARAM2 hrtmem_wget (uaecptr addr)
 {
@@ -216,12 +260,54 @@ static uae_u32 REGPARAM2 hrtmem_wget (uaecptr addr)
     return do_get_mem_word (m);
 }
 
+/****i* januae-cartridge/hrtmem_bget ****************************************
+*
+*   NAME
+*       hrtmem_bget() -- Read HRTMon memory as a byte.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 hrtmem_bget (uaecptr addr);
+*
+*   FUNCTION
+*       Translate a guest address relative to hrtmem_start using
+*       hrtmem_mask, then read a byte from the HRTMon image.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*
+*   RESULT
+*       8-bit value.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 hrtmem_bget (uaecptr addr)
 {
     addr -= hrtmem_start & hrtmem_mask;
     addr &= hrtmem_mask;
     return hrtmemory[addr];
 }
+
+/****i* januae-cartridge/hrtmem_lput ****************************************
+*
+*   NAME
+*       hrtmem_lput() -- Write HRTMon memory as a longword.
+*
+*   SYNOPSIS
+*       static void REGPARAM2 hrtmem_lput (uaecptr addr, uae_u32 l);
+*
+*   FUNCTION
+*       Translate a guest address relative to hrtmem_start using
+*       hrtmem_mask, then store a longword in the HRTMon image.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       l - Longword to store.
+*
+****************************************************************************
+*
+*/
 
 static void REGPARAM2 hrtmem_lput (uaecptr addr, uae_u32 l)
 {
@@ -232,6 +318,26 @@ static void REGPARAM2 hrtmem_lput (uaecptr addr, uae_u32 l)
     do_put_mem_long (m, l);
 }
 
+/****i* januae-cartridge/hrtmem_wput ****************************************
+*
+*   NAME
+*       hrtmem_wput() -- Write HRTMon memory as a word.
+*
+*   SYNOPSIS
+*       static void REGPARAM2 hrtmem_wput (uaecptr addr, uae_u32 w);
+*
+*   FUNCTION
+*       Translate a guest address relative to hrtmem_start using
+*       hrtmem_mask, then store a word in the HRTMon image.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       w - Word to store.
+*
+****************************************************************************
+*
+*/
+
 static void REGPARAM2 hrtmem_wput (uaecptr addr, uae_u32 w)
 {
     uae_u16 *m;
@@ -241,6 +347,26 @@ static void REGPARAM2 hrtmem_wput (uaecptr addr, uae_u32 w)
     do_put_mem_word (m, (uae_u16)w);
 }
 
+/****i* januae-cartridge/hrtmem_bput ****************************************
+*
+*   NAME
+*       hrtmem_bput() -- Write HRTMon memory as a byte.
+*
+*   SYNOPSIS
+*       static void REGPARAM2 hrtmem_bput (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Translate a guest address relative to hrtmem_start using
+*       hrtmem_mask, then store a byte in the HRTMon image.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       b - Byte to store or hardware-state byte.
+*
+****************************************************************************
+*
+*/
+
 static void REGPARAM2 hrtmem_bput (uaecptr addr, uae_u32 b)
 {
     addr -= hrtmem_start & hrtmem_mask;
@@ -248,12 +374,63 @@ static void REGPARAM2 hrtmem_bput (uaecptr addr, uae_u32 b)
     hrtmemory[addr] = b;
 }
 
+/****i* januae-cartridge/hrtmem_check ***************************************
+*
+*   NAME
+*       hrtmem_check() -- Validate an HRTMon bank range.
+*
+*   SYNOPSIS
+*       static int REGPARAM2 hrtmem_check (uaecptr addr, uae_u32 size);
+*
+*   FUNCTION
+*       Normalize the guest address and compare offset plus size with
+*       hrtmem_size.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       size - Requested range length in bytes.
+*
+*   RESULT
+*       Nonzero if the range fits, otherwise zero.
+*
+*   NOTES
+*       The offset-plus-size addition is not checked for overflow.
+*
+****************************************************************************
+*
+*/
+
 static int REGPARAM2 hrtmem_check (uaecptr addr, uae_u32 size)
 {
     addr -= hrtmem_start & hrtmem_mask;
     addr &= hrtmem_mask;
     return (addr + size) <= hrtmem_size;
 }
+
+/****i* januae-cartridge/hrtmem_xlate ***************************************
+*
+*   NAME
+*       hrtmem_xlate() -- Translate an HRTMon guest address.
+*
+*   SYNOPSIS
+*       static uae_u8 REGPARAM2 *hrtmem_xlate (uaecptr addr);
+*
+*   FUNCTION
+*       Convert a guest address into an offset within the HRTMon image and
+*       return the direct image pointer.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*
+*   RESULT
+*       Pointer into hrtmemory.
+*
+*   NOTES
+*       No independent bounds check is performed.
+*
+****************************************************************************
+*
+*/
 
 static uae_u8 REGPARAM2 *hrtmem_xlate (uaecptr addr)
 {
@@ -268,6 +445,30 @@ addrbank hrtmem_bank = {
     hrtmem_xlate, hrtmem_check, NULL
 };
 
+/****i* januae-cartridge/copyfromamiga **************************************
+*
+*   NAME
+*       copyfromamiga() -- Copy bytes from emulated memory.
+*
+*   SYNOPSIS
+*       static void copyfromamiga (uae_u8 *dst, uaecptr src, int len);
+*
+*   FUNCTION
+*       Read len bytes from successive guest addresses with get_byte() into
+*       the supplied host buffer.
+*
+*   INPUTS
+*       dst - Writable host byte buffer.
+*       src - First guest address to read.
+*       len - Number of bytes to copy.
+*
+*   NOTES
+*       The caller must provide sufficient writable destination storage.
+*
+****************************************************************************
+*
+*/
+
 static void copyfromamiga (uae_u8 *dst, uaecptr src, int len)
 {
     while(len--) {
@@ -275,6 +476,27 @@ static void copyfromamiga (uae_u8 *dst, uaecptr src, int len)
 	src++;
     }
 }
+
+/****i* januae-cartridge/copytoamiga ****************************************
+*
+*   NAME
+*       copytoamiga() -- Copy bytes into emulated memory.
+*
+*   SYNOPSIS
+*       static void copytoamiga (uaecptr dst, const uae_u8 *src, int len);
+*
+*   FUNCTION
+*       Write len bytes from the supplied host buffer to successive guest
+*       addresses with put_byte().
+*
+*   INPUTS
+*       dst - First guest address to write.
+*       src - Source host byte buffer.
+*       len - Number of bytes to copy.
+*
+****************************************************************************
+*
+*/
 
 static void copytoamiga (uaecptr dst, const uae_u8 *src, int len)
 {
@@ -300,6 +522,26 @@ static int ar_wait_pop = 0; /* bool used by AR1 when waiting for the program cou
 uaecptr wait_for_pc = 0;	/* The program counter that we wait for. */
 
 /* returns true if the Program counter is currently in the AR rom. */
+/****i* januae-cartridge/is_ar_pc_in_rom ************************************
+*
+*   NAME
+*       is_ar_pc_in_rom() -- Test whether the CPU executes in cartridge
+*       ROM.
+*
+*   SYNOPSIS
+*       int is_ar_pc_in_rom();
+*
+*   FUNCTION
+*       Mask the current 68k program counter to 24 bits and compare it with
+*       the mapped Action Replay ROM range.
+*
+*   RESULT
+*       Nonzero if the PC is in cartridge ROM, otherwise zero.
+*
+****************************************************************************
+*
+*/
+
 int is_ar_pc_in_rom()
 {
     uaecptr pc = m68k_getpc (&regs) & 0xFFFFFF;
@@ -307,6 +549,26 @@ int is_ar_pc_in_rom()
 }
 
 /* returns true if the Program counter is currently in the AR RAM. */
+/****i* januae-cartridge/is_ar_pc_in_ram ************************************
+*
+*   NAME
+*       is_ar_pc_in_ram() -- Test whether the CPU executes in cartridge
+*       RAM.
+*
+*   SYNOPSIS
+*       int is_ar_pc_in_ram();
+*
+*   FUNCTION
+*       Mask the current 68k program counter to 24 bits and compare it with
+*       the mapped Action Replay RAM range.
+*
+*   RESULT
+*       Nonzero if the PC is in cartridge RAM, otherwise zero.
+*
+****************************************************************************
+*
+*/
+
 int is_ar_pc_in_ram()
 {
     uaecptr pc = m68k_getpc (&regs) & 0xFFFFFF;
@@ -315,6 +577,38 @@ int is_ar_pc_in_ram()
 
 
 /* flag writing == 1 for writing memory, 0 for reading from memory. */
+/****i* januae-cartridge/ar3a ***********************************************
+*
+*   NAME
+*       ar3a() -- Process an Action Replay ROM register strobe.
+*
+*   SYNOPSIS
+*       STATIC_INLINE int ar3a (uaecptr addr, uae_u8 b, int writing);
+*
+*   FUNCTION
+*       For AR1, read ROM bytes and process exit detection on the first two
+*       offsets. For AR2/3, read ROM or expose and update cartridge
+*       hardware state; writes at offsets 1 and 6 update the exit or
+*       interrupt-vector state.
+*
+*   INPUTS
+*       addr - Cartridge ROM offset.
+*       b - Byte written to a cartridge hardware register.
+*       writing - Nonzero for a cartridge register write; zero for a read.
+*
+*   RESULT
+*       ROM or hardware-state byte on reads; zero on AR2/3 writes.
+*
+*   NOTES
+*       When ACTION_REPLAY_HIDE_CARTRIDGE is defined, reads while inactive
+*       return zero for the first eight offsets; accesses beyond them read
+*       ROM. Write attempts may change the emulator state rather than
+*       cartridge ROM.
+*
+****************************************************************************
+*
+*/
+
 STATIC_INLINE int ar3a (uaecptr addr, uae_u8 b, int writing)
 {
     uaecptr pc;
@@ -404,6 +698,28 @@ STATIC_INLINE int ar3a (uaecptr addr, uae_u8 b, int writing)
     return 0;
 }
 
+/****i* januae-cartridge/chipmem_lput_actionreplay1 *************************
+*
+*   NAME
+*       chipmem_lput_actionreplay1() -- Intercept an AR1 chip RAM longword
+*       write.
+*
+*   SYNOPSIS
+*       void REGPARAM2 chipmem_lput_actionreplay1 (uaecptr addr, uae_u32
+*       l);
+*
+*   FUNCTION
+*       Write the longword to chip RAM and call action_replay_chipwrite()
+*       for offset 0x60 when the CPU is outside cartridge ROM.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       l - Longword to store.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 chipmem_lput_actionreplay1 (uaecptr addr, uae_u32 l)
 {
     uae_u32 *m;
@@ -414,6 +730,28 @@ void REGPARAM2 chipmem_lput_actionreplay1 (uaecptr addr, uae_u32 l)
     m = (uae_u32 *)(chipmemory + addr);
     do_put_mem_long (m, l);
 }
+/****i* januae-cartridge/chipmem_wput_actionreplay1 *************************
+*
+*   NAME
+*       chipmem_wput_actionreplay1() -- Intercept an AR1 chip RAM word
+*       write.
+*
+*   SYNOPSIS
+*       void REGPARAM2 chipmem_wput_actionreplay1 (uaecptr addr, uae_u32
+*       w);
+*
+*   FUNCTION
+*       Write the word to chip RAM and call action_replay_chipwrite() for
+*       offset 0x62 when the CPU is outside cartridge ROM.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       w - Word to store.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 chipmem_wput_actionreplay1 (uaecptr addr, uae_u32 w)
 {
     uae_u16 *m;
@@ -425,6 +763,28 @@ void REGPARAM2 chipmem_wput_actionreplay1 (uaecptr addr, uae_u32 w)
     m = (uae_u16 *)(chipmemory + addr);
     do_put_mem_word (m, w);
 }
+/****i* januae-cartridge/chipmem_bput_actionreplay1 *************************
+*
+*   NAME
+*       chipmem_bput_actionreplay1() -- Intercept an AR1 chip RAM byte
+*       write.
+*
+*   SYNOPSIS
+*       void REGPARAM2 chipmem_bput_actionreplay1 (uaecptr addr, uae_u32
+*       b);
+*
+*   FUNCTION
+*       Write the byte to chip RAM and call action_replay_chipwrite() for
+*       offsets 0x60 through 0x63 when the CPU is outside cartridge ROM.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       b - Byte to store or hardware-state byte.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 chipmem_bput_actionreplay1 (uaecptr addr, uae_u32 b)
 {
     addr -= chipmem_start & chipmem_mask;
@@ -433,6 +793,29 @@ void REGPARAM2 chipmem_bput_actionreplay1 (uaecptr addr, uae_u32 b)
 	action_replay_chipwrite();
     chipmemory[addr] = b;
 }
+/****i* januae-cartridge/chipmem_lput_actionreplay23 ************************
+*
+*   NAME
+*       chipmem_lput_actionreplay23() -- Intercept an AR2/3 chip RAM
+*       longword write.
+*
+*   SYNOPSIS
+*       void REGPARAM2 chipmem_lput_actionreplay23 (uaecptr addr, uae_u32
+*       l);
+*
+*   FUNCTION
+*       Write the longword to chip RAM and activate cartridge reset
+*       handling when the normalized address is from 0x40 to 0x1ff and the
+*       cartridge is waiting for reset.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       l - Longword to store.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 chipmem_lput_actionreplay23 (uaecptr addr, uae_u32 l)
 {
     uae_u32 *m;
@@ -443,6 +826,29 @@ void REGPARAM2 chipmem_lput_actionreplay23 (uaecptr addr, uae_u32 l)
     if (addr >= 0x40 && addr < 0x200 && action_replay_flag == ACTION_REPLAY_WAITRESET)
         action_replay_chipwrite();
 }
+/****i* januae-cartridge/chipmem_wput_actionreplay23 ************************
+*
+*   NAME
+*       chipmem_wput_actionreplay23() -- Intercept an AR2/3 chip RAM word
+*       write.
+*
+*   SYNOPSIS
+*       void REGPARAM2 chipmem_wput_actionreplay23 (uaecptr addr, uae_u32
+*       w);
+*
+*   FUNCTION
+*       Write the word to chip RAM and activate cartridge reset handling
+*       when the normalized address is from 0x40 to 0x1ff and the cartridge
+*       is waiting for reset.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       w - Word to store.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 chipmem_wput_actionreplay23 (uaecptr addr, uae_u32 w)
 {
     uae_u16 *m;
@@ -479,6 +885,32 @@ static uae_u32 action_replay_calculate_checksum(void);
 static uae_u8* get_checksum_location(void);
 static void disable_rom_test(void);
 
+/****i* januae-cartridge/arram_lget *****************************************
+*
+*   NAME
+*       arram_lget() -- Read cartridge RAM as a longword.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 arram_lget (uaecptr addr);
+*
+*   FUNCTION
+*       Subtract arram_start, apply arram_mask and read a longword from
+*       armemory_ram.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*
+*   RESULT
+*       32-bit value.
+*
+*   NOTES
+*       With JIT, marks the read as special. In debug builds, recognizes
+*       selected four-character cartridge status tags at the read address.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 arram_lget (uaecptr addr)
 {
     uae_u32 *m;
@@ -505,6 +937,31 @@ static uae_u32 REGPARAM2 arram_lget (uaecptr addr)
     return do_get_mem_long (m);
 }
 
+/****i* januae-cartridge/arram_wget *****************************************
+*
+*   NAME
+*       arram_wget() -- Read cartridge RAM as a word.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 arram_wget (uaecptr addr);
+*
+*   FUNCTION
+*       Subtract arram_start, apply arram_mask and read a word from
+*       armemory_ram.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*
+*   RESULT
+*       16-bit value.
+*
+*   NOTES
+*       With JIT, marks the access as a special read.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 arram_wget (uaecptr addr)
 {
     uae_u16 *m;
@@ -517,6 +974,31 @@ static uae_u32 REGPARAM2 arram_wget (uaecptr addr)
     return do_get_mem_word (m);
 }
 
+/****i* januae-cartridge/arram_bget *****************************************
+*
+*   NAME
+*       arram_bget() -- Read cartridge RAM as a byte.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 arram_bget (uaecptr addr);
+*
+*   FUNCTION
+*       Subtract arram_start, apply arram_mask and read a byte from
+*       armemory_ram.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*
+*   RESULT
+*       8-bit value.
+*
+*   NOTES
+*       With JIT, marks the access as a special read.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 arram_bget (uaecptr addr)
 {
 #ifdef JIT
@@ -526,6 +1008,30 @@ static uae_u32 REGPARAM2 arram_bget (uaecptr addr)
     addr &= arram_mask;
     return armemory_ram[addr];
 }
+
+/****i* januae-cartridge/arram_lput *****************************************
+*
+*   NAME
+*       arram_lput() -- Write cartridge RAM as a longword.
+*
+*   SYNOPSIS
+*       void REGPARAM2 arram_lput (uaecptr addr, uae_u32 l);
+*
+*   FUNCTION
+*       Subtract arram_start, apply arram_mask and write the longword into
+*       armemory_ram.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       l - Longword to store.
+*
+*   NOTES
+*       In debug builds, logs writes over recognized cartridge status tags;
+*       this longword path does not set SPECIAL_MEM_WRITE.
+*
+****************************************************************************
+*
+*/
 
 void REGPARAM2 arram_lput (uaecptr addr, uae_u32 l)
 {
@@ -551,6 +1057,29 @@ void REGPARAM2 arram_lput (uaecptr addr, uae_u32 l)
     do_put_mem_long (m, l);
 }
 
+/****i* januae-cartridge/arram_wput *****************************************
+*
+*   NAME
+*       arram_wput() -- Write cartridge RAM as a word.
+*
+*   SYNOPSIS
+*       void REGPARAM2 arram_wput (uaecptr addr, uae_u32 w);
+*
+*   FUNCTION
+*       Subtract arram_start, apply arram_mask and write the word into
+*       armemory_ram.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       w - Word to store.
+*
+*   NOTES
+*       With JIT, marks the write as a special memory access.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 arram_wput (uaecptr addr, uae_u32 w)
 {
     uae_u16 *m;
@@ -564,12 +1093,57 @@ void REGPARAM2 arram_wput (uaecptr addr, uae_u32 w)
     do_put_mem_word (m, w);
 }
 
+/****i* januae-cartridge/arram_bput *****************************************
+*
+*   NAME
+*       arram_bput() -- Write cartridge RAM as a byte.
+*
+*   SYNOPSIS
+*       void REGPARAM2 arram_bput (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Subtract arram_start, apply arram_mask and write the byte into
+*       armemory_ram.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       b - Byte to store or hardware-state byte.
+*
+****************************************************************************
+*
+*/
+
 void REGPARAM2 arram_bput (uaecptr addr, uae_u32 b)
 {
     addr -= arram_start;
     addr &= arram_mask;
     armemory_ram[addr] = b;
 }
+
+/****i* januae-cartridge/arram_check ****************************************
+*
+*   NAME
+*       arram_check() -- Validate a cartridge RAM range.
+*
+*   SYNOPSIS
+*       static int REGPARAM2 arram_check (uaecptr addr, uae_u32 size);
+*
+*   FUNCTION
+*       Normalize the guest address and compare its end with arram_size.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       size - Requested range length in bytes.
+*
+*   RESULT
+*       Nonzero when offset plus size fits, otherwise zero.
+*
+*   NOTES
+*       The addition is not guarded against overflow.
+*
+****************************************************************************
+*
+*/
 
 static int REGPARAM2 arram_check (uaecptr addr, uae_u32 size)
 {
@@ -578,12 +1152,64 @@ static int REGPARAM2 arram_check (uaecptr addr, uae_u32 size)
     return (addr + size) <= arram_size;
 }
 
+/****i* januae-cartridge/arram_xlate ****************************************
+*
+*   NAME
+*       arram_xlate() -- Translate a cartridge RAM address.
+*
+*   SYNOPSIS
+*       static uae_u8 REGPARAM2 *arram_xlate (uaecptr addr);
+*
+*   FUNCTION
+*       Normalize a guest address and return the corresponding direct
+*       pointer into armemory_ram.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*
+*   RESULT
+*       Pointer into cartridge RAM.
+*
+*   NOTES
+*       No allocation bounds check is performed here.
+*
+****************************************************************************
+*
+*/
+
 static uae_u8 REGPARAM2 *arram_xlate (uaecptr addr)
 {
     addr -= arram_start;
     addr &= arram_mask;
     return armemory_ram + addr;
 }
+
+/****i* januae-cartridge/arrom_lget *****************************************
+*
+*   NAME
+*       arrom_lget() -- Read an Action Replay longword.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 arrom_lget (uaecptr addr);
+*
+*   FUNCTION
+*       Normalize the guest address relative to arrom_start and Read four
+*       consecutive register/ROM bytes through ar3a() and assemble a
+*       big-endian longword.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*
+*   RESULT
+*       32-bit value.
+*
+*   NOTES
+*       With JIT, marks a special read. The underlying ar3a() operation may
+*       have cartridge-state side effects.
+*
+****************************************************************************
+*
+*/
 
 static uae_u32 REGPARAM2 arrom_lget (uaecptr addr)
 {
@@ -595,6 +1221,33 @@ static uae_u32 REGPARAM2 arrom_lget (uaecptr addr)
     return (ar3a (addr, 0, 0) << 24) | (ar3a (addr + 1, 0, 0) << 16) | (ar3a (addr + 2, 0, 0) << 8) | ar3a (addr + 3, 0, 0);
 }
 
+/****i* januae-cartridge/arrom_wget *****************************************
+*
+*   NAME
+*       arrom_wget() -- Read an Action Replay word.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 arrom_wget (uaecptr addr);
+*
+*   FUNCTION
+*       Normalize the guest address relative to arrom_start and Read two
+*       consecutive register/ROM bytes through ar3a() and assemble a
+*       big-endian word.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*
+*   RESULT
+*       16-bit value.
+*
+*   NOTES
+*       With JIT, marks a special read. The underlying ar3a() operation may
+*       have cartridge-state side effects.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 arrom_wget (uaecptr addr)
 {
 #ifdef JIT
@@ -605,6 +1258,32 @@ static uae_u32 REGPARAM2 arrom_wget (uaecptr addr)
     return (ar3a (addr, 0, 0) << 8) | ar3a (addr + 1, 0, 0);
 }
 
+/****i* januae-cartridge/arrom_bget *****************************************
+*
+*   NAME
+*       arrom_bget() -- Read an Action Replay byte.
+*
+*   SYNOPSIS
+*       static uae_u32 REGPARAM2 arrom_bget (uaecptr addr);
+*
+*   FUNCTION
+*       Normalize the guest address relative to arrom_start and Read one
+*       register/ROM byte through ar3a().
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*
+*   RESULT
+*       8-bit value.
+*
+*   NOTES
+*       With JIT, marks a special read. The underlying ar3a() operation may
+*       have cartridge-state side effects.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 REGPARAM2 arrom_bget (uaecptr addr)
 {
 #ifdef JIT
@@ -614,6 +1293,31 @@ static uae_u32 REGPARAM2 arrom_bget (uaecptr addr)
     addr &= arrom_mask;
     return ar3a (addr, 0, 0);
 }
+
+/****i* januae-cartridge/arrom_lput *****************************************
+*
+*   NAME
+*       arrom_lput() -- Write an Action Replay longword strobe.
+*
+*   SYNOPSIS
+*       static void REGPARAM2 arrom_lput (uaecptr addr, uae_u32 l);
+*
+*   FUNCTION
+*       Decompose a longword into four bytes and pass successive cartridge
+*       offsets to ar3a(). The operation addresses cartridge control
+*       registers rather than ordinary ROM storage.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       l - Longword to store.
+*
+*   NOTES
+*       With JIT, marks a special write. Cartridge state or CPU interrupt
+*       vectors can change.
+*
+****************************************************************************
+*
+*/
 
 static void REGPARAM2 arrom_lput (uaecptr addr, uae_u32 l)
 {
@@ -628,6 +1332,31 @@ static void REGPARAM2 arrom_lput (uaecptr addr, uae_u32 l)
     ar3a (addr + 3,(uae_u8)(l >> 0), 1);
 }
 
+/****i* januae-cartridge/arrom_wput *****************************************
+*
+*   NAME
+*       arrom_wput() -- Write an Action Replay word strobe.
+*
+*   SYNOPSIS
+*       static void REGPARAM2 arrom_wput (uaecptr addr, uae_u32 w);
+*
+*   FUNCTION
+*       Decompose a word into two bytes and pass successive cartridge
+*       offsets to ar3a(). The operation addresses cartridge control
+*       registers rather than ordinary ROM storage.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       w - Word to store.
+*
+*   NOTES
+*       With JIT, marks a special write. Cartridge state or CPU interrupt
+*       vectors can change.
+*
+****************************************************************************
+*
+*/
+
 static void REGPARAM2 arrom_wput (uaecptr addr, uae_u32 w)
 {
 #ifdef JIT
@@ -639,6 +1368,31 @@ static void REGPARAM2 arrom_wput (uaecptr addr, uae_u32 w)
     ar3a (addr + 1,(uae_u8)(w >> 0), 1);
 }
 
+/****i* januae-cartridge/arrom_bput *****************************************
+*
+*   NAME
+*       arrom_bput() -- Write an Action Replay byte strobe.
+*
+*   SYNOPSIS
+*       static void REGPARAM2 arrom_bput (uaecptr addr, uae_u32 b);
+*
+*   FUNCTION
+*       Pass the byte to ar3a() at the normalized cartridge offset. The
+*       operation addresses cartridge control registers rather than
+*       ordinary ROM storage.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       b - Byte to store or hardware-state byte.
+*
+*   NOTES
+*       With JIT, marks a special write. Cartridge state or CPU interrupt
+*       vectors can change.
+*
+****************************************************************************
+*
+*/
+
 static void REGPARAM2 arrom_bput (uaecptr addr, uae_u32 b)
 {
 #ifdef JIT
@@ -649,12 +1403,63 @@ static void REGPARAM2 arrom_bput (uaecptr addr, uae_u32 b)
     ar3a (addr, b, 1);
 }
 
+/****i* januae-cartridge/arrom_check ****************************************
+*
+*   NAME
+*       arrom_check() -- Validate a cartridge ROM range.
+*
+*   SYNOPSIS
+*       static int REGPARAM2 arrom_check (uaecptr addr, uae_u32 size);
+*
+*   FUNCTION
+*       Normalize the guest address relative to arrom_start and compare its
+*       end with arrom_size.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*       size - Requested range length in bytes.
+*
+*   RESULT
+*       Nonzero when offset plus size fits, otherwise zero.
+*
+*   NOTES
+*       The addition is not guarded against overflow.
+*
+****************************************************************************
+*
+*/
+
 static int REGPARAM2 arrom_check (uaecptr addr, uae_u32 size)
 {
     addr -= arrom_start;
     addr &= arrom_mask;
     return (addr + size) <= arrom_size;
 }
+
+/****i* januae-cartridge/arrom_xlate ****************************************
+*
+*   NAME
+*       arrom_xlate() -- Translate a cartridge ROM address.
+*
+*   SYNOPSIS
+*       static uae_u8 REGPARAM2 *arrom_xlate (uaecptr addr);
+*
+*   FUNCTION
+*       Normalize the guest address and return the corresponding direct
+*       pointer into armemory_rom.
+*
+*   INPUTS
+*       addr - Guest address of the memory access.
+*
+*   RESULT
+*       Pointer into the loaded cartridge ROM image.
+*
+*   NOTES
+*       No allocation bounds check is performed here.
+*
+****************************************************************************
+*
+*/
 
 static uae_u8 REGPARAM2 *arrom_xlate (uaecptr addr)
 {
@@ -674,6 +1479,22 @@ static addrbank arram_bank = {
     arram_xlate, arram_check, NULL
 };
 
+/****i* januae-cartridge/action_replay_unmap_banks **************************
+*
+*   NAME
+*       action_replay_unmap_banks() -- Unmap cartridge ROM and RAM.
+*
+*   SYNOPSIS
+*       static void action_replay_unmap_banks();
+*
+*   FUNCTION
+*       Replace both cartridge guest address ranges with dummy banks when
+*       an Action Replay image is loaded.
+*
+****************************************************************************
+*
+*/
+
 static void action_replay_unmap_banks()
 {
     if(!armemory_rom)
@@ -683,6 +1504,22 @@ static void action_replay_unmap_banks()
     map_banks (&dummy_bank, arram_start >> 16 , arram_size >> 16, 0);
 }
 
+/****i* januae-cartridge/action_replay_map_banks ****************************
+*
+*   NAME
+*       action_replay_map_banks() -- Map cartridge ROM and RAM.
+*
+*   SYNOPSIS
+*       void action_replay_map_banks();
+*
+*   FUNCTION
+*       Install the cartridge ROM and RAM banks at their configured guest
+*       addresses when a cartridge image is loaded.
+*
+****************************************************************************
+*
+*/
+
 void action_replay_map_banks()
 {
     if(!armemory_rom)
@@ -691,6 +1528,28 @@ void action_replay_map_banks()
     map_banks (&arrom_bank, arrom_start >> 16, arrom_size >> 16, 0);
     map_banks (&arram_bank, arram_start >> 16, arram_size >> 16, 0);
 }
+
+/****i* januae-cartridge/hide_cart ******************************************
+*
+*   NAME
+*       hide_cart() -- Apply the cartridge visibility setting.
+*
+*   SYNOPSIS
+*       static void hide_cart(int hide);
+*
+*   FUNCTION
+*       When ACTION_REPLAY_HIDE_CARTRIDGE is enabled, map or unmap the
+*       cartridge banks according to hide.
+*
+*   INPUTS
+*       hide - Nonzero to unmap cartridge banks, zero to map them.
+*
+*   NOTES
+*       Without that configuration symbol, this function has no effect.
+*
+****************************************************************************
+*
+*/
 
 static void hide_cart(int hide)
 {
@@ -712,6 +1571,23 @@ static void hide_cart(int hide)
  * instead of fully emulating cartridge's behaviour.
  */
 
+/****i* januae-cartridge/action_replay_go ***********************************
+*
+*   NAME
+*       action_replay_go() -- Enter the AR2/3 cartridge monitor.
+*
+*   SYNOPSIS
+*       static void action_replay_go (void);
+*
+*   FUNCTION
+*       Show the cartridge, copy saved custom-register values to cartridge
+*       RAM, save the current level-seven vector, install the cartridge
+*       vector, set active state and request interrupt level seven.
+*
+****************************************************************************
+*
+*/
+
 static void action_replay_go (void)
 {
     hide_cart (0);
@@ -723,6 +1599,29 @@ static void action_replay_go (void)
     Interrupt (7);
 }
 
+/****i* januae-cartridge/action_replay_go1 **********************************
+*
+*   NAME
+*       action_replay_go1() -- Enter the AR1 cartridge monitor.
+*
+*   SYNOPSIS
+*       static void action_replay_go1 (int irq);
+*
+*   FUNCTION
+*       Show the cartridge, copy saved custom-register values to cartridge
+*       RAM, set active state and request interrupt level seven.
+*
+*   INPUTS
+*       irq - Unused interrupt argument.
+*
+*   NOTES
+*       The irq argument is not used by the implementation; AR1 does not
+*       save or replace the level-seven vector in this path.
+*
+****************************************************************************
+*
+*/
+
 static void action_replay_go1 (int irq)
 {
     hide_cart (0);
@@ -731,6 +1630,30 @@ static void action_replay_go1 (int irq)
     memcpy (armemory_ram + 0xf000, ar_custom, 2 * 256);
     Interrupt (7);
 }
+
+/****i* januae-cartridge/hrtmon_go ******************************************
+*
+*   NAME
+*       hrtmon_go() -- Enter HRTMon through interrupt seven.
+*
+*   SYNOPSIS
+*       static void hrtmon_go (int mode);
+*
+*   FUNCTION
+*       Copy saved custom-register values to HRTMon storage, set active
+*       state, install the HRTMon level-seven handler and request interrupt
+*       seven.
+*
+*   INPUTS
+*       mode - Handler selection: zero for normal, nonzero for alternate.
+*
+*   NOTES
+*       A nonzero mode selects the handler at hrtmem_start + 12; zero
+*       selects +8.
+*
+****************************************************************************
+*
+*/
 
 static void hrtmon_go (int mode)
 {
@@ -741,12 +1664,47 @@ static void hrtmon_go (int mode)
     Interrupt (7);
 }
 
+/****i* januae-cartridge/hrtmon_enter ***************************************
+*
+*   NAME
+*       hrtmon_enter() -- Request the HRTMon freeze monitor.
+*
+*   SYNOPSIS
+*       void hrtmon_enter (void);
+*
+*   FUNCTION
+*       If HRTMon memory is loaded, log the freeze request and enter HRTMon
+*       using its alternate handler.
+*
+****************************************************************************
+*
+*/
+
 void hrtmon_enter (void)
 {
     if (!hrtmemory) return;
     write_log("HRTMON: freeze\n");
     hrtmon_go(1);
 }
+
+/****i* januae-cartridge/action_replay_enter ********************************
+*
+*   NAME
+*       action_replay_enter() -- Activate the pending Action Replay event.
+*
+*   SYNOPSIS
+*       void action_replay_enter(void);
+*
+*   FUNCTION
+*       Enter AR1 directly or select and log the AR2/3 reset, freeze or
+*       breakpoint mode before entering the cartridge monitor.
+*
+*   NOTES
+*       Returns without action when no Action Replay ROM is loaded.
+*
+****************************************************************************
+*
+*/
 
 void action_replay_enter(void)
 {
@@ -783,6 +1741,31 @@ void action_replay_enter(void)
     action_replay_go();
 }
 
+/****i* januae-cartridge/check_prefs_changed_carts **************************
+*
+*   NAME
+*       check_prefs_changed_carts() -- Apply a changed cartridge image
+*       preference.
+*
+*   SYNOPSIS
+*       void check_prefs_changed_carts(int in_memory_reset);
+*
+*   FUNCTION
+*       Compare current and pending cartridge filenames; on a successful
+*       unload, copy the new filename and load and initialize the requested
+*       monitor.
+*
+*   INPUTS
+*       in_memory_reset - Reset context passed to action_replay_unload().
+*
+*   NOTES
+*       If the running cartridge cannot be unloaded, the current filename
+*       and image remain unchanged.
+*
+****************************************************************************
+*
+*/
+
 void check_prefs_changed_carts(int in_memory_reset)
 {
     if (strcmp (currprefs.cartfile, changed_prefs.cartfile) != 0)
@@ -801,6 +1784,23 @@ void check_prefs_changed_carts(int in_memory_reset)
 	}
     }
 }
+
+/****i* januae-cartridge/action_replay_reset ********************************
+*
+*   NAME
+*       action_replay_reset() -- Update cartridge state following a reset.
+*
+*   SYNOPSIS
+*       void action_replay_reset(void);
+*
+*   FUNCTION
+*       During SaveState restoration, make the cartridge active only when
+*       the restored PC is inside ROM; otherwise hide it. For a normal
+*       reset, activate AR1 or place AR2/3 in the wait-for-reset state.
+*
+****************************************************************************
+*
+*/
 
 void action_replay_reset(void)
 {
@@ -832,6 +1832,24 @@ void action_replay_reset(void)
     }
 }
 
+/****i* januae-cartridge/action_replay_ciaread ******************************
+*
+*   NAME
+*       action_replay_ciaread() -- Recognize the AR2/3 CIA breakpoint
+*       condition.
+*
+*   SYNOPSIS
+*       void action_replay_ciaread(void);
+*
+*   FUNCTION
+*       When an idle AR2/3 monitor has active breakpoints and the CPU PC is
+*       below 0x200, schedule monitor activation and flag the CPU for
+*       special handling.
+*
+****************************************************************************
+*
+*/
+
 void action_replay_ciaread(void)
 {
     if (armodel < 2)
@@ -843,6 +1861,26 @@ void action_replay_ciaread(void)
     action_replay_flag = ACTION_REPLAY_ACTIVATE;
     set_special (&regs, SPCFLAG_ACTION_REPLAY);
 }
+
+/****i* januae-cartridge/action_replay_freeze *******************************
+*
+*   NAME
+*       action_replay_freeze() -- Request a cartridge or HRTMon freeze.
+*
+*   SYNOPSIS
+*       int action_replay_freeze(void);
+*
+*   FUNCTION
+*       Schedule Action Replay entry when its state is idle, or schedule
+*       HRTMon entry when its state is idle. For AR1, use the chip-write
+*       activation path.
+*
+*   RESULT
+*       One if a freeze was scheduled, otherwise zero.
+*
+****************************************************************************
+*
+*/
 
 int action_replay_freeze(void)
 {
@@ -867,6 +1905,24 @@ int action_replay_freeze(void)
     return 0;
 }
 
+/****i* januae-cartridge/action_replay_chipwrite ****************************
+*
+*   NAME
+*       action_replay_chipwrite() -- Handle a cartridge activation chip RAM
+*       write.
+*
+*   SYNOPSIS
+*       void action_replay_chipwrite(void);
+*
+*   FUNCTION
+*       For AR2/3, schedule reset-triggered entry. For AR1, copy the
+*       level-six vector into level seven, set the return-PC wait flag and
+*       schedule entry.
+*
+****************************************************************************
+*
+*/
+
 void action_replay_chipwrite(void)
 {
     if (armodel > 1)
@@ -887,17 +1943,65 @@ void action_replay_chipwrite(void)
     }
 }
 
+/****i* januae-cartridge/action_replay_hide *********************************
+*
+*   NAME
+*       action_replay_hide() -- Exit and hide Action Replay.
+*
+*   SYNOPSIS
+*       void action_replay_hide(void);
+*
+*   FUNCTION
+*       Hide the cartridge bank if configured and set its state to
+*       ACTION_REPLAY_IDLE.
+*
+****************************************************************************
+*
+*/
+
 void action_replay_hide(void)
 {
     hide_cart(1);
     action_replay_flag = ACTION_REPLAY_IDLE;
 }
 
+/****i* januae-cartridge/hrtmon_hide ****************************************
+*
+*   NAME
+*       hrtmon_hide() -- Mark HRTMon as idle.
+*
+*   SYNOPSIS
+*       void hrtmon_hide(void);
+*
+*   FUNCTION
+*       Set the HRTMon state to ACTION_REPLAY_IDLE without changing its
+*       memory-bank mapping.
+*
+****************************************************************************
+*
+*/
+
 void hrtmon_hide(void)
 {
     hrtmon_flag = ACTION_REPLAY_IDLE;
 /*  write_log_debug("HRTMON: exit\n"); */
 }
+
+/****i* januae-cartridge/hrtmon_breakenter **********************************
+*
+*   NAME
+*       hrtmon_breakenter() -- Request HRTMon monitor exit processing.
+*
+*   SYNOPSIS
+*       void hrtmon_breakenter(void);
+*
+*   FUNCTION
+*       Set the HRTMon state to ACTION_REPLAY_HIDE and flag the CPU for
+*       special handling.
+*
+****************************************************************************
+*
+*/
 
 void hrtmon_breakenter(void)
 {
@@ -919,6 +2023,28 @@ void hrtmon_breakenter(void)
 
 static uae_u8 ar3patch1[]={0x20,0xc9,0x51,0xc9,0xff,0xfc};
 static uae_u8 ar3patch2[]={0x00,0xfc,0x01,0x44};
+
+/****i* januae-cartridge/action_replay_patch ********************************
+*
+*   NAME
+*       action_replay_patch() -- Relocate the AR3 Kickstart compatibility
+*       operand.
+*
+*   SYNOPSIS
+*       static void action_replay_patch(void);
+*
+*   FUNCTION
+*       For an AR3 image, locate the known Kickstart instruction and ROM
+*       operand patterns and replace the ROM operand with the corresponding
+*       Kickstart entry address.
+*
+*   NOTES
+*       No patch is made if either pattern is absent; this routine assumes
+*       the expected ROM sizes and byte patterns.
+*
+****************************************************************************
+*
+*/
 
 static void action_replay_patch(void)
 {
@@ -950,6 +2076,32 @@ static void action_replay_patch(void)
  * Else, it returns the calculated checksum.
  * Note: Will be wrong if the checksum is zero, but i'll take my chances on that not happenning ;)
  */
+/****i* januae-cartridge/action_replay_calculate_checksum *******************
+*
+*   NAME
+*       action_replay_calculate_checksum() -- Compare the cartridge ROM
+*       checksum.
+*
+*   SYNOPSIS
+*       static uae_u32 action_replay_calculate_checksum();
+*
+*   FUNCTION
+*       For AR1, sum signed words; for AR2/3, sum longwords, stopping
+*       before the last nonzero longword that holds the stored checksum.
+*
+*   RESULT
+*       Zero if the checksum agrees or ROM is absent; otherwise the
+*       calculated sum.
+*
+*   NOTES
+*       A mismatching computed sum of zero is indistinguishable from a
+*       match. The backward checksum scan assumes a nonzero, aligned
+*       checksum longword.
+*
+****************************************************************************
+*
+*/
+
 static uae_u32 action_replay_calculate_checksum()
 {
 	uae_u32* checksum_end;
@@ -1018,6 +2170,29 @@ static uae_u32 action_replay_calculate_checksum()
 }
 
 /* Returns 0 on error. */
+/****i* januae-cartridge/get_checksum_location ******************************
+*
+*   NAME
+*       get_checksum_location() -- Locate the stored cartridge checksum.
+*
+*   SYNOPSIS
+*       static uae_u8* get_checksum_location();
+*
+*   FUNCTION
+*       Scan backward from the end of the Action Replay ROM to its last
+*       nonzero longword.
+*
+*   RESULT
+*       Pointer to the stored checksum, or NULL when no ROM is loaded.
+*
+*   NOTES
+*       The scan assumes a nonzero checksum exists and has no independent
+*       lower-bound check.
+*
+****************************************************************************
+*
+*/
+
 static uae_u8* get_checksum_location()
 {
 	uae_u32* checksum_end;
@@ -1038,6 +2213,26 @@ static uae_u8* get_checksum_location()
 
 /* Replaces the existing cart checksum with a correct one. */
 /* Useful if you want to patch the rom. */
+/****i* januae-cartridge/action_replay_fixup_checksum ***********************
+*
+*   NAME
+*       action_replay_fixup_checksum() -- Replace the stored cartridge
+*       checksum.
+*
+*   SYNOPSIS
+*       static void action_replay_fixup_checksum(uae_u32 new_checksum);
+*
+*   FUNCTION
+*       Find the cartridge checksum longword and write the supplied value
+*       into the ROM image; log an error when no location can be found.
+*
+*   INPUTS
+*       new_checksum - Replacement checksum longword.
+*
+****************************************************************************
+*
+*/
+
 static void action_replay_fixup_checksum(uae_u32 new_checksum)
 {
 	uae_u32* checksum = (uae_u32*)get_checksum_location();
@@ -1056,6 +2251,35 @@ static void action_replay_fixup_checksum(uae_u32 new_checksum)
  * the search_value is assumed to already be in the local endian format
  * return 0 on failure
  */
+/****i* januae-cartridge/find_absolute_long *********************************
+*
+*   NAME
+*       find_absolute_long() -- Search for a longword on word boundaries.
+*
+*   SYNOPSIS
+*       static uae_u8* find_absolute_long(uae_u8* start_addr, uae_u8*
+*       end_addr, uae_u32 search_value);
+*
+*   FUNCTION
+*       Examine a host memory interval at two-byte steps using the UAE
+*       endian-aware longword reader.
+*
+*   INPUTS
+*       start_addr - Beginning of the host memory search.
+*       end_addr - End of the host memory search interval.
+*       search_value - Endian-adjusted longword to locate.
+*
+*   RESULT
+*       Pointer to the first matching location or NULL.
+*
+*   NOTES
+*       The search assumes the caller provides enough readable bytes for
+*       the final longword comparison.
+*
+****************************************************************************
+*
+*/
+
 static uae_u8* find_absolute_long(uae_u8* start_addr, uae_u8* end_addr, uae_u32 search_value)
 {
 	uae_u8* addr;
@@ -1078,6 +2302,36 @@ static uae_u8* find_absolute_long(uae_u8* start_addr, uae_u8* end_addr, uae_u32 
  * Currently only tested where the address we are looking for is AFTER the instruction.
  * Not sure it works with negative offsets.
  */
+/****i* januae-cartridge/find_relative_word *********************************
+*
+*   NAME
+*       find_relative_word() -- Search for a PC-relative word operand.
+*
+*   SYNOPSIS
+*       static uae_u8* find_relative_word(uae_u8* start_addr, uae_u8*
+*       end_addr, uae_u16 search_addr);
+*
+*   FUNCTION
+*       Examine two-byte-aligned candidate locations and compare each word
+*       to the requested displacement adjusted by its offset from
+*       start_addr.
+*
+*   INPUTS
+*       start_addr - Beginning of the host memory search.
+*       end_addr - End of the host memory search interval.
+*       search_addr - Word displacement relative to start_addr.
+*
+*   RESULT
+*       Pointer to the first matching location or NULL.
+*
+*   NOTES
+*       Displacements are compared as 16-bit values; negative-offset cases
+*       are not handled separately.
+*
+****************************************************************************
+*
+*/
+
 static uae_u8* find_relative_word(uae_u8* start_addr, uae_u8* end_addr, uae_u16 search_addr)
 {
 	uae_u8* addr;
@@ -1099,6 +2353,28 @@ static uae_u8* find_relative_word(uae_u8* start_addr, uae_u8* end_addr, uae_u16 
  * It does this in a 'safe' way, by searching for a reference to the checksum
  * and only disables it if the surounding bytes are what it expects.
  */
+
+/****i* januae-cartridge/disable_rom_test ***********************************
+*
+*   NAME
+*       disable_rom_test() -- Disable the cartridge ROM checksum
+*       instruction.
+*
+*   SYNOPSIS
+*       static void disable_rom_test();
+*
+*   FUNCTION
+*       Find the checksum reference in the selected cartridge model and,
+*       only when neighboring branch and LEA opcodes match, replace the
+*       branch with RTS.
+*
+*   NOTES
+*       The patch changes the loaded ROM image; it does not modify the
+*       source ROM file.
+*
+****************************************************************************
+*
+*/
 
 static void disable_rom_test()
 {
@@ -1157,6 +2433,26 @@ static void disable_rom_test()
  * 2. Remove the checksum check and (optionally) patch it.
  * I have chosen to use no.2 here, because it should speed up the Action Replay slightly (and it was fun).
  */
+/****i* januae-cartridge/action_replay_checksum_info ************************
+*
+*   NAME
+*       action_replay_checksum_info() -- Check the cartridge ROM and bypass
+*       its ROM test.
+*
+*   SYNOPSIS
+*       static void action_replay_checksum_info(void);
+*
+*   FUNCTION
+*       Log whether the calculated checksum agrees with the stored value,
+*       then attempt to disable the ROM checksum routine.
+*
+*   NOTES
+*       No work is done when cartridge ROM is absent.
+*
+****************************************************************************
+*
+*/
+
 static void action_replay_checksum_info(void)
 {
     if (!armemory_rom)
@@ -1173,6 +2469,28 @@ static void action_replay_checksum_info(void)
 }
 
 
+
+/****i* januae-cartridge/action_replay_setbanks *****************************
+*
+*   NAME
+*       action_replay_setbanks() -- Install cartridge-specific chip RAM
+*       write hooks.
+*
+*   SYNOPSIS
+*       static void action_replay_setbanks (void);
+*
+*   FUNCTION
+*       When not restoring a SaveState and the normal chip RAM longword
+*       write hook is installed, select AR1 or AR2/3 interception
+*       functions.
+*
+*   NOTES
+*       For AR2/3, the word hook is installed only when cpu_cycle_exact is
+*       set.
+*
+****************************************************************************
+*
+*/
 
 static void action_replay_setbanks (void)
 {
@@ -1194,6 +2512,23 @@ static void action_replay_setbanks (void)
    }
 }
 
+/****i* januae-cartridge/action_replay_unsetbanks ***************************
+*
+*   NAME
+*       action_replay_unsetbanks() -- Restore the normal chip RAM write
+*       hooks.
+*
+*   SYNOPSIS
+*       static void action_replay_unsetbanks (void);
+*
+*   FUNCTION
+*       Replace the cartridge chip RAM byte, word and longword handlers
+*       with the ordinary chip-memory writers.
+*
+****************************************************************************
+*
+*/
+
 static void action_replay_unsetbanks (void)
 {
     chipmem_bank.bput = chipmem_bput;
@@ -1202,6 +2537,33 @@ static void action_replay_unsetbanks (void)
 }
 
 /* param to allow us to unload the cart. Currently we know it is safe if we are doing a reset to unload it.*/
+/****i* januae-cartridge/action_replay_unload *******************************
+*
+*   NAME
+*       action_replay_unload() -- Unload an inactive cartridge monitor.
+*
+*   SYNOPSIS
+*       int action_replay_unload(int in_memory_reset);
+*
+*   FUNCTION
+*       Reject unload while Action Replay or HRTMon is active, or while AR1
+*       is executing from cartridge ROM/RAM; otherwise clear the CPU
+*       special flag, unmap monitor banks and free their images.
+*
+*   INPUTS
+*       in_memory_reset - Reset context flag; currently not inspected by
+*       unload.
+*
+*   RESULT
+*       One on success, zero if the monitor cannot safely be unloaded.
+*
+*   NOTES
+*       The in_memory_reset argument is accepted but not inspected.
+*
+****************************************************************************
+*
+*/
+
 int action_replay_unload(int in_memory_reset)
 {
 	static const char *state[] =
@@ -1252,6 +2614,30 @@ int action_replay_unload(int in_memory_reset)
 	return 1;
 }
 
+
+/****i* januae-cartridge/action_replay_load *********************************
+*
+*   NAME
+*       action_replay_load() -- Load an Action Replay ROM image.
+*
+*   SYNOPSIS
+*       int action_replay_load(void);
+*
+*   FUNCTION
+*       Open the configured cartridge image, accept ROM sizes of 64, 128 or
+*       256 KiB, allocate cartridge ROM and 64 KiB RAM, determine AR model
+*       and guest addresses and install cartridge write hooks.
+*
+*   RESULT
+*       Detected cartridge model (1, 2 or 3), or zero if loading fails.
+*
+*   NOTES
+*       The result does not validate a short zfile_fread() or allocation
+*       failures independently.
+*
+****************************************************************************
+*
+*/
 
 int action_replay_load(void)
 {
@@ -1309,6 +2695,30 @@ int action_replay_load(void)
     return armodel;
 }
 
+/****i* januae-cartridge/action_replay_init *********************************
+*
+*   NAME
+*       action_replay_init() -- Initialize loaded cartridge visibility and
+*       reset state.
+*
+*   SYNOPSIS
+*       void action_replay_init (int activate);
+*
+*   FUNCTION
+*       Map a loaded cartridge, optionally hide AR2/3 and, if activation is
+*       requested, put AR2/3 into its wait-for-reset state.
+*
+*   INPUTS
+*       activate - Nonzero to initialize the monitor as available for
+*       activation.
+*
+*   NOTES
+*       No operation occurs when no cartridge ROM is loaded.
+*
+****************************************************************************
+*
+*/
+
 void action_replay_init (int activate)
 {
     if (!armemory_rom)
@@ -1323,6 +2733,26 @@ void action_replay_init (int activate)
 }
 
 /* This only deallocates memory, it is not suitable for unloading roms and continuing */
+/****i* januae-cartridge/action_replay_cleanup ******************************
+*
+*   NAME
+*       action_replay_cleanup() -- Release cartridge and HRTMon images.
+*
+*   SYNOPSIS
+*       void action_replay_cleanup();
+*
+*   FUNCTION
+*       Free the Action Replay ROM/RAM and HRTMon allocations, then clear
+*       all three backing pointers.
+*
+*   NOTES
+*       This routine does not unmap the corresponding guest memory banks;
+*       unload them before cleanup when emulation will continue.
+*
+****************************************************************************
+*
+*/
+
 void action_replay_cleanup()
 {
     if (armemory_rom)
@@ -1375,6 +2805,30 @@ typedef struct {
         unsigned int        custom;
 } HRTCFG;
 
+/****i* januae-cartridge/hrtmon_configure ***********************************
+*
+*   NAME
+*       hrtmon_configure() -- Configure the loaded HRTMon image.
+*
+*   SYNOPSIS
+*       static void hrtmon_configure(HRTCFG *cfg);
+*
+*   FUNCTION
+*       Write display colors and monitoring preferences into the in-memory
+*       HRTMon configuration record and compute the pointer to the monitor
+*       custom-register storage.
+*
+*   INPUTS
+*       cfg - Writable HRTMon configuration record in the image.
+*
+*   NOTES
+*       The custom storage pointer comes from an offset encoded in the
+*       loaded image; no range validation is performed here.
+*
+****************************************************************************
+*
+*/
+
 static void hrtmon_configure(HRTCFG *cfg)
 {
 do_put_mem_word(&cfg->col0,0x000);
@@ -1396,6 +2850,30 @@ cfg->hexmode = TRUE;
 do_put_mem_long(&cfg->max_chip,currprefs.chipmem_size);
 hrtmon_custom = do_get_mem_long ((uae_u32*)&cfg->custom)+hrtmemory;
 }
+
+/****i* januae-cartridge/hrtmon_reloc ***************************************
+*
+*   NAME
+*       hrtmon_reloc() -- Apply HRTMon relocation entries.
+*
+*   SYNOPSIS
+*       static void hrtmon_reloc (uae_u32 *mem, uae_u32 *header);
+*
+*   FUNCTION
+*       Read the relocation count from the loaded executable layout and add
+*       hrtmem_start to each referenced longword.
+*
+*   INPUTS
+*       mem - Loaded HRTMon image containing relocation targets.
+*       header - Executable header used to locate relocation metadata.
+*
+*   NOTES
+*       Relocation offsets are trusted from the image without independent
+*       bounds checks.
+*
+****************************************************************************
+*
+*/
 
 static void hrtmon_reloc (uae_u32 *mem, uae_u32 *header)
 {
@@ -1421,6 +2899,35 @@ static uae_u8 hrt_header[] = {
 	0x0, 0x0, 0x0, 0x0,
 	0x0
 };
+
+/****i* januae-cartridge/hrtmon_load ****************************************
+*
+*   NAME
+*       hrtmon_load() -- Load and relocate the HRTMon image.
+*
+*   SYNOPSIS
+*       int hrtmon_load(int activate);
+*
+*   FUNCTION
+*       Open the configured monitor file, check its HRT! signature,
+*       allocate a 64-KiB-aligned backing image, read executable content,
+*       apply configuration and relocations and initialize monitor state.
+*
+*   INPUTS
+*       activate - Nonzero to initialize the monitor as available for
+*       activation.
+*
+*   RESULT
+*       One on success, zero on early validation or file-open failure.
+*
+*   NOTES
+*       The implementation does not independently check the complete image
+*       read or allocation success; the activate parameter selects idle
+*       versus inactive initial state.
+*
+****************************************************************************
+*
+*/
 
 int hrtmon_load(int activate)
 {
@@ -1486,6 +2993,22 @@ int hrtmon_load(int activate)
     return 1;
 }
 
+/****i* januae-cartridge/hrtmon_map_banks ***********************************
+*
+*   NAME
+*       hrtmon_map_banks() -- Map HRTMon guest memory.
+*
+*   SYNOPSIS
+*       void hrtmon_map_banks();
+*
+*   FUNCTION
+*       Install the HRTMon memory bank across the loaded monitor address
+*       range when an image is present.
+*
+****************************************************************************
+*
+*/
+
 void hrtmon_map_banks()
 {
     if(!hrtmemory)
@@ -1493,6 +3016,21 @@ void hrtmon_map_banks()
 
     map_banks (&hrtmem_bank, hrtmem_start >> 16, hrtmem_size >> 16, hrtmem_size);
 }
+
+/****i* januae-cartridge/hrtmon_unmap_banks *********************************
+*
+*   NAME
+*       hrtmon_unmap_banks() -- Unmap HRTMon guest memory.
+*
+*   SYNOPSIS
+*       static void hrtmon_unmap_banks();
+*
+*   FUNCTION
+*       Replace the loaded HRTMon range with dummy memory banks.
+*
+****************************************************************************
+*
+*/
 
 static void hrtmon_unmap_banks()
 {
@@ -1510,6 +3048,26 @@ static void hrtmon_unmap_banks()
 char arVersionString[AR_VER_STR_LEN+1];
 
 /* This function extracts the version info for AR2 and AR3. */
+
+/****i* januae-cartridge/action_replay_version ******************************
+*
+*   NAME
+*       action_replay_version() -- Extract an AR2/3 ROM version string.
+*
+*   SYNOPSIS
+*       void action_replay_version();
+*
+*   FUNCTION
+*       Copy and terminate the ROM version field, parse supported
+*       Vmajor.minor date text and log recognized version information.
+*
+*   NOTES
+*       AR1 is not parsed. The date copy uses strcpy() without a length
+*       check; only recognized formats produce version output.
+*
+****************************************************************************
+*
+*/
 
 void action_replay_version()
 {
@@ -1573,6 +3131,27 @@ void action_replay_version()
 }
 
 /* This function doesn't reset the Cart memory, it is just called during a memory reset */
+/****i* januae-cartridge/action_replay_memory_reset *************************
+*
+*   NAME
+*       action_replay_memory_reset() -- Resynchronize cartridge state after
+*       a memory reset.
+*
+*   SYNOPSIS
+*       void action_replay_memory_reset(void);
+*
+*   FUNCTION
+*       Hide loaded monitors as selected by build options, apply pending
+*       cartridge preferences and attempt the AR3 Kickstart and ROM
+*       checksum patches.
+*
+*   NOTES
+*       This operation does not clear or reallocate cartridge backing RAM.
+*
+****************************************************************************
+*
+*/
+
 void action_replay_memory_reset(void)
 {
     #ifdef ACTION_REPLAY
@@ -1597,6 +3176,36 @@ void action_replay_memory_reset(void)
 
 #ifdef SAVESTATE
 
+/****i* januae-cartridge/save_action_replay *********************************
+*
+*   NAME
+*       save_action_replay() -- Serialize Action Replay state to a buffer.
+*
+*   SYNOPSIS
+*       uae_u8 *save_action_replay (uae_u32 *len, uae_u8 *dstptr);
+*
+*   FUNCTION
+*       Write the model byte, current cartridge filename and full cartridge
+*       RAM image into the supplied or newly allocated SaveState buffer.
+*
+*   INPUTS
+*       len - Pointer receiving the serialized record size.
+*       dstptr - Optional writable SaveState buffer; NULL requests
+*       allocation.
+*
+*   RESULT
+*       Pointer to the serialized buffer, or NULL if no complete cartridge
+*       image is loaded.
+*
+*   NOTES
+*       The routine sets len to one before testing for a loaded image. An
+*       internally allocated buffer belongs to the caller; dstptr must have
+*       sufficient storage.
+*
+****************************************************************************
+*
+*/
+
 uae_u8 *save_action_replay (uae_u32 *len, uae_u8 *dstptr)
 {
     uae_u8 *dstbak, *dst;
@@ -1615,6 +3224,36 @@ uae_u8 *save_action_replay (uae_u32 *len, uae_u8 *dstptr)
     memcpy (dst, armemory_ram, arram_size);
     return dstbak;
 }
+
+/****i* januae-cartridge/restore_action_replay ******************************
+*
+*   NAME
+*       restore_action_replay() -- Reload an Action Replay image and
+*       restore its RAM.
+*
+*   SYNOPSIS
+*       const uae_u8 *restore_action_replay (const uae_u8 *src);
+*
+*   FUNCTION
+*       Unload the current monitor, read the saved cartridge model and
+*       filename, reload the matching image and copy saved RAM and
+*       custom-register state when memory is available.
+*
+*   INPUTS
+*       src - Pointer to the serialized SaveState record.
+*
+*   RESULT
+*       Pointer advanced past the restored RAM and reserved tail, or the
+*       original src when no cartridge model is saved.
+*
+*   NOTES
+*       The caller must provide a complete serialized buffer. The ROM image
+*       is reloaded from the saved filename, not contained in the SaveState
+*       data.
+*
+****************************************************************************
+*
+*/
 
 const uae_u8 *restore_action_replay (const uae_u8 *src)
 {
