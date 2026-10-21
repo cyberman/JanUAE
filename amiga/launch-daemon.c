@@ -40,21 +40,10 @@
 #include <workbench/startup.h>
 #include <dos/dostags.h>
 
-#if 0
-#include <intuition/intuitionbase.h>
-#include <intuition/preferences.h>
-#include <hardware/intbits.h>
-#endif
 
 #include <clib/alib_protos.h>
 #include <clib/dos_protos.h>
 #include <clib/exec_protos.h>
-#if 0
-#include <clib/timer_protos.h>
-
-#include <proto/dos.h>
-#include <proto/timer.h>
-#endif
 
 #include "include/wbstart.h"
 #ifndef __AROS__
@@ -235,13 +224,6 @@ static LONG start_it(char *path, char *filename, struct WBArg *args) {
       nr_args++;
     }
   }
-#if 0
-  if(args && args[0]) {
-    while(args[nr_args]) {
-      nr_args++;
-    }
-  }
-#endif
   DebOut("launchd: #args: %d\n", nr_args);
 
 #ifndef __AROS__
@@ -594,16 +576,8 @@ static void handle_launch_signal(void) {
 
   command_string=(char *) command_mem;
   fullpath      =         command_string + command_mem[1];
-#if 0
-  filename      =         command_string + command_mem[2];
-#endif
 
   DebOut("launchd: fullpath: >%s<\n", fullpath);
-#if 0
-  DebOut("launchd: cmd:  >%s<\n", filename);
-  sprintf(cli_cmd, "%s/%s\n", path, filename);
-  DebOut("cli_cmd: %s\n", cli_cmd);
-#endif
 
   result=SystemTags((STRPTR) fullpath,
             SYS_Asynch, TRUE,

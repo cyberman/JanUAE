@@ -79,11 +79,6 @@ char verstag[] = "\0$VER: janus-daemon 1.4 [AmigaOS]";
 
 #endif
 
-#if 0
-struct Window *old_MoveWindowInFront_Window,
-              *old_MoveWindowInFront_BehindWindow;
-ULONG          old_MoveWindowInFront_Counter;
-#endif
 
 ULONG          *cmdbuffer=NULL;
 

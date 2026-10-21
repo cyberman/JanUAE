@@ -94,12 +94,6 @@ AROS_LH3(void, my_SetWindowTitles_SetFunc,
     AROS_LIBFUNC_INIT
 
   DebOut("(%lx, %s, %s) state is %d\n", window, windowtitle, screentitle, state);
-#if 0
-    if(state) {
-      /* and this is ..? */
-      set_aros_titles(window, windowtitle, screentitle);
-    }
-#endif
 
     /* call original library function. Oh man, AROS macros are scary.. */
     AROS_CALL3(void, old_SetWindowTitles,

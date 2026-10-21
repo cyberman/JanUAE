@@ -37,22 +37,10 @@
 #include <exec/io.h>
 #include <exec/memory.h>
 
-#if 0
-#include <proto/intuition.h>
-#include <intuition/intuitionbase.h>
-#include <intuition/preferences.h>
-#include <hardware/intbits.h>
-#endif
 
 #include <clib/alib_protos.h>
 #include <clib/dos_protos.h>
 #include <clib/exec_protos.h>
-#if 0
-#include <clib/timer_protos.h>
-
-#include <proto/dos.h>
-#include <proto/timer.h>
-#endif
 
 #include "janus-daemon.h"
 #include "clip-daemon.h"
@@ -103,12 +91,6 @@ struct IOClipReq *ior;
 */
 
 BOOL open_libs() {
-#if 0
-   if (!(IntuitionBase=(struct IntuitionBase *) OpenLibrary("intuition.library",39))) {
-     printf("unable to open intuition.library\n");
-     return FALSE;
-   }
-#endif
    return TRUE;
 }
 

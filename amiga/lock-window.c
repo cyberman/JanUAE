@@ -156,35 +156,3 @@ BOOL assert_window(struct Window *window) {
  *
  * OBSOLETE: use assert_window instead!
  ****************************************************/
-#if 0
-BOOL window_exists(struct Window *window) {
-
-  ULONG lock;
-  BOOL  result;
-  ULONG pri;
-
-  ENTER
-#if 0
-
-  DebOut("test window %lx .. \n", window);
-
-  pri=SetTaskPri(FindTask(0), 0);
-  DebOut("try to LockIBase ..\n");
-  lock=LockIBase(0);
-  DebOut("LockIBase(0) returned: %lx\n", lock);
-
-  result=assert_window(window);
-
-  UnlockIBase(lock);
-  SetTaskPri(FindTask(0), pri);
-
-  DebOut("window %lx exists: %d\n", window, result);
-
-#endif
-  result=TRUE;
-  LEAVE
-
-  return result;
-}
-#endif
-

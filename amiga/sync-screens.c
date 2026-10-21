@@ -305,9 +305,6 @@ void update_screens() {
   WORD   maxwidth, maxheight;
   struct Screen   *screen;
   struct Rectangle rect;
-#if 0
-  UWORD flags;
-#endif
   ULONG display_id;
 
   ENTER
@@ -333,10 +330,6 @@ void update_screens() {
   while(screen) {
     DebOut("screen #%d: %lx (%s)\n",i,screen,screen->Title);
 
-#if 0
-    flags=screen->Flags & 0x000F;
-    if(flags == CUSTOMSCREEN) {
-#endif
       display_id=GetVPModeID(&screen->ViewPort);
       if(!(display_id==INVALID_ID) && !QueryOverscan(display_id, &rect, OSCAN_VIDEO)) {
 	maxwidth =720;
@@ -357,12 +350,6 @@ void update_screens() {
       }
 
       DebOut("  -> oscan_video: %d x %d\n", maxwidth, maxheight);
-#if 0
-    }
-    else {
-      DebOut("  -> no custom screen\n");
-    }
-#endif
 
 
     command_mem[i++]=(ULONG) screen;

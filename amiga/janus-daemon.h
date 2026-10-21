@@ -138,10 +138,6 @@ void PrintOut(const char *file, unsigned int line, const char *func, const char 
 
 #define ENTER
 #define LEAVE
-#if 0
-#define ENTER DebOut("janusd: %s:%s entered\n",__FILE__,__func__);
-#define LEAVE DebOut("janusd: %s:%s left in line %d\n",__FILE__,__func__,__LINE__);
-#endif
 
 #if 0
 #define C_ENTER DebOut("clipd: %s:%s entered\n",__FILE__,__func__);

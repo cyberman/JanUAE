@@ -571,14 +571,6 @@ __asm__("_my_OpenScreen_SetFunc:\n"
 	"openscreen_patch_disabled:\n"
         "rts\n");
 
-#if 0
-	/* call AD_GET_JOB_OPEN_CUSTOM_SCREEN */
-	"move.l d0,a0\n"
-	"moveq #11,d0\n"
-	"moveq #13,d1\n"
-	"move.l _calltrap,a1\n"
-	"jsr (a1)\n"
-#endif
 
 /*********************************************************************************
  * _my_OpenScreenTagList_SetFunc
@@ -645,14 +637,6 @@ __asm__("_my_OpenScreenTagList_SetFunc:\n"
 	
         "rts\n");
 
-#if 0
-	/* call AD_GET_JOB_OPEN_CUSTOM_SCREEN */
-	"move.l d0,a0\n"
-	"moveq #11,d0\n"
-	"moveq #13,d1\n"
-	"move.l _calltrap,a1\n"
-	"jsr (a1)\n"
-#endif
 
 /*********************************************************************************
  * _my_CloseScreen_SetFunc
@@ -1380,29 +1364,7 @@ void patch_functions() {
 			      (APTR) my_ScreenDepth_SetFunc);
 #endif
 
-#if 0
-  old_ModifyIDCMP=SetFunction((struct Library *)IntuitionBase, 
-                              -150, 
-			      (APTR) my_ModifyIDCMP_SetFunc);
-#endif
 
-#if 0
-  old_AddGadget=SetFunction((struct Library *)IntuitionBase, 
-                              -42, 
-			      (APTR) my_AddGadget_SetFunc);
-
-  old_AddGList=SetFunction((struct Library *)IntuitionBase, 
-                              -438, 
-			      (APTR) my_AddGList_SetFunc);
-
-  old_RemoveGadget=SetFunction((struct Library *)IntuitionBase, 
-                              -228, 
-			      (APTR) my_RemoveGadget_SetFunc);
-
-  old_RemoveGList=SetFunction((struct Library *)IntuitionBase, 
-                              -444, 
-			      (APTR) my_RemoveGList_SetFunc);
-#endif
 
 #ifndef __AROS__
   old_SetWindowTitles=SetFunction((struct Library *)IntuitionBase, 
@@ -1468,14 +1430,6 @@ void unpatch_functions() {
   SetFunction((struct Library *)IntuitionBase,
                               -72,
 			      old_CloseWindow);
-#if 0
-  Forbid();
-      if (patchfunc != (temp = SetFunction(library,offset,originalfunc)))
-	        // can't remove, put patch back and refuse to quit
-      SetFunction(library,offset,temp));
-		//             else done = TRUE;
-		//                 Permit(); 
-#endif
 
   LEAVE
 }
