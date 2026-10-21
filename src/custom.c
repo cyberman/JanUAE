@@ -7532,6 +7532,28 @@ STATIC_INLINE void sync_copper_with_cpu (unsigned int hpos, int do_schedule)
 	update_copper (hpos);
 }
 
+/****i* januae-custom-frame-memory/sprite_fetch
+ *
+ *   NAME
+ *       sprite_fetch()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u16 sprite_fetch (struct sprite *s, int dma, unsigned int hpos, int cycle, int mode)
+ *
+ *   FUNCTION
+ *       Fetch a sprite word from chip memory when DMA is enabled.
+ *
+ *   INPUTS
+ *       dma -- whether to read chip memory
+ *
+ *   RESULT
+ *       The fetched word, or the preceding custom-bus value if DMA is disabled.
+ *
+ *   NOTES
+ *       Advances the sprite pointer by two bytes in either case.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE uae_u16 sprite_fetch (struct sprite *s, int dma, unsigned int hpos, int cycle, int mode)
 {
     uae_u16 data = last_custom_value;
@@ -7544,6 +7566,27 @@ STATIC_INLINE uae_u16 sprite_fetch (struct sprite *s, int dma, unsigned int hpos
     s->pt += 2;
     return data;
 }
+
+/****i* januae-custom-frame-memory/do_sprites_1
+ *
+ *   NAME
+ *       do_sprites_1()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void do_sprites_1 (unsigned int num, int cycle, unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Process one sprite DMA slot at the current beam position.
+ *
+ *   INPUTS
+ *       num -- sprite index
+ *       cycle -- DMA slot within the sprite
+ *       hpos -- beam position
+ *
+ *   NOTES
+ *       Updates the sprite DMA state and, when enabled, sprite data or control registers.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void do_sprites_1 (unsigned int num, int cycle, unsigned int hpos)
 {
@@ -7664,6 +7707,25 @@ STATIC_INLINE void do_sprites_1 (unsigned int num, int cycle, unsigned int hpos)
     }
 }
 
+/****i* januae-custom-frame-memory/do_sprites
+ *
+ *   NAME
+ *       do_sprites()
+ *
+ *   SYNOPSIS
+ *       static void do_sprites (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Process sprite DMA slots up to the specified horizontal position.
+ *
+ *   INPUTS
+ *       hpos -- end position for sprite DMA processing
+ *
+ *   NOTES
+ *       Skips processing during the initial vertical blanking interval.
+ *
+ ****************************************************************************/
+
 static void do_sprites (unsigned int hpos)
 {
     unsigned int maxspr, minspr;
@@ -7726,6 +7788,19 @@ static void do_sprites (unsigned int hpos)
 #endif
 }
 
+/****i* januae-custom-frame-memory/init_sprites
+ *
+ *   NAME
+ *       init_sprites()
+ *
+ *   SYNOPSIS
+ *       static void init_sprites (void)
+ *
+ *   FUNCTION
+ *       Clear cached sprite position and control register arrays.
+ *
+ ****************************************************************************/
+
 static void init_sprites (void)
 {
     memset (sprpos, 0, sizeof sprpos);
@@ -7740,6 +7815,22 @@ static void init_sprites (void)
  *
  * This function expands the tables if necessary.
  */
+/****i* januae-custom-frame-memory/adjust_array_sizes
+ *
+ *   NAME
+ *       adjust_array_sizes()
+ *
+ *   SYNOPSIS
+ *       static void adjust_array_sizes (void)
+ *
+ *   FUNCTION
+ *       Grow sprite and color-change tables when requested on systems without memory management.
+ *
+ *   NOTES
+ *       Only active with OS_WITHOUT_MEMORY_MANAGEMENT; allocation failures are logged.
+ *
+ ****************************************************************************/
+
 static void adjust_array_sizes (void)
 {
 #ifdef OS_WITHOUT_MEMORY_MANAGEMENT
@@ -7789,6 +7880,22 @@ static void adjust_array_sizes (void)
 #endif
 }
 
+/****i* januae-custom-frame-memory/init_hardware_frame
+ *
+ *   NAME
+ *       init_hardware_frame()
+ *
+ *   SYNOPSIS
+ *       static void init_hardware_frame (void)
+ *
+ *   FUNCTION
+ *       Reset drawing and display-window tracking for a new frame.
+ *
+ *   NOTES
+ *       Decrements the pending interlace transition count when positive.
+ *
+ ****************************************************************************/
+
 static void init_hardware_frame (void)
 {
     next_lineno = 0;
@@ -7799,6 +7906,22 @@ static void init_hardware_frame (void)
     if (interlace_started > 0)
 	interlace_started--;
 }
+
+/****i* januae-custom-frame-memory/init_hardware_for_drawing_frame
+ *
+ *   NAME
+ *       init_hardware_for_drawing_frame()
+ *
+ *   SYNOPSIS
+ *       void init_hardware_for_drawing_frame (void)
+ *
+ *   FUNCTION
+ *       Prepare drawing buffers and line state for the next frame.
+ *
+ *   NOTES
+ *       Clears pixels belonging to previous sprite entries when available.
+ *
+ ****************************************************************************/
 
 void init_hardware_for_drawing_frame (void)
 {
@@ -7839,6 +7962,25 @@ void init_hardware_for_drawing_frame (void)
 /*
  * Convert time from syncbase ticks to milliseconds.
  */
+/****i* januae-custom-frame-memory/frame_time_to_ms
+ *
+ *   NAME
+ *       frame_time_to_ms()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE double frame_time_to_ms (frame_time_t time)
+ *
+ *   FUNCTION
+ *       Convert high-resolution timer ticks to milliseconds.
+ *
+ *   INPUTS
+ *       time -- duration expressed in syncbase ticks
+ *
+ *   RESULT
+ *       Duration in milliseconds.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE double frame_time_to_ms (frame_time_t time)
 {
      return (double) time / (syncbase / 1000.0);
@@ -7848,6 +7990,28 @@ STATIC_INLINE double frame_time_to_ms (frame_time_t time)
  * Wait until end of frame in a system-friendly, non-CPU hogging way
  * if possible.
  */
+/****i* januae-custom-frame-memory/framewait_friendly
+ *
+ *   NAME
+ *       framewait_friendly()
+ *
+ *   SYNOPSIS
+ *       static frame_time_t framewait_friendly (frame_time_t end_time)
+ *
+ *   FUNCTION
+ *       Wait for the frame deadline using short sleeps followed by polling.
+ *
+ *   INPUTS
+ *       end_time -- high-resolution timer deadline
+ *
+ *   RESULT
+ *       Timer reading obtained after waiting or detecting an out-of-range interval.
+ *
+ *   NOTES
+ *       Accumulates elapsed waiting time in idletime on the normal path.
+ *
+ ****************************************************************************/
+
 static frame_time_t framewait_friendly (frame_time_t end_time)
 {
     frame_time_t start_time = uae_gethrtime ();
@@ -7912,6 +8076,28 @@ static frame_time_t framewait_friendly (frame_time_t end_time)
 /*
  * Wait for end of frame using CPU-hogging, polling method.
  */
+/****i* januae-custom-frame-memory/framewait_busy
+ *
+ *   NAME
+ *       framewait_busy()
+ *
+ *   SYNOPSIS
+ *       static frame_time_t framewait_busy (frame_time_t end_time)
+ *
+ *   FUNCTION
+ *       Poll the high-resolution timer until the frame deadline passes.
+ *
+ *   INPUTS
+ *       end_time -- high-resolution timer deadline
+ *
+ *   RESULT
+ *       Timer reading obtained after waiting or detecting an out-of-range interval.
+ *
+ *   NOTES
+ *       Accumulates elapsed waiting time in idletime on the normal path.
+ *
+ ****************************************************************************/
+
 static frame_time_t framewait_busy (frame_time_t end_time)
 {
     frame_time_t start_time = uae_gethrtime ();
@@ -7934,6 +8120,22 @@ static frame_time_t framewait_busy (frame_time_t end_time)
     return curr_time;
 }
 
+/****i* januae-custom-frame-memory/framewait
+ *
+ *   NAME
+ *       framewait()
+ *
+ *   SYNOPSIS
+ *       static void framewait (void)
+ *
+ *   FUNCTION
+ *       Wait for the scheduled vertical-sync deadline and advance it.
+ *
+ *   NOTES
+ *       The current implementation selects framewait_friendly unconditionally.
+ *
+ ****************************************************************************/
+
 static void framewait (void)
 {
     frame_time_t curr_time;
@@ -7949,6 +8151,22 @@ static void framewait (void)
 
 static frame_time_t frametime2;
 
+/****i* januae-custom-frame-memory/fpscounter_reset
+ *
+ *   NAME
+ *       fpscounter_reset()
+ *
+ *   SYNOPSIS
+ *       void fpscounter_reset (void)
+ *
+ *   FUNCTION
+ *       Reset frame-rate accounting and record the current timer value.
+ *
+ *   NOTES
+ *       Marks the next two frames as unsuitable for timing statistics.
+ *
+ ****************************************************************************/
+
 void fpscounter_reset (void)
 {
     timeframes = 0;
@@ -7957,6 +8175,22 @@ void fpscounter_reset (void)
     lastframetime = uae_gethrtime ();
     idletime = 0;
 }
+
+/****i* januae-custom-frame-memory/fpscounter
+ *
+ *   NAME
+ *       fpscounter()
+ *
+ *   SYNOPSIS
+ *       static void fpscounter (void)
+ *
+ *   FUNCTION
+ *       Accumulate frame timing and refresh frame-rate statistics.
+ *
+ *   NOTES
+ *       Skips accumulation while bogusframe is nonzero.
+ *
+ ****************************************************************************/
 
 static void fpscounter (void)
 {
@@ -8260,6 +8494,22 @@ void j_reset(void);
  * reset, after a crash for example.
  * we need to reset all our daemons here, too.
  */
+/****i* januae-custom-frame-memory/customreset
+ *
+ *   NAME
+ *       customreset()
+ *
+ *   SYNOPSIS
+ *       void customreset (void)
+ *
+ *   FUNCTION
+ *       Reset custom-chip emulation state and associated subsystems.
+ *
+ *   NOTES
+ *       Calls j_reset on AROS; selected reset behavior depends on build options and savestate_state.
+ *
+ ****************************************************************************/
+
 void customreset (void) {
 
     int zero = 0;
@@ -8419,6 +8669,22 @@ void customreset (void) {
     #endif
 }
 
+/****i* januae-custom-frame-memory/dumpcustom
+ *
+ *   NAME
+ *       dumpcustom()
+ *
+ *   SYNOPSIS
+ *       void dumpcustom (void)
+ *
+ *   FUNCTION
+ *       Write selected custom-chip registers and frame timing statistics to the log.
+ *
+ *   NOTES
+ *       Emits frame averages only when timed frames have been recorded.
+ *
+ ****************************************************************************/
+
 void dumpcustom (void)
 {
     write_log ("DMACON: %x INTENA: %x INTREQ: %x VPOS: %x HPOS: %x\n", DMACONR(),
@@ -8435,6 +8701,19 @@ void dumpcustom (void)
     }
     /*for (i=0; i<256; i++) if (blitcount[i]) write_log ("minterm %x = %d\n",i,blitcount[i]);  blitter debug */
 }
+
+/****i* januae-custom-frame-memory/gen_custom_tables
+ *
+ *   NAME
+ *       gen_custom_tables()
+ *
+ *   SYNOPSIS
+ *       static void gen_custom_tables (void)
+ *
+ *   FUNCTION
+ *       Initialize sprite expansion, merge, and collision lookup tables.
+ *
+ ****************************************************************************/
 
 static void gen_custom_tables (void)
 {
@@ -8467,10 +8746,51 @@ static void gen_custom_tables (void)
 }
 
 /* mousehack is now in "filesys boot rom" */
+/****i* januae-custom-frame-memory/mousehack_helper_old
+ *
+ *   NAME
+ *       mousehack_helper_old()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 mousehack_helper_old (struct TrapContext *ctx)
+ *
+ *   FUNCTION
+ *       Return zero from the obsolete mouse trap helper.
+ *
+ *   INPUTS
+ *       ctx -- trap context, unused
+ *
+ *   RESULT
+ *       Zero.
+ *
+ *   NOTES
+ *       The active mouse helper is provided by the filesystem boot ROM.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 mousehack_helper_old (struct TrapContext *ctx)
 {
     return 0;
 }
+
+/****i* januae-custom-frame-memory/allocate_sprite_tables
+ *
+ *   NAME
+ *       allocate_sprite_tables()
+ *
+ *   SYNOPSIS
+ *       static int allocate_sprite_tables (void)
+ *
+ *   FUNCTION
+ *       Allocate sprite and color-change buffers where dynamic tables are required.
+ *
+ *   RESULT
+ *       Nonzero on success; zero when a required allocation fails.
+ *
+ *   NOTES
+ *       Allocations are conditional on OS_WITHOUT_MEMORY_MANAGEMENT.
+ *
+ ****************************************************************************/
 
 static int allocate_sprite_tables (void)
 {
@@ -8504,6 +8824,25 @@ static int allocate_sprite_tables (void)
 #endif
     return 1;
 }
+
+/****i* januae-custom-frame-memory/custom_init
+ *
+ *   NAME
+ *       custom_init()
+ *
+ *   SYNOPSIS
+ *       int custom_init (void)
+ *
+ *   FUNCTION
+ *       Initialize custom-chip drawing tables and optional ROM trap callbacks.
+ *
+ *   RESULT
+ *       Nonzero on success; zero if sprite-table allocation fails.
+ *
+ *   NOTES
+ *       On AROS with AUTOCONFIG, installs the Janus daemon trap callback.
+ *
+ ****************************************************************************/
 
 int custom_init (void)
 {
@@ -8564,6 +8903,29 @@ addrbank custom_bank = {
     default_xlate, default_check, NULL
 };
 
+/****i* januae-custom-frame-memory/custom_wget_1
+ *
+ *   NAME
+ *       custom_wget_1()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u32 REGPARAM2 custom_wget_1 (uaecptr addr, int noput)
+ *
+ *   FUNCTION
+ *       Read the selected custom-chip word register.
+ *
+ *   INPUTS
+ *       addr -- register address
+ *       noput -- suppress writeback on reads of write-only registers
+ *
+ *   RESULT
+ *       Register value or the last custom-bus value.
+ *
+ *   NOTES
+ *       Reads of write-only registers may dispatch a register write when noput is zero.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE uae_u32 REGPARAM2 custom_wget_1 (uaecptr addr, int noput)
 {
     uae_u16 v;
@@ -8623,6 +8985,25 @@ STATIC_INLINE uae_u32 REGPARAM2 custom_wget_1 (uaecptr addr, int noput)
     return v;
 }
 
+/****i* januae-custom-frame-memory/custom_wget2
+ *
+ *   NAME
+ *       custom_wget2()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u32 custom_wget2 (uaecptr addr)
+ *
+ *   FUNCTION
+ *       Synchronize the Copper and read a custom-chip word.
+ *
+ *   INPUTS
+ *       addr -- register address
+ *
+ *   RESULT
+ *       Word value, including the CPU-level-specific special address handling.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE uae_u32 custom_wget2 (uaecptr addr)
 {
     uae_u32 v;
@@ -8644,6 +9025,25 @@ STATIC_INLINE uae_u32 custom_wget2 (uaecptr addr)
     return v;
 }
 
+/****i* januae-custom-frame-memory/custom_wget
+ *
+ *   NAME
+ *       custom_wget()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 custom_wget (uaecptr addr)
+ *
+ *   FUNCTION
+ *       Read a custom-chip word, combining adjacent aligned reads for odd addresses.
+ *
+ *   INPUTS
+ *       addr -- memory address
+ *
+ *   RESULT
+ *       Word value.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 custom_wget (uaecptr addr)
 {
     uae_u32 v;
@@ -8658,6 +9058,25 @@ uae_u32 REGPARAM2 custom_wget (uaecptr addr)
     return custom_wget2 (addr);
  }
 
+/****i* januae-custom-frame-memory/custom_bget
+ *
+ *   NAME
+ *       custom_bget()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 custom_bget (uaecptr addr)
+ *
+ *   FUNCTION
+ *       Read a byte from the selected half of a custom-chip word.
+ *
+ *   INPUTS
+ *       addr -- memory address
+ *
+ *   RESULT
+ *       Selected byte.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 custom_bget (uaecptr addr)
 {
 #ifdef JIT
@@ -8665,6 +9084,25 @@ uae_u32 REGPARAM2 custom_bget (uaecptr addr)
 #endif
     return custom_wget2 (addr & ~1) >> (addr & 1 ? 0 : 8);
 }
+
+/****i* januae-custom-frame-memory/custom_lget
+ *
+ *   NAME
+ *       custom_lget()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 custom_lget (uaecptr addr)
+ *
+ *   FUNCTION
+ *       Read two successive custom-chip words as a longword.
+ *
+ *   INPUTS
+ *       addr -- memory address
+ *
+ *   RESULT
+ *       Combined 32-bit value.
+ *
+ ****************************************************************************/
 
 uae_u32 REGPARAM2 custom_lget (uaecptr addr)
 {
@@ -8877,6 +9315,23 @@ int REGPARAM2 custom_wput_1 (unsigned int hpos, uaecptr addr, uae_u32 value, int
     return 0;
 }
 
+/****i* januae-custom-frame-memory/custom_wput
+ *
+ *   NAME
+ *       custom_wput()
+ *
+ *   SYNOPSIS
+ *       void REGPARAM2 custom_wput (uaecptr addr, uae_u32 value)
+ *
+ *   FUNCTION
+ *       Synchronize the Copper and write a custom-chip register word.
+ *
+ *   INPUTS
+ *       addr -- register address
+ *       value -- word to write
+ *
+ ****************************************************************************/
+
 void REGPARAM2 custom_wput (uaecptr addr, uae_u32 value)
 {
     unsigned int hpos = current_hpos ();
@@ -8889,6 +9344,26 @@ void REGPARAM2 custom_wput (uaecptr addr, uae_u32 value)
     sync_copper_with_cpu (hpos, 1);
     custom_wput_1 (hpos, addr, value, 0);
 }
+
+/****i* januae-custom-frame-memory/custom_bput
+ *
+ *   NAME
+ *       custom_bput()
+ *
+ *   SYNOPSIS
+ *       void REGPARAM2 custom_bput (uaecptr addr, uae_u32 value)
+ *
+ *   FUNCTION
+ *       Replicate the supplied byte across a custom-chip register word and write it.
+ *
+ *   INPUTS
+ *       addr -- register address
+ *       value -- byte value
+ *
+ *   NOTES
+ *       Logs a bounded number of byte-write diagnostics for selected program counters.
+ *
+ ****************************************************************************/
 
 void REGPARAM2 custom_bput (uaecptr addr, uae_u32 value)
 {
@@ -8907,6 +9382,23 @@ void REGPARAM2 custom_bput (uaecptr addr, uae_u32 value)
     }
 }
 
+/****i* januae-custom-frame-memory/custom_lput
+ *
+ *   NAME
+ *       custom_lput()
+ *
+ *   SYNOPSIS
+ *       void REGPARAM2 custom_lput(uaecptr addr, uae_u32 value)
+ *
+ *   FUNCTION
+ *       Write a longword as two successive custom-chip register words.
+ *
+ *   INPUTS
+ *       addr -- register address
+ *       value -- 32-bit value
+ *
+ ****************************************************************************/
+
 void REGPARAM2 custom_lput(uaecptr addr, uae_u32 value)
 {
 #ifdef JIT
@@ -8919,6 +9411,22 @@ void REGPARAM2 custom_lput(uaecptr addr, uae_u32 value)
 
 
 #ifdef SAVESTATE
+
+/****i* januae-custom-frame-memory/custom_prepare_savestate
+ *
+ *   NAME
+ *       custom_prepare_savestate()
+ *
+ *   SYNOPSIS
+ *       void custom_prepare_savestate (void)
+ *
+ *   FUNCTION
+ *       Prepare custom-chip state for serialization.
+ *
+ *   NOTES
+ *       Currently performs no operation.
+ *
+ ****************************************************************************/
 
 void custom_prepare_savestate (void)
 {
@@ -9304,6 +9812,22 @@ uae_u8 *save_custom_sprite (unsigned int num, uae_u32 *len, uae_u8 *dstptr)
 
 #endif /* SAVESTATE */
 
+
+/****i* januae-custom-frame-memory/check_prefs_changed_custom
+ *
+ *   NAME
+ *       check_prefs_changed_custom()
+ *
+ *   SYNOPSIS
+ *       void check_prefs_changed_custom (void)
+ *
+ *   FUNCTION
+ *       Apply changed custom-chip and input-device preferences.
+ *
+ *   NOTES
+ *       Reinitializes the custom chipset when selected chipset, vsync, or video-standard settings change.
+ *
+ ****************************************************************************/
 
 void check_prefs_changed_custom (void)
 {
