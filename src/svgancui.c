@@ -1111,12 +1111,6 @@ char *tui_filereq(char *s, char *oldfile, const char *title)
 		}
 	    }
 	}
-#if 0
-	/* @@@ is this right? */
-	for (i = 0; i < n; i++)
-	    free (names[i]);
-	free (names);
-#endif
 	tui_dlogdie (w);
     }
     chdir (cwd);

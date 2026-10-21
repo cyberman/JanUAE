@@ -155,29 +155,6 @@ void show_splash(void) {
   Signal(splash_window_task, SIGBREAKF_CTRL_D);
 }
 
-#if 0
-static gint gtk_splash_timer (gpointer *task) {
-
-  JWLOG("entered!\n");
-
-  if(!splash_window_task) {
-    JWLOG("no splash window\n");
-    return FALSE;
-  }
-
-  JWLOG("close window!\n");
-
-  close_splash();
-
-  if(timer) {
-    /* timer is automatically removed.. ? */
-//    gtk_timeout_remove (timer);
-    timer=0;
-  }
-
-  return FALSE;
-}
-#endif
 
 /****i* januae/do_splash ***************************************************
 *

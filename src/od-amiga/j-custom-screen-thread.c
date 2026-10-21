@@ -369,11 +369,6 @@ static struct Screen *new_aros_custom_screen(JanusScreen *jscreen,
   /* hide all dirty effects.. */
   uae_no_display_update=TRUE;
 
-#if 0
-  //width=720;
-  //height=568;
-  //JWLOG("w: %d h: %d\n", width, height);
-#endif
   width =jscreen->maxwidth;
   height=jscreen->maxheight;
 
@@ -722,11 +717,3 @@ int aros_custom_screen_start_thread (JanusScreen *screen) {
 
     return screen->task != 0;
 }
-
-#if 0
-extern void uae_set_thread_priority (int pri)
-{
-    SetTaskPri (FindTask (NULL), pri);
-}
-#endif
-

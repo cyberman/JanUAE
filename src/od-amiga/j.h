@@ -300,14 +300,6 @@ typedef struct {
   struct SignalSemaphore gadget_access;
   JanusGadget     *jgad[NUM_GADGETS];
   
-#if 0
-  JanusGadget     *arrow_up;
-  JanusGadget     *arrow_down;
-  JanusGadget     *prop_up_down;
-  JanusGadget     *arrow_left;
-  JanusGadget     *arrow_right;
-  JanusGadget     *prop_left_right;
-#endif
   UWORD            prop_update_count;
   /* how many intuiticks to skip to check for new border gadgets */
   //UWORD            gadget_update_count;

@@ -77,11 +77,6 @@
 enum {
   CHIPSET_CHANGE_SIGNAL,
   LINEMODE_CHANGE,
-#if 0
-  FRAMERATE_CHANGE,
-  COLLISIONS_CHANGE,
-  BLITS_CHANGE,
-#endif
   SETTING_CHANGE,
   CENTERING_CHANGE,
   SCREEN_CHANGE,
@@ -153,12 +148,6 @@ static void jdisplay_class_init (jDisplayClass *class) {
 				jdisplay_signals,
 				"chipset-changed",
 				"linemode-changed",
-#if 0
-				/* those are handled by the child .. */
-				"framerate-changed",
-				"sprite-collisions-changed",
-				"immediate-blits-changed",
-#endif
 				"settings-changed",
 				"centering-changed",
 				"screen-changed",
@@ -216,29 +205,12 @@ GtkWidget* jdisplay_new (void) {
 			  GTK_SIGNAL_FUNC (unlock_it),
 			  NULL);
 
-#if 0
-  gtk_signal_connect (GTK_OBJECT (jdisp), "destroy",
-			  GTK_SIGNAL_FUNC (jdisplay_destroy),
-			  NULL);
-#endif
 
 
   return jdisp;
 }
 
 /* is not called, even if enabled ? */
-#if 0
-static void jdisplay_destroy(GtkObject *object) {
-
-  g_return_if_fail (object != NULL);
-  g_return_if_fail (IS_JDISPLAY (object));
-
-
-
-  if (GTK_OBJECT_CLASS (parent_class)->destroy)
-    (* GTK_OBJECT_CLASS (parent_class)->destroy) (object);
-}
-#endif
 
 /***********************************************
  * read_prefs

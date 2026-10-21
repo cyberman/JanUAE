@@ -119,11 +119,6 @@ static void cpuspeedpanel_init (CpuSpeedPanel *cspanel)
     gtk_range_set_update_policy (GTK_RANGE (cspanel->idlerate_widget), GTK_UPDATE_DISCONTINUOUS);
 
 
-#if 0
-    gtk_signal_connect (GTK_OBJECT (cspanel->speed_widget), "selection-changed",
-												GTK_SIGNAL_FUNC (on_speed_changed),
-												cspanel);
-#endif
 
     gtk_signal_connect (GTK_OBJECT (GTK_COMBO(cspanel->speed_widget)->popwin), "hide",
 												GTK_SIGNAL_FUNC (on_speed_changed),

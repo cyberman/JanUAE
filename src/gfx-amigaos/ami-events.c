@@ -198,12 +198,6 @@ void handle_events_W(struct Window *W, BOOL customscreen) {
     gui_handle_events();
 
 /* janusd now has its own interrupt server! */
-#if 0
-    if(aos3_task && aos3_task_signal) {
-      JWLOG("send signal to Wait of janusd (%lx)\n", aos3_task);
-      uae_Signal(aos3_task, aos3_task_signal);
-    }
-#endif
 
     JWLOG("W: %lx\n", W);
     if(!W) {
@@ -213,9 +207,6 @@ void handle_events_W(struct Window *W, BOOL customscreen) {
 
    /* this function is called at each frame, so: */
     ++frame_num;       /* increase frame counter */
-#if 0
-    save_frame();      /* possibly save frame    */
-#endif
 
 #ifdef DEBUGGER
     /*
@@ -337,16 +328,6 @@ void handle_events_W(struct Window *W, BOOL customscreen) {
 
                   if (usepub) {
                     update_pointer(W, mx, my);
-#if 0
-                      POINTER_STATE new_state = get_pointer_state (W, mx, my);
-                      if (new_state != pointer_state) {
-                          pointer_state = new_state;
-                          if (pointer_state == INSIDE_WINDOW)
-                              hide_pointer (W);
-                          else
-                              show_pointer (W);
-                      }
-#endif
                   }
                 }
                 else {

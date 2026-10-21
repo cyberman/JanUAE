@@ -258,27 +258,7 @@ uae_u32 ad_job_get_mouse(ULONG *m68k_results) {
     return FALSE;
   }
 
-#if 0
-  if(custom_screen_active) {
-    return FALSE;
-  }
-#endif
-#if 0
-  modeID=GetVPModeID(&(screen->ViewPort));
-  if(modeID != INVALID_ID) {
-    if(IsCyberModeID(modeID)) {
-      /* call test */
-      return nonP96(screen, m68k_results);
-    }
-  }
-#endif
 
-#if 0
-  if(get_long_p(m68k_results) == 0) {
-    JWLOG("no P96 screen \n");
-    return nonP96(screen, m68k_results);
-  }
-#endif
 
   is_p96=get_long_p(m68k_results);
   JWLOG("mouse: is_p96: %d W: %lx\n", is_p96, W);
@@ -309,12 +289,6 @@ uae_u32 ad_job_get_mouse(ULONG *m68k_results) {
       JWLOG("manual hit mouse at %d x %d\n", x, y);
     }
 
-#if 0
-    if(is_p96 == 0) {
-      JWLOG("mouse: add visible_left_border: %d\n", visible_left_border);
-      left=visible_left_border; /* for center image, bigger window  etc. */
-    }
-#endif
 
     JWLOG("return x=%d, y=%d to guest\n", x,y);
 

@@ -157,11 +157,6 @@ static void chipsetspeedpanel_init (ChipsetSpeedPanel *panel)
     gtk_signal_connect (GTK_OBJECT ( GTK_RANGE(panel->framerate_widget)->adjustment), "value-changed",
 			                  GTK_SIGNAL_FUNC (on_framerate_changed),
 			                  panel);
-#if 0
-    gtk_signal_connect (GTK_OBJECT (panel->collisions_widget), "selection-changed",
-			                  GTK_SIGNAL_FUNC (on_sprite_collisions_changed),
-			                  panel);
-#endif
 		gtk_signal_connect (GTK_OBJECT (GTK_COMBO(panel->collisions_widget)->popwin), "hide",
 			                  GTK_SIGNAL_FUNC (on_sprite_collisions_changed),
 			                  panel);
