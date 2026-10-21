@@ -803,12 +803,6 @@ static void CopyLibResolutionStructureU2A (struct LibResolution *libres,
     put_word (amigamemptr + PSSO_LibResolution_Flags, libres->Flags);
     for (i = 0; i < MAXMODES; i++)
 	put_long (amigamemptr + PSSO_LibResolution_Modes + i * 4, libres->Modes[i]);
-#if 0
-    put_long (amigamemptr, libres->Node.ln_Succ);
-    put_long (amigamemptr + 4, libres->Node.ln_Pred);
-    put_byte (amigamemptr + 8, libres->Node.ln_Type);
-    put_byte (amigamemptr + 9, libres->Node.ln_Pri);
-#endif
     put_long (amigamemptr + 10, amigamemptr + PSSO_LibResolution_P96ID);
     put_long (amigamemptr + PSSO_LibResolution_BoardInfo, libres->BoardInfo);
 }
@@ -894,27 +888,6 @@ static void do_fillrect (uae_u8 *src, int x, int y, int width, int height,
     /* Try OS specific fillrect function here; and return if successful. Make
      * sure we adjust for the pen values if we're doing 8-bit
      * display-emulation on a 16-bit or higher screen. */
-#if 0  
-    /*o1i removed..*/
-    if (picasso_vidinfo.rgbformat == picasso96_state.RGBFormat) {
-#	ifndef WORDS_BIGENDIAN
-            if (Bpp > 1)
-	        if (!(Bpp == 4 && need_argb32_hack))
-		    pen = bswap_32 (pen);
-#	else
-	    if (Bpp == 4 && need_argb32_hack)
-		pen = bswap_32 (pen);
-#	endif
-
-	if (DX_Fill (x, y, width, height, pen, rgbtype))
-	    return;
-    } else {
-	if (DX_Fill (x, y, width, height, picasso_vidinfo.clut[src[0]], rgbtype))
-	    return;
-    }
-
-    P96TRACE (("P96: WARNING - do_fillrect() using fall-back routine!\n"));
-#endif
 
     /* Clipping.  */
     x -= picasso96_state.XOffset;
@@ -1186,27 +1159,6 @@ static void do_blit (struct RenderInfo *ri, int Bpp, int srcx, int srcy,
 static void do_invertrect (struct RenderInfo *ri, int Bpp, int x, int y,
 			   int width, int height)
 {
-#if 0
-    /* Clipping.  */
-    x -= picasso96_state.XOffset;
-    y -= picasso96_state.YOffset;
-    if (x < 0) {
-	width += x;
-	x = 0;
-    }
-    if (y < 0) {
-	height += y;
-	y = 0;
-    }
-    if (x + width > picasso96_state.Width)
-	width = picasso96_state.Width - x;
-    if (y + height > picasso96_state.Height)
-	height = picasso96_state.Height - y;
-
-    if (width <= 0 || height <= 0)
-	return;
-
-#endif
     /* TODO: Try OS specific invertrect function here; and return if successful.  */
 
     do_blit (ri, Bpp, x, y, x, y, width, height, BLIT_SRC, 0);
@@ -2316,22 +2268,6 @@ void picasso_handle_vsync (void)
 
 void picasso_handle_hsync (void)
 {
-#if 0
-    static int p96hsync;
-
-    if (currprefs.gfxmem_size == 0)
-	return;
-    if (WIN32GFX_IsPicassoScreen () && currprefs.gfx_pfullscreen && currprefs.gfx_vsync) {
-	if (DirectDraw_GetVerticalBlankStatus ())
-	    p96hsync = 0;
-    } else
-	p96hsync--;
-
-    if (p96hsync <= 0) {
-	rtarea[get_long (RTAREA_BASE + 36) + 12 - 1]++;
-	p96hsync = p96syncrate;
-    }
-#endif
 }
 
 /****i* januae-picasso96/init_hz_p96
@@ -2355,12 +2291,6 @@ void init_hz_p96 (void)
 {
     int rate = 0;
     p96syncrate = maxvpos * vblank_hz;
-#if 0
-    if (isfullscreen ())
-	rate = DirectDraw_CurrentRefreshRate ();
-    else
-	rate = currprefs.gfx_refreshrate;
-#endif
     if (rate <= 0)
 	rate = 60;
     p96syncrate /= rate;
@@ -3855,9 +3785,6 @@ uae_u32 REGPARAM2 picasso_BlitTemplate (struct regstruct *regs)
 	    if (tmp.DrawMode == COMP) {
 		P96TRACE (("P96: WARNING - BlitTemplate() has unhandled mask 0x%x with"\
 			   " COMP DrawMode. Using fall-back routine.\n", Mask));
-#		if 0 //def _WIN32
-		    flushpixels();  //only need in the windows Version
-#		endif
 		return 0;
 	    } else
                 result = 1;
@@ -3867,9 +3794,6 @@ uae_u32 REGPARAM2 picasso_BlitTemplate (struct regstruct *regs)
 #if 1
         if (tmp.DrawMode == COMP) {
             /* workaround, let native blitter handle COMP mode */
-#	    if 0 //def _WIN32
-		flushpixels();
-#	    endif
 	    return 0;
 	}
 #endif
@@ -4958,26 +4882,6 @@ void InitPicasso96 (void) {
    * necessary host information..
    *
 	 */
-#if 0
-	P96LOG("detect host pixel format\n");
-
-  picasso96_pixel_format=0;
-
-	hostscreen=LockPubScreen(NULL); /* get (and open if necessary default public screen */
-	if(hostscreen) {
-
-	  modeID=GetVPModeID(&(hostscreen->ViewPort));
-	  picasso96_pixel_format=GetCyberIDAttr(CYBRIDATTR_PIXFMT, modeID);
-	  P96LOG("modeID %lx -> host_pixel_format %lx (RGBFF_CHUNKY is %lx, RGBFB_R8G8B8 is %lx)\n", modeID, picasso96_pixel_format, RGBFF_CHUNKY, RGBFB_CHUNKY);
-
-	  UnlockPubScreen(NULL, hostscreen);
-	}
-
-  if(picasso96_pixel_format == -1) {
-	  /* default format */
-    P96LOG("GetCyberIDAttr(CYBRIDATTR_PIXFMT, %lx) returned -1, unsing default\n", modeID);
-  }
-#endif
 
   //picasso96_pixel_format=RGBFF_CHUNKY;
   picasso96_pixel_format=RGBFB_CLUT;
@@ -5020,20 +4924,9 @@ void InitPicasso96 (void) {
 	}
 
 	for (i = 0; i < mode_count; i++) {
-#if 0
-	  if(i != mode_count-1) {
-#endif
 	    sprintf (DisplayModes[i].name, "%dx%d, %d-bit, %d Hz",
 		     DisplayModes[i].res.width, DisplayModes[i].res.height,
 		     DisplayModes[i].depth * 8, DisplayModes[i].refresh);
-#if 0
-	  }
-	  else {
-	    /* make us recognizeable (x,y is never used, but the ','s are necessary) */
-	    sprintf (DisplayModes[i].name, "clone wanderer, (x), (y)");
-
-	  }
-#endif
 	    switch (DisplayModes[i].depth) {
 	    case 1:
 		if (DisplayModes[i].res.width > chunky.width)

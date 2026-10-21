@@ -2759,18 +2759,6 @@ void debug (void)
     addhistory ();
 
     if (do_skip && skipaddr_start == 0xC0DEDBAD) {
-#if 0
-	if (trace_same_insn_count > 0) {
-	    if (memcmp (trace_insn_copy, regs.pc_p, 10) == 0
-		&& memcmp (trace_prev_regs.regs, regs.regs, sizeof regs.regs) == 0)
-	    {
-		trace_same_insn_count++;
-		return;
-	    }
-	}
-	if (trace_same_insn_count > 1)
-	    fprintf (logfile, "[ repeated %d times ]\n", trace_same_insn_count);
-#endif
 	m68k_dumpstate (logfile, &nextpc);
 	trace_same_insn_count = 1;
 	memcpy (trace_insn_copy, regs.pc_p, 10);
@@ -2840,12 +2828,6 @@ void debug (void)
 
 #ifdef SAVESTATE
     debug_rewind = 0;
-#if 0
-    if (!currprefs.statecapture) {
-	changed_prefs.statecapture = currprefs.statecapture = 1;
-	savestate_init ();
-    }
-#endif
 #endif
 
     debug_1 ();

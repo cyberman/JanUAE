@@ -791,26 +791,6 @@ static void fill_prefetch_next (void)
     fill_prefetch_next_1 ();
 }
 
-#if 0
-static void fill_prefetch_next_delay (int extracycles)
-{
-    if (!using_prefetch)
-	return;
-    if (using_ce) {
-	if (extracycles > 0) {
-	    printf("\t{\n");
-	    fill_prefetch_next ();
-	    printf("\tif (%d > 0) do_cycles(CYCLE_UNIT / 2 * %d);\n",
-		extracycles, extracycles);
-	    printf("\t}\n");
-	} else {
-	    fill_prefetch_next ();
-	}
-    } else {
-	fill_prefetch_next ();
-    }
-}
-#endif
 
 /****i* januae-gencpu/fill_prefetch_finish
 *

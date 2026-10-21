@@ -94,23 +94,6 @@ static void uae_abort (const char *format,...)
     gui_message (buffer);
 }
 
-#if 0
-void customhack_put (struct customhack *ch, uae_u16 v, unsigned int hpos)
-{
-    ch->v = v;
-    ch->vpos = vpos;
-    ch->hpos = hpos;
-}
-
-uae_u16 customhack_get (struct customhack *ch, unsigned int hpos)
-{
-    if (ch->vpos == vpos && ch->hpos == hpos) {
-	ch->vpos = -1;
-	return 0xffff;
-    }
-    return ch->v;
-}
-#endif
 
 static uae_u16 last_custom_value;
 
@@ -205,9 +188,6 @@ uae_u8 cycle_line[256];
 #endif
 
 static uae_u32 bpl1dat;
-#if 0 /* useless */
-static uae_u32 bpl2dat, bpl3dat, bpl4dat, bpl5dat, bpl6dat, bpl7dat, bpl8dat;
-#endif
 static uae_s16 bpl1mod, bpl2mod;
 
 static uaecptr bplpt[8];
@@ -394,12 +374,6 @@ STATIC_INLINE void setclr (uae_u16 *p, uae_u16 val)
 
 static void hsyncdelay(void)
 {
-#if 0
-    static unsigned int prevhpos;
-    while (current_hpos () == prevhpos)
-        do_cycles (CYCLE_UNIT);
-    prevhpos = current_hpos ();
-#endif
 }
 
 STATIC_INLINE unsigned int current_hpos (void)
@@ -615,31 +589,6 @@ static uae_u8 cycle_diagram_total_cycles[3][3][9];
 static uae_u8 *curr_diagram;
 static uae_u8 cycle_sequences[3 * 8] = { 2,1,2,1,2,1,2,1, 4,2,3,1,4,2,3,1, 8,4,6,2,7,3,5,1 };
 
-#if 0
-static void debug_cycle_diagram (void)
-{
-    unsigned int fm, res, planes, cycle, v;
-    char aa;
-
-    for (fm = 0; fm < 3; fm++) {
-	write_log ("FMODE %d\n=======\n", fm);
-	for (res = 0; res <= 2; res++) {
-	    for (planes = 0; planes <= 8; planes++) {
-		write_log("%d: ",planes);
-		for (cycle = 0; cycle < 32; cycle++) {
-		    v=cycle_diagram_table[fm][res][planes][cycle];
-		    if (v==0) aa='-'; else if(v>0) aa='1'; else aa='X';
-		    write_log("%c",aa);
-		}
-		write_log(" %d:%d\n",
-		    cycle_diagram_free_cycles[fm][res][planes], cycle_diagram_total_cycles[fm][res][planes]);
-	    }
-	    write_log("\n");
-	}
-    }
-    fm=0;
-}
-#endif
 
 static void create_cycle_diagram_table(void)
 {
@@ -679,9 +628,6 @@ static void create_cycle_diagram_table(void)
 	    }
 	}
     }
-#if 0
-    debug_cycle_diagram ();
-#endif
 }
 
 
@@ -736,26 +682,6 @@ static int delayoffset;
 STATIC_INLINE void compute_delay_offset (void)
 {
     delayoffset = (16 << fetchmode) - (((plfstrt - HARD_DDF_START) & fetchstart_mask) << 1);
-#if 0
-	/* maybe we can finally get rid of this stupid table.. */
-	if (tmp == 4)
-	delayoffset = 4; // Loons Docs
-    else if (tmp == 8)
-	delayoffset = 8;
-    else if (tmp == 12) // Loons Docs
-	delayoffset = 4;
-    else if (tmp == 16) /* Overkill AGA */
-	delayoffset = 48;
-    else if (tmp == 24) /* AB 2 */
-	delayoffset = 8;
-    else if (tmp == 32)
-	delayoffset = 32;
-    else if (tmp == 48) /* Pinball Illusions AGA, ingame */
-	delayoffset = 16;
-    else /* what about 40 and 56? */
-	delayoffset = 0;
-    //write_log("%d:%d ", vpos, delayoffset);
-#endif
 }
 
 static void expand_fmodes (void)
@@ -866,10 +792,6 @@ static void update_toscr_planes (void)
 	int j;
 	for (j = thisline_decision.nr_planes; j < toscr_nr_planes; j++)
 	    clear_fetchbuffer ((uae_u32 *)(line_data[next_lineno] + 2 * MAX_WORDS_PER_LINE * j), out_offs);
-#if 0
-	if (thisline_decision.nr_planes > 0)
-	    printf ("Planes from %d to %d\n", thisline_decision.nr_planes, toscr_nr_planes);
-#endif
 	thisline_decision.nr_planes = toscr_nr_planes;
     }
 }
@@ -1420,12 +1342,6 @@ STATIC_INLINE void update_fetch (unsigned int until, int fm)
 	&& dma
 	&& (fetch_cycle & fetchstart_mask) == (fm_maxplane & fetchstart_mask)
 	&& toscr_delay1 == toscr_delay1x && toscr_delay2 == toscr_delay2x
- # if 0
-	/* @@@ We handle this case, but the code would be simpler if we
-	 * disallowed it - it may even be possible to guarantee that
-	 * this condition never is false.  Later.  */
-	&& (out_nbits & 15) == 0
-# endif
 	&& toscr_nr_planes == thisline_decision.nr_planes)
     {
 	unsigned int offs = (pos - fetch_cycle) & fetchunit_mask;
@@ -1688,15 +1604,6 @@ static void do_playfield_collisions (void)
 	}
 	if (total) {
 	    collided = 1;
-#if 0
-	    {
-		int k;
-		for (k = 0; k < 1; k++) {
-		    uae_u32 *ldata = (uae_u32 *)(line_data[next_lineno] + offs + 2 * k * MAX_WORDS_PER_LINE);
-		    *ldata ^= 0x5555555555;
-		}
-	    }
-#endif
 
 	}
     }
@@ -1766,15 +1673,6 @@ static void do_sprite_collisions (void)
 			uae_u32 *ldata = (uae_u32 *)(line_data[next_lineno] + 2 * l * MAX_WORDS_PER_LINE);
 			uae_u32 word = ldata[offs >> 5];
 			t = (word >> (31 - (offs & 31))) & 1;
-#if 0 /* debug: draw collision mask */
-			if (1) {
-			    int m;
-			    for (m = 0; m < 5; m++) {
-				ldata = (uae_u32 *)(line_data[next_lineno] + 2 * m * MAX_WORDS_PER_LINE);
-				ldata[(offs >> 5) + 1] |= 15 << (31 - (offs & 31));
-			    }
-			}
-#endif
 		    }
 		    if (clxcon_bpl_enable & (1 << l)) {
 			if (t != ((clxcon_bpl_match >> l) & 1))
@@ -1782,28 +1680,11 @@ static void do_sprite_collisions (void)
 		    }
 		}
 		if (match) {
-#if 0 /* debug: mark lines where collisions are detected */
-		    if (0) {
-			int l;
-			for (l = 0; l < 5; l++) {
-			    uae_u32 *ldata = (uae_u32 *)(line_data[next_lineno] + 2 * l * MAX_WORDS_PER_LINE);
-			    ldata[(offs >> 5) + 1] |= 15 << (31 - (offs & 31));
-			}
-		    }
-#endif
 		    clxdat |= sprpix << (k * 4);
 		}
 	    }
 	}
     }
-#if 0
-    {
-	static int olx;
-	if (clxdat != olx)
-	    write_log ("%d: %04.4X\n", vpos, clxdat);
-	olx = clxdat;
-    }
-#endif
 }
 
 STATIC_INLINE void expand_sprres (void)
@@ -2338,20 +2219,7 @@ static void calcdiw (void)
     plffirstline = vstrt;
     plflastline = vstop;
 
-#if 0
-    /* This happens far too often. */
-    if (plffirstline < minfirstline_bpl) {
-	write_log ("Warning: Playfield begins before line %d (%d)!\n", minfirstline_bpl, plffirstline);
-    }
-#endif
 
-#if 0 /* this comparison is not needed but previous is.. */
-    if (plflastline > 313) {
-	/* Turrican does this */
-	write_log ("Warning: Playfield out of range!\n");
-	plflastline = 313;
-    }
-#endif
 
     plfstrt = ddfstrt;
     plfstop = ddfstop;
@@ -2510,18 +2378,12 @@ STATIC_INLINE uae_u16 VPOSR (void)
     if (!(currprefs.chipset_mask & CSMASK_ECS_AGNUS))
 	vp &= 1;
     vp = vp | lof | csbit;
-#if 0
-    write_log ("vposr %x at %x\n", vp, m68k_getpc (&regs));
-#endif
     if (currprefs.cpu_level >= 2)
 	hsyncdelay ();
     return vp;
 }
 static void VPOSW (uae_u16 v)
 {
-#if 0
-    write_log ("vposw %x at %x\n", v, m68k_getpc (&regs));
-#endif
     if (lof != (v & 0x8000))
 	lof_changed = 1;
     lof = v & 0x8000;
@@ -2740,10 +2602,6 @@ static void doint (void)
 STATIC_INLINE void INTENA (uae_u16 v)
 {
     setclr (&intena,v);
-#if 0
-    if (v & 0x40)
-	write_log("INTENA %04.4X (%04.4X) %p\n", intena, v, m68k_getpc (&regs));
-#endif
     if (v & 0x8000)
 	doint ();
 }
@@ -2786,9 +2644,6 @@ void INTREQ_f (uae_u32 data)
 #endif
 #ifdef CD32
     rethink_akiko ();
-#endif
-#if 0
-    rethink_gayle ();
 #endif
 }
 
@@ -3639,10 +3494,6 @@ static void update_copper (unsigned int until_hpos)
 	}
 
 	c_hpos += 2;
-#if 0
-	if (copper_cant_read (old_hpos))
-	    continue;
-#endif
 	if (cop_state.strobe) {
 	    if (cop_state.strobe > 0)
 		cop_state.ip = cop_state.strobe == 1 ? cop1lc : cop2lc;
@@ -4463,18 +4314,6 @@ static void frh_handler(void)
 }
 #endif
 
-#if 0
-static void copper_check (int n)
-{
-    if (cop_state.state == COP_wait) {
-	unsigned int vp = vpos & (((cop_state.saved_i2 >> 8) & 0x7F) | 0x80);
-	if (vp < cop_state.vcmp) {
-	    if (eventtab[ev_copper].active || copper_enabled_thisline)
-		write_log ("COPPER BUG %d: vp=%d vpos=%d vcmp=%d act=%d thisline=%d\n", n, vp, vpos, cop_state.vcmp, eventtab[ev_copper].active, copper_enabled_thisline);
-	}
-    }
-}
-#endif
 
 void hsync_handler (void)
 {
@@ -4730,9 +4569,6 @@ void customreset (void) {
 	audio_update_adkmasks ();
 	INTENA (0);
 	INTREQ (0);
-#if 0
-	DMACON (0, 0);
-#endif
 	COPJMP (1);
 	v = bplcon0;
 	BPLCON0 (0, 0);

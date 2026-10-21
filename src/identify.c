@@ -116,15 +116,9 @@ const struct mem_labels mem_labels[] =
 
 const struct customData custd[] =
 {
-#if 0
-    { "BLTDDAT",  0xdff000 },         /* Blitter dest. early read (dummy address) */
-#endif
     { "DMACONR",  0xdff002, 1, 0 },   /* Dma control (and blitter status) read */
     { "VPOSR",    0xdff004, 1, 0 },   /* Read vert most sig. bits (and frame flop */
     { "VHPOSR",   0xdff006, 1, 0 },   /* Read vert and horiz position of beam */
-#if 0
-    { "DSKDATR",  0xdff008 },         /* Disk data early read (dummy address) */
-#endif
     { "JOY0DAT",  0xdff00A, 1, 0 },   /* Joystick-mouse 0 data (vert,horiz) */
     { "JOT1DAT",  0xdff00C, 1, 0 },   /* Joystick-mouse 1 data (vert,horiz) */
     { "CLXDAT",   0xdff00E, 1, 0 },   /* Collision data reg. (read and clear) */
@@ -139,10 +133,6 @@ const struct customData custd[] =
     { "DSKPTH",   0xdff020, 2, 1 },   /* Disk pointer (high 5 bits) */
     { "DSKPTL",   0xdff022, 2, 2 },   /* Disk pointer (low 15 bits) */
     { "DSKLEN",   0xdff024, 2, 0 },   /* Disk lentgh */
-#if 0
-    { "DSKDAT",   0xdff026 },         /* Disk DMA data write */
-    { "REFPTR",   0xdff028 },         /* Refresh pointer */
-#endif
     { "VPOSW",    0xdff02A, 2, 0 },   /* Write vert most sig. bits(and frame flop) */
     { "VHPOSW",   0xdff02C, 2, 0 },   /* Write vert and horiz pos of beam */
     { "COPCON",   0xdff02e, 2, 0 },   /* Coprocessor control reg (CDANG) */
@@ -174,20 +164,10 @@ const struct customData custd[] =
     { "BLTBMOD",  0xdff062, 2, 0 },   /* Blitter modulo for source B */
     { "BLTAMOD",  0xdff064, 2, 0 },   /* Blitter modulo for source A */
     { "BLTDMOD",  0xdff066, 2, 0 },   /* Blitter modulo for destn  D */
-#if 0
-    { "Unknown",  0xdff068 },         /* Unknown or Unused */
-    { "Unknown",  0xdff06a },         /* Unknown or Unused */
-    { "Unknown",  0xdff06c },         /* Unknown or Unused */
-    { "Unknown",  0xdff06e },         /* Unknown or Unused */
-#endif
     { "BLTCDAT",  0xdff070, 2, 0 },   /* Blitter source C data reg */
     { "BLTBDAT",  0xdff072, 2, 0 },   /* Blitter source B data reg */
     { "BLTADAT",  0xdff074, 2, 0 },   /* Blitter source A data reg */
     { "BLTDDAT",  0xdff076, 2, 0 },   /* Blitter destination reg */
-#if 0
-    { "SPRHDAT",  0xdff078 },         /* Ext logic UHRES sprite pointer and data identifier */
-    { "BPLHDAT",  0xdff07A },         /* Ext logic UHRES bit plane identifier */
-#endif
     { "LISAID",   0xdff07C, 1, 8 },   /* Chip revision level for Denise/Lisa */
     { "DSKSYNC",  0xdff07E, 2, 0 },   /* Disk sync pattern reg for disk read */
     { "COP1LCH",  0xdff080, 2, 1 },   /* Coprocessor first location reg (high 5 bits) */
@@ -196,9 +176,6 @@ const struct customData custd[] =
     { "COP2LCL",  0xdff086, 2, 2 },   /* Coprocessor second reg (low 15 bits) */
     { "COPJMP1",  0xdff088, 2, 0 },   /* Coprocessor restart at first location */
     { "COPJMP2",  0xdff08A, 2, 0 },   /* Coprocessor restart at second location */
-#if 0
-    { "COPINS",   0xdff08C },         /* Coprocessor inst fetch identify */
-#endif
     { "DIWSTRT",  0xdff08E, 2, 0 },   /* Display window start (upper left vert-hor pos) */
     { "DIWSTOP",  0xdff090, 2, 0 },   /* Display window stop (lower right vert-hor pos) */
     { "DDFSTRT",  0xdff092, 2, 0 },   /* Display bit plane data fetch start.hor pos */
@@ -214,40 +191,24 @@ const struct customData custd[] =
     { "AUD0PER",  0xdff0A6, 2, 0 },   /* Audio channel 0 period */
     { "AUD0VOL",  0xdff0A8, 2, 0 },   /* Audio channel 0 volume */
     { "AUD0DAT",  0xdff0AA, 2, 0 },   /* Audio channel 0 data */
-#if 0
-    { "Unknown",  0xdff0AC },         /* Unknown or Unused */
-    { "Unknown",  0xdff0AE },         /* Unknown or Unused */
-#endif
     { "AUD1LCH",  0xdff0B0, 2, 1 },   /* Audio channel 1 location (high 5 bits) */
     { "AUD1LCL",  0xdff0B2, 2, 2 },   /* Audio channel 1 location (low 15 bits) */
     { "AUD1LEN",  0xdff0B4, 2, 0 },   /* Audio channel 1 lentgh */
     { "AUD1PER",  0xdff0B6, 2, 0 },   /* Audio channel 1 period */
     { "AUD1VOL",  0xdff0B8, 2, 0 },   /* Audio channel 1 volume */
     { "AUD1DAT",  0xdff0BA, 2, 0 },   /* Audio channel 1 data */
-#if 0
-    { "Unknown",  0xdff0BC },         /* Unknown or Unused */
-    { "Unknown",  0xdff0BE },         /* Unknown or Unused */
-#endif
     { "AUD2LCH",  0xdff0C0, 2, 1 },   /* Audio channel 2 location (high 5 bits) */
     { "AUD2LCL",  0xdff0C2, 2, 2 },   /* Audio channel 2 location (low 15 bits) */
     { "AUD2LEN",  0xdff0C4, 2, 0 },   /* Audio channel 2 lentgh */
     { "AUD2PER",  0xdff0C6, 2, 0 },   /* Audio channel 2 period */
     { "AUD2VOL",  0xdff0C8, 2, 0 },   /* Audio channel 2 volume */
     { "AUD2DAT",  0xdff0CA, 2, 0 },   /* Audio channel 2 data */
-#if 0
-    { "Unknown",  0xdff0CC },         /* Unknown or Unused */
-    { "Unknown",  0xdff0CE },         /* Unknown or Unused */
-#endif
     { "AUD3LCH",  0xdff0D0, 2, 1 },   /* Audio channel 3 location (high 5 bits) */
     { "AUD3LCL",  0xdff0D2, 2, 2 },   /* Audio channel 3 location (low 15 bits) */
     { "AUD3LEN",  0xdff0D4, 2, 0 },   /* Audio channel 3 lentgh */
     { "AUD3PER",  0xdff0D6, 2, 0 },   /* Audio channel 3 period */
     { "AUD3VOL",  0xdff0D8, 2, 0 },   /* Audio channel 3 volume */
     { "AUD3DAT",  0xdff0DA, 2, 0 },   /* Audio channel 3 data */
-#if 0
-    { "Unknown",  0xdff0DC },         /* Unknown or Unused */
-    { "Unknown",  0xdff0DE },         /* Unknown or Unused */
-#endif
     { "BPL1PTH",  0xdff0E0, 2, 1 },   /* Bit plane pointer 1 (high 5 bits) */
     { "BPL1PTL",  0xdff0E2, 2, 2 },   /* Bit plane pointer 1 (low 15 bits) */
     { "BPL2PTH",  0xdff0E4, 2, 1 },   /* Bit plane pointer 2 (high 5 bits) */
@@ -368,37 +329,12 @@ const struct customData custd[] =
     { "VSSTOP",   0xdff1CA, 2, 4 },   /* Vert line for VBLANK start */
     { "VBSTRT",   0xdff1CC, 2, 4 },   /* Vert line for VBLANK start */
     { "VBSTOP",   0xdff1CE, 2, 4 },   /* Vert line for VBLANK stop */
-#if 0
-    { "SPRHSTRT", 0xdff1D0 },         /* UHRES sprite vertical start */
-    { "SPRHSTOP", 0xdff1D2 },         /* UHRES sprite vertical stop */
-    { "BPLHSTRT", 0xdff1D4 },         /* UHRES bit plane vertical stop */
-    { "BPLHSTOP", 0xdff1D6 },         /* UHRES bit plane vertical stop */
-    { "HHPOSW",   0xdff1D8 },         /* DUAL mode hires H beam counter write */
-    { "HHPOSR",   0xdff1DA },         /* DUAL mode hires H beam counter read */
-#endif
     { "BEAMCON0", 0xdff1DC, 2, 4 },   /* Beam counter control register (SHRES,UHRES,PAL) */
     { "HSSTRT",   0xdff1DE, 2, 4 },   /* Horizontal sync start (VARHSY) */
     { "VSSTRT",   0xdff1E0, 2, 4 },   /* Vertical sync start (VARVSY) */
     { "HCENTER",  0xdff1E2, 2, 4 },   /* Horizontal pos for vsync on interlace */
     { "DIWHIGH",  0xdff1E4, 2, 4 },   /* Display window upper bits for start/stop */
-#if 0
-    { "BPLHMOD",  0xdff1E6 },         /* UHRES bit plane modulo */
-    { "SPRHPTH",  0xdff1E8 },         /* UHRES sprite pointer (high 5 bits) */
-    { "SPRHPTL",  0xdff1EA },         /* UHRES sprite pointer (low 15 bits) */
-    { "BPLHPTH",  0xdff1EC },         /* VRam (UHRES) bitplane pointer (hi 5 bits) */
-    { "BPLHPTL",  0xdff1EE },         /* VRam (UHRES) bitplane pointer (lo 15 bits) */
-    { "RESERVED", 0xdff1F0 },         /* Reserved (forever i guess!) */
-    { "RESERVED", 0xdff1F2 },         /* Reserved (forever i guess!) */
-    { "RESERVED", 0xdff1F4 },         /* Reserved (forever i guess!) */
-    { "RESERVED", 0xdff1F6 },         /* Reserved (forever i guess!) */
-    { "RESERVED", 0xdff1F8 },         /* Reserved (forever i guess!) */
-    { "RESERVED", 0xdff1Fa },         /* Reserved (forever i guess!) */
-#endif
     { "FMODE",    0xdff1FC, 2, 8 },   /* Fetch mode register */
-#if 0
-    { "NO-OP(NULL)", 0xdff1FE },      /* Can also indicate last 2 or 3 refresh
-					 cycles or the restart of the COPPER after lockup.*/
-#endif
 };
 
 #endif

@@ -2750,15 +2750,6 @@ static void center_image (void)
     if (prev_x_adjust != visible_left_border || prev_y_adjust != thisframe_y_adjust)
 	frame_redraw_necessary |= interlace_seen && currprefs.gfx_linedbl ? 2 : 1;
 
-#if 0
-  JWLOG("CMOUSE: visible_left_border: %d\n",visible_left_border);
-  JWLOG("CMOUSE: visible_right_border: %d\n",visible_right_border);
-  JWLOG("CMOUSE: thisframe_y_adjust: %d\n",thisframe_y_adjust);
-  JWLOG("CMOUSE: thisframe_y_adjust_real: %d\n",thisframe_y_adjust_real);
-  JWLOG("CMOUSE: extra_y_adjust: %d\n",extra_y_adjust);
-  JWLOG("CMOUSE: visible_right_border: %d\n",visible_right_border);
-  JWLOG("CMOUSE: =================================================\n");
-#endif
 
     max_diwstop = 0;
     min_diwstart = 10000;

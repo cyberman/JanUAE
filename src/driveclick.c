@@ -209,35 +209,6 @@ void driveclick_init (void)
     for (i = 0; i < 4; i++) {
 	if (currprefs.dfxclick[i]) {
 	    /* TODO: Implement location of sample data */
-#if 0
-	    if (currprefs.dfxclick[i] > 0) {
-		v = 0;
-		if (driveclick_loadresource (drvs[i], currprefs.dfxclick[i]))
-		    v = 3;
-	    } else if (currprefs.dfxclick[i] == -1) {
-		sprintf (tmp, "%suae_data%cdrive_click_%s", start_path, FSDB_DIR_SEPARATOR, currprefs.dfxclickexternal[i]);
-		v = loadsample (tmp, &drvs[i][DS_CLICK]);
-		sprintf (tmp, "%suae_data%cdrive_spin_%s", start_path, FSDB_DIR_SEPARATOR, currprefs.dfxclickexternal[i]);
-		v += loadsample (tmp, &drvs[i][DS_SPIN]);
-		sprintf (tmp, "%suae_data%cdrive_spinnd_%s", start_path, FSDB_DIR_SEPARATOR, currprefs.dfxclickexternal[i]);
-		v += loadsample (tmp, &drvs[i][DS_SPINND]);
-		sprintf (tmp, "%suae_data%cdrive_startup_%s", start_path, FSDB_DIR_SEPARATOR, currprefs.dfxclickexternal[i]);
-		v += loadsample (tmp, &drvs[i][DS_START]);
-		sprintf (tmp, "%suae_data%cdrive_snatch_%s", start_path, FSDB_DIR_SEPARATOR, currprefs.dfxclickexternal[i]);
-		v += loadsample (tmp, &drvs[i][DS_SNATCH]);
-	    }
-	    if (v == 0) {
-		int j;
-		for (j = 0; j < DS_END; j++)
-		    freesample (&drvs[i][j]);
-		currprefs.dfxclick[i] = changed_prefs.dfxclick[i] = 0;
-	    }
-	    for (j = 0; j < DS_END; j++)
-		drvs[i][j].len <<= DS_SHIFT;
-	    drvs[i][DS_CLICK].pos = drvs[i][DS_CLICK].len;
-	    drvs[i][DS_SNATCH].pos = drvs[i][DS_SNATCH].len;
-	    vv += currprefs.dfxclick[i];
-#endif
 	}
     }
     if (vv > 0) {

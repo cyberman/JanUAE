@@ -104,45 +104,6 @@ static void generate_func(void)
 	printf("{\n");
 	printf("int i,j;\n");
 	printf("uae_u32 totald = 0;\n");
-#if 0
-	printf("if (currprefs.blits_32bit_enabled && b->hblitsize > 1");
-	if (a_is_on) printf(" && !b->blitashift && b->bltafwm==0xffff && b->bltalwm==0xffff");
-	if (b_is_on) printf(" && !b->blitbshift");
-	printf(") {\n");
-	if (a_is_on) printf("uae_u32 srca=((uae_u32)b->bltadat << 16) | b->bltadat;\n");
-	if (b_is_on) printf("uae_u32 srcb=((uae_u32)b->bltbdat << 16) | b->bltbdat;\n");
-	if (c_is_on) printf("uae_u32 srcc=((uae_u32)b->bltcdat << 16) | b->bltcdat;\n");
-	printf("uae_u32 dest;\n");
-	printf("int count=b->hblitsize/2, oddword=b->hblitsize&1;\n");
-	printf("for (j=0;j<b->vblitsize;j++) {\n");
-	printf("\tfor(i=0;i<count;i++) {\n");
-	if (a_is_on) printf("\t\tif (pta) {srca=*((uae_u32 *)pta); pta += 4;}\n");
-	if (b_is_on) printf("\t\tif (ptb) {srcb=*((uae_u32 *)ptb); ptb += 4;}\n");
-	if (c_is_on) printf("\t\tif (ptc) {srcc=*((uae_u32 *)ptc); ptc += 4;}\n");
-	printf("\t\tdest = %s;\n", blitops[blttbl[i]].s);
-	printf("\t\ttotald |= dest;\n");
-	printf("\t\tif (ptd) {*(uae_u32 *)ptd=dest; ptd += 4;}\n");
-	printf("\t}\n");
-	printf("\tif (oddword) {\n");
-	if (a_is_on) printf("\t\tif (pta) { srca=(uae_u32)*(uae_u16 *)pta; pta += 2; }\n");
-	if (b_is_on) printf("\t\tif (ptb) { srcb=(uae_u32)*(uae_u16 *)ptb; ptb += 2; }\n");
-	if (c_is_on) printf("\t\tif (ptc) { srcc=(uae_u32)*(uae_u16 *)ptc; ptc += 2; }\n");
-	printf("\t\tdest = %s;\n", blitops[blttbl[i]].s);
-	printf("\t\ttotald |= dest;\n");
-	printf("\t\tif (ptd) { *(uae_u16 *)ptd= dest; ptd += 2; }\n");
-	printf("\t}\n");
-	if (a_is_on) printf("\tif (pta) pta += b->bltamod;\n");
-	if (b_is_on) printf("\tif (ptb) ptb += b->bltbmod;\n");
-	if (c_is_on) printf("\tif (ptc) ptc += b->bltcmod;\n");
-	printf("\tif (ptd) ptd += b->bltdmod;\n");
-	printf("}\n");
-	if (a_is_on) printf("if (pta) b->bltadat = (*(pta-b->bltamod-2) << 8) | *(pta - b->bltamod - 1);\n"); /* Maybe not necessary, but I don't want problems */
-	if (b_is_on) printf("if (ptb) b->bltbdat = (*(ptb-b->bltbmod-2) << 8) | *(ptb - b->bltbmod - 1);\n");
-	if (c_is_on) printf("if (ptc) b->bltcdat = (*(ptc-b->bltcmod-2) << 8) | *(ptc - b->bltcmod - 1);\n");
-	printf("if (ptd) b->bltddat = (*(ptd-b->bltdmod-2) << 8) | *(ptd - b->bltdmod - 1);\n");
-
-	printf("} else {\n");
-#endif
 	if (a_is_on) printf("uae_u32 preva = 0;\n");
 	if (b_is_on) printf("uae_u32 prevb = 0, srcb = b->bltbhold;\n");
 	printf("uae_u32 srcc = b->bltcdat;\n");
@@ -171,9 +132,6 @@ static void generate_func(void)
 	if (b_is_on) printf("b->bltbhold = srcb;\n");
 	printf("b->bltcdat = srcc;\n");
 	printf("\t\tif (dstp) chipmem_wput (dstp, dstd);\n");
-#if 0
-	printf("}\n");
-#endif
 	printf("if (totald != 0) b->blitzero = 0;\n");
 	printf("}\n");
 
@@ -181,45 +139,6 @@ static void generate_func(void)
 	printf("{\n");
 	printf("uae_u32 totald = 0;\n");
 	printf("int i,j;\n");
-#if 0
-	printf("if (currprefs.blits_32bit_enabled && b->hblitsize > 1");
-	if (a_is_on) printf(" && !b->blitashift && b->bltafwm==0xffff && b->bltalwm==0xffff");
-	if (b_is_on) printf(" && !b->blitbshift");
-	printf(") {\n");
-	if (a_is_on) printf("uae_u32 srca = ((uae_u32)b->bltadat << 16) | b->bltadat;\n");
-	if (b_is_on) printf("uae_u32 srcb = ((uae_u32)b->bltbdat << 16) | b->bltbdat;\n");
-	if (c_is_on) printf("uae_u32 srcc = ((uae_u32)b->bltcdat << 16) | b->bltcdat;\n");
-	printf("uae_u32 dest;\n");
-	printf("int count=b->hblitsize/2, oddword=b->hblitsize&1;\n");
-	printf("for (j=0;j<b->vblitsize;j++) {\n");
-	printf("\tfor(i=0;i<count;i++) {\n");
-	if (a_is_on) printf("\t\tif (pta) { srca=*((uae_u32 *)(pta-2)); pta -= 4;}\n");
-	if (b_is_on) printf("\t\tif (ptb) { srcb=*((uae_u32 *)(ptb-2)); ptb -= 4;}\n");
-	if (c_is_on) printf("\t\tif (ptc) { srcc=*((uae_u32 *)(ptc-2)); ptc -= 4;}\n");
-	printf("\t\tdest = %s;\n", blitops[blttbl[i]].s);
-	printf("\t\ttotald |= dest;\n");
-	printf("\t\tif (ptd) {*(uae_u32 *)(ptd-2)=dest; ptd -= 4;}\n");
-	printf("\t}\n");
-	printf("\tif (oddword) {\n");
-	if (a_is_on) printf("\t\tif (pta) { srca=(uae_u32)*(uae_u16 *)pta; pta -= 2; }\n");
-	if (b_is_on) printf("\t\tif (ptb) { srcb=(uae_u32)*(uae_u16 *)ptb; ptb -= 2; }\n");
-	if (c_is_on) printf("\t\tif (ptc) { srcc=(uae_u32)*(uae_u16 *)ptc; ptc -= 2; }\n");
-	printf("\t\tdest = %s;\n", blitops[blttbl[i]].s);
-	printf("\t\ttotald |= dest;\n");
-	printf("\t\tif (ptd) { *(uae_u16 *)ptd= dest; ptd -= 2; }\n");
-	printf("\t}\n");
-	if (a_is_on) printf("\tif (pta) pta -= b->bltamod;\n");
-	if (b_is_on) printf("\tif (ptb) ptb -= b->bltbmod;\n");
-	if (c_is_on) printf("\tif (ptc) ptc -= b->bltcmod;\n");
-	printf("\tif (ptd) ptd-=b->bltdmod;\n");
-	printf("}\n");
-	if (a_is_on) printf("if (pta) b->bltadat = (*(pta + b->bltamod + 2) << 8) | *(pta + b->bltamod + 1);\n"); /* Maybe not necessary, but I don't want problems */
-	if (b_is_on) printf("if (ptb) b->bltbdat = (*(ptb + b->bltbmod + 2) << 8) | *(ptb + b->bltbmod + 1);\n");
-	if (c_is_on) printf("if (ptc) b->bltcdat = (*(ptc + b->bltcmod + 2) << 8) | *(ptc + b->bltcmod + 1);\n");
-	printf("if (ptd) b->bltddat = (*(ptd + b->bltdmod + 2) << 8) | *(ptd + b->bltdmod + 1);\n");
-
-	printf("} else {\n");
-#endif
 	if (a_is_on) printf("uae_u32 preva = 0;\n");
 	if (b_is_on) printf("uae_u32 prevb = 0, srcb = b->bltbhold;\n");
 	printf("uae_u32 srcc = b->bltcdat;\n");
@@ -248,9 +167,6 @@ static void generate_func(void)
 	if (b_is_on) printf("b->bltbhold = srcb;\n");
 	printf("b->bltcdat = srcc;\n");
 	printf("\t\tif (dstp) chipmem_wput (dstp, dstd);\n");
-#if 0
-	printf("}\n");
-#endif
 	printf("if (totald != 0) b->blitzero = 0;\n");
 	printf("}\n");
     }
