@@ -5679,6 +5679,26 @@ static void FMODE (uae_u16 v)
     calcdiw ();
 }
 
+/****i* januae-custom-blitter-sprite-copper/BLTADAT
+ *
+ *   NAME
+ *       BLTADAT()
+ *
+ *   SYNOPSIS
+ *       static void BLTADAT (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the blitter A source-data latch after synchronizing pending blits.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Calls maybe_blit() at the current horizontal position in mode 0; does
+ *       not apply A shift or first/last word masks here.
+ *
+ ****************************************************************************/
+
 static void BLTADAT (uae_u16 v)
 {
     maybe_blit (current_hpos(), 0);
@@ -5690,6 +5710,26 @@ static void BLTADAT (uae_u16 v)
  * be true for BLTBDAT, but not for BLTADAT - it appears the A data must be
  * loaded for every word so that AFWM and ALWM can be applied.
  */
+/****i* januae-custom-blitter-sprite-copper/BLTBDAT
+ *
+ *   NAME
+ *       BLTBDAT()
+ *
+ *   SYNOPSIS
+ *       static void BLTBDAT (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the blitter B source-data latch and its shifted hold register.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Shifts the value left or right according to BLTCON1 bit 1 and its upper
+ *       shift field; synchronizes a pending blit first.
+ *
+ ****************************************************************************/
+
 static void BLTBDAT (uae_u16 v)
 {
     maybe_blit (current_hpos(), 0);
@@ -5700,16 +5740,156 @@ static void BLTBDAT (uae_u16 v)
 	blt_info.bltbhold = v >> (bltcon1 >> 12);
     blt_info.bltbdat = v;
 }
+/****i* januae-custom-blitter-sprite-copper/BLTCDAT
+ *
+ *   NAME
+ *       BLTCDAT()
+ *
+ *   SYNOPSIS
+ *       static void BLTCDAT (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the blitter C source-data latch.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Synchronizes blitter activity before the write and invalidates the
+ *       relevant cached blitter state with reset_blit(0).
+ *
+ ****************************************************************************/
+
 static void BLTCDAT (uae_u16 v) { maybe_blit (current_hpos(), 0); blt_info.bltcdat = v; reset_blit (0); }
 
+/****i* januae-custom-blitter-sprite-copper/BLTAMOD
+ *
+ *   NAME
+ *       BLTAMOD()
+ *
+ *   SYNOPSIS
+ *       static void BLTAMOD (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Set the signed modulo for blitter source A.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Clears the low address bit, casts the result to a signed 16-bit value
+ *       and invalidates cached blitter state.
+ *
+ ****************************************************************************/
+
 static void BLTAMOD (uae_u16 v) { maybe_blit (current_hpos(), 1); blt_info.bltamod = (uae_s16)(v & 0xFFFE); reset_blit (0); }
+/****i* januae-custom-blitter-sprite-copper/BLTBMOD
+ *
+ *   NAME
+ *       BLTBMOD()
+ *
+ *   SYNOPSIS
+ *       static void BLTBMOD (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Set the signed modulo for blitter source B.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Clears the low address bit, casts the result to a signed 16-bit value
+ *       and invalidates cached blitter state.
+ *
+ ****************************************************************************/
+
 static void BLTBMOD (uae_u16 v) { maybe_blit (current_hpos(), 1); blt_info.bltbmod = (uae_s16)(v & 0xFFFE); reset_blit (0); }
+/****i* januae-custom-blitter-sprite-copper/BLTCMOD
+ *
+ *   NAME
+ *       BLTCMOD()
+ *
+ *   SYNOPSIS
+ *       static void BLTCMOD (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Set the signed modulo for blitter source C.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Clears the low address bit, casts the result to a signed 16-bit value
+ *       and invalidates cached blitter state.
+ *
+ ****************************************************************************/
+
 static void BLTCMOD (uae_u16 v) { maybe_blit (current_hpos(), 1); blt_info.bltcmod = (uae_s16)(v & 0xFFFE); reset_blit (0); }
+/****i* januae-custom-blitter-sprite-copper/BLTDMOD
+ *
+ *   NAME
+ *       BLTDMOD()
+ *
+ *   SYNOPSIS
+ *       static void BLTDMOD (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Set the signed modulo for blitter destination D.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Clears the low address bit, casts the result to a signed 16-bit value
+ *       and invalidates cached blitter state.
+ *
+ ****************************************************************************/
+
 static void BLTDMOD (uae_u16 v) { maybe_blit (current_hpos(), 1); blt_info.bltdmod = (uae_s16)(v & 0xFFFE); reset_blit (0); }
+
+/****i* januae-custom-blitter-sprite-copper/BLTCON0
+ *
+ *   NAME
+ *       BLTCON0()
+ *
+ *   SYNOPSIS
+ *       static void BLTCON0 (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the primary blitter control word.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Derives the line-A shift from the high nibble and calls reset_blit(1)
+ *       after synchronizing pending blits.
+ *
+ ****************************************************************************/
 
 static void BLTCON0 (uae_u16 v) { maybe_blit (current_hpos(), 2); bltcon0 = v; blinea_shift = v >> 12; reset_blit (1); }
 /* The next category is "Most useless hardware register".
  * And the winner is... */
+/****i* januae-custom-blitter-sprite-copper/BLTCON0L
+ *
+ *   NAME
+ *       BLTCON0L()
+ *
+ *   SYNOPSIS
+ *       static void BLTCON0L (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Update the low byte of BLTCON0 on ECS Agnus and newer.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Returns without changing state when ECS Agnus is absent; retains the
+ *       high byte and applies only bits 0 through 7.
+ *
+ ****************************************************************************/
+
 static void BLTCON0L (uae_u16 v)
 {
     if (! (currprefs.chipset_mask & CSMASK_ECS_AGNUS))
@@ -5717,19 +5897,256 @@ static void BLTCON0L (uae_u16 v)
     maybe_blit (current_hpos(), 2); bltcon0 = (bltcon0 & 0xFF00) | (v & 0xFF);
     reset_blit (1);
 }
+/****i* januae-custom-blitter-sprite-copper/BLTCON1
+ *
+ *   NAME
+ *       BLTCON1()
+ *
+ *   SYNOPSIS
+ *       static void BLTCON1 (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the secondary blitter control word.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Synchronizes pending blits and calls reset_blit(2), which differs from
+ *       the reset mode used for BLTCON0.
+ *
+ ****************************************************************************/
+
 static void BLTCON1 (uae_u16 v) { maybe_blit (current_hpos(), 2); bltcon1 = v; reset_blit (2); }
 
+/****i* januae-custom-blitter-sprite-copper/BLTAFWM
+ *
+ *   NAME
+ *       BLTAFWM()
+ *
+ *   SYNOPSIS
+ *       static void BLTAFWM (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the first-word mask for the blitter A source.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Synchronizes pending work using maybe_blit(...,2) and then invalidates
+ *       the cached state.
+ *
+ ****************************************************************************/
+
 static void BLTAFWM (uae_u16 v) { maybe_blit (current_hpos(), 2); blt_info.bltafwm = v; reset_blit (0); }
+/****i* januae-custom-blitter-sprite-copper/BLTALWM
+ *
+ *   NAME
+ *       BLTALWM()
+ *
+ *   SYNOPSIS
+ *       static void BLTALWM (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the last-word mask for the blitter A source.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Synchronizes pending work using maybe_blit(...,2) and then invalidates
+ *       the cached state.
+ *
+ ****************************************************************************/
+
 static void BLTALWM (uae_u16 v) { maybe_blit (current_hpos(), 2); blt_info.bltalwm = v; reset_blit (0); }
 
+/****i* januae-custom-blitter-sprite-copper/BLTAPTH
+ *
+ *   NAME
+ *       BLTAPTH()
+ *
+ *   SYNOPSIS
+ *       static void BLTAPTH (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the high halfword of the blitter A source address.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Retains the current low halfword; synchronizes a pending blit before the
+ *       update.
+ *
+ ****************************************************************************/
+
 static void BLTAPTH (uae_u16 v) { maybe_blit (current_hpos(), 0); bltapt = (bltapt & 0xffff) | ((uae_u32)v << 16); }
+/****i* januae-custom-blitter-sprite-copper/BLTAPTL
+ *
+ *   NAME
+ *       BLTAPTL()
+ *
+ *   SYNOPSIS
+ *       static void BLTAPTL (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the low halfword of the blitter A source address.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Clears bit zero of the low halfword, enforcing an even source address.
+ *
+ ****************************************************************************/
+
 static void BLTAPTL (uae_u16 v) { maybe_blit (current_hpos(), 0); bltapt = (bltapt & ~0xffff) | (v & 0xFFFE); }
+/****i* januae-custom-blitter-sprite-copper/BLTBPTH
+ *
+ *   NAME
+ *       BLTBPTH()
+ *
+ *   SYNOPSIS
+ *       static void BLTBPTH (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the high halfword of the blitter B source address.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Retains the current low halfword; synchronizes a pending blit before the
+ *       update.
+ *
+ ****************************************************************************/
+
 static void BLTBPTH (uae_u16 v) { maybe_blit (current_hpos(), 0); bltbpt = (bltbpt & 0xffff) | ((uae_u32)v << 16); }
+/****i* januae-custom-blitter-sprite-copper/BLTBPTL
+ *
+ *   NAME
+ *       BLTBPTL()
+ *
+ *   SYNOPSIS
+ *       static void BLTBPTL (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the low halfword of the blitter B source address.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Clears bit zero of the low halfword, enforcing an even source address.
+ *
+ ****************************************************************************/
+
 static void BLTBPTL (uae_u16 v) { maybe_blit (current_hpos(), 0); bltbpt = (bltbpt & ~0xffff) | (v & 0xFFFE); }
+/****i* januae-custom-blitter-sprite-copper/BLTCPTH
+ *
+ *   NAME
+ *       BLTCPTH()
+ *
+ *   SYNOPSIS
+ *       static void BLTCPTH (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the high halfword of the blitter C source address.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Retains the current low halfword; synchronizes a pending blit before the
+ *       update.
+ *
+ ****************************************************************************/
+
 static void BLTCPTH (uae_u16 v) { maybe_blit (current_hpos(), 0); bltcpt = (bltcpt & 0xffff) | ((uae_u32)v << 16); }
+/****i* januae-custom-blitter-sprite-copper/BLTCPTL
+ *
+ *   NAME
+ *       BLTCPTL()
+ *
+ *   SYNOPSIS
+ *       static void BLTCPTL (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the low halfword of the blitter C source address.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Clears bit zero of the low halfword, enforcing an even source address.
+ *
+ ****************************************************************************/
+
 static void BLTCPTL (uae_u16 v) { maybe_blit (current_hpos(), 0); bltcpt = (bltcpt & ~0xffff) | (v & 0xFFFE); }
+/****i* januae-custom-blitter-sprite-copper/BLTDPTH
+ *
+ *   NAME
+ *       BLTDPTH()
+ *
+ *   SYNOPSIS
+ *       static void BLTDPTH (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the high halfword of the blitter D destination address.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Retains the current low halfword; synchronizes a pending blit before the
+ *       update.
+ *
+ ****************************************************************************/
+
 static void BLTDPTH (uae_u16 v) { maybe_blit (current_hpos(), 0); bltdpt = (bltdpt & 0xffff) | ((uae_u32)v << 16); }
+/****i* januae-custom-blitter-sprite-copper/BLTDPTL
+ *
+ *   NAME
+ *       BLTDPTL()
+ *
+ *   SYNOPSIS
+ *       static void BLTDPTL (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the low halfword of the blitter D destination address.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Clears bit zero of the low halfword, enforcing an even destination
+ *       address.
+ *
+ ****************************************************************************/
+
 static void BLTDPTL (uae_u16 v) { maybe_blit (current_hpos(), 0); bltdpt = (bltdpt & ~0xffff) | (v & 0xFFFE); }
+
+/****i* januae-custom-blitter-sprite-copper/BLTSIZE
+ *
+ *   NAME
+ *       BLTSIZE()
+ *
+ *   SYNOPSIS
+ *       static void BLTSIZE (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Set legacy blitter width and height and start the operation.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Width occupies six bits and height the remaining ten; encoded zero means
+ *       64 words or 1024 rows respectively.
+ *
+ ****************************************************************************/
 
 static void BLTSIZE (uae_u16 v)
 {
@@ -5742,6 +6159,26 @@ static void BLTSIZE (uae_u16 v)
     do_blitter (current_hpos());
 }
 
+/****i* januae-custom-blitter-sprite-copper/BLTSIZV
+ *
+ *   NAME
+ *       BLTSIZV()
+ *
+ *   SYNOPSIS
+ *       static void BLTSIZV (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Stage the ECS Agnus extended blitter height.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Ignored without ECS Agnus. Stores the low 15 bits but does not launch a
+ *       blit; BLTSIZH starts it.
+ *
+ ****************************************************************************/
+
 static void BLTSIZV (uae_u16 v)
 {
     if (! (currprefs.chipset_mask & CSMASK_ECS_AGNUS))
@@ -5749,6 +6186,26 @@ static void BLTSIZV (uae_u16 v)
     maybe_blit (current_hpos(), 0);
     blt_info.vblitsize = v & 0x7FFF;
 }
+
+/****i* januae-custom-blitter-sprite-copper/BLTSIZH
+ *
+ *   NAME
+ *       BLTSIZH()
+ *
+ *   SYNOPSIS
+ *       static void BLTSIZH (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Set the ECS Agnus extended blitter width and start the operation.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Ignored without ECS Agnus. A zero width selects 0x800 words and a zero
+ *       staged height selects 32768 rows.
+ *
+ ****************************************************************************/
 
 static void BLTSIZH (uae_u16 v)
 {
@@ -5762,6 +6219,27 @@ static void BLTSIZH (uae_u16 v)
 	blt_info.hblitsize = 0x800;
     do_blitter (current_hpos());
 }
+
+/****i* januae-custom-blitter-sprite-copper/spr_arm
+ *
+ *   NAME
+ *       spr_arm()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void spr_arm (unsigned int num, int state)
+ *
+ *   FUNCTION
+ *       Change a sprite channel armed flag and maintain the global armed count.
+ *
+ *   INPUTS
+ *       num -- zero-based sprite channel number
+ *       state -- new sprite armed state, zero to disarm and nonzero to arm
+ *
+ *   NOTES
+ *       Setting an already armed sprite or clearing an already disarmed sprite
+ *       does not change nr_armed.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void spr_arm (unsigned int num, int state)
 {
@@ -5777,6 +6255,26 @@ STATIC_INLINE void spr_arm (unsigned int num, int state)
     }
 }
 
+/****i* januae-custom-blitter-sprite-copper/sprstartstop
+ *
+ *   NAME
+ *       sprstartstop()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void sprstartstop (struct sprite *s)
+ *
+ *   FUNCTION
+ *       Update a sprite DMA enable state at its programmed vertical boundaries.
+ *
+ *   INPUTS
+ *       s -- pointer to a live sprite descriptor
+ *
+ *   NOTES
+ *       At vstart enables DMA; at vstop disables it. The stop comparison is
+ *       performed after the start comparison.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void sprstartstop (struct sprite *s)
 {
     if (vpos == s->vstart)
@@ -5784,6 +6282,27 @@ STATIC_INLINE void sprstartstop (struct sprite *s)
     if (vpos == s->vstop)
 	s->dmastate = 0;
 }
+
+/****i* januae-custom-blitter-sprite-copper/SPRxCTLPOS
+ *
+ *   NAME
+ *       SPRxCTLPOS()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void SPRxCTLPOS (unsigned int num)
+ *
+ *   FUNCTION
+ *       Decode sprite horizontal and vertical geometry from position/control
+ *       words.
+ *
+ *   INPUTS
+ *       num -- zero-based sprite channel number
+ *
+ *   NOTES
+ *       Supports ECS Agnus vertical extension and AGA horizontal extension; AGA
+ *       superhires 35 ns increment is not modeled.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void SPRxCTLPOS (unsigned int num)
 {
@@ -5812,6 +6331,29 @@ STATIC_INLINE void SPRxCTLPOS (unsigned int num)
     sprstartstop (s);
 }
 
+/****i* januae-custom-blitter-sprite-copper/SPRxCTL_1
+ *
+ *   NAME
+ *       SPRxCTL_1()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void SPRxCTL_1 (uae_u16 v, unsigned int num, unsigned int
+ *       hpos)
+ *
+ *   FUNCTION
+ *       Store a sprite control word and recompute the channel timing.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *       num -- zero-based sprite channel number
+ *       hpos -- horizontal beam position for the current register update
+ *
+ *   NOTES
+ *       Disarms the sprite before decoding updated geometry. Horizontal position
+ *       is used only by conditional debug logging.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void SPRxCTL_1 (uae_u16 v, unsigned int num, unsigned int hpos)
 {
 #if SPRITE_DEBUG > 0
@@ -5828,6 +6370,29 @@ STATIC_INLINE void SPRxCTL_1 (uae_u16 v, unsigned int num, unsigned int hpos)
 #endif
 
 }
+/****i* januae-custom-blitter-sprite-copper/SPRxPOS_1
+ *
+ *   NAME
+ *       SPRxPOS_1()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void SPRxPOS_1 (uae_u16 v, unsigned int num, unsigned int
+ *       hpos)
+ *
+ *   FUNCTION
+ *       Store a sprite position word and recompute the channel timing.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *       num -- zero-based sprite channel number
+ *       hpos -- horizontal beam position for the current register update
+ *
+ *   NOTES
+ *       Updates the derived sprite start/stop position and DMA state; horizontal
+ *       position is used only for debug logging.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void SPRxPOS_1 (uae_u16 v, unsigned int num, unsigned int hpos)
 {
 #if SPRITE_DEBUG > 0
@@ -5842,6 +6407,29 @@ STATIC_INLINE void SPRxPOS_1 (uae_u16 v, unsigned int num, unsigned int hpos)
     }
 #endif
 }
+
+/****i* januae-custom-blitter-sprite-copper/SPRxDATA_1
+ *
+ *   NAME
+ *       SPRxDATA_1()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void SPRxDATA_1 (uae_u16 v, unsigned int num, unsigned int
+ *       hpos)
+ *
+ *   FUNCTION
+ *       Latch first sprite data word and arm the sprite for rendering.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *       num -- zero-based sprite channel number
+ *       hpos -- horizontal beam position for the current register update
+ *
+ *   NOTES
+ *       With AGA enabled the value is duplicated across four fetch slots;
+ *       horizontal position matters only to debug logging.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void SPRxDATA_1 (uae_u16 v, unsigned int num, unsigned int hpos)
 {
@@ -5860,6 +6448,29 @@ STATIC_INLINE void SPRxDATA_1 (uae_u16 v, unsigned int num, unsigned int hpos)
 #endif
 }
 
+/****i* januae-custom-blitter-sprite-copper/SPRxDATB_1
+ *
+ *   NAME
+ *       SPRxDATB_1()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void SPRxDATB_1 (uae_u16 v, unsigned int num, unsigned int
+ *       hpos)
+ *
+ *   FUNCTION
+ *       Latch the second sprite data word.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *       num -- zero-based sprite channel number
+ *       hpos -- horizontal beam position for the current register update
+ *
+ *   NOTES
+ *       With AGA enabled the value is duplicated across four fetch slots; unlike
+ *       SPRxDATA_1 this routine does not arm the sprite.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void SPRxDATB_1 (uae_u16 v, unsigned int num, unsigned int hpos)
 {
     sprdatb[num][0] = v;
@@ -5876,10 +6487,120 @@ STATIC_INLINE void SPRxDATB_1 (uae_u16 v, unsigned int num, unsigned int hpos)
 #endif
 }
 
+/****i* januae-custom-blitter-sprite-copper/SPRxDATA
+ *
+ *   NAME
+ *       SPRxDATA()
+ *
+ *   SYNOPSIS
+ *       static void SPRxDATA (unsigned int hpos, uae_u16 v, unsigned int num)
+ *
+ *   FUNCTION
+ *       Synchronize sprite decisions and write the first sprite data word.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position for the current register update
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *       num -- zero-based sprite channel number
+ *
+ *   NOTES
+ *       Calls decide_sprites(hpos) before SPRxDATA_1, preserving raster timing
+ *       of midline register writes.
+ *
+ ****************************************************************************/
+
 static void SPRxDATA (unsigned int hpos, uae_u16 v, unsigned int num) { decide_sprites (hpos); SPRxDATA_1 (v, num, hpos); }
+/****i* januae-custom-blitter-sprite-copper/SPRxDATB
+ *
+ *   NAME
+ *       SPRxDATB()
+ *
+ *   SYNOPSIS
+ *       static void SPRxDATB (unsigned int hpos, uae_u16 v, unsigned int num)
+ *
+ *   FUNCTION
+ *       Synchronize sprite decisions and write the second sprite data word.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position for the current register update
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *       num -- zero-based sprite channel number
+ *
+ *   NOTES
+ *       Calls decide_sprites(hpos) before SPRxDATB_1; does not arm the sprite by
+ *       itself.
+ *
+ ****************************************************************************/
+
 static void SPRxDATB (unsigned int hpos, uae_u16 v, unsigned int num) { decide_sprites (hpos); SPRxDATB_1 (v, num, hpos); }
+/****i* januae-custom-blitter-sprite-copper/SPRxCTL
+ *
+ *   NAME
+ *       SPRxCTL()
+ *
+ *   SYNOPSIS
+ *       static void SPRxCTL (unsigned int hpos, uae_u16 v, unsigned int num)
+ *
+ *   FUNCTION
+ *       Synchronize sprite decisions and write the sprite control word.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position for the current register update
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *       num -- zero-based sprite channel number
+ *
+ *   NOTES
+ *       Delegates to SPRxCTL_1 after preserving prior raster-line sprite
+ *       decisions.
+ *
+ ****************************************************************************/
+
 static void SPRxCTL  (unsigned int hpos, uae_u16 v, unsigned int num) { decide_sprites (hpos); SPRxCTL_1 (v, num, hpos); }
+/****i* januae-custom-blitter-sprite-copper/SPRxPOS
+ *
+ *   NAME
+ *       SPRxPOS()
+ *
+ *   SYNOPSIS
+ *       static void SPRxPOS (unsigned int hpos, uae_u16 v, unsigned int num)
+ *
+ *   FUNCTION
+ *       Synchronize sprite decisions and write the sprite position word.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position for the current register update
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *       num -- zero-based sprite channel number
+ *
+ *   NOTES
+ *       Delegates to SPRxPOS_1 after preserving prior raster-line sprite
+ *       decisions.
+ *
+ ****************************************************************************/
+
 static void SPRxPOS  (unsigned int hpos, uae_u16 v, unsigned int num) { decide_sprites (hpos); SPRxPOS_1 (v, num, hpos); }
+
+/****i* januae-custom-blitter-sprite-copper/SPRxPTH
+ *
+ *   NAME
+ *       SPRxPTH()
+ *
+ *   SYNOPSIS
+ *       static void SPRxPTH (unsigned int hpos, uae_u16 v, unsigned int num)
+ *
+ *   FUNCTION
+ *       Write the high halfword of a sprite DMA pointer.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position for the current register update
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *       num -- zero-based sprite channel number
+ *
+ *   NOTES
+ *       First calls decide_sprites(hpos); preserves the existing pointer low
+ *       halfword.
+ *
+ ****************************************************************************/
 
 static void SPRxPTH  (unsigned int hpos, uae_u16 v, unsigned int num)
 {
@@ -5893,6 +6614,28 @@ static void SPRxPTH  (unsigned int hpos, uae_u16 v, unsigned int num)
 #endif
 }
 
+/****i* januae-custom-blitter-sprite-copper/SPRxPTL
+ *
+ *   NAME
+ *       SPRxPTL()
+ *
+ *   SYNOPSIS
+ *       static void SPRxPTL (unsigned int hpos, uae_u16 v, unsigned int num)
+ *
+ *   FUNCTION
+ *       Write the low halfword of a sprite DMA pointer.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position for the current register update
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *       num -- zero-based sprite channel number
+ *
+ *   NOTES
+ *       First calls decide_sprites(hpos); unlike the blitter pointer low-half
+ *       writes it does not mask bit zero.
+ *
+ ****************************************************************************/
+
 static void SPRxPTL (unsigned int hpos, uae_u16 v, unsigned int num)
 {
     decide_sprites (hpos);
@@ -5905,12 +6648,53 @@ static void SPRxPTL (unsigned int hpos, uae_u16 v, unsigned int num)
 #endif
 }
 
+/****i* januae-custom-blitter-sprite-copper/CLXCON
+ *
+ *   NAME
+ *       CLXCON()
+ *
+ *   SYNOPSIS
+ *       static void CLXCON (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Set sprite/playfield collision-match and enable masks.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Selects six low-plane match bits and six enable bits from CLXCON,
+ *       replacing the cached bitplane masks.
+ *
+ ****************************************************************************/
+
 static void CLXCON (uae_u16 v)
 {
     clxcon = v;
     clxcon_bpl_enable = (v >> 6) & 63;
     clxcon_bpl_match = v & 63;
 }
+
+/****i* januae-custom-blitter-sprite-copper/CLXCON2
+ *
+ *   NAME
+ *       CLXCON2()
+ *
+ *   SYNOPSIS
+ *       static void CLXCON2 (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Extend collision-match and enable masks for AGA bitplanes seven and
+ *       eight.
+ *
+ *   INPUTS
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *
+ *   NOTES
+ *       Ignored when the active chipset lacks AGA; combines extension bits with
+ *       cached CLXCON masks.
+ *
+ ****************************************************************************/
 
 static void CLXCON2 (uae_u16 v)
 {
@@ -5921,6 +6705,27 @@ static void CLXCON2 (uae_u16 v)
     clxcon_bpl_match |= (v & (0x01|0x02)) << 6;
 }
 
+/****i* januae-custom-blitter-sprite-copper/CLXDAT
+ *
+ *   NAME
+ *       CLXDAT()
+ *
+ *   SYNOPSIS
+ *       static uae_u16 CLXDAT (void)
+ *
+ *   FUNCTION
+ *       Read and clear the latched sprite/playfield collision bits.
+ *
+ *   RESULT
+ *       Returns the collision latch with bit 15 forced high, and then clears the
+ *       latch.
+ *
+ *   NOTES
+ *       Forces bit 15 of the returned word high, then clears the stored
+ *       collision latch.
+ *
+ ****************************************************************************/
+
 static uae_u16 CLXDAT (void)
 {
     uae_u16 v = clxdat | 0x8000;
@@ -5929,6 +6734,29 @@ static uae_u16 CLXDAT (void)
 }
 
 #ifdef AGA
+
+/****i* januae-custom-blitter-sprite-copper/COLOR_READ
+ *
+ *   NAME
+ *       COLOR_READ()
+ *
+ *   SYNOPSIS
+ *       static uae_u16 COLOR_READ (int num)
+ *
+ *   FUNCTION
+ *       Read a 12-bit palette entry from the selected AGA color-bank half.
+ *
+ *   INPUTS
+ *       num -- zero-based sprite channel number
+ *
+ *   RESULT
+ *       Returns the selected 12-bit color or 0xFFFF when reading is unavailable.
+ *
+ *   NOTES
+ *       Compiled only with AGA. Returns 0xFFFF when AGA or read mode is
+ *       unavailable; BPLCON3 selects bank and nibble half.
+ *
+ ****************************************************************************/
 
 static uae_u16 COLOR_READ (int num)
 {
@@ -5949,6 +6777,28 @@ static uae_u16 COLOR_READ (int num)
     return cval;
 }
 #endif
+
+/****i* januae-custom-blitter-sprite-copper/COLOR_WRITE
+ *
+ *   NAME
+ *       COLOR_WRITE()
+ *
+ *   SYNOPSIS
+ *       static void COLOR_WRITE (unsigned int hpos, uae_u16 v, int num)
+ *
+ *   FUNCTION
+ *       Write an ECS or AGA palette entry with scanline change tracking.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position for the current register update
+ *       v -- guest 16-bit value written to the addressed custom-chip register
+ *       num -- zero-based sprite channel number
+ *
+ *   NOTES
+ *       Masks value to 12 bits; in AGA read mode ignores writes. No change event
+ *       is recorded when the effective color is unchanged.
+ *
+ ****************************************************************************/
 
 static void COLOR_WRITE (unsigned int hpos, uae_u16 v, int num)
 {
@@ -6043,12 +6893,59 @@ static void COLOR_WRITE (unsigned int hpos, uae_u16 v, int num)
 /* Determine which cycles are available for the copper in a display
  * with a agiven number of planes.  */
 
+/****i* januae-custom-blitter-sprite-copper/copper_cant_read
+ *
+ *   NAME
+ *       copper_cant_read()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int copper_cant_read (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Check whether the Copper can fetch an instruction at a given beam
+ *       position.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position for the current register update
+ *
+ *   RESULT
+ *       Returns nonzero when Copper fetch is unavailable; otherwise zero.
+ *
+ *   NOTES
+ *       Blocks reads on the final horizontal slot and when bitplane DMA occupies
+ *       the corresponding bus cycle.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int copper_cant_read (unsigned int hpos)
 {
     if (hpos + 1 >= maxhpos)
 	return 1;
     return is_bitplane_dma_inline (hpos);
 }
+
+/****i* januae-custom-blitter-sprite-copper/dangerous_reg
+ *
+ *   NAME
+ *       dangerous_reg()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int dangerous_reg (int reg)
+ *
+ *   FUNCTION
+ *       Classify a Copper register address using the simple safe-range rule.
+ *
+ *   INPUTS
+ *       reg -- guest custom-register offset
+ *
+ *   RESULT
+ *       Returns zero within the simple safe register range, otherwise one.
+ *
+ *   NOTES
+ *       Returns zero only for addresses from 0xE0 through 0x1BE; this helper
+ *       does not itself stop the Copper.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE int dangerous_reg (int reg)
 {
@@ -6061,6 +6958,31 @@ STATIC_INLINE int dangerous_reg (int reg)
     return 1;
 }
 
+/****i* januae-custom-blitter-sprite-copper/test_copper_dangerous
+ *
+ *   NAME
+ *       test_copper_dangerous()
+ *
+ *   SYNOPSIS
+ *       static int test_copper_dangerous (unsigned int address)
+ *
+ *   FUNCTION
+ *       Enforce Copper access restrictions for a target custom-register write.
+ *
+ *   INPUTS
+ *       address -- guest custom-chip register address being checked
+ *
+ *   RESULT
+ *       Returns 1 and stops the Copper for a prohibited write; otherwise returns
+ *       0.
+ *
+ *   NOTES
+ *       Uses COPCON and chipset capabilities to select the lower permitted
+ *       register bound; on violation stops the Copper and clears its CPU special
+ *       flag.
+ *
+ ****************************************************************************/
+
 static int test_copper_dangerous (unsigned int address)
 {
     if ((address & 0x1fe) < (copcon & 2 ? ((currprefs.chipset_mask & CSMASK_AGA) ? 0 : 0x40u) : 0x80u)) {
@@ -6071,6 +6993,26 @@ static int test_copper_dangerous (unsigned int address)
     }
     return 0;
 }
+
+/****i* januae-custom-blitter-sprite-copper/perform_copper_write
+ *
+ *   NAME
+ *       perform_copper_write()
+ *
+ *   SYNOPSIS
+ *       static void perform_copper_write (unsigned int old_hpos)
+ *
+ *   FUNCTION
+ *       Commit a delayed Copper MOVE or Copper list-jump strobe.
+ *
+ *   INPUTS
+ *       old_hpos -- horizontal beam position at which the pending MOVE completes
+ *
+ *   NOTES
+ *       Rejects protected addresses, handles 0x88/0x8A jump registers, and
+ *       otherwise dispatches through custom_wput_1() at the prior beam position.
+ *
+ ****************************************************************************/
 
 static void perform_copper_write (unsigned int old_hpos)
 {
@@ -6122,6 +7064,28 @@ static int isagnus[]= {
     0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 };
 
+/****i* januae-custom-blitter-sprite-copper/dump_copper
+ *
+ *   NAME
+ *       dump_copper()
+ *
+ *   SYNOPSIS
+ *       static void dump_copper (const char *error, unsigned int until_hpos)
+ *
+ *   FUNCTION
+ *       Emit a bounded diagnostic snapshot of the current Copper state.
+ *
+ *   INPUTS
+ *       error -- text prefix identifying the Copper diagnostic condition
+ *       until_hpos -- horizontal beam position through which Copper execution
+ *           advances
+ *
+ *   NOTES
+ *       Uses a static counter initially set to ten; once negative, further calls
+ *       produce no output.
+ *
+ ****************************************************************************/
+
 static void dump_copper (const char *error, unsigned int until_hpos)
 {
     static int warned = 10;
@@ -6136,6 +7100,29 @@ static void dump_copper (const char *error, unsigned int until_hpos)
     write_log("cstate=%d ip=%08.8X ev_copper=%d\n",
 	cop_state.state,cop_state.ip,eventtab[ev_copper].active);
 }
+
+/****i* januae-custom-blitter-sprite-copper/update_copper
+ *
+ *   NAME
+ *       update_copper()
+ *
+ *   SYNOPSIS
+ *       static void update_copper (unsigned int until_hpos)
+ *
+ *   FUNCTION
+ *       Advance the Copper state machine through the requested horizontal
+ *       position.
+ *
+ *   INPUTS
+ *       until_hpos -- horizontal beam position through which Copper execution
+ *           advances
+ *
+ *   NOTES
+ *       Models instruction fetch contention, MOVE delivery delay, WAIT/SKIP and
+ *       blitter wait; clamps processing to the current line and persists
+ *       cop_state.hpos.
+ *
+ ****************************************************************************/
 
 static void update_copper (unsigned int until_hpos)
 {
@@ -6387,6 +7374,23 @@ static void update_copper (unsigned int until_hpos)
     cop_state.hpos = c_hpos;
 }
 
+/****i* januae-custom-blitter-sprite-copper/compute_spcflag_copper
+ *
+ *   NAME
+ *       compute_spcflag_copper()
+ *
+ *   SYNOPSIS
+ *       static void compute_spcflag_copper (void)
+ *
+ *   FUNCTION
+ *       Recompute whether Copper execution should set the CPU special flag.
+ *
+ *   NOTES
+ *       Disables scheduling when Copper DMA is off, the state is stopped or
+ *       waiting for the blitter, or an unsatisfied vertical WAIT remains.
+ *
+ ****************************************************************************/
+
 static void compute_spcflag_copper (void)
 {
     copper_enabled_thisline = 0;
@@ -6406,6 +7410,24 @@ static void compute_spcflag_copper (void)
 	set_special (&regs, SPCFLAG_COPPER);
 }
 
+/****i* januae-custom-blitter-sprite-copper/copper_handler
+ *
+ *   NAME
+ *       copper_handler()
+ *
+ *   SYNOPSIS
+ *       void copper_handler (void)
+ *
+ *   FUNCTION
+ *       Transfer an active scheduled Copper event into CPU special-flag
+ *       processing.
+ *
+ *   NOTES
+ *       Sets SPCFLAG_COPPER and clears the event; aborts if invoked while the
+ *       Copper is disabled on this line.
+ *
+ ****************************************************************************/
+
 void copper_handler (void)
 {
     /* This will take effect immediately, within the same cycle.  */
@@ -6416,6 +7438,23 @@ void copper_handler (void)
 
     eventtab[ev_copper].active = 0;
 }
+
+/****i* januae-custom-blitter-sprite-copper/blitter_done_notify
+ *
+ *   NAME
+ *       blitter_done_notify()
+ *
+ *   SYNOPSIS
+ *       void blitter_done_notify (void)
+ *
+ *   FUNCTION
+ *       Resume a Copper WAIT that was suspended on blitter completion.
+ *
+ *   NOTES
+ *       Only acts in COP_bltwait; records current beam coordinates, introduces a
+ *       two-cycle wait-state transition, and recomputes scheduling.
+ *
+ ****************************************************************************/
 
 void blitter_done_notify (void)
 {
@@ -6429,6 +7468,23 @@ void blitter_done_notify (void)
     compute_spcflag_copper ();
 }
 
+/****i* januae-custom-blitter-sprite-copper/do_copper
+ *
+ *   NAME
+ *       do_copper()
+ *
+ *   SYNOPSIS
+ *       void do_copper (void)
+ *
+ *   FUNCTION
+ *       Advance the Copper emulation to the current CPU beam position.
+ *
+ *   NOTES
+ *       Delegates to update_copper(current_hpos()) without changing the
+ *       requested target beam position.
+ *
+ ****************************************************************************/
+
 void do_copper (void)
 {
     unsigned int hpos = current_hpos ();
@@ -6439,6 +7495,30 @@ void do_copper (void)
    the reason why we want to update the copper.  This function is also
    used from hsync_handler to finish up the line; for this case, we check
    hpos against maxhpos.  */
+/****i* januae-custom-blitter-sprite-copper/sync_copper_with_cpu
+ *
+ *   NAME
+ *       sync_copper_with_cpu()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void sync_copper_with_cpu (unsigned int hpos, int
+ *       do_schedule)
+ *
+ *   FUNCTION
+ *       Synchronize Copper progress before CPU register access or line
+ *       completion.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position for the current register update
+ *       do_schedule -- nonzero to recompute the event schedule when cancelling
+ *           an event
+ *
+ *   NOTES
+ *       Cancels an active Copper event, optionally schedules events, sets
+ *       SPCFLAG_COPPER and advances Copper state only if enabled this line.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void sync_copper_with_cpu (unsigned int hpos, int do_schedule)
 {
     /* Need to let the copper advance to the current position.  */
