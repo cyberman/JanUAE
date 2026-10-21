@@ -139,6 +139,30 @@ static int need_argb32_hack = 0;
 /* This stuff should probably be moved elsewhere */
 #if (defined __powerpc__ || defined __ppc__ || defined __POWERPC__ \
      || defined __PPC__) && defined __GNUC__
+/****i* januae-picasso96/memcpy_bswap32_ppc
+ *
+ *   NAME
+ *       memcpy_bswap32()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void memcpy_bswap32 (void *dst, void *src, int n)
+ *
+ *   FUNCTION
+ *       Copy complete 32-bit words from source to destination while reversing
+ *       the byte order of each word.
+ *
+ *   INPUTS
+ *       dst -- Caller-provided output pixel memory.
+ *       src -- Source pixel memory.
+ *       n -- Byte count; only full 32-bit words are processed.
+ *
+ *   NOTES
+ *       The PPC implementation uses stwbrx; other hosts use bswap_32(). The
+ *       final one to three bytes of n are not copied. The PPC version still
+ *       accesses one word when n is less than four.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void memcpy_bswap32 (void *dst, void *src, int n)
 {
     int words = n / 4;
@@ -168,6 +192,30 @@ STATIC_INLINE void memcpy_bswap32 (void *dst, void *src, int n)
    }
 }
 #else
+/****i* januae-picasso96/memcpy_bswap32_portable
+ *
+ *   NAME
+ *       memcpy_bswap32()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void memcpy_bswap32 (void *dst, void *src, int n)
+ *
+ *   FUNCTION
+ *       Copy complete 32-bit words from source to destination while reversing
+ *       the byte order of each word.
+ *
+ *   INPUTS
+ *       dst -- Caller-provided output pixel memory.
+ *       src -- Source pixel memory.
+ *       n -- Byte count; only full 32-bit words are processed.
+ *
+ *   NOTES
+ *       The PPC implementation uses stwbrx; other hosts use bswap_32(). The
+ *       final one to three bytes of n are not copied. The PPC version still
+ *       accesses one word when n is less than four.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void memcpy_bswap32 (void *dst, void *src, int n)
 {
     int i = n / 4;
@@ -182,6 +230,27 @@ STATIC_INLINE void memcpy_bswap32 (void *dst, void *src, int n)
 /*
  * Debugging dumps
  */
+
+/****i* januae-picasso96/DumpModeInfoStructure
+ *
+ *   NAME
+ *       DumpModeInfoStructure()
+ *
+ *   SYNOPSIS
+ *       static void DumpModeInfoStructure (uaecptr amigamodeinfoptr)
+ *
+ *   FUNCTION
+ *       Log the emulated ModeInfo fields at the given Amiga address using
+ *       endian-aware guest reads.
+ *
+ *   INPUTS
+ *       amigamodeinfoptr -- Emulated address of a P96 ModeInfo.
+ *
+ *   NOTES
+ *       Diagnostic helper; it writes to the UAE log and does not alter the guest
+ *       structure.
+ *
+ ****************************************************************************/
 
 static void DumpModeInfoStructure (uaecptr amigamodeinfoptr)
 {
@@ -211,6 +280,27 @@ static void DumpModeInfoStructure (uaecptr amigamodeinfoptr)
     write_log ("  ClockDivide   = %d\n",   get_byte (amigamodeinfoptr + PSSO_ModeInfo_second_union));
     write_log ("  PixelClock    = %d\n",   get_long (amigamodeinfoptr + PSSO_ModeInfo_PixelClock));
 }
+
+/****i* januae-picasso96/DumpLibResolutionStructure
+ *
+ *   NAME
+ *       DumpLibResolutionStructure()
+ *
+ *   SYNOPSIS
+ *       static void DumpLibResolutionStructure (uaecptr amigalibresptr)
+ *
+ *   FUNCTION
+ *       Diagnostic entry intended to print an emulated LibResolution and its
+ *       ModeInfo entries.
+ *
+ *   INPUTS
+ *       amigalibresptr -- Emulated address of a P96 LibResolution.
+ *
+ *   NOTES
+ *       An unconditional return follows its initial address translation; all
+ *       logging and mode traversal are currently unreachable.
+ *
+ ****************************************************************************/
 
 static void DumpLibResolutionStructure (uaecptr amigalibresptr)
 {
@@ -243,6 +333,26 @@ static void DumpLibResolutionStructure (uaecptr amigalibresptr)
 
 static char binary_byte[9];
 
+/****i* januae-picasso96/BuildBinaryString
+ *
+ *   NAME
+ *       BuildBinaryString()
+ *
+ *   SYNOPSIS
+ *       static char *BuildBinaryString (uae_u8 value)
+ *
+ *   FUNCTION
+ *       Format one byte as eight most-significant-bit-first # or . characters.
+ *
+ *   INPUTS
+ *       value -- Source eight-bit value.
+ *
+ *   RESULT
+ *       Returns a pointer to the shared nine-byte static buffer, overwritten by
+ *       the next call.
+ *
+ ****************************************************************************/
+
 static char *BuildBinaryString (uae_u8 value)
 {
     int i;
@@ -252,6 +362,26 @@ static char *BuildBinaryString (uae_u8 value)
     binary_byte[8] = '\0';
     return binary_byte;
 }
+
+/****i* januae-picasso96/DumpPattern
+ *
+ *   NAME
+ *       DumpPattern()
+ *
+ *   SYNOPSIS
+ *       static void DumpPattern (struct Pattern *patt)
+ *
+ *   FUNCTION
+ *       Retain the legacy pattern-dump hook for P96 tracing.
+ *
+ *   INPUTS
+ *       patt -- Host-side Pattern to inspect.
+ *
+ *   NOTES
+ *       The entire diagnostic implementation is commented out; currently has no
+ *       effect.
+ *
+ ****************************************************************************/
 
 static void DumpPattern (struct Pattern *patt)
 {
@@ -267,6 +397,28 @@ static void DumpPattern (struct Pattern *patt)
     }
 */
 }
+
+/****i* januae-picasso96/DumpTemplate
+ *
+ *   NAME
+ *       DumpTemplate()
+ *
+ *   SYNOPSIS
+ *       static void DumpTemplate (struct Template *tmp, uae_u16 w, uae_u16 h)
+ *
+ *   FUNCTION
+ *       Retain the legacy template-dump hook for P96 tracing.
+ *
+ *   INPUTS
+ *       tmp -- Template to inspect.
+ *       w -- Rectangle width.
+ *       h -- Rectangle height.
+ *
+ *   NOTES
+ *       The entire diagnostic implementation is commented out; currently has no
+ *       effect.
+ *
+ ****************************************************************************/
 
 static void DumpTemplate (struct Template *tmp, uae_u16 w, uae_u16 h)
 {
@@ -285,10 +437,42 @@ static void DumpTemplate (struct Template *tmp, uae_u16 w, uae_u16 h)
 */
   }
 
+/****i* januae-picasso96/picasso_nr_resolutions
+ *
+ *   NAME
+ *       picasso_nr_resolutions()
+ *
+ *   SYNOPSIS
+ *       int picasso_nr_resolutions (void)
+ *
+ *   FUNCTION
+ *       Report the number of display modes currently stored in DisplayModes.
+ *
+ *   RESULT
+ *       Returns mode_count, without recomputing or validating it.
+ *
+ ****************************************************************************/
+
 int picasso_nr_resolutions (void)
 {
     return mode_count;
 }
+
+/****i* januae-picasso96/ShowSupportedResolutions
+ *
+ *   NAME
+ *       ShowSupportedResolutions()
+ *
+ *   SYNOPSIS
+ *       static void ShowSupportedResolutions (void)
+ *
+ *   FUNCTION
+ *       Pass the current mode count and each stored mode name to P96LOG.
+ *
+ *   NOTES
+ *       Logging is disabled unless P96TRACING_ENABLED is active.
+ *
+ ****************************************************************************/
 
 static void ShowSupportedResolutions (void)
 {
@@ -300,6 +484,26 @@ static void ShowSupportedResolutions (void)
 	P96LOG("%s\n", DisplayModes[i].name);
 
 }
+
+/****i* januae-picasso96/GetBytesPerPixel
+ *
+ *   NAME
+ *       GetBytesPerPixel()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u8 GetBytesPerPixel (uae_u32 RGBfmt)
+ *
+ *   FUNCTION
+ *       Map a P96 RGBFB pixel-format code to its packed pixel size in bytes.
+ *
+ *   INPUTS
+ *       RGBfmt -- P96 RGBFB pixel-format code.
+ *
+ *   RESULT
+ *       Returns 1 for CLUT, 2 for 15/16-bit formats, 3 for 24-bit formats, 4 for
+ *       32-bit formats, or 0 for unknown values.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE uae_u8 GetBytesPerPixel (uae_u32 RGBfmt)
 {
@@ -333,6 +537,33 @@ STATIC_INLINE uae_u8 GetBytesPerPixel (uae_u32 RGBfmt)
 /*
  * Amiga <-> native structure conversion functions
  */
+/****i* januae-picasso96/CopyRenderInfoStructureA2U
+ *
+ *   NAME
+ *       CopyRenderInfoStructureA2U()
+ *
+ *   SYNOPSIS
+ *       static int CopyRenderInfoStructureA2U (uaecptr amigamemptr, struct
+ *       RenderInfo *ri)
+ *
+ *   FUNCTION
+ *       Translate guest RenderInfo fields and its framebuffer address to a
+ *       host-side RenderInfo.
+ *
+ *   INPUTS
+ *       amigamemptr -- Guest address of the source/destination P96 structure.
+ *       ri -- Output host RenderInfo.
+ *
+ *   RESULT
+ *       Returns 1 if valid_address accepts the guest memory pointer; otherwise
+ *       logs and returns 0.
+ *
+ *   NOTES
+ *       The validity check uses PSSO_RenderInfo_sizeof for the framebuffer
+ *       pointer, not the actual rectangular image extent.
+ *
+ ****************************************************************************/
+
 static int CopyRenderInfoStructureA2U (uaecptr amigamemptr,
 				       struct RenderInfo *ri)
 {
@@ -348,6 +579,31 @@ static int CopyRenderInfoStructureA2U (uaecptr amigamemptr,
     write_log ("P96: ERROR - Invalid RenderInfo memory area.\n");
     return 0;
 }
+
+/****i* januae-picasso96/CopyPatternStructureA2U
+ *
+ *   NAME
+ *       CopyPatternStructureA2U()
+ *
+ *   SYNOPSIS
+ *       static int CopyPatternStructureA2U (uaecptr amigamemptr, struct Pattern
+ *       *pattern)
+ *
+ *   FUNCTION
+ *       Read an emulated Pattern, resolve its data pointer and import drawing
+ *       offsets, pens and mode.
+ *
+ *   INPUTS
+ *       amigamemptr -- Guest address of the source/destination P96 structure.
+ *       pattern -- Output host Pattern.
+ *
+ *   RESULT
+ *       Returns 1 on the pointer validation path and 0 on rejection.
+ *
+ *   NOTES
+ *       Only the fixed PSSO_Pattern_sizeof address range is validated.
+ *
+ ****************************************************************************/
 
 static int CopyPatternStructureA2U (uaecptr amigamemptr,
 				    struct Pattern *pattern)
@@ -368,6 +624,28 @@ static int CopyPatternStructureA2U (uaecptr amigamemptr,
     return 0;
 }
 
+/****i* januae-picasso96/CopyColorIndexMappingA2U
+ *
+ *   NAME
+ *       CopyColorIndexMappingA2U()
+ *
+ *   SYNOPSIS
+ *       static void CopyColorIndexMappingA2U (uaecptr amigamemptr, struct
+ *       ColorIndexMapping *cim)
+ *
+ *   FUNCTION
+ *       Copy the ColorMask and all 256 direct-color lookup entries from guest
+ *       memory into a host mapping.
+ *
+ *   INPUTS
+ *       amigamemptr -- Guest address of the source/destination P96 structure.
+ *       cim -- Output color-index mapping.
+ *
+ *   NOTES
+ *       No explicit guest-address validation is performed in this function.
+ *
+ ****************************************************************************/
+
 static void CopyColorIndexMappingA2U (uaecptr amigamemptr,
 				      struct ColorIndexMapping *cim)
 {
@@ -376,6 +654,33 @@ static void CopyColorIndexMappingA2U (uaecptr amigamemptr,
     for (i = 0; i < 256; i++, amigamemptr += 4)
 	cim->Colors[i] = get_long (amigamemptr + 4);
 }
+
+/****i* januae-picasso96/CopyBitMapStructureA2U
+ *
+ *   NAME
+ *       CopyBitMapStructureA2U()
+ *
+ *   SYNOPSIS
+ *       static int CopyBitMapStructureA2U (uaecptr amigamemptr, struct BitMap
+ *       *bm)
+ *
+ *   FUNCTION
+ *       Copy Amiga BitMap geometry and up to eight plane addresses into a host
+ *       BitMap.
+ *
+ *   INPUTS
+ *       amigamemptr -- Guest address of the source/destination P96 structure.
+ *       bm -- Output host-side Amiga BitMap descriptor.
+ *
+ *   RESULT
+ *       Returns 1 if the depth is at most eight and every non-sentinel plane
+ *       passes the address check; otherwise 0.
+ *
+ *   NOTES
+ *       Guest plane values 0 and 0xffffffff map to the shared all-zero and
+ *       all-one sentinel bytes.
+ *
+ ****************************************************************************/
 
 static int CopyBitMapStructureA2U (uaecptr amigamemptr, struct BitMap *bm)
 {
@@ -412,6 +717,31 @@ static int CopyBitMapStructureA2U (uaecptr amigamemptr, struct BitMap *bm)
     return 1;
 }
 
+/****i* januae-picasso96/CopyTemplateStructureA2U
+ *
+ *   NAME
+ *       CopyTemplateStructureA2U()
+ *
+ *   SYNOPSIS
+ *       static int CopyTemplateStructureA2U (uaecptr amigamemptr, struct
+ *       Template *tmpl)
+ *
+ *   FUNCTION
+ *       Import the template data address, row stride, bit offset, draw mode and
+ *       two pens.
+ *
+ *   INPUTS
+ *       amigamemptr -- Guest address of the source/destination P96 structure.
+ *       tmpl -- Output host-side P96 Template.
+ *
+ *   RESULT
+ *       Returns 1 when the template data pointer passes validation, otherwise 0.
+ *
+ *   NOTES
+ *       Only one byte of the referenced template data is currently validated.
+ *
+ ****************************************************************************/
+
 static int CopyTemplateStructureA2U (uaecptr amigamemptr,
 				     struct Template *tmpl)
 {
@@ -429,6 +759,29 @@ static int CopyTemplateStructureA2U (uaecptr amigamemptr,
     write_log ("P96: ERROR - Invalid Template memory area.\n");
     return 0;
 }
+
+/****i* januae-picasso96/CopyLibResolutionStructureU2A
+ *
+ *   NAME
+ *       CopyLibResolutionStructureU2A()
+ *
+ *   SYNOPSIS
+ *       static void CopyLibResolutionStructureU2A (struct LibResolution *libres,
+ *       uaecptr amigamemptr)
+ *
+ *   FUNCTION
+ *       Write a host LibResolution description into an emulated P96
+ *       LibResolution structure.
+ *
+ *   INPUTS
+ *       libres -- Host-side LibResolution description.
+ *       amigamemptr -- Guest address of the source/destination P96 structure.
+ *
+ *   NOTES
+ *       Requires the destination to lie in translated gfx memory; clears the
+ *       destination and writes guest-endian P96 fields.
+ *
+ ****************************************************************************/
 
 static void CopyLibResolutionStructureU2A (struct LibResolution *libres,
 					   uaecptr amigamemptr)
@@ -462,6 +815,28 @@ static void CopyLibResolutionStructureU2A (struct LibResolution *libres,
 
 /* l is Amiga address of list, in correct endian format for UAE
  * n is Amiga address of node, in correct endian format for UAE */
+/****i* januae-picasso96/AmigaListAddTail
+ *
+ *   NAME
+ *       AmigaListAddTail()
+ *
+ *   SYNOPSIS
+ *       static void AmigaListAddTail (uaecptr l, uaecptr n)
+ *
+ *   FUNCTION
+ *       Link a guest Node to the tail of an Amiga-style list using guest-endian
+ *       pointer writes.
+ *
+ *   INPUTS
+ *       l -- Guest address of the list header.
+ *       n -- Guest address of node being appended.
+ *
+ *   NOTES
+ *       The caller supplies valid emulated addresses for the list header and
+ *       node; no list consistency checks are performed.
+ *
+ ****************************************************************************/
+
 static void AmigaListAddTail (uaecptr l, uaecptr n)
 {
     put_long (n + 0, l + 4);		// n->ln_Succ = (struct Node *)&l->lh_Tail;
@@ -479,6 +854,35 @@ static void AmigaListAddTail (uaecptr l, uaecptr n)
  * filled rectangle in the frame buffer; it can be used as a memcpy source if
  * there is no OS specific function to fill the rectangle.
  */
+/****i* januae-picasso96/do_fillrect
+ *
+ *   NAME
+ *       do_fillrect()
+ *
+ *   SYNOPSIS
+ *       static void do_fillrect (uae_u8 *src, int x, int y, int width, int
+ *       height, uae_u32 pen, int Bpp, RGBFTYPE rgbtype)
+ *
+ *   FUNCTION
+ *       Mirror a filled P96 framebuffer rectangle into the displayed host
+ *       framebuffer.
+ *
+ *   INPUTS
+ *       src -- Source pixel memory.
+ *       x -- Rectangle X coordinate.
+ *       y -- Rectangle Y coordinate.
+ *       width -- Rectangle width in pixels.
+ *       height -- Rectangle height in pixels.
+ *       pen -- Pixel fill value.
+ *       Bpp -- Pixel size in bytes.
+ *       rgbtype -- Host RGB pixel format.
+ *
+ *   NOTES
+ *       Performs clipping against P96 viewport geometry, host buffer locking and
+ *       format conversion as necessary.
+ *
+ ****************************************************************************/
+
 static void do_fillrect (uae_u8 *src, int x, int y, int width, int height,
 			 uae_u32 pen, int Bpp, RGBFTYPE rgbtype)
 {
@@ -594,6 +998,38 @@ static void do_fillrect (uae_u8 *src, int x, int y, int width, int height,
  * must do it by hand using the data in the save area, pointed to by
  * srcp.
  */
+/****i* januae-picasso96/do_blit
+ *
+ *   NAME
+ *       do_blit()
+ *
+ *   SYNOPSIS
+ *       static void do_blit (struct RenderInfo *ri, int Bpp, int srcx, int srcy,
+ *       int dstx, int dsty, int width, int height, BLIT_OPCODE opcode, int
+ *       can_do_blit)
+ *
+ *   FUNCTION
+ *       Propagate a rectangle blit from emulated P96 framebuffer memory to the
+ *       host display.
+ *
+ *   INPUTS
+ *       ri -- RenderInfo for the framebuffer.
+ *       Bpp -- Pixel size in bytes.
+ *       srcx -- Source X coordinate.
+ *       srcy -- Source Y coordinate.
+ *       dstx -- Destination X coordinate.
+ *       dsty -- Destination Y coordinate.
+ *       width -- Rectangle width in pixels.
+ *       height -- Rectangle height in pixels.
+ *       opcode -- P96 raster-operation selector.
+ *       can_do_blit -- Whether direct visible blitting is permitted.
+ *
+ *   NOTES
+ *       Clips source/destination to the visible viewport; can copy directly or
+ *       perform a fallback when the visible blit is unsuitable.
+ *
+ ****************************************************************************/
+
 static void do_blit (struct RenderInfo *ri, int Bpp, int srcx, int srcy,
 		     int dstx, int dsty, int width, int height,
 		     BLIT_OPCODE opcode, int can_do_blit)
@@ -720,6 +1156,33 @@ static void do_blit (struct RenderInfo *ri, int Bpp, int srcx, int srcy,
  * Invert a rectangle on the screen.
  */
 
+/****i* januae-picasso96/do_invertrect
+ *
+ *   NAME
+ *       do_invertrect()
+ *
+ *   SYNOPSIS
+ *       static void do_invertrect (struct RenderInfo *ri, int Bpp, int x, int y,
+ *       int width, int height)
+ *
+ *   FUNCTION
+ *       Refresh the host display area following an inversion in the emulated
+ *       framebuffer.
+ *
+ *   INPUTS
+ *       ri -- RenderInfo for the framebuffer.
+ *       Bpp -- Pixel size in bytes.
+ *       x -- Rectangle X coordinate.
+ *       y -- Rectangle Y coordinate.
+ *       width -- Rectangle width in pixels.
+ *       height -- Rectangle height in pixels.
+ *
+ *   NOTES
+ *       Delegates to do_blit() with BLIT_SRC rather than implementing a
+ *       host-side inversion operation.
+ *
+ ****************************************************************************/
+
 static void do_invertrect (struct RenderInfo *ri, int Bpp, int x, int y,
 			   int width, int height)
 {
@@ -777,6 +1240,30 @@ static int     currline_y;       /* row number of this line */
  * first_byte = Offset in bytes from start of line to first byte to write.
  * byte_count = Number of bytes to write from source line.
  */
+/****i* januae-picasso96/write_currline
+ *
+ *   NAME
+ *       write_currline()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void write_currline (uae_u8 *srcp, int line_no, int
+ *       first_byte, int byte_count)
+ *
+ *   FUNCTION
+ *       Copy a modified scanline segment to the locked host display buffer.
+ *
+ *   INPUTS
+ *       srcp -- Source framebuffer bytes.
+ *       line_no -- Visible host scanline index.
+ *       first_byte -- Byte displacement into scanline.
+ *       byte_count -- Number of bytes to copy.
+ *
+ *   NOTES
+ *       When pixel formats match copies bytes, swapping 32-bit pixels if needed;
+ *       otherwise converts CLUT indices for supported 16/32-bit host formats.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void write_currline (uae_u8 *srcp, int line_no, int first_byte, int byte_count)
 {
     uae_u8 *dstp;
@@ -814,6 +1301,24 @@ STATIC_INLINE void write_currline (uae_u8 *srcp, int line_no, int first_byte, in
     }
 }
 
+/****i* januae-picasso96/flush_currline
+ *
+ *   NAME
+ *       flush_currline()
+ *
+ *   SYNOPSIS
+ *       static void flush_currline (void)
+ *
+ *   FUNCTION
+ *       Invalidate and optionally copy the accumulated dirty P96 framebuffer
+ *       line to the host display.
+ *
+ *   NOTES
+ *       Only visible lines are propagated. Resets currline_start to 0xffffffff
+ *       after processing.
+ *
+ ****************************************************************************/
+
 static void flush_currline (void)
 {
     int line_no = currline_y - picasso96_state.YOffset;
@@ -850,12 +1355,49 @@ static void flush_currline (void)
     currline_start = 0xFFFFFFFF;
 }
 
+/****i* januae-picasso96/wgfx_flushline
+ *
+ *   NAME
+ *       wgfx_flushline()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void wgfx_flushline (void)
+ *
+ *   FUNCTION
+ *       Flush the pending dirty line when a Picasso screen is enabled.
+ *
+ *   NOTES
+ *       No-op when no line is pending or picasso_on is false.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void wgfx_flushline (void)
 {
     if (currline_start == 0xFFFFFFFF || !picasso_on)
 	return;
     flush_currline ();
 }
+
+/****i* januae-picasso96/renderinfo_is_current_screen
+ *
+ *   NAME
+ *       renderinfo_is_current_screen()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int renderinfo_is_current_screen (struct RenderInfo *ri)
+ *
+ *   FUNCTION
+ *       Test whether a RenderInfo points to the framebuffer currently displayed
+ *       by P96.
+ *
+ *   INPUTS
+ *       ri -- RenderInfo for the framebuffer.
+ *
+ *   RESULT
+ *       Returns 1 only when picasso_on is set and ri->Memory matches the active
+ *       framebuffer base; otherwise 0.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE int renderinfo_is_current_screen (struct RenderInfo *ri)
 {
@@ -875,6 +1417,28 @@ STATIC_INLINE int renderinfo_is_current_screen (struct RenderInfo *ri)
  *    been lost.
  */
 extern unsigned int new_beamcon0;
+
+/****i* januae-picasso96/picasso_refresh
+ *
+ *   NAME
+ *       picasso_refresh()
+ *
+ *   SYNOPSIS
+ *       void picasso_refresh (int call_setpalette)
+ *
+ *   FUNCTION
+ *       Redraw the active Picasso screen from the emulated framebuffer and
+ *       adjust emulated beam control.
+ *
+ *   INPUTS
+ *       call_setpalette -- Legacy palette flag; unused.
+ *
+ *   NOTES
+ *       No-op when Picasso output is off; logs an error instead of blitting if
+ *       the current screen address is zero. The call_setpalette parameter is
+ *       unused.
+ *
+ ****************************************************************************/
 
 void picasso_refresh (int call_setpalette)
 {
@@ -924,6 +1488,40 @@ void picasso_refresh (int call_setpalette)
 /*
 * Functions to perform an action on the frame-buffer
 */
+/****i* januae-picasso96/do_blitrect_frame_buffer
+ *
+ *   NAME
+ *       do_blitrect_frame_buffer()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void do_blitrect_frame_buffer (struct RenderInfo *ri,
+ *       struct RenderInfo *dstri, unsigned long srcx, unsigned long srcy,
+ *       unsigned long dstx, unsigned long dsty, unsigned long width, unsigned
+ *       long height, uae_u8 mask, BLIT_OPCODE opcode)
+ *
+ *   FUNCTION
+ *       Execute a P96 rectangular blit between source and destination
+ *       framebuffer memory areas.
+ *
+ *   INPUTS
+ *       ri -- RenderInfo for the framebuffer.
+ *       dstri -- Optional destination RenderInfo.
+ *       srcx -- Source X coordinate.
+ *       srcy -- Source Y coordinate.
+ *       dstx -- Destination X coordinate.
+ *       dsty -- Destination Y coordinate.
+ *       width -- Rectangle width in pixels.
+ *       height -- Rectangle height in pixels.
+ *       mask -- Pixel/plane write mask.
+ *       opcode -- P96 raster-operation selector.
+ *
+ *   NOTES
+ *       Supports masks and BLIT_OPCODE logic, including overlapping
+ *       source/destination cases. Operates on guest-backed host addresses
+ *       without independent rectangle bounds validation.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void do_blitrect_frame_buffer (struct RenderInfo *ri,
 					     struct RenderInfo *dstri,
 					     unsigned long srcx, unsigned long srcy,
@@ -1143,6 +1741,31 @@ STATIC_INLINE void do_blitrect_frame_buffer (struct RenderInfo *ri,
  * BoardInfo struct supplied by the caller, the rtg.library, for example
  * the MemoryBase, MemorySize and RegisterBase fields.
  */
+/****i* januae-picasso96/picasso_FindCard
+ *
+ *   NAME
+ *       picasso_FindCard()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_FindCard (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Expose one configured virtual P96 graphics card to the emulated
+ *       Picasso96 driver.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns -1 when the graphics memory exists and the card is first
+ *       claimed; otherwise 0.
+ *
+ *   NOTES
+ *       Reports gfxmem_start as MemoryBase and reserves the final 32768 bytes of
+ *       allocated_gfxmem for P96 metadata.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_FindCard (struct regstruct *regs)
 {
     uaecptr AmigaBoardInfo = m68k_areg (regs, 0);
@@ -1163,6 +1786,30 @@ uae_u32 REGPARAM2 picasso_FindCard (struct regstruct *regs)
     } else
 	return 0;
 }
+
+/****i* januae-picasso96/FillBoardInfo
+ *
+ *   NAME
+ *       FillBoardInfo()
+ *
+ *   SYNOPSIS
+ *       static void FillBoardInfo (uaecptr amigamemptr, struct LibResolution
+ *       *res, struct PicassoResolution *dm)
+ *
+ *   FUNCTION
+ *       Build a guest ModeInfo for one host-supported graphics resolution and
+ *       add its address to the matching LibResolution depth slot.
+ *
+ *   INPUTS
+ *       amigamemptr -- Guest address of the source/destination P96 structure.
+ *       res -- In/out LibResolution depth-mode slots.
+ *       dm -- Host mode description.
+ *
+ *   NOTES
+ *       Writes directly into translated graphics memory. Assigns CLUT,
+ *       high-color, true-color or alpha mode based on dm->depth.
+ *
+ ****************************************************************************/
 
 static void FillBoardInfo (uaecptr amigamemptr, struct LibResolution *res,
 			   struct PicassoResolution *dm)
@@ -1288,6 +1935,24 @@ static struct modeids mi[] =
 
 void get_host_resolution(LONG *width, LONG *height, LONG  *depth); /* from j-screen.c */
 
+/****i* januae-picasso96/add_host_resolution
+ *
+ *   NAME
+ *       add_host_resolution()
+ *
+ *   SYNOPSIS
+ *       static void add_host_resolution(void)
+ *
+ *   FUNCTION
+ *       Append the current host display dimensions to the static
+ *       standard-resolution table if not already present.
+ *
+ *   NOTES
+ *       Returns without change when get_host_resolution reports width zero or an
+ *       existing width/height pair is found.
+ *
+ ****************************************************************************/
+
 static void add_host_resolution(void) {
   LONG w, h, d;
   unsigned int i;
@@ -1318,6 +1983,32 @@ static void add_host_resolution(void) {
 
   write_log("added resolution %d x %d to standard resolutions\n", w, h);
 }
+
+/****i* januae-picasso96/AssignModeID
+ *
+ *   NAME
+ *       AssignModeID()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 AssignModeID (int w, int h, unsigned int
+ *       *non_standard_count)
+ *
+ *   FUNCTION
+ *       Assign a P96 display identifier for one width/height pair.
+ *
+ *   INPUTS
+ *       w -- Rectangle width.
+ *       h -- Rectangle height.
+ *       non_standard_count -- Counter updated for nonstandard mode identifiers.
+ *
+ *   RESULT
+ *       Returns a 0x50001000-based ID for a standard mode, or a descending
+ *       0x51001000-based ID for a nonstandard mode.
+ *
+ *   NOTES
+ *       Increments *non_standard_count only for nonstandard sizes.
+ *
+ ****************************************************************************/
 
 static uae_u32 AssignModeID (int w, int h, unsigned int *non_standard_count)
 {
@@ -1362,6 +2053,31 @@ static uae_u32 AssignModeID (int w, int h, unsigned int *non_standard_count)
 * gbi_MaxVerResolution: fill this in for all modes (even if you don't support
 *     them).
 */
+/****i* januae-picasso96/picasso_InitCard
+ *
+ *   NAME
+ *       picasso_InitCard()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_InitCard (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Populate guest BoardInfo capabilities and create guest P96 mode and
+ *       resolution lists for available graphics modes.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns 0 at the end of initialization.
+ *
+ *   NOTES
+ *       Skips modes that exceed gfx-memory capacity after the reserved
+ *       32768-byte metadata area. Mode lists and names are written into emulated
+ *       memory.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_InitCard (struct regstruct *regs) {
 
   struct LibResolution res;
@@ -1470,6 +2186,30 @@ extern int x_size, y_size;
  *
  * NOTE: Return the opposite of the switch-state. BDK
 */
+/****i* januae-picasso96/picasso_SetSwitch
+ *
+ *   NAME
+ *       picasso_SetSwitch()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_SetSwitch (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Record the requested Amiga-versus-Picasso video signal and invalidate
+ *       JIT code-cache assumptions.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns the logical negation of the requested switch flag.
+ *
+ *   NOTES
+ *       Does not change the display immediately: custom-chip emulation applies
+ *       picasso_requested_on later.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_SetSwitch (struct regstruct *regs)
 {
     uae_u16 flag = m68k_dreg (regs, 0) & 0xFFFF;
@@ -1490,6 +2230,26 @@ uae_u32 REGPARAM2 picasso_SetSwitch (struct regstruct *regs)
     return !flag;
 }
 
+/****i* januae-picasso96/picasso_enablescreen
+ *
+ *   NAME
+ *       picasso_enablescreen()
+ *
+ *   SYNOPSIS
+ *       void picasso_enablescreen (int on)
+ *
+ *   FUNCTION
+ *       Discard the pending dirty scanline and request a refresh when the
+ *       display switch callback runs.
+ *
+ *   INPUTS
+ *       on -- Requested enabled state; ignored.
+ *
+ *   NOTES
+ *       The on parameter is unused; this routine does not assign picasso_on.
+ *
+ ****************************************************************************/
+
 void picasso_enablescreen (int on)
 {
     currline_start = 0xFFFFFFFF;
@@ -1498,6 +2258,24 @@ void picasso_enablescreen (int on)
 
 static int first_color_changed = 256;
 static int last_color_changed = -1;
+
+/****i* januae-picasso96/picasso_handle_vsync
+ *
+ *   NAME
+ *       picasso_handle_vsync()
+ *
+ *   SYNOPSIS
+ *       void picasso_handle_vsync (void)
+ *
+ *   FUNCTION
+ *       Commit accumulated CLUT changes and flush pending Picasso scanline
+ *       writes on vertical synchronization.
+ *
+ *   NOTES
+ *       For host/guest RGB format mismatch, palette changes also trigger a full
+ *       picasso_refresh(); clears the tracked palette-change interval afterward.
+ *
+ ****************************************************************************/
 
 void picasso_handle_vsync (void)
 {
@@ -1519,6 +2297,23 @@ void picasso_handle_vsync (void)
     wgfx_flushline ();
 }
 
+/****i* januae-picasso96/picasso_handle_hsync
+ *
+ *   NAME
+ *       picasso_handle_hsync()
+ *
+ *   SYNOPSIS
+ *       void picasso_handle_hsync (void)
+ *
+ *   FUNCTION
+ *       Provide the optional horizontal-sync hook for Picasso output.
+ *
+ *   NOTES
+ *       Its entire body is behind #if 0; the compiled function currently does
+ *       nothing.
+ *
+ ****************************************************************************/
+
 void picasso_handle_hsync (void)
 {
 #if 0
@@ -1539,6 +2334,23 @@ void picasso_handle_hsync (void)
 #endif
 }
 
+/****i* januae-picasso96/init_hz_p96
+ *
+ *   NAME
+ *       init_hz_p96()
+ *
+ *   SYNOPSIS
+ *       void init_hz_p96 (void)
+ *
+ *   FUNCTION
+ *       Set the P96 synthetic synchronization interval from maxvpos and
+ *       vblank_hz.
+ *
+ *   NOTES
+ *       Refresh-rate detection is disabled; uses a fixed 60 Hz divisor.
+ *
+ ****************************************************************************/
+
 void init_hz_p96 (void)
 {
     int rate = 0;
@@ -1553,6 +2365,27 @@ void init_hz_p96 (void)
 	rate = 60;
     p96syncrate /= rate;
 }
+
+/****i* januae-picasso96/picasso_clip_mouse
+ *
+ *   NAME
+ *       picasso_clip_mouse()
+ *
+ *   SYNOPSIS
+ *       void picasso_clip_mouse (int *px, int *py)
+ *
+ *   FUNCTION
+ *       Constrain emulated mouse coordinates to the visible P96 viewport
+ *       including panning offsets.
+ *
+ *   INPUTS
+ *       px -- In/out horizontal mouse coordinate.
+ *       py -- In/out vertical mouse coordinate.
+ *
+ *   NOTES
+ *       Modifies both caller-owned coordinate values in place.
+ *
+ ****************************************************************************/
 
 void picasso_clip_mouse (int *px, int *py)
 {
@@ -1581,6 +2414,31 @@ void picasso_clip_mouse (int *px, int *py)
  * per cannon your board has. So you might have to shift the colors
  * before writing them to the hardware.
  */
+/****i* januae-picasso96/picasso_SetColorArray
+ *
+ *   NAME
+ *       picasso_SetColorArray()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_SetColorArray (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Read a range of P96 CLUT RGB triples from the emulated BoardInfo and
+ *       mark changed palette indices.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns 1 after processing.
+ *
+ *   NOTES
+ *       Uses D0 for the first index and D1 for the count; the resulting interval
+ *       is deferred until picasso_handle_vsync(). No CLUT range check is
+ *       present.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_SetColorArray (struct regstruct *regs)
 {
     /* Fill in some static UAE related structure about this new CLUT setting.
@@ -1629,6 +2487,30 @@ uae_u32 REGPARAM2 picasso_SetColorArray (struct regstruct *regs)
  * e.g. from chunky to TrueColor. Usually, all you have to do is to set
  * the RAMDAC of your board accordingly.
  */
+/****i* januae-picasso96/picasso_SetDAC
+ *
+ *   NAME
+ *       picasso_SetDAC()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_SetDAC (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Provide the P96 SetDAC callback used when the requested display pixel
+ *       format changes.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Always returns 1.
+ *
+ *   NOTES
+ *       Current body performs tracing only; no host DAC programming or P96 state
+ *       update occurs.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_SetDAC (struct regstruct *regs)
 {
     /* Fill in some static UAE related structure about this new DAC setting.
@@ -1637,6 +2519,24 @@ uae_u32 REGPARAM2 picasso_SetDAC (struct regstruct *regs)
     P96TRACE (("P96: SetDAC()\n"));
     return 1;
 }
+
+/****i* januae-picasso96/init_picasso_screen
+ *
+ *   NAME
+ *       init_picasso_screen()
+ *
+ *   SYNOPSIS
+ *       static void init_picasso_screen (void)
+ *
+ *   FUNCTION
+ *       Apply the pending P96 graphics mode, palette and framebuffer refresh
+ *       after SetGC or SetPanning.
+ *
+ *   NOTES
+ *       Returns immediately until SetGC has been called; computes the display
+ *       extent when panning is available.
+ *
+ ****************************************************************************/
 
 static void init_picasso_screen (void)
 {
@@ -1678,6 +2578,30 @@ static void init_picasso_screen (void)
  * or linear start adress. They will be set when appropriate by their
  * own functions.
  */
+/****i* januae-picasso96/picasso_SetGC
+ *
+ *   NAME
+ *       picasso_SetGC()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_SetGC (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Import new P96 ModeInfo width, height, depth and flags into the virtual
+ *       graphics card state.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns 1.
+ *
+ *   NOTES
+ *       Marks SetGC as complete, initializes the host screen and updates the
+ *       synthetic sync interval.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_SetGC (struct regstruct *regs)
 {
     /* Fill in some static UAE related structure about this new ModeInfo
@@ -1726,6 +2650,30 @@ uae_u32 REGPARAM2 picasso_SetGC (struct regstruct *regs)
  * background here than in SetSwitch() derived functions,
  * because SetSwitch() is not called for subsequent Picasso screens.
  */
+/****i* januae-picasso96/picasso_SetPanning
+ *
+ *   NAME
+ *       picasso_SetPanning()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_SetPanning (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Capture the guest framebuffer base, pitch, pixel format and viewport
+ *       panning from the P96 driver.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns 1.
+ *
+ *   NOTES
+ *       Flushes pending writes before updating state, then reinitializes the
+ *       display. Takes the guest screen pointer from A1 and format from D7.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_SetPanning (struct regstruct *regs)
 {
     uaecptr bmeptr;
@@ -1758,6 +2706,28 @@ uae_u32 REGPARAM2 picasso_SetPanning (struct regstruct *regs)
 
     return 1;
 }
+
+/****i* januae-picasso96/do_xor8
+ *
+ *   NAME
+ *       do_xor8()
+ *
+ *   SYNOPSIS
+ *       static void do_xor8 (uae_u8 * ptr, long len, uae_u32 val)
+ *
+ *   FUNCTION
+ *       XOR each byte of a memory region with the low eight bits of val.
+ *
+ *   INPUTS
+ *       ptr -- Start of writable pixel buffer.
+ *       len -- Number of bytes.
+ *       val -- Value XORed into each byte.
+ *
+ *   NOTES
+ *       The aligned-word implementation is disabled; performs byte-wise
+ *       endian-aware guest memory accesses.
+ *
+ ****************************************************************************/
 
 static void do_xor8 (uae_u8 * ptr, long len, uae_u32 val)
 {
@@ -1805,6 +2775,29 @@ static void do_xor8 (uae_u8 * ptr, long len, uae_u32 val)
  * This function is used to invert a rectangular area on the board. It is
  * called by BltBitMap, BltPattern and BltTemplate.
  */
+/****i* januae-picasso96/picasso_InvertRect
+ *
+ *   NAME
+ *       picasso_InvertRect()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_InvertRect (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Invert the contents of a P96 rectangle in guest framebuffer memory.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns 1 when CopyRenderInfoStructureA2U succeeds, otherwise 0.
+ *
+ *   NOTES
+ *       For multi-byte pixel formats, overrides partial byte masks to 0xff and
+ *       refreshes the displayed rectangle.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_InvertRect (struct regstruct *regs)
 {
     uaecptr renderinfo   =          m68k_areg (regs, 1);
@@ -1852,6 +2845,36 @@ uae_u32 REGPARAM2 picasso_InvertRect (struct regstruct *regs)
 /*
 * Fill a rectangle in the screen.
 */
+/****i* januae-picasso96/do_fillrect_frame_buffer
+ *
+ *   NAME
+ *       do_fillrect_frame_buffer()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void do_fillrect_frame_buffer (struct RenderInfo *ri, int
+ *       X, int Y, int Width, int Height, uae_u32 Pen, int Bpp, RGBFTYPE
+ *       RGBFormat)
+ *
+ *   FUNCTION
+ *       Write a rectangular solid color into the guest-backed P96 framebuffer
+ *       for 1-, 2-, 3- or 4-byte pixels.
+ *
+ *   INPUTS
+ *       ri -- RenderInfo for the framebuffer.
+ *       X -- Rectangle X coordinate.
+ *       Y -- Rectangle Y coordinate.
+ *       Width -- Rectangle width.
+ *       Height -- Rectangle height.
+ *       Pen -- Fill color/pen.
+ *       Bpp -- Pixel size in bytes.
+ *       RGBFormat -- P96 packed RGB format.
+ *
+ *   NOTES
+ *       Fills the initial scanline by pixel size and replicates it across
+ *       remaining lines; does not itself update the host screen.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void do_fillrect_frame_buffer (struct RenderInfo *ri,
 					     int X, int Y,
 					     int Width, int Height,
@@ -1920,6 +2943,31 @@ FillRect:
 * d5:	UBYTE Mask
 * d7:	uae_u32 RGBFormat
 ***********************************************************/
+/****i* januae-picasso96/picasso_FillRect
+ *
+ *   NAME
+ *       picasso_FillRect()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_FillRect (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Implement P96 FillRect using the guest RenderInfo, pixel format, pen and
+ *       mask from emulated registers.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns 1 for handled rectangles and 0 when translation or mask/format
+ *       handling fails.
+ *
+ *   NOTES
+ *       Uses a direct path for one-pixel-wide/tall visible rectangles; otherwise
+ *       updates framebuffer and possibly mirrors to the host screen.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_FillRect (struct regstruct *regs)
 {
     uaecptr renderinfo =          m68k_areg (regs, 1);
@@ -2084,6 +3132,27 @@ struct blitdata
     BLIT_OPCODE        opcode;
 } blitrectdata;
 
+/****i* januae-picasso96/BlitRectHelper
+ *
+ *   NAME
+ *       BlitRectHelper()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int BlitRectHelper (void)
+ *
+ *   FUNCTION
+ *       Apply the staged blitrectdata operation to the emulated framebuffer and,
+ *       where necessary, the displayed screen.
+ *
+ *   RESULT
+ *       Returns 1, including when BLIT_DST leaves destination data unchanged.
+ *
+ *   NOTES
+ *       The state comes from a single shared blitrectdata instance, not a
+ *       reentrant per-call context.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int BlitRectHelper (void)
 {
     struct RenderInfo *ri    = blitrectdata.ri;
@@ -2146,6 +3215,42 @@ STATIC_INLINE int BlitRectHelper (void)
     return 1;
 }
 
+/****i* januae-picasso96/BlitRect
+ *
+ *   NAME
+ *       BlitRect()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int BlitRect (uaecptr ri, uaecptr dstri, unsigned long
+ *       srcx, unsigned long srcy, unsigned long dstx, unsigned long dsty,
+ *       unsigned long width, unsigned long height, uae_u8 mask, BLIT_OPCODE
+ *       opcode)
+ *
+ *   FUNCTION
+ *       Decode two optional guest RenderInfo structures, stage a rectangle blit,
+ *       and invoke BlitRectHelper().
+ *
+ *   INPUTS
+ *       ri -- RenderInfo for the framebuffer.
+ *       dstri -- Optional destination RenderInfo.
+ *       srcx -- Source X coordinate.
+ *       srcy -- Source Y coordinate.
+ *       dstx -- Destination X coordinate.
+ *       dsty -- Destination Y coordinate.
+ *       width -- Rectangle width in pixels.
+ *       height -- Rectangle height in pixels.
+ *       mask -- Pixel/plane write mask.
+ *       opcode -- P96 raster-operation selector.
+ *
+ *   RESULT
+ *       Returns the result of BlitRectHelper().
+ *
+ *   NOTES
+ *       The return values of the RenderInfo translators are not checked before
+ *       the helper runs.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int BlitRect (uaecptr ri, uaecptr dstri,
                             unsigned long srcx, unsigned long srcy,
 			    unsigned long dstx, unsigned long dsty,
@@ -2188,6 +3293,30 @@ BlitRect:
 * d6:   UBYTE Mask
 * d7:   uae_u32 RGBFormat
 ***********************************************************/
+/****i* januae-picasso96/picasso_BlitRect
+ *
+ *   NAME
+ *       picasso_BlitRect()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_BlitRect (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Implement the guest P96 masked source-copy rectangle operation for one
+ *       RenderInfo.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns the result of BlitRect() using BLIT_SRC.
+ *
+ *   NOTES
+ *       Extracts source/destination coordinates, extent and mask from the 68k D
+ *       registers; flushes pending scanline writes first.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_BlitRect (struct regstruct *regs)
 {
     uaecptr renderinfo   =          m68k_areg (regs, 1);
@@ -2235,6 +3364,31 @@ BlitRectNoMaskComplete:
 *       because the RGBFormat or opcode aren't supported.
 *       OTHERWISE return 1
 ***********************************************************/
+/****i* januae-picasso96/picasso_BlitRectNoMaskComplete
+ *
+ *   NAME
+ *       picasso_BlitRectNoMaskComplete()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_BlitRectNoMaskComplete (struct regstruct
+ *       *regs)
+ *
+ *   FUNCTION
+ *       Implement the guest P96 two-RenderInfo rectangular blit with an explicit
+ *       raster opcode.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns the result of BlitRect() with an all-ones mask.
+ *
+ *   NOTES
+ *       Uses source RenderInfo in A1 and destination RenderInfo in A2; the
+ *       opcode is D6.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_BlitRectNoMaskComplete (struct regstruct *regs)
 {
     uaecptr srcri        =          m68k_areg (regs, 1);
@@ -2270,6 +3424,29 @@ uae_u32 REGPARAM2 picasso_BlitRectNoMaskComplete (struct regstruct *regs)
 }
 
 /* This utility function is used both by BlitTemplate() and BlitPattern() */
+/****i* januae-picasso96/PixelWrite1
+ *
+ *   NAME
+ *       PixelWrite1()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void PixelWrite1 (uae_u8 * mem, int bits, uae_u32 fgpen,
+ *       uae_u32 mask)
+ *
+ *   FUNCTION
+ *       Write one eight-bit pixel at an index in guest framebuffer memory.
+ *
+ *   INPUTS
+ *       mem -- Destination framebuffer bytes.
+ *       bits -- Pixel index relative to mem.
+ *       fgpen -- Pixel color to write.
+ *       mask -- Pixel/plane write mask.
+ *
+ *   NOTES
+ *       Preserves unselected destination bits when mask is not 0xff.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void PixelWrite1 (uae_u8 * mem, int bits, uae_u32 fgpen, uae_u32 mask)
 {
     if (mask != 0xFF)
@@ -2277,10 +3454,53 @@ STATIC_INLINE void PixelWrite1 (uae_u8 * mem, int bits, uae_u32 fgpen, uae_u32 m
     do_put_mem_byte (mem + bits, fgpen);
 }
 
+/****i* januae-picasso96/PixelWrite2
+ *
+ *   NAME
+ *       PixelWrite2()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void PixelWrite2 (uae_u8 * mem, int bits, uae_u32 fgpen)
+ *
+ *   FUNCTION
+ *       Write a 16-bit pixel value through endian-aware guest memory operations.
+ *
+ *   INPUTS
+ *       mem -- Destination framebuffer bytes.
+ *       bits -- Pixel index relative to mem.
+ *       fgpen -- Pixel color to write.
+ *
+ *   NOTES
+ *       The index counts 16-bit pixels, not bytes.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void PixelWrite2 (uae_u8 * mem, int bits, uae_u32 fgpen)
 {
     do_put_mem_word (((uae_u16 *) mem) + bits, fgpen);
 }
+
+/****i* januae-picasso96/PixelWrite3
+ *
+ *   NAME
+ *       PixelWrite3()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void PixelWrite3 (uae_u8 * mem, int bits, uae_u32 fgpen)
+ *
+ *   FUNCTION
+ *       Write a 24-bit packed pixel as one byte and an adjacent 16-bit value.
+ *
+ *   INPUTS
+ *       mem -- Destination framebuffer bytes.
+ *       bits -- Pixel index relative to mem.
+ *       fgpen -- Pixel color to write.
+ *
+ *   NOTES
+ *       Writes exactly three bytes per selected pixel; the upper eight bits of
+ *       fgpen are ignored.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void PixelWrite3 (uae_u8 * mem, int bits, uae_u32 fgpen)
 {
@@ -2288,10 +3508,57 @@ STATIC_INLINE void PixelWrite3 (uae_u8 * mem, int bits, uae_u32 fgpen)
     *(uae_u16 *) (mem + bits * 3 + 1) = (fgpen & 0x00FFFF00) >> 8;
 }
 
+/****i* januae-picasso96/PixelWrite4
+ *
+ *   NAME
+ *       PixelWrite4()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void PixelWrite4 (uae_u8 * mem, int bits, uae_u32 fgpen)
+ *
+ *   FUNCTION
+ *       Write a 32-bit pixel through the endian-aware guest memory primitive.
+ *
+ *   INPUTS
+ *       mem -- Destination framebuffer bytes.
+ *       bits -- Pixel index relative to mem.
+ *       fgpen -- Pixel color to write.
+ *
+ *   NOTES
+ *       The index counts 32-bit pixels, not bytes.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void PixelWrite4 (uae_u8 * mem, int bits, uae_u32 fgpen)
 {
     do_put_mem_long (((uae_u32 *) mem) + bits, fgpen);
 }
+
+/****i* januae-picasso96/PixelWrite
+ *
+ *   NAME
+ *       PixelWrite()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void PixelWrite (uae_u8 * mem, int bits, uae_u32 fgpen,
+ *       uae_u8 Bpp, uae_u32 mask)
+ *
+ *   FUNCTION
+ *       Dispatch a pixel write for an indexed 8-, 16-, 24- or 32-bit
+ *       framebuffer.
+ *
+ *   INPUTS
+ *       mem -- Destination framebuffer bytes.
+ *       bits -- Pixel index relative to mem.
+ *       fgpen -- Pixel color to write.
+ *       Bpp -- Pixel size in bytes.
+ *       mask -- Pixel/plane write mask.
+ *
+ *   NOTES
+ *       A byte mask is applied only to 8-bit pixels. Unsupported bytes-per-pixel
+ *       values have no write branch.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void PixelWrite (uae_u8 * mem, int bits, uae_u32 fgpen, uae_u8 Bpp, uae_u32 mask)
 {
@@ -2338,6 +3605,31 @@ STATIC_INLINE void PixelWrite (uae_u8 * mem, int bits, uae_u32 fgpen, uae_u8 Bpp
  * 2^Size. The data must be shifted up and to the left by XOffset and YOffset
  * pixels at the beginning.
  */
+/****i* januae-picasso96/picasso_BlitPattern
+ *
+ *   NAME
+ *       picasso_BlitPattern()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM picasso_BlitPattern (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Expand a repeating one-bit P96 Pattern into a destination RenderInfo
+ *       with pen colors and draw modes.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns 1 for a handled pattern and 0 when translation or masked COMP
+ *       rendering is rejected.
+ *
+ *   NOTES
+ *       Supports JAM1, JAM2 and complement modes; pattern period is 16 pixels by
+ *       2^Size rows. Updates the host display only for the active screen.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM picasso_BlitPattern (struct regstruct *regs)
 {
     uaecptr rinf    =          m68k_areg (regs, 1);
@@ -2495,6 +3787,31 @@ BlitTemplate:
 * the destination RGBFormat using ForeGround and BackGround pens as well as
 * draw modes.
 ***********************************************************************************/
+/****i* januae-picasso96/picasso_BlitTemplate
+ *
+ *   NAME
+ *       picasso_BlitTemplate()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_BlitTemplate (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Expand a one-bit P96 Template into foreground/background colors using
+ *       the specified draw mode.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns 1 on the current function exit path.
+ *
+ *   NOTES
+ *       Requires translated RenderInfo/Template to render, but the final return
+ *       is 1 even when translation fails. Uses per-row template stride and
+ *       optional inversion.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_BlitTemplate (struct regstruct *regs)
 {
     uaecptr rinf    =          m68k_areg (regs, 1);
@@ -2658,6 +3975,26 @@ uae_u32 REGPARAM2 picasso_BlitTemplate (struct regstruct *regs)
  * This function calculates the amount of bytes needed for a line of
  * "Width" pixels in the given RGBFormat.
  */
+/****i* januae-picasso96/picasso_CalculateBytesPerRow
+ *
+ *   NAME
+ *       picasso_CalculateBytesPerRow()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_CalculateBytesPerRow (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Compute the P96 scanline byte count from width and packed RGB format.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns GetBytesPerPixel(format) multiplied by the 16-bit width,
+ *       truncated through a uae_u16 intermediate.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_CalculateBytesPerRow (struct regstruct *regs)
 {
     uae_u16 width = m68k_dreg (regs, 0);
@@ -2678,6 +4015,29 @@ uae_u32 REGPARAM2 picasso_CalculateBytesPerRow (struct regstruct *regs)
  *
  * NOTE: return the opposite of the state
  */
+/****i* januae-picasso96/picasso_SetDisplay
+ *
+ *   NAME
+ *       picasso_SetDisplay()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_SetDisplay (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Accept a requested video-enable state for the P96 board.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns the logical negation of D0.
+ *
+ *   NOTES
+ *       The current implementation logs the request but does not enable or
+ *       disable any display output.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_SetDisplay (struct regstruct *regs)
 {
     uae_u32 state = m68k_dreg (regs, 0);
@@ -2691,6 +4051,28 @@ uae_u32 REGPARAM2 picasso_SetDisplay (struct regstruct *regs)
  * a0:	struct BoardInfo
  * This function waits for the next horizontal retrace.
  */
+/****i* januae-picasso96/picasso_WaitVerticalSync
+ *
+ *   NAME
+ *       picasso_WaitVerticalSync()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_WaitVerticalSync (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Provide the P96 WaitVerticalSync entry point.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Immediately returns 1.
+ *
+ *   NOTES
+ *       Does not wait for vertical blanking despite its API name.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_WaitVerticalSync (struct regstruct *regs)
 {
     /*write_log ("WaitVerticalSync()\n"); */
@@ -2698,6 +4080,37 @@ uae_u32 REGPARAM2 picasso_WaitVerticalSync (struct regstruct *regs)
 }
 
 /* NOTE: Watch for those planeptrs of 0x00000000 and 0xFFFFFFFF for all zero / all one bitmaps !!!! */
+/****i* januae-picasso96/PlanarToChunky
+ *
+ *   NAME
+ *       PlanarToChunky()
+ *
+ *   SYNOPSIS
+ *       static void PlanarToChunky (struct RenderInfo *ri, struct BitMap *bm,
+ *       unsigned long srcx, unsigned long srcy, unsigned long dstx, unsigned
+ *       long dsty, unsigned long width, unsigned long height, uae_u8 mask)
+ *
+ *   FUNCTION
+ *       Convert a rectangular Amiga planar bitmap region into CLUT-indexed
+ *       chunky framebuffer pixels.
+ *
+ *   INPUTS
+ *       ri -- RenderInfo for the framebuffer.
+ *       bm -- Host-side Amiga BitMap descriptor.
+ *       srcx -- Source X coordinate.
+ *       srcy -- Source Y coordinate.
+ *       dstx -- Destination X coordinate.
+ *       dsty -- Destination Y coordinate.
+ *       width -- Rectangle width in pixels.
+ *       height -- Rectangle height in pixels.
+ *       mask -- Pixel/plane write mask.
+ *
+ *   NOTES
+ *       Supports zero/one plane sentinels and a per-plane source mask; requires
+ *       caller-validated bitmap and destination storage.
+ *
+ ****************************************************************************/
+
 static void PlanarToChunky (struct RenderInfo *ri, struct BitMap *bm,
 			    unsigned long srcx,  unsigned long srcy,
 			    unsigned long dstx,  unsigned long dsty,
@@ -2785,6 +4198,30 @@ static void PlanarToChunky (struct RenderInfo *ri, struct BitMap *bm,
  * are 0x00000000 (represents a plane with all bits "0") or 0xffffffff
  * (represents a plane with all bits "1").
  */
+/****i* januae-picasso96/picasso_BlitPlanar2Chunky
+ *
+ *   NAME
+ *       picasso_BlitPlanar2Chunky()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_BlitPlanar2Chunky (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Handle a P96 planar-to-chunky blit requested by the emulated driver.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns 1 only for supported BLIT_SRC minterm 0x0c and successfully
+ *       translated bitmap/renderinfo; otherwise 0.
+ *
+ *   NOTES
+ *       After planar conversion, mirrors the affected rectangle when destination
+ *       is the active screen.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_BlitPlanar2Chunky (struct regstruct *regs)
 {
     uaecptr bm           =           m68k_areg (regs, 1);
@@ -2826,6 +4263,39 @@ uae_u32 REGPARAM2 picasso_BlitPlanar2Chunky (struct regstruct *regs)
     }
     return 1;
 }
+
+/****i* januae-picasso96/PlanarToDirect
+ *
+ *   NAME
+ *       PlanarToDirect()
+ *
+ *   SYNOPSIS
+ *       static void PlanarToDirect (struct RenderInfo *ri, struct BitMap *bm,
+ *       unsigned long srcx, unsigned long srcy, unsigned long dstx, unsigned
+ *       long dsty, unsigned long width, unsigned long height, uae_u8 mask,
+ *       struct ColorIndexMapping *cim)
+ *
+ *   FUNCTION
+ *       Convert a rectangular planar bitmap region to direct-color pixels using
+ *       a 256-entry color-index mapping.
+ *
+ *   INPUTS
+ *       ri -- RenderInfo for the framebuffer.
+ *       bm -- Host-side Amiga BitMap descriptor.
+ *       srcx -- Source X coordinate.
+ *       srcy -- Source Y coordinate.
+ *       dstx -- Destination X coordinate.
+ *       dsty -- Destination Y coordinate.
+ *       width -- Rectangle width in pixels.
+ *       height -- Rectangle height in pixels.
+ *       mask -- Pixel/plane write mask.
+ *       cim -- Destination/direct-color index mapping.
+ *
+ *   NOTES
+ *       Handles all-zero and all-one plane sentinels and per-plane source mask;
+ *       writes pixels using the RenderInfo packed RGB format.
+ *
+ ****************************************************************************/
 
 static void PlanarToDirect (struct RenderInfo *ri, struct BitMap *bm,
 			    unsigned long srcx,  unsigned long srcy,
@@ -2934,6 +4404,31 @@ static void PlanarToDirect (struct RenderInfo *ri, struct BitMap *bm,
  * values used in FillRect(), BlitPattern() or BlitTemplate().
  */
 
+/****i* januae-picasso96/picasso_BlitPlanar2Direct
+ *
+ *   NAME
+ *       picasso_BlitPlanar2Direct()
+ *
+ *   SYNOPSIS
+ *       uae_u32 REGPARAM2 picasso_BlitPlanar2Direct (struct regstruct *regs)
+ *
+ *   FUNCTION
+ *       Handle a P96 planar-to-direct-color operation via guest RenderInfo,
+ *       BitMap and ColorIndexMapping.
+ *
+ *   INPUTS
+ *       regs -- 68k CPU register snapshot providing the P96 callback arguments.
+ *
+ *   RESULT
+ *       Returns 1 only for BLIT_SRC and successfully translated data; otherwise
+ *       0.
+ *
+ *   NOTES
+ *       Uses a fixed 0xff plane mask; the D7-derived mask assignment is
+ *       commented out. ColorIndexMapping is imported from guest A3 memory.
+ *
+ ****************************************************************************/
+
 uae_u32 REGPARAM2 picasso_BlitPlanar2Direct (struct regstruct *regs)
 {
     uaecptr bm      =          m68k_areg (regs, 1);
@@ -3009,6 +4504,28 @@ uae_u32 REGPARAM2 picasso_BlitPlanar2Direct (struct regstruct *regs)
  * addr = address in Amiga memory of data written.
  * size = size of data written in bytes
  */
+/****i* januae-picasso96/flush_write
+ *
+ *   NAME
+ *       flush_write()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void flush_write (uaecptr addr, uae_u8 size)
+ *
+ *   FUNCTION
+ *       Accumulate dirty framebuffer addresses by scanline for later propagation
+ *       to the host display.
+ *
+ *   INPUTS
+ *       addr -- Emulated graphics-memory address.
+ *       size -- Length of a guest-memory access in bytes.
+ *
+ *   NOTES
+ *       Flushes the preceding line when a write crosses the tracked line
+ *       boundary. Only processes writes while picasso_on is true.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void flush_write (uaecptr addr, uae_u8 size)
 {
     if (picasso_on) {
@@ -3049,6 +4566,29 @@ STATIC_INLINE void flush_write (uaecptr addr, uae_u8 size)
 /*
  * Access routines to the P96 framebuffer
  */
+/****i* januae-picasso96/gfxmem_lget
+ *
+ *   NAME
+ *       gfxmem_lget()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 gfxmem_lget (uaecptr addr)
+ *
+ *   FUNCTION
+ *       Read a 32-bit value from the emulated P96 graphics-memory bank.
+ *
+ *   INPUTS
+ *       addr -- Emulated graphics-memory address.
+ *
+ *   RESULT
+ *       Returns the endian-converted longword at the masked graphics-memory
+ *       offset.
+ *
+ *   NOTES
+ *       Marks a special read under JIT and applies gfxmem_mask to the address.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 gfxmem_lget (uaecptr addr)
 {
     uae_u32 *m;
@@ -3061,6 +4601,28 @@ static uae_u32 REGPARAM2 gfxmem_lget (uaecptr addr)
     m = (uae_u32 *) (gfxmemory + addr);
     return do_get_mem_long (m);
 }
+
+/****i* januae-picasso96/gfxmem_wget
+ *
+ *   NAME
+ *       gfxmem_wget()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 gfxmem_wget (uaecptr addr)
+ *
+ *   FUNCTION
+ *       Read a 16-bit value from the emulated P96 graphics-memory bank.
+ *
+ *   INPUTS
+ *       addr -- Emulated graphics-memory address.
+ *
+ *   RESULT
+ *       Returns the endian-converted word at the masked graphics-memory offset.
+ *
+ *   NOTES
+ *       Marks a special read under JIT.
+ *
+ ****************************************************************************/
 
 static uae_u32 REGPARAM2 gfxmem_wget (uaecptr addr)
 {
@@ -3075,6 +4637,28 @@ static uae_u32 REGPARAM2 gfxmem_wget (uaecptr addr)
     return do_get_mem_word (m);
 }
 
+/****i* januae-picasso96/gfxmem_bget
+ *
+ *   NAME
+ *       gfxmem_bget()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 gfxmem_bget (uaecptr addr)
+ *
+ *   FUNCTION
+ *       Read one byte from the emulated P96 graphics-memory bank.
+ *
+ *   INPUTS
+ *       addr -- Emulated graphics-memory address.
+ *
+ *   RESULT
+ *       Returns the byte at the masked graphics-memory offset.
+ *
+ *   NOTES
+ *       Marks a special read under JIT.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 gfxmem_bget (uaecptr addr)
 {
 #ifdef JIT
@@ -3084,6 +4668,27 @@ static uae_u32 REGPARAM2 gfxmem_bget (uaecptr addr)
     addr &= gfxmem_mask;
     return gfxmemory[addr];
 }
+
+/****i* januae-picasso96/gfxmem_lput
+ *
+ *   NAME
+ *       gfxmem_lput()
+ *
+ *   SYNOPSIS
+ *       static void REGPARAM2 gfxmem_lput (uaecptr addr, uae_u32 l)
+ *
+ *   FUNCTION
+ *       Write a 32-bit value into the P96 graphics-memory bank and mark its
+ *       scanline dirty.
+ *
+ *   INPUTS
+ *       addr -- Emulated graphics-memory address.
+ *       l -- Guest address of the list header.
+ *
+ *   NOTES
+ *       Performs endian-aware guest memory write and calls flush_write(addr, 4).
+ *
+ ****************************************************************************/
 
 static void REGPARAM2 gfxmem_lput (uaecptr addr, uae_u32 l)
 {
@@ -3098,6 +4703,27 @@ static void REGPARAM2 gfxmem_lput (uaecptr addr, uae_u32 l)
     flush_write (addr, 4);
 }
 
+/****i* januae-picasso96/gfxmem_wput
+ *
+ *   NAME
+ *       gfxmem_wput()
+ *
+ *   SYNOPSIS
+ *       static void REGPARAM2 gfxmem_wput (uaecptr addr, uae_u32 w)
+ *
+ *   FUNCTION
+ *       Write a 16-bit value into the P96 graphics-memory bank and mark its
+ *       scanline dirty.
+ *
+ *   INPUTS
+ *       addr -- Emulated graphics-memory address.
+ *       w -- Rectangle width.
+ *
+ *   NOTES
+ *       Performs endian-aware guest memory write and calls flush_write(addr, 2).
+ *
+ ****************************************************************************/
+
 static void REGPARAM2 gfxmem_wput (uaecptr addr, uae_u32 w)
 {
     uae_u16 *m;
@@ -3110,6 +4736,26 @@ static void REGPARAM2 gfxmem_wput (uaecptr addr, uae_u32 w)
     /* Flush word written to the display */
     flush_write (addr, 2);
 }
+
+/****i* januae-picasso96/gfxmem_bput
+ *
+ *   NAME
+ *       gfxmem_bput()
+ *
+ *   SYNOPSIS
+ *       static void REGPARAM2 gfxmem_bput (uaecptr addr, uae_u32 b)
+ *
+ *   FUNCTION
+ *       Write one byte into P96 graphics memory and mark its scanline dirty.
+ *
+ *   INPUTS
+ *       addr -- Emulated graphics-memory address.
+ *       b -- Pointer to the second PicassoResolution.
+ *
+ *   NOTES
+ *       Calls flush_write(addr, 1) after the write.
+ *
+ ****************************************************************************/
 
 static void REGPARAM2 gfxmem_bput (uaecptr addr, uae_u32 b)
 {
@@ -3124,12 +4770,61 @@ static void REGPARAM2 gfxmem_bput (uaecptr addr, uae_u32 b)
     flush_write (addr, 1);
 }
 
+/****i* januae-picasso96/gfxmem_check
+ *
+ *   NAME
+ *       gfxmem_check()
+ *
+ *   SYNOPSIS
+ *       static int REGPARAM2 gfxmem_check (uaecptr addr, uae_u32 size)
+ *
+ *   FUNCTION
+ *       Check whether an emulated P96 graphics-memory region fits the allocated
+ *       bank.
+ *
+ *   INPUTS
+ *       addr -- Emulated graphics-memory address.
+ *       size -- Length of a guest-memory access in bytes.
+ *
+ *   RESULT
+ *       Returns nonzero when the masked offset plus size is strictly less than
+ *       allocated_gfxmem, otherwise zero.
+ *
+ *   NOTES
+ *       A request ending exactly at allocated_gfxmem is rejected.
+ *
+ ****************************************************************************/
+
 static int REGPARAM2 gfxmem_check (uaecptr addr, uae_u32 size)
 {
     addr -= gfxmem_start;
     addr &= gfxmem_mask;
     return (addr + size) < allocated_gfxmem;
 }
+
+/****i* januae-picasso96/gfxmem_xlate
+ *
+ *   NAME
+ *       gfxmem_xlate()
+ *
+ *   SYNOPSIS
+ *       static uae_u8 REGPARAM2 *gfxmem_xlate (uaecptr addr)
+ *
+ *   FUNCTION
+ *       Translate an emulated P96 graphics address to a host pointer within
+ *       gfxmemory.
+ *
+ *   INPUTS
+ *       addr -- Emulated graphics-memory address.
+ *
+ *   RESULT
+ *       Returns gfxmemory plus the masked offset.
+ *
+ *   NOTES
+ *       Does not validate the address range or allocation; callers must
+ *       establish validity.
+ *
+ ****************************************************************************/
 
 static uae_u8 REGPARAM2 *gfxmem_xlate (uaecptr addr)
 {
@@ -3143,6 +4838,27 @@ addrbank gfxmem_bank = {
     gfxmem_lput, gfxmem_wput, gfxmem_bput,
     gfxmem_xlate, gfxmem_check, NULL
 };
+
+/****i* januae-picasso96/picasso_display_mode_index
+ *
+ *   NAME
+ *       picasso_display_mode_index()
+ *
+ *   SYNOPSIS
+ *       int picasso_display_mode_index (uae_u32 x, uae_u32 y, uae_u32 d)
+ *
+ *   FUNCTION
+ *       Find a P96 display mode matching exact width, height and color depth.
+ *
+ *   INPUTS
+ *       x -- Desired screen width in pixels.
+ *       y -- Desired screen height in pixels.
+ *       d -- Requested pixel depth.
+ *
+ *   RESULT
+ *       Returns the zero-based DisplayModes index, or -1 when no match exists.
+ *
+ ****************************************************************************/
 
 int picasso_display_mode_index (uae_u32 x, uae_u32 y, uae_u32 d)
 {
@@ -3159,6 +4875,30 @@ int picasso_display_mode_index (uae_u32 x, uae_u32 y, uae_u32 d)
         i = -1;
     return i;
 }
+
+/****i* januae-picasso96/resolution_compare
+ *
+ *   NAME
+ *       resolution_compare()
+ *
+ *   SYNOPSIS
+ *       static int resolution_compare (const void *a, const void *b)
+ *
+ *   FUNCTION
+ *       Compare two PicassoResolution records for display-mode sorting.
+ *
+ *   INPUTS
+ *       a -- Pointer to the first PicassoResolution.
+ *       b -- Pointer to the second PicassoResolution.
+ *
+ *   RESULT
+ *       Orders larger widths first, then larger heights; for equal dimensions
+ *       orders lower depth first.
+ *
+ *   NOTES
+ *       Used as the qsort() comparator by InitPicasso96().
+ *
+ ****************************************************************************/
 
 static int resolution_compare (const void *a, const void *b)
 {
@@ -3178,6 +4918,25 @@ static int resolution_compare (const void *a, const void *b)
 /* Call this function first, near the beginning of code flow
  * NOTE: Don't stuff it in InitGraphics() which seems reasonable...
  * Instead, put it in customreset() for safe-keeping.  */
+/****i* januae-picasso96/InitPicasso96
+ *
+ *   NAME
+ *       InitPicasso96()
+ *
+ *   SYNOPSIS
+ *       void InitPicasso96 (void)
+ *
+ *   FUNCTION
+ *       Reset transient P96 card state and perform one-time graphics-mode
+ *       discovery and planar lookup-table setup.
+ *
+ *   NOTES
+ *       On first invocation obtains modes from DX_FillResolutions(), applies the
+ *       optional ARGB32/BGRA32 workaround, updates resolution maxima and sorts
+ *       DisplayModes. Subsequent calls clear picasso96_state but skip discovery.
+ *
+ ****************************************************************************/
+
 void InitPicasso96 (void) {
 
     static int first_time = 1;
