@@ -90,21 +90,6 @@ STATIC_INLINE void memcpyha (uae_u32 dst, const char *src, int size)
 	put_byte (dst++, *src++);
 }
 
-#if 0
-char *strncpyah (char *dst, uae_u32 src, int size)
-{
-    char *res = dst;
-    while (size-- && (*dst++ = get_byte (src++)));
-    return res;
-}
-
-char *strcpyah (char *dst, uae_u32 src)
-{
-    char *res = dst;
-    while ((*dst++ = get_byte (src++)) != 0);
-    return res;
-}
-#endif
 
 /****i* januae-bsdsocket/strcpyha
  *
@@ -2813,12 +2798,6 @@ static uae_u32 REGPARAM2 bsdsocklib_init (TrapContext *context)
     m68k_areg (&context->regs, 1) = tmp1;
     CallLib (context, m68k_areg (&context->regs, 6), -0x18c);
     SockLibBase = tmp1;
-#if 0
-    m68k_areg (&context->regs, 1) = ds ("dos.library");
-    m68k_dreg (&context->regs, 0) = 0;
-    dosbase = CallLib (context, m68k_areg (&context->regs, 6), -552);
-    printf ("%08lx\n", dosbase);
-#endif
 
     /* Install error strings in Amiga memory */
     tmp1 = 0;

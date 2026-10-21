@@ -690,19 +690,6 @@ static uae_u32 emulib_Debug (void)
  * @@@ Brian: I disabled it to prevent people from starting to use it - if that happens, we're
  *            stuck with this.
  */
-#if 0
-static uae_u32 FindFunctionInObject (uae_u8 *objectptr)
-{
-    uae_u8 *text_hdr;
-    uae_u8 offset;
-    text_hdr = (uae_u8 *)strstr ("text", (char *)objectptr);
-    if (text_hdr != 0) {
-	offset = *(text_hdr + 19);
-	return (uae_u32)(objectptr + offset);
-    }
-    return 0;
-}
-#endif
 
 #define CREATE_NATIVE_FUNC_PTR uae_u32 (* native_func)( uae_u32, uae_u32, uae_u32, uae_u32, uae_u32, uae_u32, uae_u32, \
 						 uae_u32, uae_u32, uae_u32, uae_u32, uae_u32, uae_u32)
@@ -736,35 +723,6 @@ static uae_u32 FindFunctionInObject (uae_u8 *objectptr)
 
 static uae_u32 REGPARAM2 emulib_ExecuteNativeCode (struct regstruct *regs)
 {
-#if 0
-    uaecptr object_AAM = m68k_areg (regs, 0);
-    uae_u32 d1 = m68k_dreg (regs, 1);
-    uae_u32 d2 = m68k_dreg (regs, 2);
-    uae_u32 d3 = m68k_dreg (regs, 3);
-    uae_u32 d4 = m68k_dreg (regs, 4);
-    uae_u32 d5 = m68k_dreg (regs, 5);
-    uae_u32 d6 = m68k_dreg (regs, 6);
-    uae_u32 d7 = m68k_dreg (regs, 7);
-    uae_u32 a1 = m68k_areg (regs, 1);
-    uae_u32 a2 = m68k_areg (regs, 2);
-    uae_u32 a3 = m68k_areg (regs, 3);
-    uae_u32 a4 = m68k_areg (regs, 4);
-    uae_u32 a5 = m68k_areg (regs, 5);
-    uae_u32 a6 = m68k_areg (regs, 6);
-
-    uae_u8* object_UAM = NULL;
-    CREATE_NATIVE_FUNC_PTR;
-
-    if( get_mem_bank( object_AAM ).check( object_AAM, 1 ) )
-	object_UAM = get_mem_bank( object_AAM).xlateaddr( object_AAM );
-
-    if( object_UAM )
-    {
-	SET_NATIVE_FUNC( FindFunctionInObject( object_UAM ) );
-	CALL_NATIVE_FUNC( d1, d2, d3, d4, d5, d6, d7, a1, a2, a3, a4, a5, a6);
-    }
-    return 1;
-#endif
     return 0;
 }
 

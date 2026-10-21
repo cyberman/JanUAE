@@ -280,13 +280,6 @@ static void fix_options (void)
 	currprefs.fastmem_size = 0;
 	err = 1;
     }
-#if 0
-    if (currprefs.m68k_speed < -1 || currprefs.m68k_speed > 20) {
-	write_log ("Bad value for -w parameter: must be -1, 0, or within 1..20.\n");
-	currprefs.m68k_speed = 4;
-	err = 1;
-    }
-#endif
 
     if (currprefs.produce_sound < 0 || currprefs.produce_sound > 3) {
 	write_log ("Bad value for -S parameter: enable value must be within 0..3\n");
@@ -628,23 +621,6 @@ static void parse_cmdline (int argc, char **argv) {
       }
 
       /* we have handled that already! */
-#if 0
-      if (i + 1 == argc) {
-        write_log ("Missing argument for '-f' option.\n");
-      } else {
-#ifdef FILESYS
-        free_mountinfo (currprefs.mountinfo);
-#endif
-        //uae_save_config_to_file("sys:pre.cfg");
-        i++;
-        if (cfgfile_load (&currprefs, argv[i], 0)) {
-          /* load both config files new! */
-          cfgfile_load (&changed_prefs, argv[i], 0);
-          strcpy (optionsfile, argv[i]);
-        }
-        //uae_save_config_to_file("sys:post.cfg");
-      }
-#endif
     } else if (strcmp (argv[i], "-s") == 0) {
       if (i + 1 == argc) {
         write_log ("Missing argument for '-s' option.\n");
@@ -1417,11 +1393,6 @@ static int do_init_machine (void)
 #endif
 	    if (sound_available && currprefs.produce_sound > 1 && ! audio_init ()) {
 		write_log ("Sound driver unavailable (2): Sound output disabled\n");
-#if 0
-		kprintf ("Sound driver unavailable (2): Sound output disabled\n");
-		kprintf("sound_available: %d\n",sound_available);
-		kprintf("currprefs.produce_sound: %d\n",currprefs.produce_sound);
-#endif
 
 		currprefs.produce_sound = 0;
 	    }
@@ -1680,9 +1651,6 @@ void real_main (int argc, char **argv) {
     * j-uae >T:uae.log
     * ;)
     */
-#if 0
-    set_logfile("T:uae.log");
-#endif
 
 	uae_sem_init (&gui_main_wait_sem, 0, 0);
 
@@ -1858,10 +1826,6 @@ void real_main (int argc, char **argv) {
 
     /* o1i: aehm, and if there is still a gui? */
 
-#if 0
-    uae_stop();
-    gui_notify_state(uae_get_state());
-#endif
 
     /* o1i:
      * what would be nice is, is to just shut down the emulator

@@ -841,12 +841,6 @@ void restore_state (const char *filename)
 	else if (!strcmp (name, "ACTR"))
 	    end = restore_action_replay (chunk);
 #endif
-#if 0
-#ifdef FILESYS
-	else if (!strcmp (name, "FSYS"))
-	    end = restore_filesys (chunk);
-#endif
-#endif
 	else
 	    write_log ("unknown chunk '%s' size %ld bytes\n", name, len);
 	if (len != (size_t)(end - chunk))
@@ -1038,30 +1032,6 @@ void save_state (const char *filename, const char *description)
     f = zfile_fopen (filename, "w+b");
     if (!f)
 	return;
-#if 0
-    if (savestate_specialdump) {
-	size_t pos;
-	if (savestate_specialdump == 2)
-	    write_wavheader (f, 0, 22050);
-	pos = zfile_ftell(f);
-	save_rams (f, -1);
-	if (savestate_specialdump == 2) {
-	    int len, len2, i;
-	    uae_u8 *tmp;
-	    len = zfile_ftell(f) - pos;
-	    tmp = malloc (len);
-	    zfile_fseek(f, pos, SEEK_SET);
-	    len2 = zfile_fread(tmp, 1, len, f);
-	    for (i = 0; i < len2; i++)
-		tmp[i] += 0x80;
-	    write_wavheader (f, len, 22050);
-	    zfile_fwrite (tmp, len2, 1, f);
-	    free (tmp);
-	}
-	zfile_fclose (f);
-	return;
-    }
-#endif
 
     dst = header;
     save_u32 (0);
@@ -1151,17 +1121,6 @@ void save_state (const char *filename, const char *description)
 #ifdef ACTION_REPLAY
     dst = save_action_replay (&len, 0);
     save_chunk (f, dst, len, "ACTR", 0);
-#endif
-#if 0
-#ifdef FILESYS
-    for (i = 0; i < nr_units (currprefs.mountinfo); i++) {
-	dst = save_filesys (i, &len);
-	if (dst) {
-	    save_chunk (f, dst, len, "FSYS", 0);
-	    free (dst);
-	}
-    }
-#endif
 #endif
 
     zfile_fwrite ("END ", 1, 4, f);

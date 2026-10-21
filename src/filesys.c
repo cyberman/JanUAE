@@ -131,46 +131,6 @@ static uae_u32 fsdevname, filesys_configdev;
 #define FS_STARTUP 0
 #define FS_GO_DOWN 1
 
-#if 0
-#define DEVNAMES_PER_HDF 32
-
-typedef struct {
-    char *devname; /* device name, e.g. UAE0: */
-    uaecptr devname_amiga;
-    uaecptr startup;
-    char *volname; /* volume name, e.g. CDROM, WORK, etc. */
-    char *rootdir; /* root unix directory */
-    int readonly; /* disallow write access? */
-    int bootpri; /* boot priority */
-    int devno;
-
-    struct hardfiledata hf;
-
-    /* Threading stuff */
-    smp_comm_pipe *volatile unit_pipe, *volatile back_pipe;
-    uae_thread_id tid;
-    struct _unit *self;
-    /* Reset handling */
-    volatile uae_sem_t reset_sync_sem;
-    volatile int reset_state;
-
-    /* RDB stuff */
-    uaecptr rdb_devname_amiga[DEVNAMES_PER_HDF];
-    int rdb_lowcyl;
-    int rdb_highcyl;
-    int rdb_cylblocks;
-    uae_u8 *rdb_filesysstore;
-    int rdb_filesyssize;
-    char *filesysdir;
-
-} UnitInfo;
-
-
-struct uaedev_mount_info {
-    int num_units;
-    UnitInfo ui[MAX_FILESYSTEM_UNITS];
-};
-#endif
 
 struct uaedev_mount_info current_mountinfo;
 struct uaedev_mount_info options_mountinfo;
@@ -747,19 +707,6 @@ find_unit (uaecptr port)
 
 static void prepare_for_open (char *name)
 {
-#if 0
-    struct stat statbuf;
-    int mode;
-
-    if (-1 == stat (name, &statbuf))
-        return;
-
-    mode = statbuf.st_mode;
-    mode |= S_IRUSR;
-    mode |= S_IWUSR;
-    mode |= S_IXUSR;
-    chmod (name, mode);
-#endif
 }
 
 static void de_recycle_aino (Unit *unit, a_inode *aino)
@@ -841,13 +788,6 @@ static void recycle_aino (Unit *unit, a_inode *new_aino)
                 unit->rootnode.prev->next = unit->rootnode.next->prev = &unit->rootnode;
             } while (unit->rootnode.prev->parent == parent);
         }
-#if 0
-        {
-            char buffer[40];
-            sprintf (buffer, "%d ainos reaped.\n", i);
-            TRACE ((buffer));
-        }
-#endif
     }
 
     aino_test (new_aino);
@@ -1008,16 +948,6 @@ char *build_nname (const char *d, const char *n)
     return p;
 }
 
-#if 0
-char *build_aname (const char *d, const char *n)
-{
-    char *p = (char *) xmalloc (strlen (d) + strlen (n) + 2);
-    strcpy (p, d);
-    strcat (p, "/");
-    strcat (p, n);
-    return p;
-}
-#endif
 
 /* This gets called to translate an Amiga name that some program used to
  * a name that we can use on the native filesystem.  */
@@ -1079,21 +1009,10 @@ static char *create_nname (Unit *unit, a_inode *base, char *rel)
     /* If the name is used otherwise in the directory (or globally), we
      * need a new unique nname.  */
     if (fsdb_name_invalid (rel) || fsdb_used_as_nname (base, rel)) {
-#if 0
-        oh_dear:
-#endif
         p = fsdb_create_unique_nname (base, rel);
         return p;
     }
     p = build_nname (base->nname, rel);
-#if 0
-    /* Delete this code once we know everything works.  */
-    if (access (p, R_OK) >= 0 || errno != ENOENT) {
-        write_log ("Filesystem in trouble... please report.\n");
-        xfree (p);
-        goto oh_dear;
-    }
-#endif
     return p;
 }
 
@@ -1582,10 +1501,6 @@ static Key *lookup_key (Unit *unit, uae_u32 uniq)
             return k;
     }
     write_log ("Error: couldn't find key!\n");
-#if 0
-    exit(1);
-    /* NOTREACHED */
-#endif
     /* There isn't much hope we will recover. Unix would kill the process,
      * AmigaOS gets killed by it. */
     write_log ("Better reset that Amiga - the system is messed up.\n");
@@ -1786,20 +1701,6 @@ action_add_notify (Unit *unit, dpacket packet)
         return;
     }
 
-#if 0
-    write_log ("Notify:\n");
-    write_log ("nr_Name '%s'\n", char1 (get_long (nr + 0)));
-    write_log ("nr_FullName '%s'\n", name);
-    write_log ("nr_UserData %08.8X\n", get_long (nr + 8));
-    write_log ("nr_Flags %08.8X\n", flags);
-    if (flags & NRF_SEND_MESSAGE) {
-        write_log ("Message NotifyRequest, port = %08.8X\n", get_long (nr + 16));
-    } else if (flags & NRF_SEND_SIGNAL) {
-        write_log ("Signal NotifyRequest, Task = %08.8X signal = %d\n", get_long (nr + 16), get_long (nr + 20));
-    } else {
-        write_log ("corrupt NotifyRequest\n");
-    }
-#endif
 
     p = name + strlen (name) - 1;
     if (p[0] == ':') p--;
@@ -3698,23 +3599,6 @@ static uae_u32 REGPARAM2 exter_int_helper (TrapContext *context)
                 m68k_areg (&context->regs, 1) = read_comm_pipe_u32_blocking (&native2amiga_pending);
                 return 5;
 
-#if 0
-            case 666:
-                /* o1i test ! */
-                o1i=1;
-                call_68k(context, 
-                         read_comm_pipe_u32_blocking (&native2amiga_pending),
-                         read_comm_pipe_u32_blocking (&native2amiga_pending),
-                         read_comm_pipe_u32_blocking (&native2amiga_pending),
-                         read_comm_pipe_u32_blocking (&native2amiga_pending),
-                         read_comm_pipe_u32_blocking (&native2amiga_pending),
-                         read_comm_pipe_u32_blocking (&native2amiga_pending),
-                         read_comm_pipe_u32_blocking (&native2amiga_pending),
-                         read_comm_pipe_u32_blocking (&native2amiga_pending)
-                         );
-
-                break;
-#endif
              default:
                 write_log ("exter_int_helper: unknown native action %d\n", cmd);
                 break;
@@ -3889,11 +3773,6 @@ static uae_u32 REGPARAM2 filesys_handler (TrapContext *context)
     pck = get_real_address (packet_addr);
     msg = get_real_address (message_addr);
 
-#if 0
-    if (unit->reset_state == FS_GO_DOWN)
-        /* You might as well queue it, if you live long enough */
-        return 1;
-#endif
 
     do_put_mem_long ((uae_u32 *)(msg + 4), -1);
     if (!unit || !unit->volume) {
