@@ -66,6 +66,24 @@ uae_u32 sockpoolflags[SOCKPOOLSIZE];
 long curruniqid = 65536;
 
 /* Memory-related helper functions */
+/****i* januae-bsdsocket/memcpyha
+ *
+ *   NAME
+ *       memcpyha()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void memcpyha (uae_u32 dst, const char *src, int size)
+ *
+ *   FUNCTION
+ *       Copy exactly size bytes from host memory to emulated memory using
+ *       put_byte().
+ *
+ *   NOTES
+ *       The caller must supply a readable host buffer and writable Amiga address
+ *       range; size is not validated.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void memcpyha (uae_u32 dst, const char *src, int size)
 {
     while (size--)
@@ -88,6 +106,26 @@ char *strcpyah (char *dst, uae_u32 src)
 }
 #endif
 
+/****i* januae-bsdsocket/strcpyha
+ *
+ *   NAME
+ *       strcpyha()
+ *
+ *   SYNOPSIS
+ *       uae_u32 strcpyha (uae_u32 dst, const char *src)
+ *
+ *   FUNCTION
+ *       Copy a NUL-terminated host string into emulated memory, including the
+ *       terminator.
+ *
+ *   RESULT
+ *       Returns the original emulated destination address.
+ *
+ *   NOTES
+ *       Uses put_byte() for each byte; it performs no destination-capacity check.
+ *
+ ****************************************************************************/
+
 uae_u32 strcpyha (uae_u32 dst, const char *src)
 {
     uae_u32 res = dst;
@@ -99,6 +137,26 @@ uae_u32 strcpyha (uae_u32 dst, const char *src)
     return res;
 }
 
+/****i* januae-bsdsocket/strncpyha
+ *
+ *   NAME
+ *       strncpyha()
+ *
+ *   SYNOPSIS
+ *       uae_u32 strncpyha (uae_u32 dst, const char *src, int size)
+ *
+ *   FUNCTION
+ *       Copy at most size bytes from a host string into emulated memory.
+ *
+ *   RESULT
+ *       Returns the original emulated destination address.
+ *
+ *   NOTES
+ *       Stops after copying a NUL character; does not append one when the size limit
+ *       is reached.
+ *
+ ****************************************************************************/
+
 uae_u32 strncpyha (uae_u32 dst, const char *src, int size)
 {
     uae_u32 res = dst;
@@ -109,6 +167,27 @@ uae_u32 strncpyha (uae_u32 dst, const char *src, int size)
     }
     return res;
 }
+
+/****i* januae-bsdsocket/addstr
+ *
+ *   NAME
+ *       addstr()
+ *
+ *   SYNOPSIS
+ *       uae_u32 addstr (uae_u32 * dst, const char *src)
+ *
+ *   FUNCTION
+ *       Append a host string and its NUL terminator at the current emulated-memory
+ *       cursor.
+ *
+ *   RESULT
+ *       Returns the starting emulated address.
+ *
+ *   NOTES
+ *       Advances *dst by strlen(src)+1; no allocation or bounds checking is
+ *       performed.
+ *
+ ****************************************************************************/
 
 uae_u32 addstr (uae_u32 * dst, const char *src)
 {
@@ -122,6 +201,26 @@ uae_u32 addstr (uae_u32 * dst, const char *src)
 
     return res;
 }
+
+/****i* januae-bsdsocket/addmem
+ *
+ *   NAME
+ *       addmem()
+ *
+ *   SYNOPSIS
+ *       uae_u32 addmem (uae_u32 * dst, const char *src, int len)
+ *
+ *   FUNCTION
+ *       Append an arbitrary byte span to the current emulated-memory cursor.
+ *
+ *   RESULT
+ *       Returns the prior cursor, or zero when src is NULL.
+ *
+ *   NOTES
+ *       Advances *dst by len only after copying. A NULL source leaves the cursor
+ *       unchanged.
+ *
+ ****************************************************************************/
 
 uae_u32 addmem (uae_u32 * dst, const char *src, int len)
 {
@@ -137,11 +236,51 @@ uae_u32 addmem (uae_u32 * dst, const char *src, int len)
 }
 
 /* return name of task (task must be retrieved through gettask!) */
+/****i* januae-bsdsocket/get_task_name
+ *
+ *   NAME
+ *       get_task_name()
+ *
+ *   SYNOPSIS
+ *       static char *get_task_name(uae_u32 task)
+ *
+ *   FUNCTION
+ *       Resolve the task-name pointer from an emulated Exec task structure.
+ *
+ *   RESULT
+ *       Returns a host pointer into translated emulated memory.
+ *
+ *   NOTES
+ *       Reads the pointer at task+10; the task address must be valid.
+ *
+ ****************************************************************************/
+
 static char *get_task_name(uae_u32 task) {
   return get_real_address (get_long (task + 10));
 }
 
 /* Get current 68k task */
+/****i* januae-bsdsocket/gettask
+ *
+ *   NAME
+ *       gettask()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 gettask (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Resolve the currently executing emulated Exec task by calling
+ *       FindTask(NULL).
+ *
+ *   RESULT
+ *       Returns the emulated task address.
+ *
+ *   NOTES
+ *       Temporarily clears A1 and restores it after CallLib; logging dereferences
+ *       the task name.
+ *
+ ****************************************************************************/
+
 static uae_u32 gettask (TrapContext *context)
 {
     uae_u32 currtask, a1 = m68k_areg (&context->regs, 1);
@@ -156,6 +295,23 @@ static uae_u32 gettask (TrapContext *context)
 }
 
 /* errno/herrno setting */
+/****i* januae-bsdsocket/bsdsocklib_seterrno
+ *
+ *   NAME
+ *       bsdsocklib_seterrno()
+ *
+ *   SYNOPSIS
+ *       void bsdsocklib_seterrno (SB, int sb_errno)
+ *
+ *   FUNCTION
+ *       Store the socket error and optionally mirror it into an emulated errno cell.
+ *
+ *   NOTES
+ *       Error codes 1001..1005 also update h_errno. Mirror widths are 1, 2 or 4
+ *       bytes; other widths leave the pointed-to memory unchanged.
+ *
+ ****************************************************************************/
+
 void bsdsocklib_seterrno (SB, int sb_errno)
 {
     sb->sb_errno = sb_errno;
@@ -177,6 +333,24 @@ void bsdsocklib_seterrno (SB, int sb_errno)
     }
 }
 
+/****i* januae-bsdsocket/bsdsocklib_setherrno
+ *
+ *   NAME
+ *       bsdsocklib_setherrno()
+ *
+ *   SYNOPSIS
+ *       void bsdsocklib_setherrno (SB, int sb_herrno)
+ *
+ *   FUNCTION
+ *       Store the host-resolution error and optionally mirror it into emulated
+ *       memory.
+ *
+ *   NOTES
+ *       The configured h_errno pointer is written with 1-, 2- or 4-byte accesses
+ *       only.
+ *
+ ****************************************************************************/
+
 void bsdsocklib_setherrno (SB, int sb_herrno)
 {
     sb->sb_herrno = sb_herrno;
@@ -194,6 +368,27 @@ void bsdsocklib_setherrno (SB, int sb_herrno)
 	}
     }
 }
+
+/****i* januae-bsdsocket/checksd
+ *
+ *   NAME
+ *       checksd()
+ *
+ *   SYNOPSIS
+ *       BOOL checksd (SB, int sd)
+ *
+ *   FUNCTION
+ *       Check whether a socket handle is shared with another descriptor or pooled
+ *       globally.
+ *
+ *   RESULT
+ *       Returns 1 on a found alias/pool reference; otherwise 0.
+ *
+ *   NOTES
+ *       When another descriptor aliases the same host socket, releases the
+ *       descriptor supplied as sd.
+ *
+ ****************************************************************************/
 
 BOOL checksd (SB, int sd)
 {
@@ -219,12 +414,49 @@ BOOL checksd (SB, int sd)
     return 0;
 }
 
+/****i* januae-bsdsocket/setsd
+ *
+ *   NAME
+ *       setsd()
+ *
+ *   SYNOPSIS
+ *       void setsd (SB, int sd, int s)
+ *
+ *   FUNCTION
+ *       Assign a host socket handle to a one-based emulated descriptor slot.
+ *
+ *   NOTES
+ *       Writes dtable[sd-1] without validating the index.
+ *
+ ****************************************************************************/
+
 void setsd (SB, int sd, int s)
 {
     sb->dtable[sd - 1] = s;
 }
 
 /* Socket descriptor/opaque socket handle management */
+/****i* januae-bsdsocket/getsd
+ *
+ *   NAME
+ *       getsd()
+ *
+ *   SYNOPSIS
+ *       int getsd (SB, int s)
+ *
+ *   FUNCTION
+ *       Find an existing descriptor for a host socket or allocate a free descriptor
+ *       slot.
+ *
+ *   RESULT
+ *       Returns a one-based descriptor, or -1 after setting errno to 24 (EMFILE).
+ *
+ *   NOTES
+ *       A new slot starts with SF_BLOCKING. Existing slots are scanned from highest
+ *       to lowest; free slots from lowest to highest.
+ *
+ ****************************************************************************/
+
 int getsd (SB, int s) {
   int i;
   int *dt = sb->dtable;
@@ -256,6 +488,26 @@ int getsd (SB, int s) {
   return -1;
 }
 
+/****i* januae-bsdsocket/getsock
+ *
+ *   NAME
+ *       getsock()
+ *
+ *   SYNOPSIS
+ *       int getsock (SB, int sd)
+ *
+ *   FUNCTION
+ *       Translate a one-based emulated descriptor into its host socket handle.
+ *
+ *   RESULT
+ *       Returns the stored handle, or -1 for an invalid descriptor.
+ *
+ *   NOTES
+ *       Out-of-range descriptors set errno to 38 (ENOTSOCK); an empty in-range entry
+ *       is returned unchanged.
+ *
+ ****************************************************************************/
+
 int getsock (SB, int sd)
 {
   if ((unsigned int) (sd - 1) >= (unsigned int) sb->dtablesize) {
@@ -267,6 +519,22 @@ int getsock (SB, int sd)
   return sb->dtable[sd - 1];
 }
 
+/****i* januae-bsdsocket/releasesock
+ *
+ *   NAME
+ *       releasesock()
+ *
+ *   SYNOPSIS
+ *       void releasesock (SB, int sd)
+ *
+ *   FUNCTION
+ *       Mark an in-range emulated descriptor slot unused.
+ *
+ *   NOTES
+ *       Only sets dtable[sd-1] to -1; it does not close the host socket.
+ *
+ ****************************************************************************/
+
 void releasesock (SB, int sd)
 {
     if ((unsigned int) (sd - 1) < (unsigned int) sb->dtablesize)
@@ -276,6 +544,24 @@ void releasesock (SB, int sd)
 /* Signal queue */
 /* @@@ TODO: ensure proper interlocking */
 struct socketbase *sbsigqueue;
+
+/****i* januae-bsdsocket/addtosigqueue
+ *
+ *   NAME
+ *       addtosigqueue()
+ *
+ *   SYNOPSIS
+ *       void addtosigqueue (SB, int events)
+ *
+ *   FUNCTION
+ *       Queue a pending socket event or completion signal for delivery through an
+ *       emulated interrupt.
+ *
+ *   NOTES
+ *       Updates sigstosend and dosignal under the signal-queue lock, then requests
+ *       INTREQ(0xA000). A queued socketbase is not inserted twice.
+ *
+ ****************************************************************************/
 
 void addtosigqueue (SB, int events)
 {
@@ -296,6 +582,26 @@ void addtosigqueue (SB, int events)
 
     INTREQ (0xA000);
 }
+
+/****i* januae-bsdsocket/bsdsock_int_handler
+ *
+ *   NAME
+ *       bsdsock_int_handler()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsock_int_handler (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Deliver queued socket signals to their owning emulated Exec tasks.
+ *
+ *   RESULT
+ *       Returns zero.
+ *
+ *   NOTES
+ *       Calls Exec Signal() for queue entries with dosignal==1, preserving the trap
+ *       register state; clears the global pending queue.
+ *
+ ****************************************************************************/
 
 static uae_u32 REGPARAM2 bsdsock_int_handler (TrapContext *context)
 {
@@ -325,6 +631,24 @@ static uae_u32 REGPARAM2 bsdsock_int_handler (TrapContext *context)
     return 0;
 }
 
+/****i* januae-bsdsocket/waitsig
+ *
+ *   NAME
+ *       waitsig()
+ *
+ *   SYNOPSIS
+ *       void waitsig (TrapContext *context, SB)
+ *
+ *   FUNCTION
+ *       Wait for socket completion or configured interrupt signals in the emulated
+ *       Exec task.
+ *
+ *   NOTES
+ *       Uses Exec Wait(); an interrupt signal invokes sockabort(), stores EINTR,
+ *       clears the signal bits and sets sb->eintr.
+ *
+ ****************************************************************************/
+
 void waitsig (TrapContext *context, SB) {
 
   long sigs;
@@ -348,6 +672,24 @@ void waitsig (TrapContext *context, SB) {
   }
 }
 
+/****i* januae-bsdsocket/cancelsig
+ *
+ *   NAME
+ *       cancelsig()
+ *
+ *   SYNOPSIS
+ *       void cancelsig (TrapContext *context, SB)
+ *
+ *   FUNCTION
+ *       Cancel a pending socket signal and clear the per-socket completion signal
+ *       bit.
+ *
+ *   NOTES
+ *       Marks an already queued entry as cancelled, then calls Exec SetSignal() with
+ *       the allocated signal mask.
+ *
+ ****************************************************************************/
+
 void cancelsig (TrapContext *context, SB)
 {
     locksigqueue ();
@@ -362,6 +704,27 @@ void cancelsig (TrapContext *context, SB)
 }
 
 /* Allocate and initialize per-task state structure */
+/****i* januae-bsdsocket/alloc_socketbase
+ *
+ *   NAME
+ *       alloc_socketbase()
+ *
+ *   SYNOPSIS
+ *       static struct socketbase *alloc_socketbase (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Allocate the per-open socketbase and initialize the emulated-task signal and
+ *       descriptor tables.
+ *
+ *   RESULT
+ *       Returns a new socketbase pointer or NULL when calloc or AllocSignal fails.
+ *
+ *   NOTES
+ *       Descriptor-table malloc results and host_sbinit failure are not handled as
+ *       fatal; a partially initialized socketbase may be linked into socketbases.
+ *
+ ****************************************************************************/
+
 static struct socketbase *alloc_socketbase (TrapContext *context) {
 
   struct socketbase *sb;
@@ -421,10 +784,47 @@ static struct socketbase *alloc_socketbase (TrapContext *context) {
   return NULL;
 }
 
+/****i* januae-bsdsocket/get_socketbase
+ *
+ *   NAME
+ *       get_socketbase()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE struct socketbase *get_socketbase (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Read the host socketbase pointer from the emulated library base in A6.
+ *
+ *   RESULT
+ *       Returns the host socketbase pointer stored in UAEBSDBase.sb.
+ *
+ *   NOTES
+ *       The caller must supply a valid open library base in A6.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE struct socketbase *get_socketbase (TrapContext *context)
 {
     return get_pointer (m68k_areg (&context->regs, 6) + offsetof (struct UAEBSDBase, sb));
 }
+
+/****i* januae-bsdsocket/free_socketbase
+ *
+ *   NAME
+ *       free_socketbase()
+ *
+ *   SYNOPSIS
+ *       static void free_socketbase (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Release resources owned by the socketbase associated with the current
+ *       emulated library base.
+ *
+ *   NOTES
+ *       Frees Exec signals, allocated name-service records, host resources and
+ *       descriptor arrays; unlinks from socketbases and sbsigqueue.
+ *
+ ****************************************************************************/
 
 static void free_socketbase (TrapContext *context) {
 
@@ -489,6 +889,25 @@ static void free_socketbase (TrapContext *context) {
   }
 }
 
+/****i* januae-bsdsocket/bsdsocklib_Expunge
+ *
+ *   NAME
+ *       bsdsocklib_Expunge()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_Expunge (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Implement the bsdsocket.library Expunge vector as a no-op.
+ *
+ *   RESULT
+ *       Always returns zero.
+ *
+ *   NOTES
+ *       Does not expunge the resident library.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_Expunge (TrapContext *context)
 {
     TRACE (("Expunge() -> [ignored]\n"));
@@ -497,6 +916,28 @@ static uae_u32 REGPARAM2 bsdsocklib_Expunge (TrapContext *context)
 
 static uae_u32 functable, datatable, inittable;
 
+
+/****i* januae-bsdsocket/bsdsocklib_Open
+ *
+ *   NAME
+ *       bsdsocklib_Open()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_Open (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Open a per-task bsdsocket.library instance and start its AROS socket worker
+ *       thread.
+ *
+ *   RESULT
+ *       Returns the allocated emulated library-base address, or zero on
+ *       allocation/thread-start failure.
+ *
+ *   NOTES
+ *       Increments the global open count and builds a library base containing the
+ *       per-task socketbase pointer.
+ *
+ ****************************************************************************/
 
 static uae_u32 REGPARAM2 bsdsocklib_Open (TrapContext *context) {
   
@@ -539,6 +980,27 @@ static uae_u32 REGPARAM2 bsdsocklib_Open (TrapContext *context) {
   return result;
 }
 
+/****i* januae-bsdsocket/bsdsocklib_Close
+ *
+ *   NAME
+ *       bsdsocklib_Close()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_Close (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Stop the associated AROS socket worker, release the per-task socketbase and
+ *       free the emulated library base.
+ *
+ *   RESULT
+ *       Always returns zero.
+ *
+ *   NOTES
+ *       Decrements the common library open count; uses the library negative/positive
+ *       sizes to release the allocation.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_Close (TrapContext *context)
 {
     int opencount;
@@ -568,6 +1030,26 @@ static uae_u32 REGPARAM2 bsdsocklib_Close (TrapContext *context)
 }
 
 /* socket(domain, type, protocol)(d0/d1/d2) */
+/****i* januae-bsdsocket/bsdsocklib_socket
+ *
+ *   NAME
+ *       bsdsocklib_socket()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_socket (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Create a host-backed socket from domain, type and protocol in D0/D1/D2.
+ *
+ *   RESULT
+ *       Returns host_socket() result.
+ *
+ *   NOTES
+ *       Delegates to host_socket(); failure and buffer validation are determined by
+ *       that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_socket (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -576,6 +1058,26 @@ static uae_u32 REGPARAM2 bsdsocklib_socket (TrapContext *context)
 }
 
 /* bind(s, name, namelen)(d0/a0/d1) */
+/****i* januae-bsdsocket/bsdsocklib_bind
+ *
+ *   NAME
+ *       bsdsocklib_bind()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_bind (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Bind the descriptor in D0 to the socket address at A0 with length D1.
+ *
+ *   RESULT
+ *       Returns host_bind() result.
+ *
+ *   NOTES
+ *       Delegates to host_bind(); failure and buffer validation are determined by
+ *       that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_bind (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -584,6 +1086,26 @@ static uae_u32 REGPARAM2 bsdsocklib_bind (TrapContext *context)
 }
 
 /* listen(s, backlog)(d0/d1) */
+/****i* januae-bsdsocket/bsdsocklib_listen
+ *
+ *   NAME
+ *       bsdsocklib_listen()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_listen (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Start listening on the descriptor in D0 with backlog D1.
+ *
+ *   RESULT
+ *       Returns host_listen() result.
+ *
+ *   NOTES
+ *       Delegates to host_listen(); failure and buffer validation are determined by
+ *       that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_listen (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -591,6 +1113,26 @@ static uae_u32 REGPARAM2 bsdsocklib_listen (TrapContext *context)
 }
 
 /* accept(s, addr, addrlen)(d0/a0/a1) */
+/****i* januae-bsdsocket/bsdsocklib_accept
+ *
+ *   NAME
+ *       bsdsocklib_accept()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_accept (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Accept a connection on D0, writing peer address data via A0/A1.
+ *
+ *   RESULT
+ *       Returns the host-written socketbase resultval.
+ *
+ *   NOTES
+ *       Delegates to host_accept(); failure and buffer validation are determined by
+ *       that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_accept (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -599,6 +1141,26 @@ static uae_u32 REGPARAM2 bsdsocklib_accept (TrapContext *context)
 }
 
 /* connect(s, name, namelen)(d0/a0/d1) */
+/****i* januae-bsdsocket/bsdsocklib_connect
+ *
+ *   NAME
+ *       bsdsocklib_connect()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_connect (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Connect D0 to the peer address at A0 of length D1.
+ *
+ *   RESULT
+ *       Returns -1 when sb_errno is nonzero, otherwise zero.
+ *
+ *   NOTES
+ *       Delegates to host_connect(); failure and buffer validation are determined by
+ *       that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_connect (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -607,6 +1169,27 @@ static uae_u32 REGPARAM2 bsdsocklib_connect (TrapContext *context)
 }
 
 /* sendto(s, msg, len, flags, to, tolen)(d0/a0/d1/d2/a1/d3) */
+/****i* januae-bsdsocket/bsdsocklib_sendto
+ *
+ *   NAME
+ *       bsdsocklib_sendto()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_sendto (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Send bytes from the emulated A0 buffer on D0, with D1 length, D2 flags and
+ *       A1/D3 destination.
+ *
+ *   RESULT
+ *       Returns the host-written socketbase resultval.
+ *
+ *   NOTES
+ *       Delegates to host_sendto(); failure and buffer validation are determined by
+ *       that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_sendto (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -616,6 +1199,26 @@ static uae_u32 REGPARAM2 bsdsocklib_sendto (TrapContext *context)
 }
 
 /* send(s, msg, len, flags)(d0/a0/d1/d2) */
+/****i* januae-bsdsocket/bsdsocklib_send
+ *
+ *   NAME
+ *       bsdsocklib_send()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_send (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Send bytes from the emulated A0 buffer on D0 with D1 length and D2 flags.
+ *
+ *   RESULT
+ *       Returns the host-written socketbase resultval.
+ *
+ *   NOTES
+ *       Delegates to host_sendto(); failure and buffer validation are determined by
+ *       that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_send (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -625,6 +1228,27 @@ static uae_u32 REGPARAM2 bsdsocklib_send (TrapContext *context)
 }
 
 /* recvfrom(s, buf, len, flags, from, fromlen)(d0/a0/d1/d2/a1/a2) */
+/****i* januae-bsdsocket/bsdsocklib_recvfrom
+ *
+ *   NAME
+ *       bsdsocklib_recvfrom()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_recvfrom (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Receive into emulated A0 on D0 using D1 length and D2 flags; supply source
+ *       address through A1/A2.
+ *
+ *   RESULT
+ *       Returns the host-written socketbase resultval.
+ *
+ *   NOTES
+ *       Delegates to host_recvfrom(); failure and buffer validation are determined
+ *       by that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_recvfrom (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -634,6 +1258,26 @@ static uae_u32 REGPARAM2 bsdsocklib_recvfrom (TrapContext *context)
 }
 
 /* recv(s, buf, len, flags)(d0/a0/d1/d2) */
+/****i* januae-bsdsocket/bsdsocklib_recv
+ *
+ *   NAME
+ *       bsdsocklib_recv()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_recv (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Receive into the emulated A0 buffer on D0 using D1 length and D2 flags.
+ *
+ *   RESULT
+ *       Returns the host-written socketbase resultval.
+ *
+ *   NOTES
+ *       Delegates to host_recvfrom(); failure and buffer validation are determined
+ *       by that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_recv (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -643,6 +1287,26 @@ static uae_u32 REGPARAM2 bsdsocklib_recv (TrapContext *context)
 }
 
 /* shutdown(s, how)(d0/d1) */
+/****i* januae-bsdsocket/bsdsocklib_shutdown
+ *
+ *   NAME
+ *       bsdsocklib_shutdown()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_shutdown (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Change socket D0 shutdown state using how from D1.
+ *
+ *   RESULT
+ *       Returns host_shutdown() result.
+ *
+ *   NOTES
+ *       Delegates to host_shutdown(); failure and buffer validation are determined
+ *       by that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_shutdown (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -650,6 +1314,26 @@ static uae_u32 REGPARAM2 bsdsocklib_shutdown (TrapContext *context)
 }
 
 /* setsockopt(s, level, optname, optval, optlen)(d0/d1/d2/a0/d3) */
+/****i* januae-bsdsocket/bsdsocklib_setsockopt
+ *
+ *   NAME
+ *       bsdsocklib_setsockopt()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_setsockopt (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Set socket D0 option D2 at level D1 from A0 data of length D3.
+ *
+ *   RESULT
+ *       Returns the host-written socketbase resultval.
+ *
+ *   NOTES
+ *       Delegates to host_setsockopt(); failure and buffer validation are determined
+ *       by that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_setsockopt (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -659,6 +1343,26 @@ static uae_u32 REGPARAM2 bsdsocklib_setsockopt (TrapContext *context)
 }
 
 /* getsockopt(s, level, optname, optval, optlen)(d0/d1/d2/a0/a1) */
+/****i* januae-bsdsocket/bsdsocklib_getsockopt
+ *
+ *   NAME
+ *       bsdsocklib_getsockopt()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_getsockopt (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Read socket D0 option D2 at level D1 into memory at A0/A1.
+ *
+ *   RESULT
+ *       Returns host_getsockopt() result.
+ *
+ *   NOTES
+ *       Delegates to host_getsockopt(); failure and buffer validation are determined
+ *       by that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_getsockopt (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -667,6 +1371,26 @@ static uae_u32 REGPARAM2 bsdsocklib_getsockopt (TrapContext *context)
 }
 
 /* getsockname(s, hostname, namelen)(d0/a0/a1) */
+/****i* januae-bsdsocket/bsdsocklib_getsockname
+ *
+ *   NAME
+ *       bsdsocklib_getsockname()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_getsockname (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Read the local address for descriptor D0 into A0/A1.
+ *
+ *   RESULT
+ *       Returns host_getsockname() result.
+ *
+ *   NOTES
+ *       Delegates to host_getsockname(); failure and buffer validation are
+ *       determined by that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_getsockname (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -674,6 +1398,26 @@ static uae_u32 REGPARAM2 bsdsocklib_getsockname (TrapContext *context)
 }
 
 /* getpeername(s, hostname, namelen)(d0/a0/a1) */
+/****i* januae-bsdsocket/bsdsocklib_getpeername
+ *
+ *   NAME
+ *       bsdsocklib_getpeername()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_getpeername (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Read the peer address for descriptor D0 into A0/A1.
+ *
+ *   RESULT
+ *       Returns host_getpeername() result.
+ *
+ *   NOTES
+ *       Delegates to host_getpeername(); failure and buffer validation are
+ *       determined by that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_getpeername (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -682,6 +1426,26 @@ static uae_u32 REGPARAM2 bsdsocklib_getpeername (TrapContext *context)
 
 /* *------ generic system calls related to sockets */
 /* IoctlSocket(d, request, argp)(d0/d1/a0) */
+/****i* januae-bsdsocket/bsdsocklib_IoctlSocket
+ *
+ *   NAME
+ *       bsdsocklib_IoctlSocket()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_IoctlSocket (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Perform socket ioctl request D1 on descriptor D0 using argument A0.
+ *
+ *   RESULT
+ *       Returns host_IoctlSocket() result.
+ *
+ *   NOTES
+ *       Delegates to host_IoctlSocket(); failure and buffer validation are
+ *       determined by that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_IoctlSocket (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -690,6 +1454,26 @@ static uae_u32 REGPARAM2 bsdsocklib_IoctlSocket (TrapContext *context)
 
 /* *------ AmiTCP/IP specific stuff */
 /* CloseSocket(d)(d0) */
+/****i* januae-bsdsocket/bsdsocklib_CloseSocket
+ *
+ *   NAME
+ *       bsdsocklib_CloseSocket()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_CloseSocket (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Close host descriptor D0 through the active socket backend.
+ *
+ *   RESULT
+ *       Returns host_CloseSocket() result.
+ *
+ *   NOTES
+ *       Delegates to host_CloseSocket(); failure and buffer validation are
+ *       determined by that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_CloseSocket (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -697,6 +1481,27 @@ static uae_u32 REGPARAM2 bsdsocklib_CloseSocket (TrapContext *context)
 }
 
 /* WaitSelect(nfds, readfds, writefds, execptfds, timeout, maskp)(d0/a0/a1/a2/a3/d1) */
+/****i* januae-bsdsocket/bsdsocklib_WaitSelect
+ *
+ *   NAME
+ *       bsdsocklib_WaitSelect()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_WaitSelect (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Wait for socket readiness with D0 count, A0/A1/A2 sets, A3 timeout and D1
+ *       signal mask.
+ *
+ *   RESULT
+ *       Returns the host-written socketbase resultval.
+ *
+ *   NOTES
+ *       Delegates to host_WaitSelect(); failure and buffer validation are determined
+ *       by that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_WaitSelect (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -706,6 +1511,26 @@ static uae_u32 REGPARAM2 bsdsocklib_WaitSelect (TrapContext *context)
 }
 
 /* SetSocketSignals(SIGINTR, SIGIO, SIGURG)(d0/d1/d2) */
+/****i* januae-bsdsocket/bsdsocklib_SetSocketSignals
+ *
+ *   NAME
+ *       bsdsocklib_SetSocketSignals()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_SetSocketSignals (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Store the interrupt and I/O-event signal masks supplied in the emulated D0
+ *       and D1 registers.
+ *
+ *   RESULT
+ *       Returns zero.
+ *
+ *   NOTES
+ *       The D2 SIGURG argument is logged but not assigned to a socketbase field.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_SetSocketSignals (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -718,6 +1543,28 @@ static uae_u32 REGPARAM2 bsdsocklib_SetSocketSignals (TrapContext *context)
 }
 
 /* SetDTableSize(size)(d0) */
+/****i* januae-bsdsocket/bsdsocklib_SetDTableSize
+ *
+ *   NAME
+ *       bsdsocklib_SetDTableSize()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 bsdsocklib_SetDTableSize (SB, int newSize)
+ *
+ *   FUNCTION
+ *       Grow the socketbase descriptor and flag tables.
+ *
+ *   RESULT
+ *       Returns zero for a non-growing request and on success, or -1 after setting
+ *       ENOMEM.
+ *
+ *   NOTES
+ *       The initialization loop starts at oldSize+1, leaving the first newly added
+ *       slot uninitialized. Failure cleanup of a partially successful malloc is
+ *       absent.
+ *
+ ****************************************************************************/
+
 static uae_u32 bsdsocklib_SetDTableSize (SB, int newSize)
 {
     int *newdtable;
@@ -752,6 +1599,25 @@ static uae_u32 bsdsocklib_SetDTableSize (SB, int newSize)
     return 0;
 }
 
+/****i* januae-bsdsocket/sockpoolindex
+ *
+ *   NAME
+ *       sockpoolindex()
+ *
+ *   SYNOPSIS
+ *       static int sockpoolindex (long id)
+ *
+ *   FUNCTION
+ *       Search the global socket-sharing pool for a matching identifier.
+ *
+ *   RESULT
+ *       Returns its zero-based pool slot or -1 if absent.
+ *
+ *   NOTES
+ *       Searches all 128 slots without interlocking.
+ *
+ ****************************************************************************/
+
 static int sockpoolindex (long id)
 {
     int i;
@@ -764,6 +1630,27 @@ static int sockpoolindex (long id)
 }
 
 /* ObtainSocket(id, domain, type, protocol)(d0/d1/d2/d3) */
+/****i* januae-bsdsocket/bsdsocklib_ObtainSocket
+ *
+ *   NAME
+ *       bsdsocklib_ObtainSocket()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_ObtainSocket (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Transfer a pooled host socket into the the current descriptor table.
+ *
+ *   RESULT
+ *       Returns the zero-based descriptor index on success or -1 for missing pool
+ *       ID/table failure.
+ *
+ *   NOTES
+ *       Copies pool flags, invalidates the pool ID, and uses getsd() to allocate or
+ *       reuse a descriptor.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_ObtainSocket (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -798,6 +1685,28 @@ static uae_u32 REGPARAM2 bsdsocklib_ObtainSocket (TrapContext *context)
 }
 
 /* ReleaseSocket(fd, id)(d0/d1) */
+/****i* januae-bsdsocket/bsdsocklib_ReleaseSocket
+ *
+ *   NAME
+ *       bsdsocklib_ReleaseSocket()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_ReleaseSocket (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Transfer a descriptor from the the current table into the global
+ *       socket-sharing pool.
+ *
+ *   RESULT
+ *       Returns the assigned pool ID on success, otherwise -1.
+ *
+ *   NOTES
+ *       Rejects REP_ALL asynchronous-event flags. Removes the descriptor before
+ *       finding a free pool slot; global pool exhaustion therefore leaves it
+ *       released.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_ReleaseSocket (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -861,6 +1770,25 @@ static uae_u32 REGPARAM2 bsdsocklib_ReleaseSocket (TrapContext *context)
 }
 
 /* ReleaseCopyOfSocket(fd, id)(d0/d1) */
+/****i* januae-bsdsocket/bsdsocklib_ReleaseCopyOfSocket
+ *
+ *   NAME
+ *       bsdsocklib_ReleaseCopyOfSocket()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_ReleaseCopyOfSocket (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Report the unimplemented ReleaseCopyOfSocket library vector.
+ *
+ *   RESULT
+ *       Returns zero without releasing or copying a socket.
+ *
+ *   NOTES
+ *       Emits an UNSUPPORTED diagnostic.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_ReleaseCopyOfSocket (TrapContext *context)
 {
     write_log ("bsdsocket: UNSUPPORTED: ReleaseCopyOfSocket()\n");
@@ -868,6 +1796,22 @@ static uae_u32 REGPARAM2 bsdsocklib_ReleaseCopyOfSocket (TrapContext *context)
 }
 
 /* Errno()() */
+/****i* januae-bsdsocket/bsdsocklib_Errno
+ *
+ *   NAME
+ *       bsdsocklib_Errno()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_Errno (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Return the per-socketbase errno value.
+ *
+ *   RESULT
+ *       Returns sb_errno without clearing it.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_Errno (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -876,6 +1820,26 @@ static uae_u32 REGPARAM2 bsdsocklib_Errno (TrapContext *context)
 }
 
 /* SetErrnoPtr(errno_p, size)(a0/d0) */
+/****i* januae-bsdsocket/bsdsocklib_SetErrnoPtr
+ *
+ *   NAME
+ *       bsdsocklib_SetErrnoPtr()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_SetErrnoPtr (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Configure an emulated-memory errno cell from A0 and its element width from
+ *       D0.
+ *
+ *   RESULT
+ *       Returns zero for widths 1, 2 or 4; returns -1 and sets EINVAL otherwise.
+ *
+ *   NOTES
+ *       Records pointer and width for subsequent bsdsocklib_seterrno updates.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_SetErrnoPtr (TrapContext *context) {
 
   struct socketbase *sb = get_socketbase (context);
@@ -898,6 +1862,26 @@ static uae_u32 REGPARAM2 bsdsocklib_SetErrnoPtr (TrapContext *context) {
 
 /* *------ inet library calls related to inet address manipulation */
 /* Inet_NtoA(in)(d0) */
+/****i* januae-bsdsocket/bsdsocklib_Inet_NtoA
+ *
+ *   NAME
+ *       bsdsocklib_Inet_NtoA()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_Inet_NtoA (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Convert IPv4 address in D0 to an emulated string pointer.
+ *
+ *   RESULT
+ *       Returns host_Inet_NtoA() result.
+ *
+ *   NOTES
+ *       Delegates to host_Inet_NtoA(); failure and buffer validation are determined
+ *       by that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_Inet_NtoA (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -905,6 +1889,26 @@ static uae_u32 REGPARAM2 bsdsocklib_Inet_NtoA (TrapContext *context)
 }
 
 /* inet_addr(cp)(a0) */
+/****i* januae-bsdsocket/bsdsocklib_inet_addr
+ *
+ *   NAME
+ *       bsdsocklib_inet_addr()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_inet_addr (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Parse the IPv4 address string at emulated A0.
+ *
+ *   RESULT
+ *       Returns host_inet_addr() result.
+ *
+ *   NOTES
+ *       Delegates to host_inet_addr(); failure and buffer validation are determined
+ *       by that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_inet_addr (TrapContext *context)
 {
   struct socketbase *sb = get_socketbase (context);
@@ -912,6 +1916,25 @@ static uae_u32 REGPARAM2 bsdsocklib_inet_addr (TrapContext *context)
 }
 
 /* Inet_LnaOf(in)(d0) */
+/****i* januae-bsdsocket/bsdsocklib_Inet_LnaOf
+ *
+ *   NAME
+ *       bsdsocklib_Inet_LnaOf()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_Inet_LnaOf (TrapContext *context)
+ *
+ *   FUNCTION
+ *       The legacy local-address-part conversion is not implemented.
+ *
+ *   RESULT
+ *       Always returns zero.
+ *
+ *   NOTES
+ *       Logs UNSUPPORTED; no host operation is attempted.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_Inet_LnaOf (TrapContext *context)
 {
     write_log ("bsdsocket: UNSUPPORTED: Inet_LnaOf()\n");
@@ -919,6 +1942,25 @@ static uae_u32 REGPARAM2 bsdsocklib_Inet_LnaOf (TrapContext *context)
 }
 
 /* Inet_NetOf(in)(d0) */
+/****i* januae-bsdsocket/bsdsocklib_Inet_NetOf
+ *
+ *   NAME
+ *       bsdsocklib_Inet_NetOf()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_Inet_NetOf (TrapContext *context)
+ *
+ *   FUNCTION
+ *       The legacy network-number extraction is not implemented.
+ *
+ *   RESULT
+ *       Always returns zero.
+ *
+ *   NOTES
+ *       Logs UNSUPPORTED; no host operation is attempted.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_Inet_NetOf (TrapContext *context)
 {
     write_log ("bsdsocket: UNSUPPORTED: Inet_NetOf()\n");
@@ -926,6 +1968,25 @@ static uae_u32 REGPARAM2 bsdsocklib_Inet_NetOf (TrapContext *context)
 }
 
 /* Inet_MakeAddr(net, host)(d0/d1) */
+/****i* januae-bsdsocket/bsdsocklib_Inet_MakeAddr
+ *
+ *   NAME
+ *       bsdsocklib_Inet_MakeAddr()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_Inet_MakeAddr (TrapContext *context)
+ *
+ *   FUNCTION
+ *       The legacy network/host-to-address conversion is not implemented.
+ *
+ *   RESULT
+ *       Always returns zero.
+ *
+ *   NOTES
+ *       Logs UNSUPPORTED; no host operation is attempted.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_Inet_MakeAddr (TrapContext *context)
 {
     write_log ("bsdsocket: UNSUPPORTED: Inet_MakeAddr()\n");
@@ -933,6 +1994,26 @@ static uae_u32 REGPARAM2 bsdsocklib_Inet_MakeAddr (TrapContext *context)
 }
 
 /* inet_network(cp)(a0) */
+/****i* januae-bsdsocket/bsdsocklib_inet_network
+ *
+ *   NAME
+ *       bsdsocklib_inet_network()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_inet_network (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Parse an IPv4 network string at emulated A0.
+ *
+ *   RESULT
+ *       Returns host_inet_addr() result; uses the same helper as inet_addr.
+ *
+ *   NOTES
+ *       Delegates to host_inet_addr(); failure and buffer validation are determined
+ *       by that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_inet_network (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -941,6 +2022,25 @@ static uae_u32 REGPARAM2 bsdsocklib_inet_network (TrapContext *context)
 
 /* *------ gethostbyname etc */
 /* gethostbyname(name)(a0) */
+/****i* januae-bsdsocket/bsdsocklib_gethostbyname
+ *
+ *   NAME
+ *       bsdsocklib_gethostbyname()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_gethostbyname (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Look up a host by its emulated name pointer using the host socket backend.
+ *
+ *   RESULT
+ *       Returns an emulated hostent pointer, or zero when h_errno is set.
+ *
+ *   NOTES
+ *       Passes lookup mode (length 0, type -1) to host_gethostbynameaddr().
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_gethostbyname (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -949,6 +2049,25 @@ static uae_u32 REGPARAM2 bsdsocklib_gethostbyname (TrapContext *context)
 }
 
 /* gethostbyaddr(addr, len, type)(a0/d0/d1) */
+/****i* januae-bsdsocket/bsdsocklib_gethostbyaddr
+ *
+ *   NAME
+ *       bsdsocklib_gethostbyaddr()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_gethostbyaddr (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Look up a host by address, length and type from emulated A0/D0/D1.
+ *
+ *   RESULT
+ *       Returns an emulated hostent pointer, or zero when h_errno is set.
+ *
+ *   NOTES
+ *       The actual lookup and allocation are delegated to host_gethostbynameaddr().
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_gethostbyaddr (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -957,6 +2076,25 @@ static uae_u32 REGPARAM2 bsdsocklib_gethostbyaddr (TrapContext *context)
 }
 
 /* getnetbyname(name)(a0) */
+/****i* januae-bsdsocket/bsdsocklib_getnetbyname
+ *
+ *   NAME
+ *       bsdsocklib_getnetbyname()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_getnetbyname (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Network-name database lookup is not implemented.
+ *
+ *   RESULT
+ *       Always returns zero.
+ *
+ *   NOTES
+ *       Logs UNSUPPORTED; no host operation is attempted.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_getnetbyname (TrapContext *context)
 {
     write_log ("bsdsocket: UNSUPPORTED: getnetbyname()\n");
@@ -964,6 +2102,25 @@ static uae_u32 REGPARAM2 bsdsocklib_getnetbyname (TrapContext *context)
 }
 
 /* getnetbyaddr(net, type)(d0/d1) */
+/****i* januae-bsdsocket/bsdsocklib_getnetbyaddr
+ *
+ *   NAME
+ *       bsdsocklib_getnetbyaddr()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_getnetbyaddr (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Numeric network database lookup is not implemented.
+ *
+ *   RESULT
+ *       Always returns zero.
+ *
+ *   NOTES
+ *       Logs UNSUPPORTED; no host operation is attempted.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_getnetbyaddr (TrapContext *context)
 {
     write_log ("bsdsocket: UNSUPPORTED: getnetbyaddr()\n");
@@ -971,6 +2128,25 @@ static uae_u32 REGPARAM2 bsdsocklib_getnetbyaddr (TrapContext *context)
 }
 
 /* getservbyname(name, proto)(a0/a1) */
+/****i* januae-bsdsocket/bsdsocklib_getservbyname
+ *
+ *   NAME
+ *       bsdsocklib_getservbyname()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_getservbyname (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Resolve a service name and protocol string from emulated A0 and A1.
+ *
+ *   RESULT
+ *       Returns an emulated servent pointer, or zero when sb_errno is set.
+ *
+ *   NOTES
+ *       Calls host_getservbynameport() with its name-selection flag cleared.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_getservbyname (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -979,6 +2155,25 @@ static uae_u32 REGPARAM2 bsdsocklib_getservbyname (TrapContext *context)
 }
 
 /* getservbyport(port, proto)(d0/a0) */
+/****i* januae-bsdsocket/bsdsocklib_getservbyport
+ *
+ *   NAME
+ *       bsdsocklib_getservbyport()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_getservbyport (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Resolve a service port and protocol string from emulated D0 and A0.
+ *
+ *   RESULT
+ *       Returns an emulated servent pointer, or zero when sb_errno is set.
+ *
+ *   NOTES
+ *       Calls host_getservbynameport() with its port-selection flag set.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_getservbyport (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -987,6 +2182,22 @@ static uae_u32 REGPARAM2 bsdsocklib_getservbyport (TrapContext *context)
 }
 
 /* getprotobyname(name)(a0) */
+/****i* januae-bsdsocket/bsdsocklib_getprotobyname
+ *
+ *   NAME
+ *       bsdsocklib_getprotobyname()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_getprotobyname (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Resolve a protocol name through the host socket backend.
+ *
+ *   RESULT
+ *       Returns an emulated protoent pointer, or zero when sb_errno is set.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_getprotobyname (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -995,6 +2206,22 @@ static uae_u32 REGPARAM2 bsdsocklib_getprotobyname (TrapContext *context)
 }
 
 /* getprotobynumber(proto)(d0)  */
+/****i* januae-bsdsocket/bsdsocklib_getprotobynumber
+ *
+ *   NAME
+ *       bsdsocklib_getprotobynumber()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_getprotobynumber (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Resolve a numeric protocol identifier through the host socket backend.
+ *
+ *   RESULT
+ *       Returns an emulated protoent pointer, or zero when sb_errno is set.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_getprotobynumber (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
@@ -1004,6 +2231,25 @@ static uae_u32 REGPARAM2 bsdsocklib_getprotobynumber (TrapContext *context)
 
 /* *------ syslog functions */
 /* Syslog(level, format, ap)(d0/a0/a1) */
+/****i* januae-bsdsocket/bsdsocklib_vsyslog
+ *
+ *   NAME
+ *       bsdsocklib_vsyslog()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_vsyslog (TrapContext *context)
+ *
+ *   FUNCTION
+ *       The syslog forwarding vector is not implemented.
+ *
+ *   RESULT
+ *       Always returns zero.
+ *
+ *   NOTES
+ *       Logs UNSUPPORTED; no host operation is attempted.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_vsyslog (TrapContext *context)
 {
     write_log ("bsdsocket: UNSUPPORTED: vsyslog()\n");
@@ -1012,11 +2258,50 @@ static uae_u32 REGPARAM2 bsdsocklib_vsyslog (TrapContext *context)
 
 /* *------ AmiTCP/IP 1.1 extensions */
 /* Dup2Socket(fd1, fd2)(d0/d1) */
+/****i* januae-bsdsocket/bsdsocklib_Dup2Socket
+ *
+ *   NAME
+ *       bsdsocklib_Dup2Socket()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_Dup2Socket (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Duplicate socket descriptor D0 to the descriptor D1.
+ *
+ *   RESULT
+ *       Returns host_dup2socket() result.
+ *
+ *   NOTES
+ *       Delegates to host_dup2socket(); failure and buffer validation are determined
+ *       by that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_Dup2Socket (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
     return host_dup2socket (sb, m68k_dreg (&context->regs, 0), m68k_dreg (&context->regs, 1));
 }
+
+/****i* januae-bsdsocket/bsdsocklib_sendmsg
+ *
+ *   NAME
+ *       bsdsocklib_sendmsg()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_sendmsg (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Scatter/gather message sending is not implemented.
+ *
+ *   RESULT
+ *       Always returns zero.
+ *
+ *   NOTES
+ *       Logs UNSUPPORTED; no host operation is attempted.
+ *
+ ****************************************************************************/
 
 static uae_u32 REGPARAM2 bsdsocklib_sendmsg (TrapContext *context)
 {
@@ -1024,17 +2309,76 @@ static uae_u32 REGPARAM2 bsdsocklib_sendmsg (TrapContext *context)
     return 0;
 }
 
+/****i* januae-bsdsocket/bsdsocklib_recvmsg
+ *
+ *   NAME
+ *       bsdsocklib_recvmsg()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_recvmsg (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Scatter/gather message receiving is not implemented.
+ *
+ *   RESULT
+ *       Always returns zero.
+ *
+ *   NOTES
+ *       Logs UNSUPPORTED; no host operation is attempted.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_recvmsg (TrapContext *context)
 {
     write_log ("bsdsocket: UNSUPPORTED: recvmsg()\n");
     return 0;
 }
 
+/****i* januae-bsdsocket/bsdsocklib_gethostname
+ *
+ *   NAME
+ *       bsdsocklib_gethostname()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_gethostname (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Read the host name into emulated memory at A0 with the capacity in D0.
+ *
+ *   RESULT
+ *       Returns host_gethostname() result.
+ *
+ *   NOTES
+ *       Delegates to host_gethostname(); failure and buffer validation are
+ *       determined by that backend.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_gethostname (TrapContext *context)
 {
     struct socketbase *sb = get_socketbase (context);
     return host_gethostname (sb, m68k_areg (&context->regs, 0), m68k_dreg (&context->regs, 0));
 }
+
+/****i* januae-bsdsocket/bsdsocklib_gethostid
+ *
+ *   NAME
+ *       bsdsocklib_gethostid()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_gethostid (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Provide the legacy gethostid library vector without querying a real host
+ *       identifier.
+ *
+ *   RESULT
+ *       Always returns 0x7f000001 (127.0.0.1).
+ *
+ *   NOTES
+ *       Logs a deprecation warning containing the emulated task name.
+ *
+ ****************************************************************************/
 
 static uae_u32 REGPARAM2 bsdsocklib_gethostid (TrapContext *context)
 {
@@ -1126,6 +2470,25 @@ uae_u32 strErrptr;
 #define SBTC_HERRNOLONGPTR  25
 #define SBTC_RELEASESTRPTR  29
 
+/****i* januae-bsdsocket/tagcopy
+ *
+ *   NAME
+ *       tagcopy()
+ *
+ *   SYNOPSIS
+ *       static void tagcopy (uae_u32 currtag, uae_u32 currval, uae_u32 tagptr, uae_u32 * ptr)
+ *
+ *   FUNCTION
+ *       Perform the value or reference read/write operation encoded in a
+ *       SocketBaseTagList tag.
+ *
+ *   NOTES
+ *       GETVAL writes to the tag value cell; GETREF writes through the supplied
+ *       address; SETVAL copies the value; SETREF reads a longword from emulated
+ *       memory.
+ *
+ ****************************************************************************/
+
 static void tagcopy (uae_u32 currtag, uae_u32 currval, uae_u32 tagptr, uae_u32 * ptr)
 {
     switch (currtag & 0x8001) {
@@ -1146,6 +2509,27 @@ static void tagcopy (uae_u32 currtag, uae_u32 currval, uae_u32 tagptr, uae_u32 *
 	*ptr = get_long (currval);
     }
 }
+
+/****i* januae-bsdsocket/bsdsocklib_SocketBaseTagList
+ *
+ *   NAME
+ *       bsdsocklib_SocketBaseTagList()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_SocketBaseTagList (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Interpret AmiTCP-style socketbase tags for signal masks, error codes,
+ *       descriptor size and error-string pointers.
+ *
+ *   RESULT
+ *       Returns zero on TAG_DONE.
+ *
+ *   NOTES
+ *       Handles TAG_MORE, TAG_SKIP and TAG_IGNORE. Unsupported tags are logged;
+ *       pointer-output tags dereference caller-provided emulated addresses.
+ *
+ ****************************************************************************/
 
 static uae_u32 REGPARAM2 bsdsocklib_SocketBaseTagList (TrapContext *context) {
   struct socketbase *sb = get_socketbase (context);
@@ -1291,6 +2675,26 @@ done:
   return 0; /* tagsprocessed is always 0.. */
 }
 
+/****i* januae-bsdsocket/bsdsocklib_GetSocketEvents
+ *
+ *   NAME
+ *       bsdsocklib_GetSocketEvents()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_GetSocketEvents (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Expose queued socket event flags through the legacy GetSocketEvents vector.
+ *
+ *   RESULT
+ *       Returns -1 on non-Windows builds or when no flagged event is available.
+ *
+ *   NOTES
+ *       Event scanning exists only under _WIN32. A matching event clears SET_ALL
+ *       bits and writes its shifted flags into the supplied Amiga address.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_GetSocketEvents (TrapContext *context)
 {
 #ifdef _WIN32
@@ -1320,15 +2724,71 @@ static uae_u32 REGPARAM2 bsdsocklib_GetSocketEvents (TrapContext *context)
     return -1;
 }
 
+/****i* januae-bsdsocket/bsdsocklib_getdtablesize
+ *
+ *   NAME
+ *       bsdsocklib_getdtablesize()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_getdtablesize (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Read the current per-socketbase descriptor-table capacity.
+ *
+ *   RESULT
+ *       Returns dtablesize.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_getdtablesize (TrapContext *context)
 {
     return get_socketbase (context)->dtablesize;
 }
 
+/****i* januae-bsdsocket/bsdsocklib_null
+ *
+ *   NAME
+ *       bsdsocklib_null()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_null (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Implement an internal no-op trap helper.
+ *
+ *   RESULT
+ *       Always returns zero.
+ *
+ *   NOTES
+ *       Not present in the exported sockfuncs vector.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 bsdsocklib_null (TrapContext *context)
 {
     return 0;
 }
+
+/****i* januae-bsdsocket/bsdsocklib_init
+ *
+ *   NAME
+ *       bsdsocklib_init()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 bsdsocklib_init (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Build and register the emulated bsdsocket.library base and install its
+ *       signal interrupt trap.
+ *
+ *   RESULT
+ *       Returns zero whether successful or not.
+ *
+ *   NOTES
+ *       MakeLibrary and the error-string allocation can fail. On success sets D0 to
+ *       one and hooks the vector at VBR+0x78.
+ *
+ ****************************************************************************/
 
 static uae_u32 REGPARAM2 bsdsocklib_init (TrapContext *context)
 {
@@ -1398,6 +2858,24 @@ static uae_u32 REGPARAM2 bsdsocklib_init (TrapContext *context)
     return 0;
 }
 
+/****i* januae-bsdsocket/bsdlib_reset
+ *
+ *   NAME
+ *       bsdlib_reset()
+ *
+ *   SYNOPSIS
+ *       void bsdlib_reset (void)
+ *
+ *   FUNCTION
+ *       Reset host socketbase state, outstanding shared sockets and emulated
+ *       bsdsocket references.
+ *
+ *   NOTES
+ *       Returns without work when socket_emu is disabled. Releases socketbase host
+ *       state, tables and pool sockets, then calls host_sbreset().
+ *
+ ****************************************************************************/
+
 void bsdlib_reset (void)
 {
     SB, *nsb;
@@ -1465,6 +2943,24 @@ static const char * const funcnames[] = {
 };
 
 static uae_u32 sockfuncvecs[sizeof (sockfuncs) / sizeof (*sockfuncs)];
+
+/****i* januae-bsdsocket/bsdlib_install
+ *
+ *   NAME
+ *       bsdlib_install()
+ *
+ *   SYNOPSIS
+ *       void bsdlib_install (void)
+ *
+ *   FUNCTION
+ *       Install the emulated bsdsocket.library ROM resident and trap-function
+ *       vectors.
+ *
+ *   NOTES
+ *       Enabled BSDSOCKET variant: requires socket_emu and init_socket_layer();
+ *       publishes version 4.53 and generates an autoinit library table.
+ *
+ ****************************************************************************/
 
 void bsdlib_install (void)
 {
@@ -1559,6 +3055,23 @@ void bsdlib_install (void)
 }
 
 #else /* ! BSDSOCKET */
+
+/****i* januae-bsdsocket/bsdlib_install_stub
+ *
+ *   NAME
+ *       bsdlib_install()
+ *
+ *   SYNOPSIS
+ *       void bsdlib_install (void)
+ *
+ *   FUNCTION
+ *       Provide the disabled-BSDSOCKET compatibility entry point.
+ *
+ *   NOTES
+ *       The complete implementation is omitted by the preprocessor; this alternative
+ *       immediately returns and installs nothing.
+ *
+ ****************************************************************************/
 
 void bsdlib_install (void)
 {
