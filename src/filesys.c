@@ -846,6 +846,28 @@ typedef uae_u8 *dpacket;
 #define GET_PCK_ARG3(p) ((uae_s32)(do_get_mem_long ((uae_u32 *)((p) + dp_Arg3))))
 #define GET_PCK_ARG4(p) ((uae_s32)(do_get_mem_long ((uae_u32 *)((p) + dp_Arg4))))
 
+/****i* januae-filesys-internal/char1
+ *
+ *   NAME
+ *       char1()
+ *
+ *   SYNOPSIS
+ *       static char *char1 (uaecptr addr)
+ *
+ *   FUNCTION
+ *       Read a null-terminated guest string into a shared scratch buffer.
+ *
+ *   INPUTS
+ *       addr -- Guest address of the first character.
+ *
+ *   RESULT
+ *       A pointer to an internal 1024-byte buffer, overwritten by a subsequent call.
+ *
+ *   NOTES
+ *       The routine reads guest memory until a zero byte or the buffer limit. A string filling the buffer may not be terminated.
+ *
+ ****************************************************************************/
+
 static char *char1 (uaecptr addr)
 {
     static char buf[1024];
@@ -856,6 +878,28 @@ static char *char1 (uaecptr addr)
     } while (buf[i++] && i < sizeof(buf));
     return buf;
 }
+
+/****i* januae-filesys-internal/bstr1
+ *
+ *   NAME
+ *       bstr1()
+ *
+ *   SYNOPSIS
+ *       static char *bstr1 (uaecptr addr)
+ *
+ *   FUNCTION
+ *       Convert a length-prefixed guest string into a shared C string.
+ *
+ *   INPUTS
+ *       addr -- Guest address of the length byte.
+ *
+ *   RESULT
+ *       A pointer to an internal 256-byte buffer, overwritten by a subsequent call.
+ *
+ *   NOTES
+ *       The leading byte supplies the string length. The result is null-terminated.
+ *
+ ****************************************************************************/
 
 static char *bstr1 (uaecptr addr)
 {
@@ -870,6 +914,29 @@ static char *bstr1 (uaecptr addr)
     return buf;
 }
 
+/****i* januae-filesys-internal/bstr
+ *
+ *   NAME
+ *       bstr()
+ *
+ *   SYNOPSIS
+ *       static char *bstr (Unit *unit, uaecptr addr)
+ *
+ *   FUNCTION
+ *       Copy a length-prefixed guest string into the unit scratch buffer.
+ *
+ *   INPUTS
+ *       unit -- Unit whose temporary buffer receives the string.
+ *       addr -- Guest address of the length byte.
+ *
+ *   RESULT
+ *       A pointer to unit->tmpbuf3, overwritten by later uses of that buffer.
+ *
+ *   NOTES
+ *       The leading byte supplies the string length; the result is null-terminated. The caller must provide a valid unit.
+ *
+ ****************************************************************************/
+
 static char *bstr (Unit *unit, uaecptr addr)
 {
     int i;
@@ -881,6 +948,29 @@ static char *bstr (Unit *unit, uaecptr addr)
     unit->tmpbuf3[i] = 0;
     return unit->tmpbuf3;
 }
+
+/****i* januae-filesys-internal/bstr_cut
+ *
+ *   NAME
+ *       bstr_cut()
+ *
+ *   SYNOPSIS
+ *       static char *bstr_cut (Unit *unit, uaecptr addr)
+ *
+ *   FUNCTION
+ *       Copy a length-prefixed guest string and return its final path component.
+ *
+ *   INPUTS
+ *       unit -- Unit whose temporary buffer receives the string.
+ *       addr -- Guest address of the length byte.
+ *
+ *   RESULT
+ *       A pointer into unit->tmpbuf3, after the last slash or first colon if present.
+ *
+ *   NOTES
+ *       The copied string is null-terminated. The returned pointer is invalidated when the unit scratch buffer is reused.
+ *
+ ****************************************************************************/
 
 static char *bstr_cut (Unit *unit, uaecptr addr)
 {
@@ -903,6 +993,28 @@ static Unit *units = 0;
 static int unit_num = 0;
 
 static Unit*
+/****i* januae-filesys-internal/find_unit
+ *
+ *   NAME
+ *       find_unit()
+ *
+ *   SYNOPSIS
+ *       find_unit (uaecptr port)
+ *
+ *   FUNCTION
+ *       Look up a filesystem unit by its guest message-port address.
+ *
+ *   INPUTS
+ *       port -- Guest address of the unit message port.
+ *
+ *   RESULT
+ *       The matching unit, or NULL if none is registered.
+ *
+ *   NOTES
+ *       Searches the current linked list of units.
+ *
+ ****************************************************************************/
+
 find_unit (uaecptr port)
 {
     Unit* u;
@@ -917,6 +1029,29 @@ static void prepare_for_open (char *name)
 {
 }
 
+/****i* januae-filesys-internal/de_recycle_aino
+ *
+ *   NAME
+ *       de_recycle_aino()
+ *
+ *   SYNOPSIS
+ *       static void de_recycle_aino (Unit *unit, a_inode *aino)
+ *
+ *   FUNCTION
+ *       Remove an inode from the unit recycling chain.
+ *
+ *   INPUTS
+ *       unit -- Unit that owns the recycling chain.
+ *       aino -- Inode to unlink.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Leaves the root node and any inode not linked into the recycling chain unchanged. Decrements the cache count when unlinking.
+ *
+ ****************************************************************************/
+
 static void de_recycle_aino (Unit *unit, a_inode *aino)
 {
     aino_test (aino);
@@ -927,6 +1062,30 @@ static void de_recycle_aino (Unit *unit, a_inode *aino)
     aino->next = aino->prev = 0;
     unit->aino_cache_size--;
 }
+
+/****i* januae-filesys-internal/dispose_aino
+ *
+ *   NAME
+ *       dispose_aino()
+ *
+ *   SYNOPSIS
+ *       static void dispose_aino (Unit *unit, a_inode **aip, a_inode *aino)
+ *
+ *   FUNCTION
+ *       Remove an inode from its sibling list and free its allocated fields.
+ *
+ *   INPUTS
+ *       unit -- Unit containing the inode hash table.
+ *       aip -- Address of the sibling-list link referencing the inode.
+ *       aino -- Inode to dispose.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Clears the matching inode hash entry, writes back dirty parent directory metadata when needed, advances the sibling link, and releases the inode and its owned strings. The inode must no longer be in use.
+ *
+ ****************************************************************************/
 
 static void dispose_aino (Unit *unit, a_inode **aip, a_inode *aino)
 {
