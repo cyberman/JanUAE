@@ -50,6 +50,27 @@ static uint32          joystickCount;
 static struct joystick joystickList [MAX_JOYSTICKS];
 
 
+/****i* januae-amigainput/openAmigaInput
+ *
+ *   NAME
+ *       openAmigaInput()
+ *
+ *   SYNOPSIS
+ *       static BOOL openAmigaInput (void)
+ *
+ *   FUNCTION
+ *       Open the AmigaInput library and obtain its main interface.
+ *
+ *   RESULT
+ *       Returns TRUE when the library and interface are available, FALSE otherwise.
+ *
+ *   NOTES
+ *       Requests AmigaInput.library version 51 and interface 'main' version 1. A
+ *       failed interface acquisition closes the library. A missing library is
+ *       logged.
+ *
+ ****************************************************************************/
+
 static BOOL openAmigaInput (void)
 {
     AIN_Base = OpenLibrary ("AmigaInput.library", 51);
@@ -66,6 +87,23 @@ static BOOL openAmigaInput (void)
 
     return AIN_Base != NULL;
 }
+
+/****i* januae-amigainput/closeAmigaInput
+ *
+ *   NAME
+ *       closeAmigaInput()
+ *
+ *   SYNOPSIS
+ *       static void closeAmigaInput (void)
+ *
+ *   FUNCTION
+ *       Release the AmigaInput interface and library held by the driver.
+ *
+ *   NOTES
+ *       Drops the interface before closing the library; does not release joystick
+ *       device handles, delete the context or free stored device names.
+ *
+ ****************************************************************************/
 
 static void closeAmigaInput (void)
 {
@@ -94,6 +132,29 @@ struct enumPacket
 /*
  * Callback to enumerate joysticks
  */
+/****i* januae-amigainput/enumerateJoysticks
+ *
+ *   NAME
+ *       enumerateJoysticks()
+ *
+ *   SYNOPSIS
+ *       static BOOL enumerateJoysticks (AIN_Device *device, void *UserData)
+ *
+ *   FUNCTION
+ *       Inspect an enumerated AmigaInput device and record its joystick controls.
+ *
+ *   RESULT
+ *       Returns the final axis/button offset-query result, or FALSE when the device is not accepted.
+ *
+ *   NOTES
+ *       UserData is an enumPacket with a live context, count and array. Only
+ *       AINDT_JOYSTICK is accepted, with at most two axes and twelve buttons. The
+ *       device name is duplicated. Because result starts FALSE, a zero-axis device
+ *       cannot pass button-offset queries; failed queries do not free the duplicated
+ *       name. Enumeration capacity is MAX_INPUT_DEVICES.
+ *
+ ****************************************************************************/
+
 static BOOL enumerateJoysticks (AIN_Device *device, void *UserData)
 {
     APTR             context =  ((struct enumPacket *)UserData)->context;
@@ -139,6 +200,27 @@ static BOOL enumerateJoysticks (AIN_Device *device, void *UserData)
 }
 
 
+/****i* januae-amigainput/init_joysticks
+ *
+ *   NAME
+ *       init_joysticks()
+ *
+ *   SYNOPSIS
+ *       static int init_joysticks (void)
+ *
+ *   FUNCTION
+ *       Create an AmigaInput context and enumerate usable joystick devices.
+ *
+ *   RESULT
+ *       Returns 1 after context creation and enumeration, or 0 if already initialized or initialization fails.
+ *
+ *   NOTES
+ *       Opening the library precedes context creation. Enumeration success is not
+ *       required for a return value of 1. A failed context creation leaves the
+ *       opened library/interface unclosed.
+ *
+ ****************************************************************************/
+
 static int init_joysticks (void)
 {
     int i;
@@ -167,6 +249,23 @@ static int init_joysticks (void)
     return success;
 }
 
+/****i* januae-amigainput/close_joysticks
+ *
+ *   NAME
+ *       close_joysticks()
+ *
+ *   SYNOPSIS
+ *       static void close_joysticks (void)
+ *
+ *   FUNCTION
+ *       Release acquired joystick handles and destroy the enumeration context.
+ *
+ *   NOTES
+ *       Resets joystickCount, but does not call closeAmigaInput() and does not free
+ *       the per-device duplicated names.
+ *
+ ****************************************************************************/
+
 static void close_joysticks (void)
 {
     unsigned int i = joystickCount;
@@ -186,6 +285,24 @@ static void close_joysticks (void)
 }
 
 #define BUFFER_OFFSET(buffer, offset)	(((int32 *)buffer)[offset])
+
+/****i* januae-amigainput/read_joy
+ *
+ *   NAME
+ *       read_joy()
+ *
+ *   SYNOPSIS
+ *       static void read_joy (unsigned int num)
+ *
+ *   FUNCTION
+ *       Poll one acquired AmigaInput device and forward changed control states to UAE.
+ *
+ *   NOTES
+ *       num must identify an enumerated joystick. Updates axes only when changed,
+ *       using range 32767; buttons are converted to 0/1. No events are delivered if
+ *       no handle is acquired or AIN_ReadDevice fails.
+ *
+ ****************************************************************************/
 
 static void read_joy (unsigned int num)
 {
@@ -233,6 +350,22 @@ static void read_joy (unsigned int num)
 /*
  * Query number of joysticks attached to system
  */
+/****i* januae-amigainput/get_joystick_count
+ *
+ *   NAME
+ *       get_joystick_count()
+ *
+ *   SYNOPSIS
+ *       static unsigned int get_joystick_count (void)
+ *
+ *   FUNCTION
+ *       Report the number of accepted AmigaInput joystick devices.
+ *
+ *   RESULT
+ *       Returns joystickCount as maintained by enumeration and shutdown.
+ *
+ ****************************************************************************/
+
 static unsigned int get_joystick_count (void)
 {
     return joystickCount;
@@ -241,6 +374,25 @@ static unsigned int get_joystick_count (void)
 /*
  * Query number of 'widgets' supported by joystick #joynum
  */
+/****i* januae-amigainput/get_joystick_widget_num
+ *
+ *   NAME
+ *       get_joystick_widget_num()
+ *
+ *   SYNOPSIS
+ *       static unsigned int get_joystick_widget_num (unsigned int joynum)
+ *
+ *   FUNCTION
+ *       Report the axis and button controls of one enumerated joystick.
+ *
+ *   RESULT
+ *       Returns the sum of the recorded axis and button counts.
+ *
+ *   NOTES
+ *       joynum must be a valid index; the function performs no bounds check.
+ *
+ ****************************************************************************/
+
 static unsigned int get_joystick_widget_num (unsigned int joynum)
 {
     return joystickList[joynum].axisCount + joystickList[joynum].buttonCount;
@@ -249,6 +401,27 @@ static unsigned int get_joystick_widget_num (unsigned int joynum)
 /*
  * Query type of widget #widgetnum on joystick #joynum
  */
+/****i* januae-amigainput/get_joystick_widget_type
+ *
+ *   NAME
+ *       get_joystick_widget_type()
+ *
+ *   SYNOPSIS
+ *       static int get_joystick_widget_type (unsigned int joynum, unsigned int widgetnum, char *name, uae_u32 *code)
+ *
+ *   FUNCTION
+ *       Classify a joystick widget and optionally format its display name.
+ *
+ *   RESULT
+ *       Returns IDEV_WIDGET_AXIS, IDEV_WIDGET_BUTTON or IDEV_WIDGET_NONE.
+ *
+ *   NOTES
+ *       joynum must be valid. widgetnum addresses axes first, then buttons. name,
+ *       when non-NULL, must be large enough for the generated label. The code output
+ *       parameter is not assigned.
+ *
+ ****************************************************************************/
+
 static int get_joystick_widget_type (unsigned int joynum, unsigned int widgetnum, char *name, uae_u32 *code)
 {
     struct joystick *joy = &joystickList[joynum];
@@ -265,6 +438,25 @@ static int get_joystick_widget_type (unsigned int joynum, unsigned int widgetnum
     return IDEV_WIDGET_NONE;
 }
 
+/****i* januae-amigainput/get_joystick_widget_first
+ *
+ *   NAME
+ *       get_joystick_widget_first()
+ *
+ *   SYNOPSIS
+ *       static int get_joystick_widget_first (unsigned int joynum, int type)
+ *
+ *   FUNCTION
+ *       Find the initial widget offset for a requested control type.
+ *
+ *   RESULT
+ *       Returns 0 for axes, axisCount for buttons, or -1 for other types.
+ *
+ *   NOTES
+ *       joynum must identify an enumerated joystick.
+ *
+ ****************************************************************************/
+
 static int get_joystick_widget_first (unsigned int joynum, int type)
 {
     switch (type) {
@@ -276,10 +468,47 @@ static int get_joystick_widget_first (unsigned int joynum, int type)
     return -1;
 }
 
+/****i* januae-amigainput/get_joystick_name
+ *
+ *   NAME
+ *       get_joystick_name()
+ *
+ *   SYNOPSIS
+ *       static const char *get_joystick_name (unsigned int joynum)
+ *
+ *   FUNCTION
+ *       Return the stored name of an enumerated joystick.
+ *
+ *   RESULT
+ *       Returns the name pointer recorded during enumeration.
+ *
+ *   NOTES
+ *       The returned pointer is owned by the driver; no copy is made or bounds check
+ *       performed.
+ *
+ ****************************************************************************/
+
 static const char *get_joystick_name (unsigned int joynum)
 {
     return (char *)joystickList[joynum].name;
 }
+
+/****i* januae-amigainput/read_joysticks
+ *
+ *   NAME
+ *       read_joysticks()
+ *
+ *   SYNOPSIS
+ *       static void read_joysticks (void)
+ *
+ *   FUNCTION
+ *       Poll all accepted joystick devices for changed axes and buttons.
+ *
+ *   NOTES
+ *       Polls joystick indices in descending order. Devices without an acquired
+ *       handle do not produce events.
+ *
+ ****************************************************************************/
 
 static void read_joysticks (void)
 {
@@ -288,6 +517,26 @@ static void read_joysticks (void)
     while (i > 0)
 	read_joy (--i);
 }
+
+/****i* januae-amigainput/acquire_joy
+ *
+ *   NAME
+ *       acquire_joy()
+ *
+ *   SYNOPSIS
+ *       static int acquire_joy (unsigned int joynum, int flags)
+ *
+ *   FUNCTION
+ *       Acquire an AmigaInput device handle for an enumerated joystick.
+ *
+ *   RESULT
+ *       Returns 1 when AIN_ObtainDevice succeeds, otherwise 0.
+ *
+ *   NOTES
+ *       joynum must be valid. flags is unused. Existing handles are not released
+ *       before reacquisition; a failed request is logged.
+ *
+ ****************************************************************************/
 
 static int acquire_joy (unsigned int joynum, int flags)
 {
@@ -302,6 +551,23 @@ static int acquire_joy (unsigned int joynum, int flags)
         write_log ("Failed to acquire joy\n");
    return result;
 }
+
+/****i* januae-amigainput/unacquire_joy
+ *
+ *   NAME
+ *       unacquire_joy()
+ *
+ *   SYNOPSIS
+ *       static void unacquire_joy (unsigned int joynum)
+ *
+ *   FUNCTION
+ *       Release an acquired AmigaInput handle for one joystick.
+ *
+ *   NOTES
+ *       joynum must be valid. A non-NULL handle is released and then cleared; an
+ *       absent handle is ignored.
+ *
+ ****************************************************************************/
 
 static void unacquire_joy (unsigned int joynum)
 {
@@ -329,6 +595,24 @@ struct inputdevice_functions inputdevicefunc_joystick = {
 /*
  * Set default inputdevice config
  */
+/****i* januae-amigainput/input_get_default_joystick
+ *
+ *   NAME
+ *       input_get_default_joystick()
+ *
+ *   SYNOPSIS
+ *       void input_get_default_joystick (struct uae_input_device *uid)
+ *
+ *   FUNCTION
+ *       Populate default UAE joystick mappings for enumerated AmigaInput devices.
+ *
+ *   NOTES
+ *       uid must have entries for every enumerated joystick, and at least one entry
+ *       even when none is found. Maps two axes and the first three buttons to
+ *       alternating joystick ports, then unconditionally enables uid[0].
+ *
+ ****************************************************************************/
+
 void input_get_default_joystick (struct uae_input_device *uid)
 {
     unsigned int i, port;
