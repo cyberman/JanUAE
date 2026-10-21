@@ -548,48 +548,11 @@ void no_p96_fix_center(struct Screen *screen,
                        ULONG aros_width,  ULONG aros_height,
                        LONG XOffset,      LONG YOffset) {
 
-#if 0
-  ULONG width, height;
-  ULONG modeID;
-#endif
 
   DebOut("no_p96_fix_center(%d, %d, %d, %d, %d, %d)\n", *x, *y, 
                                                         gfx_xcenter, gfx_ycenter,
                                                         aros_width,  aros_height);
 
-#if 0
-  modeID=GetVPModeID(&(screen->ViewPort));
-
-  if(modeID == INVALID_ID) {
-    DebOut("no_p96_fix_center WARNING: modeID == INVALID_ID\n");
-    return;
-  }
-
-  if(modeID & SUPERHIRES) {
-    width= screen->Width /2;
-  }
-  else if(modeID & HIRES) {
-    width= screen->Width;
-  }
-  else { 
-    width= screen->Width *2;
-  }
-  /* lores */
-#if 0
-  if(! (modeID & LACE) ) {
-    DebOut("==>no INTERLACE\n");
-    *y=*y / 2;
-  }
-#endif
-
-
-  DebOut("aros_width %d - width %d = %d\n", aros_width, width, 
-                                            aros_width - width);
-
-  *x= *x - ((aros_width - width) / 2); /* center */
-
-  *x= *x + 256;
-#endif
 
   *x=*x-XOffset;
   *y=*y-YOffset;
@@ -743,17 +706,11 @@ BOOL is_cyber(struct Screen *screen) {
 void sync_mouse() {
   struct Screen        *screen;
   ULONG                 result;
-#if 0
-  ULONG                 modeID;
-#endif
   BOOL                  is_p96=FALSE;
   WORD                  x,y;
   ULONG                 aros_width,   aros_height;
   ULONG                 gfx_xcenter,  gfx_ycenter;
   LONG                  aros_xoffset, aros_yoffset;
-#if 0
-  UWORD          flags;
-#endif
 
   ENTER
 
@@ -763,37 +720,12 @@ void sync_mouse() {
     return;
   }
 
-#if 0
-  /* customs screens are *not* synced here */
-  flags=screen->Flags & 0x000F;
-  if(flags == CUSTOMSCREEN) {
-    return;
-  }
-#endif
 
   if(!mousebuffer) {
     mousebuffer=AllocVec(AD__MAXMEM, MEMF_CLEAR); /* never free'ed */
   }
 
   /* do it for every update, as a screen might change the resolution.. */
-#if 0
-  if(CyberGfxBase) {  /* no CyberGfxBase, is_p96 is always FALSE */
-    modeID=GetVPModeID(&(screen->ViewPort));
-    /*
-    DebOut("modeID=%lx\n", modeID);
-    */
-    if(modeID != INVALID_ID) {
-      is_p96=IsCyberModeID(modeID);
-      /*
-      DebOut("is_p96: %d\n", is_p96);
-      */
-    }
-  }
-  else {
-    /* is_p96 stays FALSE */
-    is_p96=FALSE;
-  }
-#endif
 
   is_p96=is_cyber(screen);
 

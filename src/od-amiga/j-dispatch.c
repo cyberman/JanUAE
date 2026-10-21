@@ -58,25 +58,6 @@ BOOL init_done=FALSE;
 struct Window *assert_window (struct Window *search) {
 
   return search;
-#if 0
-  struct Window *win;
-  struct Screen *screen;
-
-  screen=LockPubScreen(NULL);
-  win=screen->FirstWindow;
-  UnlockPubScreen(NULL,screen);
-
-  while(win) {
-    if(search==win) {
-      return win;
-    }
-    win=win->NextWindow;
-  }
-
-  JWLOG("assert_window(%lx) failed\n",search);
-
-  return NULL;
-#endif
 }
 
 /****i* januae/aos3_process_compare ****************************************
@@ -604,15 +585,6 @@ static uae_u32 jd_setup(TrapContext *context, ULONG *param) {
      */
 
     JWLOG("jd_setup(.., task %lx, .., stop %d)\n",get_long_p(param),get_long_p(param+8));
-#if 0
-    JWLOG("::::::::::::::AD_SETUP::::::::::::::::::::::::\n");
-    JWLOG("AD__MAXMEM: %d\n", m68k_dreg(&context->regs, 1));
-    JWLOG("param:      %lx\n",m68k_areg(&context->regs, 0));
-    JWLOG("Task:       %lx\n",get_long_p(param  ));
-    JWLOG("Signal:     %lx\n",get_long_p(param+4));
-    JWLOG("Stop:       %d\n", get_long_p(param+8));
-    JWLOG("GuestSystem:%d\n", get_long_p(param+12));
-#endif
 
     if(!init_done) {
       JWLOG("AD_SETUP called first time => InitSemaphore etc\n");

@@ -84,13 +84,6 @@
 #define DEBUG_LOG(...) do ; while(0)
 #endif
 
-#if 0
-#ifdef __AROS__
-#include <proto/intuition.h>
-#include <proto/cybergraphics.h>
-#include <libraries/cybergraphics.h>
-#endif
-#endif
 
 
 //#define P96TRACING_ENABLED 1
@@ -308,9 +301,6 @@ static void create_guidlg (void);
 static void do_message_box (const gchar *title, const gchar *message, gboolean modal, gboolean wait);
 static void handle_message_box_request (smp_comm_pipe *msg_pipe);
 static GtkWidget *make_message_box (const gchar *title, const gchar *message, int modal, uae_sem_t *sem);
-#if 0
-static void open_splash_pipe (smp_comm_pipe *msg_pipe);
-#endif
 void on_message_box_quit (GtkWidget *w, gpointer user_data);
 
 int find_current_toggle (GtkWidget **widgets, int count);
@@ -746,18 +736,7 @@ DEBUG_LOG ("GUICMD_SHOW 3\n");
 	 case GUICMD_MSGBOX:
 	    handle_message_box_request(&to_gui_pipe);
 	    break;
-#if 0
-	 case GUICMD_SPLASH:
-	    open_splash_pipe(&to_gui_pipe);
-	    break;
-#endif
 
-#if 0
-	 case GUICMD_FLOPPYDLG:
-	    n = read_comm_pipe_int_blocking (&to_gui_pipe);
-	    floppyfileentry_do_dialog (FLOPPYFILEENTRY (floppy_widget[n]));
-	    break;
-#endif
 	}
     }
     return 1;
@@ -1026,9 +1005,6 @@ static GtkWidget *make_file_selector (const char *title,
 			       "clicked", (GtkSignalFunc) gtk_widget_destroy,
 			       GTK_OBJECT (p));
 
-#if 0
-    gtk_window_set_title (GTK_WINDOW (p), title);
-#endif
     gtk_widget_show (p);
 
 #else
@@ -2246,9 +2222,6 @@ static void make_hd_widgets (GtkWidget *dvbox)
 #endif
 
     make_button ("Add...", buttonbox, did_newdir);
-#if 0 /* later... */
-    make_button ("New hardfile...", buttonbox, did_newhdf);
-#endif
     hdchange_button = make_button ("Properties...", buttonbox, did_hdchange);
     hddel_button = make_button ("Remove", buttonbox, did_hddel);
 
@@ -2299,13 +2272,6 @@ static void make_about_widgets (GtkWidget *dvbox) {
 
     add_empty_vbox (dvbox);
 
-#if 0
-#ifdef GTKMUI
-    thing = gtk_label_new ("WARNING -- Crashes *will* happen -- WARNING");
-    gtk_widget_show (thing);
-    add_centered_to_vbox (dvbox, thing);
-#endif
-#endif
 
 
 #if GTK_MAJOR_VERSION >= 2 && !defined GTKMUI
@@ -2344,18 +2310,6 @@ static void make_about_widgets (GtkWidget *dvbox) {
 
 #endif
 /* TEST VERSION */
-#if 0
-    thing = gtk_label_new ("*** THIS IS AN INTERNAL BETA TEST VERSION ***");
-    gtk_widget_show (thing);
-    add_centered_to_vbox (dvbox, thing);
-    thing = gtk_label_new (__DATE__);
-    gtk_widget_show (thing);
-    add_centered_to_vbox (dvbox, thing);
-
-    thing = gtk_label_new ("*** PLEASE DO NOT DISTRIBUTE ***");
-    gtk_widget_show (thing);
-    add_centered_to_vbox (dvbox, thing);
-#endif
 
     add_empty_vbox (dvbox);
 
@@ -2398,11 +2352,6 @@ static gint did_guidlg_delete (GtkWidget* window, GdkEventAny* e, gpointer data)
 
   DEBUG_LOG("did_guidlg_delete(%lx, %lx, %lx)\n", window, e, data);
 
-#if 0
-  if (!quit_gui) {
-    write_comm_pipe_int (&from_gui_pipe, UAECMD_QUIT, 1);
-  }
-#endif
   on_quit_clicked();
   gui_window = 0;
   return FALSE;
@@ -2670,9 +2619,6 @@ static void create_guidlg (void) {
     GtkWidget *window, *notebook;
     GtkWidget *buttonbox, *buttonbox2, *vbox, *hbox;
     GtkWidget *thing;
-#if 0
-    GtkWidget *menubar, *menuitem, *menuitem_menu;
-#endif
     unsigned int i;
     static const struct _pages {
 	const char *title;
@@ -2720,51 +2666,6 @@ static void create_guidlg (void) {
     gtk_container_add (GTK_CONTAINER (gui_window), vbox);
     gtk_container_set_border_width (GTK_CONTAINER (gui_window), 10);
 
-#if 0
-    /* Quick and dirty menu bar */
-    menubar = gtk_menu_bar_new();
-    gtk_widget_show (menubar);
-    gtk_box_pack_start (GTK_BOX (vbox), menubar, FALSE, FALSE, 0);
-
-    menuitem = gtk_menu_item_new_with_mnemonic ("File");
-    gtk_widget_show (menuitem);
-    gtk_container_add (GTK_CONTAINER (menubar), menuitem);
-
-    menuitem_menu = gtk_menu_new ();
-    gtk_menu_item_set_submenu (GTK_MENU_ITEM (menuitem), menuitem_menu);
-
-    thing = gtk_menu_item_new_with_mnemonic ("Load Config");
-    gtk_widget_show (thing);
-    gtk_container_add (GTK_CONTAINER (menuitem_menu), thing);
-    gtk_signal_connect (GTK_OBJECT(thing), "activate", GTK_SIGNAL_FUNC(on_menu_loadconfig), NULL);
-
-    thing = gtk_menu_item_new_with_mnemonic ("Load Config From ...");
-    gtk_widget_show (thing);
-    gtk_container_add (GTK_CONTAINER (menuitem_menu), thing);
-    gtk_signal_connect (GTK_OBJECT(thing), "activate", GTK_SIGNAL_FUNC(on_menu_loadconfigfrom), NULL);
-
-    thing = gtk_menu_item_new_with_mnemonic ("Save Config");
-    gtk_widget_show (thing);
-    gtk_container_add (GTK_CONTAINER (menuitem_menu), thing);
-    gtk_signal_connect (GTK_OBJECT(thing), "activate", GTK_SIGNAL_FUNC(on_menu_saveconfig), NULL);
-
-    thing = gtk_menu_item_new_with_mnemonic ("Save Config As ...");
-    gtk_widget_show (thing);
-    gtk_container_add (GTK_CONTAINER (menuitem_menu), thing);
-    gtk_signal_connect (GTK_OBJECT(thing), "activate", GTK_SIGNAL_FUNC(on_menu_saveconfigas), NULL);
-
-
-#if !defined GTKMUI
-    thing = gtk_separator_menu_item_new ();
-    gtk_widget_show (thing);
-    gtk_container_add (GTK_CONTAINER (menuitem_menu), thing);
-#endif
-
-    thing = gtk_menu_item_new_with_mnemonic ("Quit");
-    gtk_widget_show (thing);
-    gtk_container_add (GTK_CONTAINER (menuitem_menu), thing);
-    gtk_signal_connect (GTK_OBJECT(thing), "activate", GTK_SIGNAL_FUNC(on_quit_clicked), NULL);
-#endif
 
     /* dummy */
     thing = gtk_hseparator_new ();
@@ -2895,19 +2796,7 @@ static void *gtk_gui_thread (void *dummy)
 	DEBUG_LOG ("Entering GTK+ main loop\n");
 	//DebOut ("Entering GTK+ main loop\n");
 
-#if 0
-  /* try again, if main was too early to display it */
-  if(!splash && currprefs.splash_time) {
-    show_splash(currprefs.splash_text, currprefs.splash_time);
-  }
-#endif
 
-#if 0
-{
-  GtkWidget *splash=jsplash_new();
-  gtk_widget_show(splash);
-}
-#endif
 
 	gtk_main ();
 	//DebOut ("gtk_main exit\n");

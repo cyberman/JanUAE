@@ -662,12 +662,6 @@ void move_vert_prop_gadget(struct Process *thread, JanusWin *jwin) {
    */
   y=y + t; 
 
-#if 0
-  /* otherwise we will miss the gadget */
-  if(y<2) {
-    y=2;
-  }
-#endif
 
   JWLOG("aros_win_thread[%lx]: GAD_VERTSCROLL: y %d\n", thread, y);
 
@@ -756,15 +750,6 @@ void handle_gadget(struct Process *thread, JanusWin *jwin, UWORD gadid) {
         goto EXIT;
       }
 
-#if 0
-      switch (gadid) {
-
-        case GAD_DOWNARROW : jgad=jwin->arrow_down;  break;
-        case GAD_UPARROW   : jgad=jwin->arrow_up;    break;
-        case GAD_LEFTARROW : jgad=jwin->arrow_left;  break;
-        case GAD_RIGHTARROW: jgad=jwin->arrow_right; break;
-      }
-#endif
       jgad=jwin->jgad[gadid];
       if(!jgad) {
         JWLOG("aros_win_thread[%lx]: jgad not matched??\n", thread);
@@ -1009,10 +994,6 @@ struct Gadget *make_gadgets(struct Process *thread, JanusWin* jwin) {
                                         GA_Immediate, TRUE, 
                                         PGA_NewLook, TRUE, 
                                         PGA_Borderless, TRUE, 
-#if 0
-                                        PGA_Total, , 
-                                        PGA_Visible, 100, 
-#endif
                                         PGA_VertPot,    MAXPOT,
                                         PGA_VertBody,   MAXBODY,
                                         PGA_Freedom, FREEVERT, 
@@ -1078,21 +1059,6 @@ struct Gadget *make_gadgets(struct Process *thread, JanusWin* jwin) {
 
   }
 
-#if 0
-#if !defined ALWAYS_SHOW_GADGETS
-  /* make space for gadgets in window border */
-  if(jwin->jgad[GAD_UPARROW] && !jwin->plusx) {
-    jwin->plusx=get_byte((ULONG) jwin->aos3win + 56);
-  }
-  if(jwin->jgad[GAD_RIGHTARROW] && !jwin->plusy) {
-    jwin->plusy=get_byte((ULONG) jwin->aos3win + 57);
-  }
-#else
-  /* clear it, it might have been set during window opening */
-  jwin->plusx=0;
-  jwin->plusy=0;
-#endif
-#endif
 
   if(jwin->jgad[GAD_UPARROW]) {
     LEAVE
@@ -1144,32 +1110,6 @@ void de_init_border_gadgets(struct Process *thread, JanusWin *jwin) {
       jwin->jgad[i]=NULL;
     }
   }
-#if 0
-  if(jwin->jgad[GAD_UPARROW]) {
-    FreePooled(jwin->mempool, jgad[GAD_UPARROW]->arrow_up, sizeof(JanusGadget));
-    jwin->arrow_up=NULL;
-  }
-  if(jwin->arrow_down) {
-    FreePooled(jwin->mempool, jwin->arrow_down, sizeof(JanusGadget));
-    jwin->arrow_down=NULL;
-  }
-  if(jwin->prop_up_down) {
-    FreePooled(jwin->mempool, jwin->prop_up_down, sizeof(JanusGadget));
-    jwin->prop_up_down=NULL;
-  }
-  if(jwin->arrow_left) {
-    FreePooled(jwin->mempool, jwin->arrow_left, sizeof(JanusGadget));
-    jwin->arrow_left=NULL;
-  }
-  if(jwin->arrow_right) {
-    FreePooled(jwin->mempool, jwin->arrow_right, sizeof(JanusGadget));
-    jwin->arrow_right=NULL;
-  }
-  if(jwin->prop_left_right) {
-    FreePooled(jwin->mempool, jwin->prop_left_right, sizeof(JanusGadget));
-    jwin->prop_left_right=NULL;
-  }
-#endif
   LEAVE
 }
 

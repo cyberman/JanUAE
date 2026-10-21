@@ -53,48 +53,6 @@ struct JUAE_Sync_Launch_Message {
  *
  * array and strings need to be FreeVec'ed somewhere!
  ***********************************************************/
-#if 0
-static char **convert_tags_to_amigaos(struct TagItem *in) {
-  struct TagItem *tstate;
-  struct TagItem *tag;
-  char           *amigaos_path;
-  ULONG           nr;
-  ULONG           i;
-  char          **result;
-
-  nr=0;
-  tstate=in;
-  while( NextTagItem(&tstate) ) {
-    nr++;
-  }
-
-  if(!nr) {
-    JWLOG("no arguments found\n");
-    return NULL;
-  }
-
-  result=AllocVec(sizeof(char *)*(nr+1), MEMF_PUBLIC|MEMF_CLEAR);
-
-  i=0;
-  tstate=in;
-  while( (tag=NextTagItem(&tstate)) ) {
-    switch(tag->ti_Tag) {
-      case WBOPENA_ArgName:
-	JWLOG("WBOPENA_ArgName: %s\n", tag->ti_Data);
-	amigaos_path=aros_path_to_amigaos((char *) tag->ti_Data); /* AllocVec'ed */
-	result[i++]=amigaos_path;
-	break;
-
-      default:
-	JWLOG("WARNING: unknow tag %lx\n", tag->ti_Tag);
-    }
-  }
-
-  result[i]=NULL;
-
-  return result;
-}
-#endif
 
 /***********************************************************
  * This is the process, which watches the CLI Execute

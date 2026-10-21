@@ -82,27 +82,6 @@ uae_u32 ad_job_update_janus_windows(ULONG *m68k_results) {
 }
 
 /* not used ? */
-#if 0
-/**********************************************************
- * ad_job_update_janus_windows
- *
- * update aos3window list, so new windows are added
- * and closed windows are removed
- ***********************************************************/
-
-/* input: array if aos3 windows, aos3window */
-static int is_in_results(ULONG *m68k_results, gconstpointer w) {
-  ULONG i=0;
-
-  while(get_long_p(m68k_results+i)) {
-    if(get_long_p(m68k_results+i)==(ULONG) w) {
-      return TRUE;
-    }
-    i++;
-  }
-  return FALSE;
-}
-#endif
 
 /********************************************************
  * new_aos3window(aos3 window pointer)
@@ -571,17 +550,6 @@ uae_u32 ad_job_report_uae_windows(ULONG *m68k_results) {
     /* quite some sanity checks here */
     if(!list_win) {
       JWLOG("no Janus window found for aos3win %lx !?\n",aos3win);
-#if 0
-      /* create one? really a good idea? */
-      /* BUT: it requires sem_janus_window_list semaphore!! */
-      /* and it disturbs all our timings. Don't do it.
-      ReleaseSemaphore(&sem_janus_window_list);
-      new_aos3window(aos3win);
-      LEAVE
-      */
-      /* IMPORTANT: return here, we have released our sem_janus_window_list */
-      return;
-#endif
       goto NEXT;
     }
 
@@ -1445,47 +1413,6 @@ void close_all_janus_windows_wait() {
 }
 
 /* not used ATM ? */
-#if 0
-/***********************************************************
- * uae_main_window_close()
- *
- * - stop all writes to uae main window
- * - close uae main window
- ***********************************************************/
-void uae_main_window_close() {
-
-  JWLOG("uae_main_window_close");
-  
-  if(uae_main_window_closed) {
-    JWLOG("window is already closed\n");
-    return;
-  }
-
-  uae_main_window_closed=TRUE;
-
-  return;
-}
-
-/***********************************************************
- * uae_main_window_open()
- *
- * - open uae main window again
- * - enable all writes to uae main window again
- ***********************************************************/
-void uae_main_window_open() {
-
-  JWLOG("uae_main_window_open");
-  
-  if(!uae_main_window_closed) {
-    JWLOG("window is already open\n");
-    return;
-  }
-
-  uae_main_window_closed=FALSE;
-
-  return;
-}
-#endif
 
 /*********************************************************
  * ad_job_modify_idcmp(window, flags)

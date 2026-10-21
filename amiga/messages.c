@@ -44,68 +44,6 @@ extern struct IntuitionBase* IntuitionBase;
 #include "janus-daemon.h"
 
 
-#if 0
-/* this would be a much nicer way, to forward a close message to
- * the amigaos window, but:
- * - aos3 CLI windows have no UserPort to get messages (?)
- * - it does not work always (?)
- * => so we keep it simple and stupid .. (see below)
- */
-void closewin(struct Window *w) {
-  struct MsgPort *myport;
-  struct MsgPort *winport;
-  struct IntuiMessage *closemsg;
-  struct Message *backmsg;
-
-  /* use Forbid() here, if you want to be sure, your window is still around */
-  if(!w) {
-    printf("window is NULL\n");
-    return;
-  }
-
-  /* this is only a prototype, in real life, you should check, 
-   * if w is really a window!  */
-
-  printf("try to close window %lx (%s)\n",(ULONG) w,w->Title);
-
-  winport=w->UserPort;
-  printf("window->UserPort: %lx\n",(ULONG) winport);
-  if(!winport) {
-    /* Cli has no UserPort ..? */
-    printf("ERROR: window %lx has no UserPort !?\n",(ULONG) w);
-    return;
-  }
-
-  myport=CreateMsgPort();
-  if(!myport) {
-    printf("ERROR: no port!\n");
-    return;
-  }
-
-  closemsg=AllocVec(sizeof(struct IntuiMessage),MEMF_CLEAR|MEMF_PUBLIC);
-
-  ((struct Message *)closemsg)->mn_Length=sizeof(closemsg);
-  ((struct Message *)closemsg)->mn_ReplyPort=myport;
-  closemsg->Class=IDCMP_CLOSEWINDOW;
-  closemsg->Qualifier=0x800;
-
-  printf("send msg %lx ..\n",(ULONG) closemsg);
-  PutMsg(winport, (struct Msg *) closemsg);
-  printf("sent msg\n");
-
-  printf("WaitPort(%lx)\n",(ULONG) myport);
-  backmsg=WaitPort(myport);
-  printf("backmsg: %lx\n",(ULONG) backmsg);
-
-  if(backmsg != (struct Msg *) closemsg) {
-    printf("FATAL ERROR: Got back another message as we sent !?\n");
-    /* this might crash !! */
-  }
-  FreeVec(closemsg);
-  DeleteMsgPort(myport);
-  return;
-}
-#endif
 
 
 /****i* januae/closewin ****************************************************

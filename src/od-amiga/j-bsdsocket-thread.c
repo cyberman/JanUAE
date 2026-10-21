@@ -46,44 +46,6 @@
 #ifdef BSDSOCKET
 int abort_port_count=55555;
 
-#if 0
-int sockabort_init(struct socketbase *sb) {
-  struct Library *SocketBase;
-  struct sockaddr_in sin;
-
-  BSDLOG("TEST: NOT YET TESTED!\n");
-
-  if(!(SocketBase=getsocketbase(sb))) {
-    return 0;
-  }
-
-#warning NEEDS SOME TESTING..
-
-	sb->sockAbort = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-	if (sb->sockAbort == INVALID_SOCKET) {
-    BSDLOG("ERROR: unable to create socket sb->sockAbort!\n");
-    return 0;
-  }
-
-  sb->sockAbortPort=abort_port_count;
-  BSDLOG("bind to 127.0.0.1:%d\n", abort_port_count);
-  /* TODO: sin.sin_addr.s_addr=inet_addr("127.0.0.1"); */
-  sin.sin_addr.s_addr=INADDR_ANY;
-  sin.sin_family=AF_INET;
-  sin.sin_port=htons(abort_port_count++);
-
-  if(bind(sb->sockAbort, (struct sockaddr *) &sin, sizeof(sin)) <0) {
-    BSDLOG("ERROR: unable to bind socket!\n");
-    return 0;
-  }
-
-  BSDLOG("socket is now useable!\n");
-	
-	//if ((sb->hEvent = CreateEvent(NULL,FALSE,FALSE,NULL)) == NULL) return 0;
-
-  return 1;
-}
-#endif
 
 /***********************************************************
  * 
@@ -133,11 +95,6 @@ static void aros_bsdsocket_thread (void) {
   sb=thread->pr_Task.tc_UserData;
   BSDLOG("sb: %lx\n", sb);
 
-#if 0
-  if(!sockabort_init(sb)) {
-    goto EXIT;
-  }
-#endif
 
   port=(struct MsgPort *) &thread->pr_MsgPort;
 
