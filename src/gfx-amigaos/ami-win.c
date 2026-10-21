@@ -1114,11 +1114,6 @@ static void flush_clear_screen_gfxlib (struct vidbuf_description *gfxinfo)
                  W->Width - W->BorderLeft - W->BorderRight,
                  W->Height - W->BorderTop - W->BorderBottom,
                  0);
-#if 0
-          clone_area(W->BorderLeft, W->BorderTop,
-                     W->Width - W->BorderLeft - W->BorderRight,
-             W->Height - W->BorderTop - W->BorderBottom);
-#endif
     }
         else
 #endif
@@ -1970,20 +1965,8 @@ void show_uae_main_window(void) {
     /* un_set_screen_for_picasso(); */
   }
 
-#if 0
-  shape = NewRectRegion(0, 0, W->Width-1, W->Height-1);
-  if(shape) {
-    if(original_W != W) {
-      JWLOG("W-WARNING: W %xl != original_W %lx\n", W, original_W);
-    }
-    ChangeWindowShape(W, shape, NULL);
-#endif
     uae_main_window_visible=TRUE;
     enable_uae_main_window();
-#if 0
-    DisposeRegion(shape);
-  }
-#endif
 
   release_W();
   reset_drawing();
@@ -2401,9 +2384,6 @@ static int setup_userscreen (void)
 #endif
     if ((DisplayID & HAM_KEY) && !use_cyb )
     Depth = 6; /* only ham6 for the moment */
-#if 0
-    if(DisplayID & DIPF_IS_HAM) Depth = 6; /* only ham6 for the moment */
-#endif
 
     /* If chosen screen is smaller than UAE display size then clip
      * display to screen size */
@@ -2530,88 +2510,6 @@ int graphics_setup (void)
   JWLOG("graphics_setup\n");
 
 /* open libs moved to od-amiga/main.c */
-#if 0
-    if (((struct ExecBase *)SysBase)->LibNode.lib_Version < 36) {
-    write_log ("UAE needs OS 2.0+ !\n");
-    return 0;
-    }
-    os39 = (((struct ExecBase *)SysBase)->LibNode.lib_Version >= 39);
-
-    atexit (graphics_leave);
-
-#if !defined GTKMUI
-    IntuitionBase = (void*) OpenLibrary ("intuition.library", 0L);
-#endif
-    if (!IntuitionBase) {
-    write_log ("No intuition.library ?\n");
-    return 0;
-    } else {
-#ifdef __amigaos4__
-    IIntuition = (struct IntuitionIFace *) GetInterface ((struct Library *) IntuitionBase, "main", 1, NULL);
-    if (!IIntuition) {
-        CloseLibrary ((struct Library *) IntuitionBase);
-        IntuitionBase = 0;
-        return 0;
-    }
-#endif
-    }
-
-#if !defined GTKMUI
-    GfxBase = (void*) OpenLibrary ("graphics.library", 0L);
-#endif
-    if (!GfxBase) {
-    write_log ("No graphics.library ?\n");
-    return 0;
-    } else {
-#ifdef __amigaos4__
-    IGraphics = (struct GraphicsIFace *) GetInterface ((struct Library *) GfxBase, "main", 1, NULL);
-    if (!IGraphics) {
-        CloseLibrary ((struct Library *) GfxBase);
-        GfxBase = 0;
-        return 0;
-    }
-#endif
-    }
-
-    LayersBase = OpenLibrary ("layers.library", 0L);
-    if (!LayersBase) {
-    write_log ("No layers.library\n");
-    return 0;
-    } else {
-#ifdef __amigaos4__
-    ILayers = (struct LayersIFace *) GetInterface (LayersBase, "main", 1, NULL);
-    if (!ILayers) {
-        CloseLibrary (LayersBase);
-        LayersBase = 0;
-        return 0;
-    }
-#endif
-    }
-
-#ifdef USE_CYBERGFX
-    if (!CyberGfxBase) {
-        CyberGfxBase = OpenLibrary ("cybergraphics.library", 40);
-#ifdef __amigaos4__
-        if (CyberGfxBase) {
-       ICyberGfx = (struct CyberGfxIFace *) GetInterface (CyberGfxBase, "main", 1, NULL);
-           if (!ICyberGfx) {
-           CloseLibrary (CyberGfxBase);
-           CyberGfxBase = 0;
-       }
-    }
-#endif
-    }
-#endif
-
-/* we should have an j-uae define .. */
-#if defined GTKMUI
-  GadToolsBase = OpenLibrary( "gadtools.library", 37L );
-  if(!GadToolsBase) {
-    write_log ("gadtools.library missing? Needed for j-uae menu support!\n");
-    return 0;
-  }
-#endif
-#endif
 
     init_pointer ();
 
@@ -3105,38 +3003,6 @@ void graphics_leave (void)
     }
 
     /* moved to free_libs in src/od-amiga/main.c */
-#if 0
-    if (AslBase) {
-    CloseLibrary( (void*) AslBase);
-    AslBase = NULL;
-    }
-
-#if !defined GTKMUI
-    if (GadToolsBase) {
-    CloseLibrary( (void*) GadToolsBase);
-    GadToolsBase = NULL;
-    }
-
-    if (GfxBase) {
-    CloseLibrary ((void*)GfxBase);
-    GfxBase = NULL;
-    }
-#endif
-    if (LayersBase) {
-    CloseLibrary (LayersBase);
-    LayersBase = NULL;
-    }
-#if !defined GTKMUI
-    if (IntuitionBase) {
-    CloseLibrary ((void*)IntuitionBase);
-    IntuitionBase = NULL;
-    }
-#endif
-    if (CyberGfxBase) {
-    CloseLibrary((void*)CyberGfxBase);
-    CyberGfxBase = NULL;
-    }
-#endif
 }
 
 /****************************************************************************/
@@ -3736,100 +3602,6 @@ NEXT:
  * m68k_win needs to be on the picasso96 wb screen (otherwise not tested).
  *
  */
-#if 0
-void clone_window(ULONG m68k_win, struct Window *aros_win, 
-                  int start, int lines) {
-
-  WORD src_y_start;
-  WORD src_y_lines;
-  WORD real_start;
-  WORD real_start_dest;
-  WORD real_lines;
-
-  /* only clone, if this window has already an AROS window */
-  if(!m68k_win || !aros_win) {
-    return;
-  }
-
-  /* we only care for visible screen windows */
-  if(aros_win->WScreen != IntuitionBase->FirstScreen) {
-    JWLOG("m68kwindow %lx aros_win %lx is not visible\n",m68k_win,aros_win);
-    return;
-  }
-
-  src_y_start=get_TopEdge(m68k_win)  + get_BorderTop(m68k_win);
-  src_y_lines=aros_win->Height;
-
-  JWLOG("clone_window(%lx,%lx) \n",m68k_win,aros_win);
-
-  /* modified range outside our window, nothing to do */
-  if(src_y_start+src_y_lines < start ||
-     src_y_start             > start + lines) {
-    JWLOG("modified range outside our window, nothing to do\n");
-    return;
-  }
-
-  if(start < src_y_start) {
-    /* modified area starts above us */
-    real_start=src_y_start; /* clip above */
-    real_start_dest=0; 
-    if(start + lines > src_y_start + src_y_lines) {
-      /* modified area ends below our window */
-      real_lines=src_y_lines;
-      JWLOG("CCC 1\n");
-    }
-    else {
-      /* modified area ends inside our window */
-      real_lines= lines - (src_y_start - start);
-      JWLOG("CCC 2\n");
-    }
-  }
-  else {
-    /* modified are starts inside window */
-    real_start=start;
-    real_start_dest=start - src_y_start;
-    if(start + lines > src_y_start + src_y_lines) {
-      /* modified area ends below our window */
-      JWLOG("CCC 3\n");
-      real_lines=src_y_start + src_y_lines - start;
-    }
-    else {
-      /* modified area ends inside our window */
-      real_lines=lines; /* copy all */
-      JWLOG("CCC 4\n");
-    }
-  }
-
-  /* TODO: fix above, remove 3 lines below! */
-  real_start=get_TopEdge(m68k_win)  + get_BorderTop(m68k_win);
-  real_start_dest=0;
-  real_lines=aros_win->Height;
-
-  if(!uae_no_display_update) {
-
-    JWLOG("FIND: WritePixelArray(...)\n");
-
-    WritePixelArray (
-    picasso_memory, 
-    get_LeftEdge(m68k_win) + get_BorderLeft(m68k_win), /* src x  */
-    real_start,  /* src y  */
-    get_BytesPerRow(W),                      /* srcmod */
-    /*native_window->RPort, */
-    aros_win->RPort, 
-    /* no WA_GimmeZeroZero
-    aros_win->BorderLeft, aros_win->BorderTop,
-    aros_win->Width  - aros_win->BorderLeft,
-    aros_win->Height - aros_win->BorderTop,
-    */
-    0, real_start_dest,
-    aros_win->Width,
-    real_lines,
-    RECTFMT_RAW
-    );
-  }
-
-}
-#endif
 
 /***************************************************************************/
 /* same as DoMethod(uaedisplay, MUIM_UAEDisplay_Update, start, i)
@@ -3842,55 +3614,7 @@ extern ULONG   aos3_task_signal;
 int o1i_Draw_delay=0;
 
 
-#if 0
-void o1i_clone_windows(/* hand over start/end koords of changed area?*/) {
-  GSList *elem;
-  UWORD start, lines;
-  ULONG m68k_win;
-  struct Window *aros_win;
 
-  JWLOG("o1i_clone_windows(...)\n");
-
-  /* at startup, sem_janus_windows_list might not be initialized,
-   * but it is, if we have at least one element in the
-   * list.
-   */
-  if(janus_windows) {
-    ObtainSemaphore(&sem_janus_window_list);
-    elem=janus_windows;
-    while(elem) {
-      if(elem->data &&
-      !(((JanusWin *)elem->data)->delay) &&
-     !(((JanusWin *)elem->data)->dead)  &&
-      ((JanusWin *)elem->data)->aos3win &&
-      ((JanusWin *)elem->data)->aroswin) {
-
-    m68k_win=(ULONG) ((JanusWin *)elem->data)->aos3win;
-    aros_win=((JanusWin *)elem->data)->aroswin;
-
-          start=get_TopEdge(m68k_win)  + get_BorderTop(m68k_win);
-    lines=aros_win->Height;
-
-    clone_window(m68k_win, aros_win, start, lines);
-
-      }
-      elem=g_slist_next(elem);
-    }
-    ReleaseSemaphore(&sem_janus_window_list);
-  }
-}
-#endif
-
-#if 0
-void o1i_clone_windows_task() {
-
-  while(TRUE) {
-    WaitTOF();
-    o1i_clone_windows();
-  }
-
-}
-#endif
 
 //static void o1i_Draw() {
 
@@ -4136,18 +3860,7 @@ static int get_BytesPerPix(struct Window *win) {
 static int get_BytesPerRow(struct Window *win) {
   WORD width;
 
-#if 0
-  if(!uae_main_window_closed) {
-    width=W->Width;
-    JWLOG("1: %d * %d = %d\n",width,get_BytesPerPix(win),width*get_BytesPerPix(win));
-  }
-  else {
-#endif
     width=picasso_vidinfo.width;
-#if 0
-    JWLOG("2: %d * %d = %d\n",picasso_vidinfo.width,get_BytesPerPix(win),picasso_vidinfo.width*get_BytesPerPix(win));
-  }
-#endif
 
   return width * get_BytesPerPix(win);
 }
@@ -4373,15 +4086,6 @@ static void un_set_screen_for_picasso(void) {
             currprefs.gfx_width_win  + W->BorderLeft + W->BorderRight,
             currprefs.gfx_height_win + W->BorderTop  + W->BorderBottom);
 
-  #if 0
-    /* this causes a FreeMem guru? */
-    if(gfxvidinfo.bufmem) {
-      JWLOG("un_set_screen_for_picasso: FreeVec(%lx)\n",gfxvidinfo.bufmem);
-      FreeVec(gfxvidinfo.bufmem);
-      /* too big ..? */
-      gfxvidinfo.bufmem=AllocVec(W->Width * W->Height * get_BytesPerPix(W), MEMF_CLEAR);
-    }
-    #endif
   }
   else {
     JWLOG(" we are rootless, so we do nothing\n");
@@ -4432,24 +4136,6 @@ void gfx_set_picasso_state (int on)
     {
     JWLOG("gfx_set_picasso_state: off!\n");
         un_set_screen_for_picasso();
-#if 0
-        if
-    (
-       !SetAttrs
-            (
-                uaedisplay,
-                MUIA_UAEDisplay_Width,  currprefs.gfx_width,
-            MUIA_UAEDisplay_Height, currprefs.gfx_height,
-            TAG_DONE
-            )
-    )
-    {
-            JWLOG ("SetAttrs - 2 - aborting()\n");
-        abort();
-    };
-
-    gfxvidinfo.bufmem = (APTR)XGET(uaedisplay, MUIA_UAEDisplay_Memory);
-#endif
     }
 }
 
@@ -4601,19 +4287,6 @@ int DX_FillResolutions (uae_u16 *ppixel_format)
         int width, height;
     } modes [] =
     {
-#if 0
-        { 320,  200 },
-    { 320,  240 },
-    { 320,  256 },
-    { 640,  200 },
-    { 640,  240 },
-    { 640,  256 },
-    { 640,  400 },
-    { 640,  480 },
-    { 640,  512 },
-    { 800,  600 },
-    { 1024, 768 }
-#endif
     {  320, 200 },
     {  320, 240 },
     {  640, 400 },
@@ -4880,34 +4553,6 @@ static int led_state[5];
 
 static void set_title (void)
 {
-#if 0
-    static char title[80];
-    static char ScreenTitle[200];
-
-    if (!usepub)
-    return;
-
-    sprintf (title,"%sPower: [%c] Drives: [%c] [%c] [%c] [%c]",
-         inhibit_frame? WINDOW_TITLE " (PAUSED) - " : WINDOW_TITLE,
-         led_state[0] ? 'X' : ' ',
-         led_state[1] ? '0' : ' ',
-         led_state[2] ? '1' : ' ',
-         led_state[3] ? '2' : ' ',
-         led_state[4] ? '3' : ' ');
-
-    if (!*ScreenTitle) {
-    sprintf (ScreenTitle,
-                 "UAE-%d.%d.%d (%s%s%s)  by Bernd Schmidt & contributors, "
-                 "Amiga Port by Samuel Devulder.",
-          UAEMAJOR, UAEMINOR, UAESUBREV,
-          currprefs.cpu_level==0?"68000":
-          currprefs.cpu_level==1?"68010":
-          currprefs.cpu_level==2?"68020":"68020/68881",
-          currprefs.address_space_24?" 24bits":"",
-          currprefs.cpu_compatible?" compat":"");
-        SetWindowTitles(W, title, ScreenTitle);
-    } else SetWindowTitles(W, title, (char*)-1);
-#endif
 
     const char *title = inhibit_frame ? WINDOW_TITLE " (Display off)" : WINDOW_TITLE;
     SetWindowTitles (W, title, (char*)-1);
@@ -4938,10 +4583,6 @@ static void set_title (void)
 
 void main_window_led (int led, int on)                /* is used in amigui.c */
 {
-#if 0
-    if (led >= 0 && led <= 4)
-    led_state[led] = on;
-#endif
     set_title ();
 }
 
@@ -5245,12 +4886,6 @@ static int dist4 (LONG rgb1, LONG rgb2) /* computes distance very quickly */
     t = (rgb1&0xF00)-(rgb2&0xF00); t>>=8; if (t<0) d -= t; else d += t;
     t = (rgb1&0x0F0)-(rgb2&0x0F0); t>>=4; if (t<0) d -= t; else d += t;
     t = (rgb1&0x00F)-(rgb2&0x00F); t>>=0; if (t<0) d -= t; else d += t;
-#if 0
-    t = rgb1^rgb2;
-    if(t&15) ++d; t>>=4;
-    if(t&15) ++d; t>>=4;
-    if(t&15) ++d;
-#endif
     return d;
 }
 

@@ -177,9 +177,6 @@ static void new_aros_pub_screen(JanusScreen *jscreen, uaecptr aos3screen) {
     return;
   }
 
-#if 0
-  jscreen->arosscreen= (struct Screen *) -1;
-#endif
 
   aros_screen_start_thread(jscreen);
 
@@ -187,11 +184,6 @@ static void new_aros_pub_screen(JanusScreen *jscreen, uaecptr aos3screen) {
    * If the tread fails, it sets the screen to NULL
    */
   /* DEAD HERE! */
-#if 0
-  while((LONG) jscreen->arosscreen ==  -1) {
-    Delay(10);
-  }
-#endif
 
   LEAVE
 
@@ -491,216 +483,6 @@ uae_u32 ad_job_open_custom_screen(ULONG aos3screen) {
 
   return TRUE;
 
-#if 0
-  GSList *list_screen;
-  JanusScreen *jscreen;
-  UWORD width;
-  UWORD depth;
-  UWORD height;
-  ULONG mode;
-  ULONG newwidth;
-  ULONG newheight;
-  const UBYTE preferred_depth[] = {8, 15, 16, 24, 32, 0};
-  ULONG i;
-  ULONG error;
-  static struct NewWindow NewWindowStructure = {
-	0, 0, 800, 600, 0, 1,
-	IDCMP_MOUSEBUTTONS | IDCMP_RAWKEY /*| IDCMP_DISKINSERTED | IDCMP_DISKREMOVED*/
-		| IDCMP_ACTIVEWINDOW | IDCMP_INACTIVEWINDOW | IDCMP_MOUSEMOVE | IDCMP_DELTAMOVE |
-		IDCMP_REFRESHWINDOW,
-	WFLG_SMART_REFRESH | WFLG_BACKDROP | WFLG_RMBTRAP | WFLG_NOCAREREFRESH
-	 | WFLG_BORDERLESS | WFLG_ACTIVATE | WFLG_REPORTMOUSE,
-	NULL, NULL, NULL, NULL, NULL, 5, 5, 800, 600,
-	CUSTOMSCREEN
-  };
-
-  JWLOG("entered\n");
-
-/* ?? */  currprefs.gfx_width_win= graphics_init();
-
-  JWLOG("aos3screen: %lx\n", aos3screen);
-
-  if(!aos3screen_is_custom(aos3screen)) {
-    JWLOG("  no custom screen, do nothing\n");
-    return TRUE;
-  }
-
-  /* check, if we already have that screen, as OpenScreen might call OpenScreenTags ..!! */
-  ObtainSemaphore(&sem_janus_screen_list);
-  list_screen= g_slist_find_custom(janus_screens,
-	  (gconstpointer) aos3screen,
-	  &aos3_screen_compare);
-
-  if(list_screen) {
-    JWLOG(" screen %lx already in janus_screens list\n",aos3screen);
-    ReleaseSemaphore(&sem_janus_screen_list);
-    return TRUE;
-  }
-
-
-  jscreen=(JanusScreen *) AllocVec(sizeof(JanusScreen),MEMF_CLEAR);
-  JWLOG("append aos3screen %lx as %lx\n", aos3screen, jscreen);
-  jscreen->aos3screen=aos3screen;
-
-
-  width =get_word(aos3screen+12);
-  height=get_word(aos3screen+14);
-  JWLOG("w: %d h: %d\n", width, height);
-
-#if 0
-  currprefs.gfx_width_win=width;
-  currprefs.gfx_height = height;
-  currprefs.amiga_screen_type=0 /*UAESCREENTYPE_CUSTOM*/;
-
-  uae_main_window_closed=FALSE;
-  j_stop_window_update=TRUE;
-  gfx_set_picasso_state(0);
-  graphics_init();
-  gfx_set_picasso_state(0);
-  jscreen->arosscreen=S;
-
-  JWLOG("new aros custom screen: %lx (%d x %d)\n",jscreen->arosscreen, jscreen->arosscreen->Width, 
-                                                                       jscreen->arosscreen->Height);
-  janus_screens=g_slist_append(janus_screens,jscreen);
-
-
-  ReleaseSemaphore(&sem_janus_screen_list);
-#endif
-
-#warning remove me <======================================================================
-  width=720;
-  height=568;
-  JWLOG("w: %d h: %d\n", width, height);
-#warning remove me <======================================================================
- 
-  currprefs.gfx_width_win=width;
-  currprefs.gfx_height = height;
-  currprefs.amiga_screen_type=0 /*UAESCREENTYPE_CUSTOM*/;
-
-  /* this would be the right approach, but getting this pointer stuff
-   * working in 68k adress space is a pain. 
-   * screen->vp->RasInfo->BitMap->Depth ... */
-
-  /* open a screen, which matches best */
-  i=0;
-  mode=INVALID_ID;
-  newwidth =width;
-  newheight=height;
-  while(mode==(ULONG) INVALID_ID && preferred_depth[i]) {
-    mode=find_rtg_mode(&newwidth, &newheight, preferred_depth[i]);
-    i++;
-  }
-
-  if(mode == (ULONG) INVALID_ID) {
-    FreeVec(jscreen);
-    JWLOG("ERROR: could not find modeid !?!!\n");
-    ReleaseSemaphore(&sem_janus_screen_list);
-    return FALSE;
-  }
-
-  JWLOG("found modeid: %lx\n", mode);
-  JWLOG("found w: %d h: %d\n", newwidth, newheight);
-
-
-  /* If the screen is larger than requested, center UAE's display */
-  XOffset=0;
-  YOffset=0;
-  if (newwidth > (ULONG)width) {
-    XOffset = (newwidth - width) / 2;
-  }
-  if (newheight > (ULONG) height) {
-    YOffset = (newheight - height) / 2;
-  }
-  JWLOG("XOffset, YOffset: %d, %d\n", XOffset, YOffset);
-
-  jscreen->arosscreen=OpenScreenTags(NULL,
-                                     //SA_Type,      PUBLICSCREEN,
-				     //SA_PubName,   "FOO",
-                                     SA_Width,     newwidth,
-				     SA_Height,    newheight,
-				     SA_Depth,     depth,
-				     SA_DisplayID, mode,
-				     SA_Behind,    FALSE,
-				     SA_ShowTitle, FALSE,
-				     SA_Quiet,     TRUE,
-				     SA_ErrorCode, (ULONG)&error,
-				     TAG_DONE);
-
-  if(!jscreen->arosscreen) {
-    JWLOG("ERROR: could not open screen !? (Error: %ld\n",error);
-    gui_message ("Cannot open custom screen (Error: %ld)\n", error);
-    FreeVec(jscreen);
-    ReleaseSemaphore(&sem_janus_screen_list);
-    return FALSE;
-  }
-
-  JWLOG("new aros custom screen: %lx (%d x %d)\n",jscreen->arosscreen, jscreen->arosscreen->Width, 
-                                                                       jscreen->arosscreen->Height);
-#warning TODO Semaphore !?
-  janus_screens=g_slist_append(janus_screens,jscreen);
-
-  gfxvidinfo.height     =height;
-  gfxvidinfo.width      =width;
-  //currprefs.gfx_linedbl =0;
-  //currprefs.gfx_lores   =1;
- 
-  S  = jscreen->arosscreen;
-  CM = jscreen->arosscreen->ViewPort.ColorMap;
-  RP = &jscreen->arosscreen->RastPort;
-
-//  NewWindowStructure.Width  = jscreen->arosscreen->Width;
-//  NewWindowStructure.Height = jscreen->arosscreen->Height;
-  NewWindowStructure.Width  = newwidth;
-  NewWindowStructure.Height = newheight;
-  NewWindowStructure.Screen = jscreen->arosscreen;
-
-  W = (void*)OpenWindow (&NewWindowStructure);
-  if (!W) {
-    gui_message ("Cannot open window on new custom screen !?");
-    CloseScreen(jscreen->arosscreen);
-    FreeVec(jscreen);
-    ReleaseSemaphore(&sem_janus_screen_list);
-    return FALSE;
-  }
-
-  ReleaseSemaphore(&sem_janus_screen_list);
-
-  JWLOG("new aros window on custom screen: %lx (%d x %d)\n", W, W->Width, W->Height);
-
-  /* TODO !!*/
-  uae_main_window_closed=FALSE;
-
-  reset_drawing(); /* this will bring a custon screen, with keyboard working */
-
-#if 0
-  j_stop_window_update=TRUE;
-  custom_screen_active=jscreen;
-
-  gfx_set_picasso_state(0);
-  reset_drawing();
-  init_row_map();
-  init_aspect_maps();
-  notice_screen_contents_lost();
-  inputdevice_acquire ();
-  inputdevice_release_all_keys ();
-  reset_hotkeys ();
-  hide_pointer (W);
-#endif
-
-  JWLOG("W: %lx (%s)\n", W, W->Title);
-  aros_custom_screen_start_thread(jscreen);
-
-  JWLOG("Line: %lx\n", Line);
-  JWLOG("BitMap: %lx\n", BitMap);
-  JWLOG("TempRPort: %lx\n", TempRPort);
-
-  if(!Line || !BitMap || !TempRPort) {
-    JWLOG("ERROR ERROR ERROR ERROR: NULL pointer in Line/BitMap/TempRPort!!\n");
-    return FALSE; /* ? */
-  }
-
-  return TRUE;
-#endif
 }
 
 /****i* januae-j-screen/ad_job_close_screen ********************************
@@ -1155,27 +937,6 @@ uae_u32 ad_job_host_data(ULONG *m68k_results) {
 
   get_host_resolution(&width, &height, &depth);
 
-#if 0
-  if(!(scr=LockPubScreen(NULL))) {
-
-    put_long_p(m68k_results, -1);
-    JWLOG("unable to lock screen !?\n");
-    return FALSE;
-  }
-
-  JWLOG("Locked screen: %lx\n", scr);
-
-  id=GetVPModeID(&scr->ViewPort);
-
-  if(id== (ULONG) INVALID_ID) {
-    JWLOG("INVALID_ID !?\n");
-    goto ERROR;
-  }
-
-  width= GetCyberIDAttr(CYBRIDATTR_WIDTH,  id);
-  height=GetCyberIDAttr(CYBRIDATTR_HEIGHT, id);
-  depth= GetCyberIDAttr(CYBRIDATTR_DEPTH,  id);
-#endif
 
   JWLOG("width %d, height %d, depth %d\n", width, height, depth);
   if(!width) {
@@ -1193,11 +954,6 @@ ERROR:
   res=FALSE;
 
 EXIT:
-#if 0
-  if(scr) {
-    UnlockPubScreen(NULL, scr);
-  }
-#endif
 
   LEAVE
 

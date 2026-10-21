@@ -641,74 +641,6 @@ static void ChangeWindowBox_safe(struct Window *win, WORD left, WORD top, WORD w
 
   ULONG lock;
 
-#if 0
-  WORD  dx, dy, dh, dw;
-  UWORD gadget_x;
-  UWORD gadget_y;
-  BOOL  delay=FALSE;
-
-  ENTER
-
-  DebOut("win %lx, left %d, top %d, width %d, height %d\n", win, left, top, width, height);
-
-  if(!window_exists(win)) {
-    DebOut("win %lx does not exist !?\n", win);
-    return;
-  }
-
-  dw=width  - win->Width;
-  dh=height - win->Height;
-
-  DebOut("dw: %d, dh: %d\n", dw, dh);
-
-  if( (dw != 0) || (dh != 0) ) {
-    gadget_x=win->LeftEdge + win->Width  - (win->BorderRight /2);
-    gadget_y=win->TopEdge  + win->Height - (win->BorderBottom/2);
-
-    DebOut("gadget_x: %d, gadget_y:%d\n", gadget_x, gadget_y);
-    if(!is_in_window(win, gadget_x, gadget_y)) {
-      DebOut("not inside window, sorry\n");
-      goto ChangeWindowBox_with_API;
-    }
-
-    /* place mouse on size gadget and click */
-    SetMouse(win->WScreen, gadget_x, gadget_y, IECODE_LBUTTON, TRUE, FALSE);
-
-    /* move it to new size and release*/
-    SetMouse(win->WScreen, gadget_x + dw, gadget_y + dh, IECODE_LBUTTON, FALSE, TRUE);
-
-    delay=TRUE;
-  }
-
-  dx=left - win->LeftEdge;
-  dy=top  - win->TopEdge;
-
-  DebOut("dx: %d, dy: %d\n", dx, dy);
-
-  if( (dx != 0) || (dy != 0) ) {
-    /* this should hit the dragbar */
-    gadget_x=win->LeftEdge + (win->Width     /2);
-    gadget_y=win->TopEdge  + (win->BorderTop /2);
-
-    DebOut("gadget_x: %d, gadget_y:%d\n", gadget_x, gadget_y);
-    if(!is_in_window(win, gadget_x, gadget_y)) {
-      DebOut("not inside window, sorry\n");
-      goto ChangeWindowBox_with_API;
-    }
-
-    /* place mouse on dragbar and click*/
-    SetMouse(win->WScreen, gadget_x, gadget_y, IECODE_LBUTTON, TRUE, FALSE);
-
-    /* move it to new position and release*/
-    SetMouse(win->WScreen, gadget_x + dx, gadget_y + dy, IECODE_LBUTTON, FALSE, TRUE);
-  }
-
-  LEAVE
-  return;
-
-ChangeWindowBox_with_API:
-  DebOut("WARNING: calling intuition ChangeWindowBox(%lx, %d, %d, %d, %d)\n", win, left, top, width, height);
-#endif
 
   ENTER
 
@@ -1185,16 +1117,6 @@ ULONG set_aros_titles (struct Window *win,
 #endif
 
 
-#if 0
-  DebOut("set_aros_titles(%lx, %s, %s)\n", win, windowtitle, screentitle);
-
-  DebOut("new win title: \"%s\"\n", windowtitle);
-  DebOut("old win title: \"%s\"\n", win->Title);
-  DebOut("new scr title: \"%s\"\n", screentitle);
-  DebOut("old scr title: \"%s\"\n", win->ScreenTitle);
-  DebOut("new win title ignore: %d\n", is_ign(windowtitle));
-  DebOut("new scr title ignore: %d\n", is_ign(screentitle));
-#endif
 
 
   if( !is_ign(windowtitle) && (windowtitle != win->Title)) {
