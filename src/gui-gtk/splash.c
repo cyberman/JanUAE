@@ -135,22 +135,6 @@ GtkWidget* jsplash_new (void) {
   gtk_container_add (GTK_CONTAINER (jsplash), button);
   gtk_widget_show (button);
 
-#if 0
-  gtk_signal_connect (GTK_OBJECT (jsplash), "read-prefs",
-			  GTK_SIGNAL_FUNC (read_prefs),
-			  NULL);
-  gtk_signal_connect (GTK_OBJECT (jsplash), "lock-it",
-			  G_CALLBACK (lock_it),
-			  NULL);
-  gtk_signal_connect (GTK_OBJECT (jsplash), "unlock-it",
-			  GTK_SIGNAL_FUNC (unlock_it),
-			  NULL);
-/*
-  gtk_signal_connect (GTK_OBJECT (jdisp), "destroy",
-			  GTK_SIGNAL_FUNC (jsplash_destroy),
-			  NULL);
-*/
-#endif
 
   return jsplash;
 }
@@ -178,115 +162,25 @@ static void jsplash_destroy(GtkObject *object) {
  *
  * status is not used any more. 
  ***********************************************/
-#if 0
-static void change_lock (jSplash *j, gboolean status) {
-  int i;
-  gboolean cdrunning;
-
-  if(aos3_task) {
-    gtk_label_set_text(GTK_LABEL(j->label_coherence), "AmigaOS/janusd is running");
-    gtk_label_set_text(GTK_LABEL(j->label_mouse),     "AmigaOS/janusd is running");
-  }
-  else {
-    gtk_label_set_text(GTK_LABEL(j->label_coherence), "AmigaOS/janusd is *not* running!");
-    gtk_label_set_text(GTK_LABEL(j->label_mouse),     "AmigaOS/janusd is *not* running!");
-  }
-
-  if(aos3_clip_task) {
-    gtk_label_set_text(GTK_LABEL(j->label_clip), "AmigaOS/clipd is running");
-  }
-  else {
-    gtk_label_set_text(GTK_LABEL(j->label_clip), "AmigaOS/clipd is *not* running!");
-  }
-
-  if(aos3_launch_task) {
-    gtk_label_set_text(GTK_LABEL(j->label_launch), "AmigaOS/launchd is running");
-  }
-  else {
-    gtk_label_set_text(GTK_LABEL(j->label_launch), "AmigaOS/launchd is *not* running!");
-  }
-}
-#endif
 
 /************************** callbacks *************************/
 
 static void text_changed(GtkWidget *me, jSplash *j) {
 
   DEBUG_LOG("TODO!\n");
-#if 0
-  GtkList *list   = GTK_LIST (GTK_COMBO (j->combo_clip)->list);
-  GList   *choice = list->selection;
-  gint     sel;
-
-  if (!choice) {
-    return;
-  }
-
-  sel=gtk_list_child_position (list, choice->data);
-
-  j->clipboard=(gboolean) sel;
-
-  g_signal_emit_by_name(j,"clipboard-changed",j);
-#endif
 
 }
 
 static void time_changed(GtkWidget *win, jSplash *j) {
 
   DEBUG_LOG("TODO!\n");
-#if 0
-  GtkList *list   = GTK_LIST (GTK_COMBO (j->combo_mouse)->list);
-  GList   *choice = list->selection;
-  gint     sel;
-
-  if (!choice) {
-    return;
-  }
-
-  sel=gtk_list_child_position (list, choice->data);
-
-  j->mouse=(gboolean) sel;
-
-  g_signal_emit_by_name(j,"mouse-changed",j);
-#endif
 }
 
 static void hide(GtkWidget *win, jSplash *j) {
-#if 0
-
-  GtkList *list   = GTK_LIST (GTK_COMBO (j->combo_coherence)->list);
-  GList   *choice = list->selection;
-  gint     sel;
-
-  if (!choice) {
-    return;
-  }
-
-  sel=gtk_list_child_position (list, choice->data);
-
-  j->coherence=(gboolean) sel;
-
-  g_signal_emit_by_name(j,"coherent-changed",j);
-#endif
 }
 
 static void show(GtkWidget *me, jSplash *j) {
 
-#if 0
-  GtkList *list   = GTK_LIST (GTK_COMBO (j->combo_launch)->list);
-  GList   *choice = list->selection;
-  gint     sel;
-
-  if (!choice) {
-    return;
-  }
-
-  sel=gtk_list_child_position (list, choice->data);
-
-  j->launch=(gboolean) sel;
-
-  g_signal_emit_by_name(j,"launch-changed",j);
-#endif
 
 }
 
