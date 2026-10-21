@@ -79,6 +79,25 @@
 #include "sleep.h"
 #include "od-amiga/j.h"
 
+/****i* januae-custom-fetch/uae_abort
+ *
+ *   NAME
+ *       uae_abort()
+ *
+ *   SYNOPSIS
+ *       static void uae_abort (const char *format,...)
+ *
+ *   FUNCTION
+ *       Format a custom-chip diagnostic and display it through gui_message().
+ *
+ *   INPUTS
+ *       format -- printf-style message format; additional arguments follow it
+ *
+ *   NOTES
+ *       Uses a 1000-byte local buffer; it does not abort execution.
+ *
+ ****************************************************************************/
+
 static void uae_abort (const char *format,...)
 {
     va_list parms;
@@ -337,10 +356,55 @@ enum fetchstate {
  * helper functions
  */
 
+/****i* januae-custom-fetch/nodraw
+ *
+ *   NAME
+ *       nodraw()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int nodraw (void)
+ *
+ *   FUNCTION
+ *       Determine whether this frame may skip ordinary drawing in non-cycle-exact
+ *       CPU mode.
+ *
+ *   RESULT
+ *       Returns nonzero when an ordinary frame can be skipped; otherwise zero.
+ *
+ *   NOTES
+ *       Returns true only when CPU cycle-exact mode is off and framecnt is
+ *       nonzero.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int nodraw (void)
 {
     return !currprefs.cpu_cycle_exact && framecnt != 0;
 }
+
+/****i* januae-custom-fetch/get_copper_address
+ *
+ *   NAME
+ *       get_copper_address()
+ *
+ *   SYNOPSIS
+ *       uae_u32 get_copper_address (int copno)
+ *
+ *   FUNCTION
+ *       Select the Copper 1 pointer, Copper 2 pointer, or the current Copper
+ *       instruction pointer.
+ *
+ *   INPUTS
+ *       copno -- Copper pointer selector (1, 2, or -1)
+ *
+ *   RESULT
+ *       Returns the selected Copper pointer or zero for an unknown selector.
+ *
+ *   NOTES
+ *       copno=1 selects COP1LC; 2 selects COP2LC; -1 selects cop_state.ip; other
+ *       values return zero.
+ *
+ ****************************************************************************/
 
 uae_u32 get_copper_address (int copno)
 {
@@ -353,6 +417,22 @@ uae_u32 get_copper_address (int copno)
 }
 
 
+/****i* januae-custom-fetch/reset_frame_rate_hack
+ *
+ *   NAME
+ *       reset_frame_rate_hack()
+ *
+ *   SYNOPSIS
+ *       void reset_frame_rate_hack (void)
+ *
+ *   FUNCTION
+ *       Reinitialize the fast-CPU frame pacing deadline and per-frame reset flags.
+ *
+ *   NOTES
+ *       Does nothing unless currprefs.m68k_speed is -1; logs the reset.
+ *
+ ****************************************************************************/
+
 void reset_frame_rate_hack (void)
 {
     if (currprefs.m68k_speed != -1)
@@ -364,6 +444,27 @@ void reset_frame_rate_hack (void)
     write_log ("Resetting frame rate hack\n");
 }
 
+/****i* januae-custom-fetch/setclr
+ *
+ *   NAME
+ *       setclr()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void setclr (uae_u16 *p, uae_u16 val)
+ *
+ *   FUNCTION
+ *       Apply the Amiga set-or-clear register convention to a 16-bit state word.
+ *
+ *   INPUTS
+ *       p -- caller-owned 16-bit register state to modify
+ *       val -- set/clear control word, with bit 15 selecting set mode
+ *
+ *   NOTES
+ *       Bit 15 selects set versus clear; the low 15 bits specify which bits to
+ *       modify.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void setclr (uae_u16 *p, uae_u16 val)
 {
     if (val & 0x8000)
@@ -372,14 +473,75 @@ STATIC_INLINE void setclr (uae_u16 *p, uae_u16 val)
 	*p &= ~val;
 }
 
+/****i* januae-custom-fetch/hsyncdelay
+ *
+ *   NAME
+ *       hsyncdelay()
+ *
+ *   SYNOPSIS
+ *       static void hsyncdelay(void)
+ *
+ *   FUNCTION
+ *       Retain the legacy horizontal-sync delay hook.
+ *
+ *   NOTES
+ *       The function body is empty; no sync delay is performed.
+ *
+ ****************************************************************************/
+
 static void hsyncdelay(void)
 {
 }
+
+/****i* januae-custom-fetch/current_hpos
+ *
+ *   NAME
+ *       current_hpos()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE unsigned int current_hpos (void)
+ *
+ *   FUNCTION
+ *       Calculate the current horizontal beam position from the event-cycle
+ *       counter.
+ *
+ *   RESULT
+ *       Returns elapsed horizontal cycles since the last horizontal-sync event.
+ *
+ *   NOTES
+ *       Returns (get_cycles() - ev_hsync.oldcycles) divided by CYCLE_UNIT.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE unsigned int current_hpos (void)
 {
     return (get_cycles () - eventtab[ev_hsync].oldcycles) / CYCLE_UNIT;
 }
+
+/****i* januae-custom-fetch/pfield_xlateptr
+ *
+ *   NAME
+ *       pfield_xlateptr()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u8 *pfield_xlateptr (uaecptr plpt, int bytecount)
+ *
+ *   FUNCTION
+ *       Resolve a bitplane DMA address into the allocated host chip-memory buffer.
+ *
+ *   INPUTS
+ *       plpt -- emulated bitplane source address
+ *       bytecount -- required contiguous chip-memory span in bytes
+ *
+ *   RESULT
+ *       Returns a host chip-memory pointer when the complete requested span fits,
+ *       otherwise NULL.
+ *
+ *   NOTES
+ *       Applies chipmem_start/chipmem_mask before checking the requested byte
+ *       span; returns NULL and logs once if the end exceeds allocated_chipmem.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE uae_u8 *pfield_xlateptr (uaecptr plpt, int bytecount)
 {
@@ -396,6 +558,26 @@ STATIC_INLINE uae_u8 *pfield_xlateptr (uaecptr plpt, int bytecount)
 	return 0;
     }
 }
+
+/****i* januae-custom-fetch/docols
+ *
+ *   NAME
+ *       docols()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void docols (struct color_entry *colentry)
+ *
+ *   FUNCTION
+ *       Convert one emulated color-table entry into host-native palette values.
+ *
+ *   INPUTS
+ *       colentry -- palette table updated in place
+ *
+ *   NOTES
+ *       In AGA mode converts up to 256 24-bit entries; otherwise converts 32
+ *       12-bit entries. Invalid palette values are skipped.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void docols (struct color_entry *colentry)
 {
@@ -422,6 +604,24 @@ STATIC_INLINE void docols (struct color_entry *colentry)
 #endif
 }
 
+/****i* januae-custom-fetch/notice_new_xcolors
+ *
+ *   NAME
+ *       notice_new_xcolors()
+ *
+ *   SYNOPSIS
+ *       void notice_new_xcolors (void)
+ *
+ *   FUNCTION
+ *       Recalculate host-native colors for the live palette and both retained
+ *       frame color tables.
+ *
+ *   NOTES
+ *       Updates all (MAXVPOS+1)*2 entries in each frame buffer; the commented
+ *       colors_for_drawing update is inactive.
+ *
+ ****************************************************************************/
+
 void notice_new_xcolors (void)
 {
     int i;
@@ -435,6 +635,24 @@ void notice_new_xcolors (void)
 }
 
 static void do_sprites (unsigned int currhp);
+
+/****i* januae-custom-fetch/remember_ctable
+ *
+ *   NAME
+ *       remember_ctable()
+ *
+ *   SYNOPSIS
+ *       static void remember_ctable (void)
+ *
+ *   FUNCTION
+ *       Record or reuse the current line palette snapshot and compare it against
+ *       the previous frame.
+ *
+ *   NOTES
+ *       Maintains remembered_color_entry, color comparison cache and
+ *       thisline_changed for smart updates.
+ *
+ ****************************************************************************/
 
 static void remember_ctable (void)
 {
@@ -470,6 +688,22 @@ static void remember_ctable (void)
     }
 }
 
+/****i* januae-custom-fetch/remember_ctable_for_border
+ *
+ *   NAME
+ *       remember_ctable_for_border()
+ *
+ *   SYNOPSIS
+ *       static void remember_ctable_for_border (void)
+ *
+ *   FUNCTION
+ *       Record the current palette for border rendering.
+ *
+ *   NOTES
+ *       Delegates without additional state changes to remember_ctable().
+ *
+ ****************************************************************************/
+
 static void remember_ctable_for_border (void)
 {
     remember_ctable ();
@@ -478,6 +712,27 @@ static void remember_ctable_for_border (void)
 /* Called to determine the state of the horizontal display window state
  * machine at the current position. It might have changed since we last
  * checked.  */
+/****i* januae-custom-fetch/decide_diw
+ *
+ *   NAME
+ *       decide_diw()
+ *
+ *   SYNOPSIS
+ *       static void decide_diw (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Advance the horizontal display-window start/stop state machine up to the
+ *       specified beam cycle.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position in chip cycles, unless otherwise noted
+ *
+ *   NOTES
+ *       Converts hpos into window coordinates and records the first crossing of
+ *       DIW start or stop.
+ *
+ ****************************************************************************/
+
 static void decide_diw (unsigned int hpos)
 {
     int pix_hpos = coord_diw_to_window_x (hpos == 227 ? 455 : hpos * 2); /* (227.5*2 = 455) */
@@ -501,6 +756,30 @@ static int real_bitplane_number[3][3][9];
 
 /* Disable bitplane DMA if planes > available DMA slots. This is needed
    e.g. by the Sanity WOC demo (at the "Party Effect").  */
+/****i* januae-custom-fetch/GET_PLANES_LIMIT
+ *
+ *   NAME
+ *       GET_PLANES_LIMIT()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int GET_PLANES_LIMIT (uae_u16 bc0)
+ *
+ *   FUNCTION
+ *       Resolve the effective number of fetchable bitplanes for BPLCON0 under the
+ *       current fetch mode.
+ *
+ *   INPUTS
+ *       bc0 -- BPLCON0 register word
+ *
+ *   RESULT
+ *       Returns the effective active DMA plane count from real_bitplane_number.
+ *
+ *   NOTES
+ *       Returns the precomputed real_bitplane_number entry; excess planes are
+ *       disabled by the cycle-table mapping.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int GET_PLANES_LIMIT (uae_u16 bc0)
 {
     int res = GET_RES(bc0);
@@ -511,6 +790,24 @@ STATIC_INLINE int GET_PLANES_LIMIT (uae_u16 bc0)
 /* The HRM says 0xD8, but that can't work... */
 #define HARD_DDF_STOP 0xd4
 #define HARD_DDF_START 0x18
+
+/****i* januae-custom-fetch/add_modulos
+ *
+ *   NAME
+ *       add_modulos()
+ *
+ *   SYNOPSIS
+ *       static void add_modulos (void)
+ *
+ *   FUNCTION
+ *       Advance DMA bitplane pointers by odd/even or scanline-dependent modulos
+ *       after a fetch row.
+ *
+ *   NOTES
+ *       FMODE bit 0x4000 selects a line-dependent shared modulo; otherwise odd and
+ *       even planes use BPL1MOD/BPL2MOD.
+ *
+ ****************************************************************************/
 
 static void add_modulos (void)
 {
@@ -539,6 +836,24 @@ static void add_modulos (void)
 	case 1: bplpt[0] += m1;
     }
 }
+
+/****i* januae-custom-fetch/finish_playfield_line
+ *
+ *   NAME
+ *       finish_playfield_line()
+ *
+ *   SYNOPSIS
+ *       static void finish_playfield_line (void)
+ *
+ *   FUNCTION
+ *       Mark the final drawn scanline span and detect changed playfield geometry
+ *       for incremental rendering.
+ *
+ *   NOTES
+ *       Updates first/last drawn vpos. With SMART_UPDATE, compares key display
+ *       decisions against the previous frame.
+ *
+ ****************************************************************************/
 
 static void finish_playfield_line (void)
 {
@@ -590,6 +905,24 @@ static uae_u8 *curr_diagram;
 static uae_u8 cycle_sequences[3 * 8] = { 2,1,2,1,2,1,2,1, 4,2,3,1,4,2,3,1, 8,4,6,2,7,3,5,1 };
 
 
+/****i* januae-custom-fetch/create_cycle_diagram_table
+ *
+ *   NAME
+ *       create_cycle_diagram_table()
+ *
+ *   SYNOPSIS
+ *       static void create_cycle_diagram_table(void)
+ *
+ *   FUNCTION
+ *       Precompute bitplane bus-slot order, free cycles, and maximum plane counts
+ *       for each fetch mode and resolution.
+ *
+ *   NOTES
+ *       Initializes cycle_diagram_table and real_bitplane_number; a non-AGA
+ *       seven-plane low-resolution case maps to four planes.
+ *
+ ****************************************************************************/
+
 static void create_cycle_diagram_table(void)
 {
     unsigned int fm, res, cycle, planes, rplanes, v;
@@ -635,6 +968,27 @@ static void create_cycle_diagram_table(void)
 static unsigned int estimated_last_fetch_cycle;
 static unsigned int cycle_diagram_shift;
 
+/****i* januae-custom-fetch/estimate_last_fetch_cycle
+ *
+ *   NAME
+ *       estimate_last_fetch_cycle()
+ *
+ *   SYNOPSIS
+ *       static void estimate_last_fetch_cycle (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Estimate the end of bitplane fetches after the DDF stop boundary for
+ *       Copper synchronization.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position in chip cycles, unless otherwise noted
+ *
+ *   NOTES
+ *       Uses current fetch cycle and fetchunit; distinguishes pending stop, passed
+ *       stop, and last-fetch-modulo state.
+ *
+ ****************************************************************************/
+
 static void estimate_last_fetch_cycle (unsigned int hpos)
 {
     unsigned int fetchunit = fetchunits[fetchmode * 4 + GET_RES (bplcon0)];
@@ -679,10 +1033,45 @@ static int toscr_nbits;
 /* undocumented bitplane delay hardware feature */
 static int delayoffset;
 
+/****i* januae-custom-fetch/compute_delay_offset
+ *
+ *   NAME
+ *       compute_delay_offset()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void compute_delay_offset (void)
+ *
+ *   FUNCTION
+ *       Derive the bitplane display delay offset from fetch mode and DDF start
+ *       phase.
+ *
+ *   NOTES
+ *       Uses the fetchmode/offset expression directly; no alternative table is
+ *       present.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void compute_delay_offset (void)
 {
     delayoffset = (16 << fetchmode) - (((plfstrt - HARD_DDF_START) & fetchstart_mask) << 1);
 }
+
+/****i* januae-custom-fetch/expand_fmodes
+ *
+ *   NAME
+ *       expand_fmodes()
+ *
+ *   SYNOPSIS
+ *       static void expand_fmodes (void)
+ *
+ *   FUNCTION
+ *       Expand the active fetch mode and BPLCON0 resolution into bus-fetch
+ *       geometry and cycle diagram state.
+ *
+ *   NOTES
+ *       Sets fetchunit, fetchstart, masks, plane limits and modulo cycle.
+ *
+ ****************************************************************************/
 
 static void expand_fmodes (void)
 {
@@ -700,6 +1089,23 @@ static void expand_fmodes (void)
 }
 
 /* Expand bplcon0/bplcon1 into the toscr_xxx variables.  */
+/****i* januae-custom-fetch/compute_toscr_delay_1
+ *
+ *   NAME
+ *       compute_toscr_delay_1()
+ *
+ *   SYNOPSIS
+ *       static void compute_toscr_delay_1 (void)
+ *
+ *   FUNCTION
+ *       Convert BPLCON1 scroll delay fields into odd/even bitplane shift delays.
+ *
+ *   NOTES
+ *       Includes delayoffset and masks delays to the active fetch width and output
+ *       resolution.
+ *
+ ****************************************************************************/
+
 static void compute_toscr_delay_1 (void)
 {
     int delay1 = (bplcon1 & 0x0f) | ((bplcon1 & 0x0c00) >> 6);
@@ -714,12 +1120,52 @@ static void compute_toscr_delay_1 (void)
     toscr_delay2x = (delay2 & delaymask) << toscr_res;
 }
 
+/****i* januae-custom-fetch/compute_toscr_delay
+ *
+ *   NAME
+ *       compute_toscr_delay()
+ *
+ *   SYNOPSIS
+ *       static void compute_toscr_delay (int hpos)
+ *
+ *   FUNCTION
+ *       Refresh display resolution, active plane count and scroll delays from
+ *       current bitplane registers.
+ *
+ *   INPUTS
+ *       hpos -- unused horizontal-position argument
+ *
+ *   NOTES
+ *       The hpos argument is not read by this implementation.
+ *
+ ****************************************************************************/
+
 static void compute_toscr_delay (int hpos)
 {
     toscr_res = GET_RES (bplcon0);
     toscr_nr_planes = GET_PLANES_LIMIT (bplcon0);
     compute_toscr_delay_1 ();
 }
+
+/****i* januae-custom-fetch/maybe_first_bpl1dat
+ *
+ *   NAME
+ *       maybe_first_bpl1dat()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void maybe_first_bpl1dat (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Mark the first produced playfield word and initialize the corresponding
+ *       display delay state.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position in chip cycles, unless otherwise noted
+ *
+ *   NOTES
+ *       Only acts before thisline_decision.plfleft has been set.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void maybe_first_bpl1dat (unsigned int hpos)
 {
@@ -729,6 +1175,28 @@ STATIC_INLINE void maybe_first_bpl1dat (unsigned int hpos)
 	compute_toscr_delay_1 ();
     }
 }
+
+/****i* januae-custom-fetch/fetch
+ *
+ *   NAME
+ *       fetch()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void fetch (int nr, int fm)
+ *
+ *   FUNCTION
+ *       Fetch one plane word or AGA longwords from chip memory and advance the
+ *       corresponding DMA pointer.
+ *
+ *   INPUTS
+ *       nr -- zero-based bitplane index to fetch
+ *       fm -- bitplane fetch mode index (0, 1, or 2)
+ *
+ *   NOTES
+ *       Skips planes above toscr_nr_planes; applies end-of-fetch modulo and
+ *       updates the last custom-bus value.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void fetch (int nr, int fm)
 {
@@ -772,6 +1240,29 @@ STATIC_INLINE void fetch (int nr, int fm)
 	fetch_state = fetch_was_plane0;
 }
 
+/****i* januae-custom-fetch/clear_fetchbuffer
+ *
+ *   NAME
+ *       clear_fetchbuffer()
+ *
+ *   SYNOPSIS
+ *       static void clear_fetchbuffer (uae_u32 *ptr, int nwords)
+ *
+ *   FUNCTION
+ *       Zero a run of retained bitplane output words while tracking whether
+ *       nonzero prior data changed.
+ *
+ *   INPUTS
+ *       ptr -- caller-owned start of the output buffer
+ *       nwords -- number of source words or output words processed, as appropriate
+ *           to the operation
+ *
+ *   NOTES
+ *       The caller supplies a valid buffer of nwords 32-bit entries; memset writes
+ *       nwords*4 bytes.
+ *
+ ****************************************************************************/
+
 static void clear_fetchbuffer (uae_u32 *ptr, int nwords)
 {
     int i;
@@ -786,6 +1277,24 @@ static void clear_fetchbuffer (uae_u32 *ptr, int nwords)
     memset (ptr, 0, nwords * 4);
 }
 
+/****i* januae-custom-fetch/update_toscr_planes
+ *
+ *   NAME
+ *       update_toscr_planes()
+ *
+ *   SYNOPSIS
+ *       static void update_toscr_planes (void)
+ *
+ *   FUNCTION
+ *       Expand the line output to cover newly enabled bitplanes and clear
+ *       preceding output for those planes.
+ *
+ *   NOTES
+ *       Does not shrink thisline_decision.nr_planes when the active plane count
+ *       drops.
+ *
+ ****************************************************************************/
+
 static void update_toscr_planes (void)
 {
     if (toscr_nr_planes > thisline_decision.nr_planes) {
@@ -795,6 +1304,25 @@ static void update_toscr_planes (void)
 	thisline_decision.nr_planes = toscr_nr_planes;
     }
 }
+
+/****i* januae-custom-fetch/toscr_3_ecs
+ *
+ *   NAME
+ *       toscr_3_ecs()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void toscr_3_ecs (int nbits)
+ *
+ *   FUNCTION
+ *       Accumulate delayed ECS/OCS plane bits into the 32-bit output words.
+ *
+ *   INPUTS
+ *       nbits -- number of display bits to shift or emit
+ *
+ *   NOTES
+ *       Uses separate scroll delays for alternating odd and even plane indices.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void toscr_3_ecs (int nbits)
 {
@@ -815,6 +1343,27 @@ STATIC_INLINE void toscr_3_ecs (int nbits)
     }
 }
 
+/****i* januae-custom-fetch/shift32plus
+ *
+ *   NAME
+ *       shift32plus()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void shift32plus (uae_u32 *p, int n)
+ *
+ *   FUNCTION
+ *       Shift a 64-bit logical bitstream represented by two adjacent 32-bit words.
+ *
+ *   INPUTS
+ *       p -- caller-owned 16-bit register state to modify
+ *       n -- number of bits to shift
+ *
+ *   NOTES
+ *       Updates p[1] with its shifted prior content and the bits carried from
+ *       p[0]; leaves p[0] unchanged.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void shift32plus (uae_u32 *p, int n)
 {
     uae_u32 t = p[1];
@@ -824,6 +1373,28 @@ STATIC_INLINE void shift32plus (uae_u32 *p, int n)
 }
 
 #ifdef AGA
+/****i* januae-custom-fetch/aga_shift
+ *
+ *   NAME
+ *       aga_shift()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void aga_shift (uae_u32 *p, int n, int fm)
+ *
+ *   FUNCTION
+ *       Shift one AGA multiword bitplane staging buffer by the requested number of
+ *       bits.
+ *
+ *   INPUTS
+ *       p -- caller-owned 16-bit register state to modify
+ *       n -- number of bits to shift
+ *       fm -- bitplane fetch mode index (0, 1, or 2)
+ *
+ *   NOTES
+ *       Compiled only with AGA; shifts additional words for fetch mode 2.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void aga_shift (uae_u32 *p, int n, int fm)
 {
     if (fm == 2) {
@@ -833,6 +1404,27 @@ STATIC_INLINE void aga_shift (uae_u32 *p, int n, int fm)
     shift32plus (p + 0, n);
     p[0] <<= n;
 }
+
+/****i* januae-custom-fetch/toscr_3_aga
+ *
+ *   NAME
+ *       toscr_3_aga()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void toscr_3_aga (int nbits, int fm)
+ *
+ *   FUNCTION
+ *       Accumulate delayed AGA bitplane data into the 32-bit display words.
+ *
+ *   INPUTS
+ *       nbits -- number of display bits to shift or emit
+ *       fm -- bitplane fetch mode index (0, 1, or 2)
+ *
+ *   NOTES
+ *       Compiled with AGA; selects the relevant 64-bit window and odd/even delay
+ *       for each plane.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void toscr_3_aga (int nbits, int fm)
 {
@@ -875,11 +1467,90 @@ STATIC_INLINE void toscr_3_aga (int nbits, int fm)
 
 #endif
 
+/****i* januae-custom-fetch/toscr_2_0
+ *
+ *   NAME
+ *       toscr_2_0()
+ *
+ *   SYNOPSIS
+ *       static void toscr_2_0 (int nbits)
+ *
+ *   FUNCTION
+ *       Dispatch one ordinary 16-bit ECS/OCS display-bit conversion chunk.
+ *
+ *   INPUTS
+ *       nbits -- number of display bits to shift or emit
+ *
+ *   NOTES
+ *       Inline wrapper around toscr_3_ecs().
+ *
+ ****************************************************************************/
+
 static void toscr_2_0 (int nbits) { toscr_3_ecs (nbits); }
 #ifdef AGA
+/****i* januae-custom-fetch/toscr_2_1
+ *
+ *   NAME
+ *       toscr_2_1()
+ *
+ *   SYNOPSIS
+ *       static void toscr_2_1 (int nbits)
+ *
+ *   FUNCTION
+ *       Dispatch one AGA fetch-mode-1 display-bit conversion chunk.
+ *
+ *   INPUTS
+ *       nbits -- number of display bits to shift or emit
+ *
+ *   NOTES
+ *       Compiled with AGA; passes fetch mode 1 to toscr_3_aga().
+ *
+ ****************************************************************************/
+
 static void toscr_2_1 (int nbits) { toscr_3_aga (nbits, 1); }
+/****i* januae-custom-fetch/toscr_2_2
+ *
+ *   NAME
+ *       toscr_2_2()
+ *
+ *   SYNOPSIS
+ *       static void toscr_2_2 (int nbits)
+ *
+ *   FUNCTION
+ *       Dispatch one AGA fetch-mode-2 display-bit conversion chunk.
+ *
+ *   INPUTS
+ *       nbits -- number of display bits to shift or emit
+ *
+ *   NOTES
+ *       Compiled with AGA; passes fetch mode 2 to toscr_3_aga().
+ *
+ ****************************************************************************/
+
 static void toscr_2_2 (int nbits) { toscr_3_aga (nbits, 2); }
 #endif
+
+/****i* januae-custom-fetch/toscr_1
+ *
+ *   NAME
+ *       toscr_1()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void toscr_1 (int nbits, int fm)
+ *
+ *   FUNCTION
+ *       Advance bitplane output staging and write completed 32-bit plane words to
+ *       the current line buffer.
+ *
+ *   INPUTS
+ *       nbits -- number of display bits to shift or emit
+ *       fm -- bitplane fetch mode index (0, 1, or 2)
+ *
+ *   NOTES
+ *       Detects changed output words for smart redraw; clears high planes when the
+ *       active plane count is reduced.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void toscr_1 (int nbits, int fm)
 {
@@ -918,6 +1589,27 @@ static void toscr_fm0 (int);
 static void toscr_fm1 (int);
 static void toscr_fm2 (int);
 
+/****i* januae-custom-fetch/toscr
+ *
+ *   NAME
+ *       toscr()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void toscr (int nbits, int fm)
+ *
+ *   FUNCTION
+ *       Dispatch a display-bit chunk to the selected OCS/ECS or AGA fetch-mode
+ *       converter.
+ *
+ *   INPUTS
+ *       nbits -- number of display bits to shift or emit
+ *       fm -- bitplane fetch mode index (0, 1, or 2)
+ *
+ *   NOTES
+ *       Modes 1 and 2 have active switch arms only when AGA is compiled.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void toscr (int nbits, int fm)
 {
     switch (fm) {
@@ -928,6 +1620,28 @@ STATIC_INLINE void toscr (int nbits, int fm)
 #endif
     }
 }
+
+/****i* januae-custom-fetch/toscr_0
+ *
+ *   NAME
+ *       toscr_0()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void toscr_0 (int nbits, int fm)
+ *
+ *   FUNCTION
+ *       Divide a pending bit count into chunks that fit the 32-bit output staging
+ *       accumulator.
+ *
+ *   INPUTS
+ *       nbits -- number of display bits to shift or emit
+ *       fm -- bitplane fetch mode index (0, 1, or 2)
+ *
+ *   NOTES
+ *       Flushes a 16-bit segment first when nbits exceeds 16, then completes
+ *       partial 32-bit output as needed.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void toscr_0 (int nbits, int fm)
 {
@@ -946,9 +1660,90 @@ STATIC_INLINE void toscr_0 (int nbits, int fm)
     toscr_1 (nbits, fm);
 }
 
+/****i* januae-custom-fetch/toscr_fm0
+ *
+ *   NAME
+ *       toscr_fm0()
+ *
+ *   SYNOPSIS
+ *       static void toscr_fm0 (int nbits)
+ *
+ *   FUNCTION
+ *       Convert a display-bit chunk using the OCS/ECS fetch-mode wrapper.
+ *
+ *   INPUTS
+ *       nbits -- number of display bits to shift or emit
+ *
+ *   NOTES
+ *       Delegates to toscr_0() with mode 0.
+ *
+ ****************************************************************************/
+
 static void toscr_fm0 (int nbits) { toscr_0 (nbits, 0); }
+/****i* januae-custom-fetch/toscr_fm1
+ *
+ *   NAME
+ *       toscr_fm1()
+ *
+ *   SYNOPSIS
+ *       static void toscr_fm1 (int nbits)
+ *
+ *   FUNCTION
+ *       Convert a display-bit chunk using the AGA mode-1 wrapper.
+ *
+ *   INPUTS
+ *       nbits -- number of display bits to shift or emit
+ *
+ *   NOTES
+ *       Delegates to toscr_0() with mode 1; selected only by the AGA dispatch arm.
+ *
+ ****************************************************************************/
+
 static void toscr_fm1 (int nbits) { toscr_0 (nbits, 1); }
+/****i* januae-custom-fetch/toscr_fm2
+ *
+ *   NAME
+ *       toscr_fm2()
+ *
+ *   SYNOPSIS
+ *       static void toscr_fm2 (int nbits)
+ *
+ *   FUNCTION
+ *       Convert a display-bit chunk using the AGA mode-2 wrapper.
+ *
+ *   INPUTS
+ *       nbits -- number of display bits to shift or emit
+ *
+ *   NOTES
+ *       Delegates to toscr_0() with mode 2; selected only by the AGA dispatch arm.
+ *
+ ****************************************************************************/
+
 static void toscr_fm2 (int nbits) { toscr_0 (nbits, 2); }
+
+/****i* januae-custom-fetch/flush_plane_data
+ *
+ *   NAME
+ *       flush_plane_data()
+ *
+ *   SYNOPSIS
+ *       static int flush_plane_data (int fm)
+ *
+ *   FUNCTION
+ *       Finish pending bitplane output words at the end of a fetched playfield
+ *       segment.
+ *
+ *   INPUTS
+ *       fm -- bitplane fetch mode index (0, 1, or 2)
+ *
+ *   RESULT
+ *       Returns the number of display positions advanced, scaled to toscr_res.
+ *
+ *   NOTES
+ *       Returns the number of output pixel positions advanced after resolution
+ *       scaling; also emits two final 16-bit chunks.
+ *
+ ****************************************************************************/
 
 static int flush_plane_data (int fm)
 {
@@ -970,12 +1765,51 @@ static int flush_plane_data (int fm)
     return i >> (1 + toscr_res);
 }
 
+/****i* januae-custom-fetch/flush_display
+ *
+ *   NAME
+ *       flush_display()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void flush_display (int fm)
+ *
+ *   FUNCTION
+ *       Emit any accumulated display bits for the current line and clear the
+ *       pending-bit count.
+ *
+ *   INPUTS
+ *       fm -- bitplane fetch mode index (0, 1, or 2)
+ *
+ *   NOTES
+ *       Only emits when the playfield has a valid left edge.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void flush_display (int fm)
 {
     if (toscr_nbits > 0 && thisline_decision.plfleft != -1)
 	toscr (toscr_nbits, fm);
     toscr_nbits = 0;
 }
+
+/****i* januae-custom-fetch/fetch_start
+ *
+ *   NAME
+ *       fetch_start()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void fetch_start (int hpoa)
+ *
+ *   FUNCTION
+ *       Change the current bitplane fetch state to fetch_started.
+ *
+ *   INPUTS
+ *       hpoa -- unused horizontal-position argument
+ *
+ *   NOTES
+ *       The hpoa argument is unused.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void fetch_start (int hpoa)
 {
@@ -985,6 +1819,28 @@ STATIC_INLINE void fetch_start (int hpoa)
 /* Called when all planes have been fetched, i.e. when a new block
    of data is available to be displayed.  The data in fetched[] is
    moved into todisplay[].  */
+/****i* januae-custom-fetch/beginning_of_plane_block
+ *
+ *   NAME
+ *       beginning_of_plane_block()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void beginning_of_plane_block (int pos, int fm)
+ *
+ *   FUNCTION
+ *       Publish newly fetched plane data to display shift registers at the
+ *       beginning of a fetch block.
+ *
+ *   INPUTS
+ *       pos -- horizontal position at which the completed plane block begins
+ *       fm -- bitplane fetch mode index (0, 1, or 2)
+ *
+ *   NOTES
+ *       Flushes prior data, applies ECS/AGA fetch words and latches the first
+ *       playfield position and delay state.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void beginning_of_plane_block (int pos, int fm)
 {
     int i;
@@ -1009,6 +1865,34 @@ STATIC_INLINE void beginning_of_plane_block (int pos, int fm)
 #ifdef SPEEDUP
 
 /* The usual inlining tricks - don't touch unless you know what you are doing. */
+/****i* januae-custom-fetch/long_fetch_ecs
+ *
+ *   NAME
+ *       long_fetch_ecs()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void long_fetch_ecs (int plane, int nwords, int
+ *       weird_number_of_bits, int dma)
+ *
+ *   FUNCTION
+ *       Run the optimized ECS/OCS word-fetch and display conversion loop for one
+ *       plane.
+ *
+ *   INPUTS
+ *       plane -- zero-based bitplane index
+ *       nwords -- number of source words or output words processed, as appropriate
+ *           to the operation
+ *       weird_number_of_bits -- nonzero when the initial output word has partial
+ *           alignment
+ *       dma -- nonzero when DMA memory reads should be performed
+ *
+ *   NOTES
+ *       Available under SPEEDUP. Uses a direct chip-memory translation; returns
+ *       immediately on invalid translation instead of falling back to
+ *       chipmem_wget().
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void long_fetch_ecs (int plane, int nwords, int weird_number_of_bits, int dma)
 {
     uae_u16 *real_pt = (uae_u16 *)pfield_xlateptr (bplpt[plane] + bpl_off[plane], nwords * 2);
@@ -1065,6 +1949,34 @@ STATIC_INLINE void long_fetch_ecs (int plane, int nwords, int weird_number_of_bi
 }
 
 #ifdef AGA
+/****i* januae-custom-fetch/long_fetch_aga
+ *
+ *   NAME
+ *       long_fetch_aga()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void long_fetch_aga (int plane, int nwords, int
+ *       weird_number_of_bits, int fm, int dma)
+ *
+ *   FUNCTION
+ *       Run the optimized AGA longword-fetch and display conversion loop for one
+ *       plane.
+ *
+ *   INPUTS
+ *       plane -- zero-based bitplane index
+ *       nwords -- number of source words or output words processed, as appropriate
+ *           to the operation
+ *       weird_number_of_bits -- nonzero when the initial output word has partial
+ *           alignment
+ *       fm -- bitplane fetch mode index (0, 1, or 2)
+ *       dma -- nonzero when DMA memory reads should be performed
+ *
+ *   NOTES
+ *       Available only under SPEEDUP and AGA; uses direct translated memory and
+ *       returns without fallback if translation fails.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void long_fetch_aga (int plane, int nwords, int weird_number_of_bits, int fm, int dma)
 {
     uae_u32 *real_pt = (uae_u32 *)pfield_xlateptr (bplpt[plane] + bpl_off[plane], nwords * 2);
@@ -1144,14 +2056,175 @@ STATIC_INLINE void long_fetch_aga (int plane, int nwords, int weird_number_of_bi
 }
 #endif
 
+/****i* januae-custom-fetch/long_fetch_ecs_0
+ *
+ *   NAME
+ *       long_fetch_ecs_0()
+ *
+ *   SYNOPSIS
+ *       static void NOINLINE long_fetch_ecs_0 (int hpos, int nwords, int dma)
+ *
+ *   FUNCTION
+ *       Use the optimized ECS word-fetch path with normal output-bit alignment.
+ *
+ *   INPUTS
+ *       hpos -- plane index, despite the historical parameter name
+ *       nwords -- number of source words or output words processed, as appropriate
+ *           to the operation
+ *       dma -- nonzero when DMA memory reads should be performed
+ *
+ *   NOTES
+ *       SPEEDUP wrapper; the hpos parameter is passed as a plane number.
+ *
+ ****************************************************************************/
+
 static void NOINLINE long_fetch_ecs_0 (int hpos, int nwords, int dma) { long_fetch_ecs (hpos, nwords, 0, dma); }
+/****i* januae-custom-fetch/long_fetch_ecs_1
+ *
+ *   NAME
+ *       long_fetch_ecs_1()
+ *
+ *   SYNOPSIS
+ *       static void NOINLINE long_fetch_ecs_1 (int hpos, int nwords, int dma)
+ *
+ *   FUNCTION
+ *       Use the optimized ECS word-fetch path with partial-word output alignment.
+ *
+ *   INPUTS
+ *       hpos -- plane index, despite the historical parameter name
+ *       nwords -- number of source words or output words processed, as appropriate
+ *           to the operation
+ *       dma -- nonzero when DMA memory reads should be performed
+ *
+ *   NOTES
+ *       SPEEDUP wrapper; passes the alignment flag 1 to long_fetch_ecs().
+ *
+ ****************************************************************************/
+
 static void NOINLINE long_fetch_ecs_1 (int hpos, int nwords, int dma) { long_fetch_ecs (hpos, nwords, 1, dma); }
 #ifdef AGA
+/****i* januae-custom-fetch/long_fetch_aga_1_0
+ *
+ *   NAME
+ *       long_fetch_aga_1_0()
+ *
+ *   SYNOPSIS
+ *       static void NOINLINE long_fetch_aga_1_0 (int hpos, int nwords, int dma)
+ *
+ *   FUNCTION
+ *       Use optimized AGA fetch-mode-1 conversion without the partial-word
+ *       alignment flag.
+ *
+ *   INPUTS
+ *       hpos -- plane index, despite the historical parameter name
+ *       nwords -- number of source words or output words processed, as appropriate
+ *           to the operation
+ *       dma -- nonzero when DMA memory reads should be performed
+ *
+ *   NOTES
+ *       SPEEDUP and AGA wrapper; the hpos parameter is used as the plane index.
+ *
+ ****************************************************************************/
+
 static void NOINLINE long_fetch_aga_1_0 (int hpos, int nwords, int dma) { long_fetch_aga (hpos, nwords, 0, 1, dma); }
+/****i* januae-custom-fetch/long_fetch_aga_1_1
+ *
+ *   NAME
+ *       long_fetch_aga_1_1()
+ *
+ *   SYNOPSIS
+ *       static void NOINLINE long_fetch_aga_1_1 (int hpos, int nwords, int dma)
+ *
+ *   FUNCTION
+ *       Use optimized AGA fetch-mode-1 conversion with the partial-word alignment
+ *       flag.
+ *
+ *   INPUTS
+ *       hpos -- plane index, despite the historical parameter name
+ *       nwords -- number of source words or output words processed, as appropriate
+ *           to the operation
+ *       dma -- nonzero when DMA memory reads should be performed
+ *
+ *   NOTES
+ *       SPEEDUP and AGA wrapper; delegates to long_fetch_aga() with fm=1, flag=1.
+ *
+ ****************************************************************************/
+
 static void NOINLINE long_fetch_aga_1_1 (int hpos, int nwords, int dma) { long_fetch_aga (hpos, nwords, 1, 1, dma); }
+/****i* januae-custom-fetch/long_fetch_aga_2_0
+ *
+ *   NAME
+ *       long_fetch_aga_2_0()
+ *
+ *   SYNOPSIS
+ *       static void NOINLINE long_fetch_aga_2_0 (int hpos, int nwords, int dma)
+ *
+ *   FUNCTION
+ *       Use optimized AGA fetch-mode-2 conversion without the partial-word
+ *       alignment flag.
+ *
+ *   INPUTS
+ *       hpos -- plane index, despite the historical parameter name
+ *       nwords -- number of source words or output words processed, as appropriate
+ *           to the operation
+ *       dma -- nonzero when DMA memory reads should be performed
+ *
+ *   NOTES
+ *       SPEEDUP and AGA wrapper; delegates to long_fetch_aga() with fm=2, flag=0.
+ *
+ ****************************************************************************/
+
 static void NOINLINE long_fetch_aga_2_0 (int hpos, int nwords, int dma) { long_fetch_aga (hpos, nwords, 0, 2, dma); }
+/****i* januae-custom-fetch/long_fetch_aga_2_1
+ *
+ *   NAME
+ *       long_fetch_aga_2_1()
+ *
+ *   SYNOPSIS
+ *       static void NOINLINE long_fetch_aga_2_1 (int hpos, int nwords, int dma)
+ *
+ *   FUNCTION
+ *       Use optimized AGA fetch-mode-2 conversion with the partial-word alignment
+ *       flag.
+ *
+ *   INPUTS
+ *       hpos -- plane index, despite the historical parameter name
+ *       nwords -- number of source words or output words processed, as appropriate
+ *           to the operation
+ *       dma -- nonzero when DMA memory reads should be performed
+ *
+ *   NOTES
+ *       SPEEDUP and AGA wrapper; delegates to long_fetch_aga() with fm=2, flag=1.
+ *
+ ****************************************************************************/
+
 static void NOINLINE long_fetch_aga_2_1 (int hpos, int nwords, int dma) { long_fetch_aga (hpos, nwords, 1, 2, dma); }
 #endif
+
+/****i* januae-custom-fetch/do_long_fetch
+ *
+ *   NAME
+ *       do_long_fetch()
+ *
+ *   SYNOPSIS
+ *       static void do_long_fetch (int hpos, int nwords, int dma, int fm)
+ *
+ *   FUNCTION
+ *       Dispatch accelerated fetch conversion across active bitplanes and update
+ *       fetch/output cursors.
+ *
+ *   INPUTS
+ *       hpos -- currently processed horizontal position; not used directly in body
+ *       nwords -- number of source words or output words processed, as appropriate
+ *           to the operation
+ *       dma -- nonzero when DMA memory reads should be performed
+ *       fm -- bitplane fetch mode index (0, 1, or 2)
+ *
+ *   NOTES
+ *       Compiled only with SPEEDUP; selects the alignment specialization and marks
+ *       the plane-zero fetch state when DMA is active.
+ *
+ ****************************************************************************/
 
 static void do_long_fetch (int hpos, int nwords, int dma, int fm)
 {
@@ -1201,6 +2274,28 @@ static void do_long_fetch (int hpos, int nwords, int dma, int fm)
 #endif
 
 /* make sure fetch that goes beyond maxhpos is finished */
+/****i* januae-custom-fetch/finish_final_fetch
+ *
+ *   NAME
+ *       finish_final_fetch()
+ *
+ *   SYNOPSIS
+ *       static void finish_final_fetch (int i, int fm)
+ *
+ *   FUNCTION
+ *       Close the current playfield fetch sequence at the end of the permitted DDF
+ *       interval.
+ *
+ *   INPUTS
+ *       i -- current horizontal fetch-cycle position
+ *       fm -- bitplane fetch mode index (0, 1, or 2)
+ *
+ *   NOTES
+ *       If a playfield started and has not finished, flushes plane data, records
+ *       right boundary/length and finishes line decisions.
+ *
+ ****************************************************************************/
+
 static void finish_final_fetch (int i, int fm)
 {
     if (thisline_decision.plfleft == -1)
@@ -1214,6 +2309,35 @@ static void finish_final_fetch (int i, int fm)
     thisline_decision.plflinelen = out_offs;
     finish_playfield_line ();
 }
+
+/****i* januae-custom-fetch/one_fetch_cycle_0
+ *
+ *   NAME
+ *       one_fetch_cycle_0()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int one_fetch_cycle_0 (int i, int ddfstop_to_test, int dma,
+ *       int fm)
+ *
+ *   FUNCTION
+ *       Execute one bitplane DMA fetch slot and advance the video data-to-screen
+ *       accumulator.
+ *
+ *   INPUTS
+ *       i -- current horizontal fetch-cycle position
+ *       ddfstop_to_test -- effective stop position for the data-fetch window
+ *       dma -- nonzero when DMA memory reads should be performed
+ *       fm -- bitplane fetch mode index (0, 1, or 2)
+ *
+ *   RESULT
+ *       Returns 1 when the final fetch completes; returns 0 while fetching
+ *       continues.
+ *
+ *   NOTES
+ *       Returns 1 when the final fetch completes, otherwise 0. Advances
+ *       fetch_cycle and raises a GUI message if toscr_nbits exceeds 16.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE int one_fetch_cycle_0 (int i, int ddfstop_to_test, int dma, int fm)
 {
@@ -1276,9 +2400,109 @@ STATIC_INLINE int one_fetch_cycle_0 (int i, int ddfstop_to_test, int dma, int fm
     return 0;
 }
 
+/****i* januae-custom-fetch/one_fetch_cycle_fm0
+ *
+ *   NAME
+ *       one_fetch_cycle_fm0()
+ *
+ *   SYNOPSIS
+ *       static int one_fetch_cycle_fm0 (int i, int ddfstop_to_test, int dma)
+ *
+ *   FUNCTION
+ *       Run one fetch cycle with OCS/ECS fetch width.
+ *
+ *   INPUTS
+ *       i -- current horizontal fetch-cycle position
+ *       ddfstop_to_test -- effective stop position for the data-fetch window
+ *       dma -- nonzero when DMA memory reads should be performed
+ *
+ *   RESULT
+ *       Returns the final-fetch flag from one_fetch_cycle_0(..., 0).
+ *
+ *   NOTES
+ *       Returns the result of one_fetch_cycle_0() using mode 0.
+ *
+ ****************************************************************************/
+
 static int one_fetch_cycle_fm0 (int i, int ddfstop_to_test, int dma) { return one_fetch_cycle_0 (i, ddfstop_to_test, dma, 0); }
+/****i* januae-custom-fetch/one_fetch_cycle_fm1
+ *
+ *   NAME
+ *       one_fetch_cycle_fm1()
+ *
+ *   SYNOPSIS
+ *       static int one_fetch_cycle_fm1 (int i, int ddfstop_to_test, int dma)
+ *
+ *   FUNCTION
+ *       Run one fetch cycle with AGA fetch mode 1.
+ *
+ *   INPUTS
+ *       i -- current horizontal fetch-cycle position
+ *       ddfstop_to_test -- effective stop position for the data-fetch window
+ *       dma -- nonzero when DMA memory reads should be performed
+ *
+ *   RESULT
+ *       Returns the final-fetch flag from one_fetch_cycle_0(..., 1).
+ *
+ *   NOTES
+ *       Returns the result of one_fetch_cycle_0() using mode 1.
+ *
+ ****************************************************************************/
+
 static int one_fetch_cycle_fm1 (int i, int ddfstop_to_test, int dma) { return one_fetch_cycle_0 (i, ddfstop_to_test, dma, 1); }
+/****i* januae-custom-fetch/one_fetch_cycle_fm2
+ *
+ *   NAME
+ *       one_fetch_cycle_fm2()
+ *
+ *   SYNOPSIS
+ *       static int one_fetch_cycle_fm2 (int i, int ddfstop_to_test, int dma)
+ *
+ *   FUNCTION
+ *       Run one fetch cycle with AGA fetch mode 2.
+ *
+ *   INPUTS
+ *       i -- current horizontal fetch-cycle position
+ *       ddfstop_to_test -- effective stop position for the data-fetch window
+ *       dma -- nonzero when DMA memory reads should be performed
+ *
+ *   RESULT
+ *       Returns the final-fetch flag from one_fetch_cycle_0(..., 2).
+ *
+ *   NOTES
+ *       Returns the result of one_fetch_cycle_0() using mode 2.
+ *
+ ****************************************************************************/
+
 static int one_fetch_cycle_fm2 (int i, int ddfstop_to_test, int dma) { return one_fetch_cycle_0 (i, ddfstop_to_test, dma, 2); }
+
+/****i* januae-custom-fetch/one_fetch_cycle
+ *
+ *   NAME
+ *       one_fetch_cycle()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int one_fetch_cycle (int i, int ddfstop_to_test, int dma,
+ *       int fm)
+ *
+ *   FUNCTION
+ *       Dispatch one fetch cycle to the implementation for the selected fetch
+ *       mode.
+ *
+ *   INPUTS
+ *       i -- current horizontal fetch-cycle position
+ *       ddfstop_to_test -- effective stop position for the data-fetch window
+ *       dma -- nonzero when DMA memory reads should be performed
+ *       fm -- bitplane fetch mode index (0, 1, or 2)
+ *
+ *   RESULT
+ *       Returns 1 when the mode-specific final fetch completes; otherwise 0.
+ *
+ *   NOTES
+ *       Returns the mode-specific stop indication; an unsupported mode emits a GUI
+ *       diagnostic and returns 0.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE int one_fetch_cycle (int i, int ddfstop_to_test, int dma, int fm)
 {
@@ -1291,6 +2515,29 @@ STATIC_INLINE int one_fetch_cycle (int i, int ddfstop_to_test, int dma, int fm)
     default: uae_abort ("fm corrupt"); return 0;
     }
 }
+
+/****i* januae-custom-fetch/update_fetch
+ *
+ *   NAME
+ *       update_fetch()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void update_fetch (unsigned int until, int fm)
+ *
+ *   FUNCTION
+ *       Advance bitplane DMA and the display shift registers up to the requested
+ *       horizontal position.
+ *
+ *   INPUTS
+ *       until -- horizontal beam position through which fetches should be
+ *           simulated
+ *       fm -- bitplane fetch mode index (0, 1, or 2)
+ *
+ *   NOTES
+ *       Skips if nodraw() or fetches have ended; under SPEEDUP can process whole
+ *       aligned blocks, then simulates remaining cycles.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void update_fetch (unsigned int until, int fm)
 {
@@ -1397,9 +2644,87 @@ STATIC_INLINE void update_fetch (unsigned int until, int fm)
     flush_display (fm);
 }
 
+/****i* januae-custom-fetch/update_fetch_0
+ *
+ *   NAME
+ *       update_fetch_0()
+ *
+ *   SYNOPSIS
+ *       static void update_fetch_0 (int hpos)
+ *
+ *   FUNCTION
+ *       Advance fetch state using OCS/ECS mode 0.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position in chip cycles, unless otherwise noted
+ *
+ *   NOTES
+ *       Delegates to update_fetch() with mode 0.
+ *
+ ****************************************************************************/
+
 static void update_fetch_0 (int hpos) { update_fetch (hpos, 0); }
+/****i* januae-custom-fetch/update_fetch_1
+ *
+ *   NAME
+ *       update_fetch_1()
+ *
+ *   SYNOPSIS
+ *       static void update_fetch_1 (int hpos)
+ *
+ *   FUNCTION
+ *       Advance fetch state using AGA mode 1.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position in chip cycles, unless otherwise noted
+ *
+ *   NOTES
+ *       Delegates to update_fetch() with mode 1.
+ *
+ ****************************************************************************/
+
 static void update_fetch_1 (int hpos) { update_fetch (hpos, 1); }
+/****i* januae-custom-fetch/update_fetch_2
+ *
+ *   NAME
+ *       update_fetch_2()
+ *
+ *   SYNOPSIS
+ *       static void update_fetch_2 (int hpos)
+ *
+ *   FUNCTION
+ *       Advance fetch state using AGA mode 2.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position in chip cycles, unless otherwise noted
+ *
+ *   NOTES
+ *       Delegates to update_fetch() with mode 2.
+ *
+ ****************************************************************************/
+
 static void update_fetch_2 (int hpos) { update_fetch (hpos, 2); }
+
+/****i* januae-custom-fetch/decide_fetch
+ *
+ *   NAME
+ *       decide_fetch()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void decide_fetch (int hpos)
+ *
+ *   FUNCTION
+ *       Synchronize bitplane fetch processing through the requested horizontal
+ *       position.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position in chip cycles, unless otherwise noted
+ *
+ *   NOTES
+ *       Updates last_fetch_hpos even when no fetch is running; dispatches modes
+ *       1/2 only when AGA is compiled.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void decide_fetch (int hpos)
 {
@@ -1415,6 +2740,28 @@ STATIC_INLINE void decide_fetch (int hpos)
     }
     last_fetch_hpos = hpos;
 }
+
+/****i* januae-custom-fetch/start_bpl_dma
+ *
+ *   NAME
+ *       start_bpl_dma()
+ *
+ *   SYNOPSIS
+ *       static void start_bpl_dma (unsigned int hpos, int hstart)
+ *
+ *   FUNCTION
+ *       Begin a new bitplane DMA fetch sequence and initialize line output offsets
+ *       and display delays.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position in chip cycles, unless otherwise noted
+ *       hstart -- effective horizontal start used to initialize the fetch cursor
+ *
+ *   NOTES
+ *       Preserves an earlier CPU BPL1DAT write by accounting for preexisting
+ *       left-of-playfield output.
+ *
+ ****************************************************************************/
 
 static void start_bpl_dma (unsigned int hpos, int hstart)
 {
@@ -1442,6 +2789,27 @@ static void start_bpl_dma (unsigned int hpos, int hstart)
 }
 
 /* this may turn on datafetch if program turns dma on during the ddf */
+/****i* januae-custom-fetch/maybe_start_bpl_dma
+ *
+ *   NAME
+ *       maybe_start_bpl_dma()
+ *
+ *   SYNOPSIS
+ *       static void maybe_start_bpl_dma (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Conditionally restart bitplane DMA during the display-fetch window after
+ *       DMA becomes enabled.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position in chip cycles, unless otherwise noted
+ *
+ *   NOTES
+ *       Only applies to an ECS Agnus capable chipset, when no fetch has started
+ *       and the horizontal position lies inside the allowed window.
+ *
+ ****************************************************************************/
+
 static void maybe_start_bpl_dma (unsigned int hpos)
 {
     /* OCS: BPL DMA never restarts if DMA is turned on during DDF
@@ -1464,6 +2832,27 @@ static void maybe_start_bpl_dma (unsigned int hpos)
 }
 
 /* This function is responsible for turning on datafetch if necessary. */
+/****i* januae-custom-fetch/decide_line
+ *
+ *   NAME
+ *       decide_line()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void decide_line (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Evaluate vertical display-window state and trigger bitplane DMA at the DDF
+ *       start threshold.
+ *
+ *   INPUTS
+ *       hpos -- horizontal beam position in chip cycles, unless otherwise noted
+ *
+ *   NOTES
+ *       Ignores already-processed positions and running fetches; includes a narrow
+ *       DDFSTRT write-delay workaround before starting DMA.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void decide_line (unsigned int hpos)
 {
     /* Take care of the vertical DIW.  */
