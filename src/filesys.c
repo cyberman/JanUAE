@@ -1104,6 +1104,29 @@ static void dispose_aino (Unit *unit, a_inode **aip, a_inode *aino)
     xfree (aino);
 }
 
+/****i* januae-filesys-internal/recycle_aino
+ *
+ *   NAME
+ *       recycle_aino()
+ *
+ *   SYNOPSIS
+ *       static void recycle_aino (Unit *unit, a_inode *new_aino)
+ *
+ *   FUNCTION
+ *       Add an unused inode to the unit recycling list.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit that owns the inode cache.
+ *       new_aino -- Inode eligible for recycling.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Directory inodes, locked inodes, and the unit root are left untouched. If the cache exceeds its threshold, the routine first discards eligible cached inodes. The inode must not already be in the recycling list.
+ *
+ ****************************************************************************/
+
 static void recycle_aino (Unit *unit, a_inode *new_aino)
 {
     aino_test (new_aino);
@@ -1169,6 +1192,30 @@ static void recycle_aino (Unit *unit, a_inode *new_aino)
     unit->aino_cache_size++;
 }
 
+/****i* januae-filesys-internal/update_child_names
+ *
+ *   NAME
+ *       update_child_names()
+ *
+ *   SYNOPSIS
+ *       static void update_child_names (Unit *unit, a_inode *a, a_inode *parent)
+ *
+ *   FUNCTION
+ *       Rebuild host pathnames for a sibling chain and its descendants.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit.
+ *       a -- First inode in the sibling chain, or NULL.
+ *       parent -- New parent inode.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Updates each inode parent pointer and replaces its allocated host pathname. Descendant directories are processed recursively. Existing pathnames must contain the filesystem directory separator.
+ *
+ ****************************************************************************/
+
 static void update_child_names (Unit *unit, a_inode *a, a_inode *parent)
 {
     int l0 = strlen (parent->nname) + 2;
@@ -1197,6 +1244,30 @@ static void update_child_names (Unit *unit, a_inode *a, a_inode *parent)
     }
 }
 
+/****i* januae-filesys-internal/move_aino_children
+ *
+ *   NAME
+ *       move_aino_children()
+ *
+ *   SYNOPSIS
+ *       static void move_aino_children (Unit *unit, a_inode *from, a_inode *to)
+ *
+ *   FUNCTION
+ *       Transfer a directory inode's children to another inode.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit.
+ *       from -- Source inode.
+ *       to -- Destination inode.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Transfers the child-list pointer, clears the source child list, and updates the transferred nodes' parent pointers and host pathnames.
+ *
+ ****************************************************************************/
+
 static void move_aino_children (Unit *unit, a_inode *from, a_inode *to)
 {
     aino_test (from);
@@ -1205,6 +1276,29 @@ static void move_aino_children (Unit *unit, a_inode *from, a_inode *to)
     from->child = 0;
     update_child_names (unit, to->child, to);
 }
+
+/****i* januae-filesys-internal/delete_aino
+ *
+ *   NAME
+ *       delete_aino()
+ *
+ *   SYNOPSIS
+ *       static void delete_aino (Unit *unit, a_inode *aino)
+ *
+ *   FUNCTION
+ *       Remove an inode from its parent directory cache.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit.
+ *       aino -- Inode to remove.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Marks the inode dirty and deleted, removes it from recycling, and advances matching directory enumeration cursors. If the inode is found in its parent sibling chain, its storage is released. Otherwise the routine logs an error and leaves the marked inode allocated.
+ *
+ ****************************************************************************/
 
 static void delete_aino (Unit *unit, a_inode *aino)
 {
@@ -1245,6 +1339,29 @@ static void delete_aino (Unit *unit, a_inode *aino)
     dispose_aino (unit, aip, aino);
 }
 
+/****i* januae-filesys-internal/lookup_sub
+ *
+ *   NAME
+ *       lookup_sub()
+ *
+ *   SYNOPSIS
+ *       static a_inode *lookup_sub (a_inode *dir, uae_u32 uniq)
+ *
+ *   FUNCTION
+ *       Search a directory subtree for an inode identifier.
+ *
+ *   INPUTS
+ *       dir -- Root directory inode of the search.
+ *       uniq -- Inode identifier.
+ *
+ *   RESULT
+ *       The matching inode, or NULL if no match exists.
+ *
+ *   NOTES
+ *       Searches child lists recursively through directory nodes. Moves a matched child to the front of its sibling list unless directory enumeration has locked the child order.
+ *
+ ****************************************************************************/
+
 static a_inode *lookup_sub (a_inode *dir, uae_u32 uniq)
 {
     a_inode **cp = &dir->child;
@@ -1279,6 +1396,29 @@ static a_inode *lookup_sub (a_inode *dir, uae_u32 uniq)
     }
     return retval;
 }
+
+/****i* januae-filesys-internal/lookup_aino
+ *
+ *   NAME
+ *       lookup_aino()
+ *
+ *   SYNOPSIS
+ *       static a_inode *lookup_aino (Unit *unit, uae_u32 uniq)
+ *
+ *   FUNCTION
+ *       Resolve an inode identifier through the unit cache and directory tree.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit.
+ *       uniq -- Inode identifier; zero denotes the unit root.
+ *
+ *   RESULT
+ *       The matching inode, or NULL when the identifier cannot be resolved.
+ *
+ *   NOTES
+ *       For nonzero identifiers, checks the hash slot before searching from the root. Updates lookup statistics and caches the result, including a missing result. The zero identifier returns the root immediately.
+ *
+ ****************************************************************************/
 
 static a_inode *lookup_aino (Unit *unit, uae_u32 uniq)
 {
