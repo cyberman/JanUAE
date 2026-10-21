@@ -59,6 +59,29 @@ struct {
 /*
  * The Unix/dlopen method for loading and linking the CAPSLib plug-in
  */
+/****i* januae-caps/load_capslib_dlopen
+ *
+ *   NAME
+ *       load_capslib()
+ *
+ *   SYNOPSIS
+ *       static int load_capslib (void)
+ *
+ *   FUNCTION
+ *       Open the CAPS shared object and resolve the CAPSLib entry points required
+ *       for IPF image access.
+ *
+ *   RESULT
+ *       Returns 1 only when dlopen(), all listed dlsym() lookups and CAPSInit()
+ *       succeed; otherwise returns 0.
+ *
+ *   NOTES
+ *       Compiled for CAPS, non-TARGET_AMIGAOS hosts with HAVE_DLOPEN. Loads
+ *       libcapsimage.so.2 with RTLD_LAZY. Failure paths do not call dlclose(), and
+ *       a late symbol failure returns immediately without the final diagnostic.
+ *
+ ****************************************************************************/
+
 static int load_capslib (void)
 {
     /* This could be done more elegantly ;-) */
@@ -343,12 +366,53 @@ static struct Device *CapsImageBase;
 static struct MsgPort   *CAPS_MsgPort;
 static struct IORequest *CAPS_IOReq;
 
+/****i* januae-caps/unload_capslib
+ *
+ *   NAME
+ *       unload_capslib()
+ *
+ *   SYNOPSIS
+ *       static void unload_capslib (void)
+ *
+ *   FUNCTION
+ *       Close the Amiga CAPS device and destroy the I/O request and message port
+ *       created by the device loader.
+ *
+ *   NOTES
+ *       Compiled for CAPS with TARGET_AMIGAOS. Registered through atexit() only
+ *       after a successful CAPSInit(). This function does not call CAPSExit().
+ *
+ ****************************************************************************/
+
 static void unload_capslib (void)
 {
     CloseDevice (CAPS_IOReq);
     DeleteIORequest (CAPS_IOReq);
     DeleteMsgPort (CAPS_MsgPort);
 }
+
+/****i* januae-caps/load_capslib_device
+ *
+ *   NAME
+ *       load_capslib()
+ *
+ *   SYNOPSIS
+ *       static int load_capslib (void)
+ *
+ *   FUNCTION
+ *       Open capsimage.device through an Exec message port and I/O request, then
+ *       initialize the CAPS library.
+ *
+ *   RESULT
+ *       Returns 1 after successful OpenDevice(), device version check and
+ *       CAPSInit(); otherwise returns 0.
+ *
+ *   NOTES
+ *       Compiled for CAPS with TARGET_AMIGAOS. Requires device library version 2
+ *       or newer. Failure closes/deletes the created resources; successful
+ *       initialization registers unload_capslib() with atexit().
+ *
+ ****************************************************************************/
 
 static int load_capslib (void)
 {
@@ -379,6 +443,28 @@ static int load_capslib (void)
  * Sorry, we don't know how to load the CAPSLib plug-in
  * on other systems yet . ..
  */
+/****i* januae-caps/load_capslib_unavailable
+ *
+ *   NAME
+ *       load_capslib()
+ *
+ *   SYNOPSIS
+ *       static int load_capslib (void)
+ *
+ *   FUNCTION
+ *       Report the absence of a CAPSLib loading mechanism for the selected
+ *       non-Amiga host.
+ *
+ *   RESULT
+ *       Always returns 0.
+ *
+ *   NOTES
+ *       Compiled for CAPS when neither TARGET_AMIGAOS nor HAVE_DLOPEN is
+ *       available. The name is an alternative compile-time definition of
+ *       load_capslib(), not a runtime dispatch.
+ *
+ ****************************************************************************/
+
 static int load_capslib (void)
 {
     return 0;
@@ -417,6 +503,29 @@ static int load_capslib (void)
  *
  * This is more or less a straight copy of Toni's Win32 code
  */
+/****i* januae-caps/caps_init
+ *
+ *   NAME
+ *       caps_init()
+ *
+ *   SYNOPSIS
+ *       int caps_init (void)
+ *
+ *   FUNCTION
+ *       Initialize CAPSLib on first use, log its version and allocate image IDs
+ *       for the four emulated floppy drives.
+ *
+ *   RESULT
+ *       Returns 1 when already initialized or after loader initialization; returns
+ *       0 if the loader fails.
+ *
+ *   NOTES
+ *       State is held in static init and noticed flags. On a loader failure, shows
+ *       the missing-plug-in GUI message at most once. CAPSGetVersionInfo() and
+ *       four CAPSAddImage() calls are not checked for errors.
+ *
+ ****************************************************************************/
+
 int caps_init (void)
 {
     static int init, noticed;
@@ -446,6 +555,28 @@ int caps_init (void)
     return 1;
 }
 
+/****i* januae-caps/caps_unloadimage
+ *
+ *   NAME
+ *       caps_unloadimage()
+ *
+ *   SYNOPSIS
+ *       void caps_unloadimage (unsigned int drv)
+ *
+ *   FUNCTION
+ *       Unlock all tracks and the image associated with a drive previously marked
+ *       as locked.
+ *
+ *   INPUTS
+ *       drv -- Zero-based drive index in the four-entry CAPS state arrays.
+ *
+ *   NOTES
+ *       If caps_locked[drv] is false, does nothing; otherwise calls
+ *       CAPSUnlockAllTracks(), CAPSUnlockImage() and clears the flag. The drive
+ *       index is not bounds-checked.
+ *
+ ****************************************************************************/
+
 void caps_unloadimage (unsigned int drv)
 {
     if (!caps_locked[drv])
@@ -454,6 +585,38 @@ void caps_unloadimage (unsigned int drv)
     CAPSUnlockImage (caps_cont[drv]);
     caps_locked[drv] = 0;
 }
+
+/****i* januae-caps/caps_loadimage
+ *
+ *   NAME
+ *       caps_loadimage()
+ *
+ *   SYNOPSIS
+ *       int caps_loadimage (struct zfile *zf, unsigned int drv, unsigned int
+ *       *num_tracks)
+ *
+ *   FUNCTION
+ *       Read the complete zfile image into host memory, lock it in CAPSLib and
+ *       obtain the reported track count.
+ *
+ *   INPUTS
+ *       zf -- Open zfile positioned arbitrarily; its contents are read from offset
+ *           zero.
+ *       drv -- Zero-based CAPS drive index.
+ *       num_tracks -- Output pointer for the reported cylinder-by-head track
+ *           count.
+ *
+ *   RESULT
+ *       Returns 1 on the normal load path; returns 0 if initialization,
+ *       allocation, reading or image lock fails.
+ *
+ *   NOTES
+ *       On the success path calls CAPSLoadImage() without checking its result. The
+ *       read-failure path leaves the allocated buffer unreleased, and the
+ *       CAPSLockImageMemory() error path frees the same pointer a second time. It
+ *       does not validate the drive index or num_tracks.
+ *
+ ****************************************************************************/
 
 int caps_loadimage (struct zfile *zf, unsigned int drv, unsigned int *num_tracks)
 {
@@ -491,6 +654,35 @@ int caps_loadimage (struct zfile *zf, unsigned int drv, unsigned int *num_tracks
     return 1;
 }
 
+/****i* januae-caps/caps_loadrevolution
+ *
+ *   NAME
+ *       caps_loadrevolution()
+ *
+ *   SYNOPSIS
+ *       int caps_loadrevolution (uae_u16 *mfmbuf, unsigned int drv, unsigned int
+ *       track, unsigned int *tracklength)
+ *
+ *   FUNCTION
+ *       Lock one CAPS track and convert its byte stream into 16-bit MFM words for
+ *       one revolution.
+ *
+ *   INPUTS
+ *       mfmbuf -- Caller-owned 16-bit destination buffer.
+ *       drv -- Zero-based CAPS drive index.
+ *       track -- Linear track number, with cylinder=track/2 and head=track&1.
+ *       tracklength -- Output bit length of the locked track.
+ *
+ *   RESULT
+ *       Always returns 1.
+ *
+ *   NOTES
+ *       The result of CAPSLockTrack() is not checked. Reads pairs of bytes into
+ *       16-bit words; requires destination capacity for (tracklen+1)/2 words and a
+ *       valid track buffer.
+ *
+ ****************************************************************************/
+
 int caps_loadrevolution (uae_u16 *mfmbuf, unsigned int drv, unsigned int track, unsigned int *tracklength)
 {
     unsigned int len, i;
@@ -509,6 +701,41 @@ int caps_loadrevolution (uae_u16 *mfmbuf, unsigned int drv, unsigned int track, 
     }
     return 1;
 }
+
+/****i* januae-caps/caps_loadtrack
+ *
+ *   NAME
+ *       caps_loadtrack()
+ *
+ *   SYNOPSIS
+ *       int caps_loadtrack (uae_u16 *mfmbuf, uae_u16 *tracktiming, unsigned int
+ *       drv, unsigned int track, unsigned int *tracklength, int *multirev,
+ *       unsigned int *gapoffset)
+ *
+ *   FUNCTION
+ *       Lock one CAPS track and copy MFM data and optional per-cell timing
+ *       information into caller buffers.
+ *
+ *   INPUTS
+ *       mfmbuf -- Caller-owned 16-bit destination for MFM words.
+ *       tracktiming -- Caller-owned timing array, initialized at element zero then
+ *           optionally filled.
+ *       drv -- Zero-based CAPS drive index.
+ *       track -- Linear track number (cylinder=track/2, head=track&1).
+ *       tracklength -- Output bit length.
+ *       multirev -- Output flag for a flakey track.
+ *       gapoffset -- Output track-overlap offset in bits.
+ *
+ *   RESULT
+ *       Always returns 1.
+ *
+ *   NOTES
+ *       Does not test the CAPSLockTrack() return code. Copies (tracklen+1)/2 MFM
+ *       words; copies ci.timelen timing entries if available. Buffer sizes and
+ *       indices are not checked. Its local type variable is calculated but not
+ *       used.
+ *
+ ****************************************************************************/
 
 int caps_loadtrack (uae_u16 *mfmbuf, uae_u16 *tracktiming, unsigned int drv, unsigned int track, unsigned int *tracklength, int *multirev, unsigned int *gapoffset)
 {
@@ -541,6 +768,23 @@ int caps_loadtrack (uae_u16 *mfmbuf, uae_u16 *tracktiming, unsigned int drv, uns
 /* Stop OS X linker complaining about empty link library */
 
 void caps_dummy (void);
+/****i* januae-caps/caps_dummy
+ *
+ *   NAME
+ *       caps_dummy()
+ *
+ *   SYNOPSIS
+ *       void caps_dummy (void)
+ *
+ *   FUNCTION
+ *       Provide a linkable symbol when CAPSLib support is omitted from this build.
+ *
+ *   NOTES
+ *       Compiled only when CAPS is undefined. It performs no operation and does
+ *       not provide IPF image support.
+ *
+ ****************************************************************************/
+
 void caps_dummy (void)
 {
 }
