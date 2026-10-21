@@ -2898,6 +2898,31 @@ STATIC_INLINE void decide_line (unsigned int hpos)
 
 /* Called when a color is about to be changed (write to a color register),
  * but the new color has not been entered into the table yet. */
+/****i* januae-custom-raster/record_color_change
+ *
+ *   NAME
+ *       record_color_change()
+ *
+ *   SYNOPSIS
+ *       static void record_color_change (unsigned int hpos, unsigned int regno,
+ *       unsigned long value)
+ *
+ *   FUNCTION
+ *       Record a timed palette or synthetic register change in the current
+ *       scanline.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       regno -- custom register index being recorded
+ *       value -- value to record for this register change
+ *
+ *   NOTES
+ *       Synchronizes DIW and line decisions before appending to
+ *       curr_color_changes. Early HBLANK positions are duplicated at
+ *       HBLANK_OFFSET; drawing-suppressed and pre-display lines are skipped.
+ *
+ ****************************************************************************/
+
 static void record_color_change (unsigned int hpos, unsigned int regno, unsigned long value)
 {
     if (regno < 0x1000 && nodraw ())
@@ -2930,6 +2955,29 @@ static void record_color_change (unsigned int hpos, unsigned int regno, unsigned
     curr_color_changes[next_color_change].regno = -1;
 }
 
+/****i* januae-custom-raster/record_register_change
+ *
+ *   NAME
+ *       record_register_change()
+ *
+ *   SYNOPSIS
+ *       static void record_register_change (unsigned int hpos, unsigned int
+ *       regno, unsigned long value)
+ *
+ *   FUNCTION
+ *       Record a bitplane register write as a synthetic color-change event.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       regno -- custom register index being recorded
+ *       value -- value to record for this register change
+ *
+ *   NOTES
+ *       For BPLCON0, preserves HAM-seen state and updates early-line resolution;
+ *       the recorded register number is offset by 0x1000.
+ *
+ ****************************************************************************/
+
 static void record_register_change (unsigned int hpos, unsigned int regno, unsigned long value)
 {
     if (regno == 0x100) {
@@ -2946,6 +2994,23 @@ static void record_register_change (unsigned int hpos, unsigned int regno, unsig
 typedef int sprbuf_res_t, cclockres_t, hwres_t,	bplres_t;
 
 /* handle very rarely needed playfield collision (CLXDAT bit 0) */
+/****i* januae-custom-raster/do_playfield_collisions
+ *
+ *   NAME
+ *       do_playfield_collisions()
+ *
+ *   SYNOPSIS
+ *       static void do_playfield_collisions (void)
+ *
+ *   FUNCTION
+ *       Detect bitplane-to-bitplane collisions in the visible display span.
+ *
+ *   NOTES
+ *       Sets CLXDAT bit zero on a match; an empty enabled-plane mask sets that
+ *       bit immediately. Already latched collisions are not recomputed.
+ *
+ ****************************************************************************/
+
 static void do_playfield_collisions (void)
 {
     int bplres = GET_RES (bplcon0);
@@ -3002,6 +3067,24 @@ static void do_playfield_collisions (void)
 
 /* Sprite-to-sprite collisions are taken care of in record_sprite.  This one does
    playfield/sprite collisions. */
+/****i* januae-custom-raster/do_sprite_collisions
+ *
+ *   NAME
+ *       do_sprite_collisions()
+ *
+ *   SYNOPSIS
+ *       static void do_sprite_collisions (void)
+ *
+ *   FUNCTION
+ *       Test recorded sprite pixels against the two interleaved playfields.
+ *
+ *   NOTES
+ *       Combines sprite pair mask and bitplane comparisons, setting CLXDAT
+ *       collision bits; an empty enabled-plane mask sets bits 0x1FE without
+ *       scanning.
+ *
+ ****************************************************************************/
+
 static void do_sprite_collisions (void)
 {
     int nr_sprites = curr_drawinfo[next_lineno].nr_sprites;
@@ -3076,6 +3159,23 @@ static void do_sprite_collisions (void)
     }
 }
 
+/****i* januae-custom-raster/expand_sprres
+ *
+ *   NAME
+ *       expand_sprres()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void expand_sprres (void)
+ *
+ *   FUNCTION
+ *       Derive sprite rendering resolution from BPLCON3 and the active chipset.
+ *
+ *   NOTES
+ *       BPLCON3 sprite-resolution selector zero uses the ECS default, with a
+ *       superhires/ECS Denise special case.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void expand_sprres (void)
 {
     switch ((bplcon3 >> 6) & 3) {
@@ -3096,6 +3196,35 @@ STATIC_INLINE void expand_sprres (void)
 	break;
     }
 }
+
+/****i* januae-custom-raster/record_sprite_1
+ *
+ *   NAME
+ *       record_sprite_1()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void record_sprite_1 (uae_u16 *buf, uae_u32 datab, int
+ *       num, int dbl, unsigned int mask, int do_collisions, uae_u32
+ *       collision_mask)
+ *
+ *   FUNCTION
+ *       Merge unpacked two-bit sprite pixels into the output sprite buffer.
+ *
+ *   INPUTS
+ *       buf -- destination sprite pixel buffer; caller owns capacity
+ *       datab -- packed two-bit sprite pixel words
+ *       num -- zero-based bitplane index (for BPLxPT*), or Copper jump selector
+ *           (for COPJMP)
+ *       dbl -- nonzero to duplicate emitted sprite pixels
+ *       mask -- pixel selection mask for sprite-resolution conversion
+ *       do_collisions -- whether to update sprite collision flags
+ *       collision_mask -- mask of enabled sprite pairs for collision detection
+ *
+ *   NOTES
+ *       Advances through datab in two-bit packets; optionally duplicates pixels
+ *       and accumulates pair-collision bits in CLXDAT.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void record_sprite_1 (uae_u16 *buf, uae_u32 datab, int num, int dbl,
 				    unsigned int mask, int do_collisions, uae_u32 collision_mask)
@@ -3129,6 +3258,35 @@ STATIC_INLINE void record_sprite_1 (uae_u16 *buf, uae_u32 datab, int num, int db
 
    The data is recorded either in lores pixels (if ECS), or in hires pixels
    (if AGA).  No support for SHRES sprites.  */
+
+/****i* januae-custom-raster/record_sprite
+ *
+ *   NAME
+ *       record_sprite()
+ *
+ *   SYNOPSIS
+ *       static void record_sprite (int line, int num, int sprxp, uae_u16 *data,
+ *       uae_u16 *datb, unsigned int ctl, unsigned int ctlx)
+ *
+ *   FUNCTION
+ *       Record a decoded sprite run and its attach and collision state for a
+ *       scanline.
+ *
+ *   INPUTS
+ *       line -- unused scanline argument
+ *       num -- zero-based bitplane index (for BPLxPT*), or Copper jump selector
+ *           (for COPJMP)
+ *       sprxp -- sprite left coordinate in sprite-buffer units
+ *       data -- sprite low data words
+ *       datb -- sprite high data words
+ *       ctl -- unused sprite control argument
+ *       ctlx -- unused paired sprite control argument
+ *
+ *   NOTES
+ *       Assumes sprites arrive in nondecreasing X position; coalesces nearby
+ *       entries. ctl and ctlx arguments are not read; the routine uses sprctl[].
+ *
+ ****************************************************************************/
 
 static void record_sprite (int line, int num, int sprxp, uae_u16 *data, uae_u16 *datb, unsigned int ctl, unsigned int ctlx)
 {
@@ -3219,6 +3377,27 @@ static void record_sprite (int line, int num, int sprxp, uae_u16 *data, uae_u16 
     }
 }
 
+/****i* januae-custom-raster/decide_sprites
+ *
+ *   NAME
+ *       decide_sprites()
+ *
+ *   SYNOPSIS
+ *       static void decide_sprites (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Collect armed sprites crossing the beam position and record them in X
+ *       order.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *
+ *   NOTES
+ *       Skips inactive, out-of-window, and already processed sprites; equal X
+ *       positions are ordered by descending sprite number.
+ *
+ ****************************************************************************/
+
 static void decide_sprites (unsigned int hpos)
 {
     unsigned int nrs[MAX_SPRITES], posns[MAX_SPRITES];
@@ -3277,6 +3456,32 @@ static void decide_sprites (unsigned int hpos)
     last_sprite_point = point;
 }
 
+/****i* januae-custom-raster/sprites_differ
+ *
+ *   NAME
+ *       sprites_differ()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int sprites_differ (struct draw_info *dip, struct
+ *       draw_info *dip_old)
+ *
+ *   FUNCTION
+ *       Compare current and previous scanline sprite entries and pixel buffers.
+ *
+ *   INPUTS
+ *       dip -- current line drawing information
+ *       dip_old -- previous-frame line drawing information
+ *
+ *   RESULT
+ *       Returns 1 when sprite count, geometry, attach data or pixels differ;
+ *       otherwise 0.
+ *
+ *   NOTES
+ *       Checks count, entry geometry, attach flags, pixel words and
+ *       attachment-state bytes.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int sprites_differ (struct draw_info *dip, struct draw_info *dip_old)
 {
     struct sprite_entry *this_first = curr_sprite_entries + dip->first_sprite_entry;
@@ -3306,6 +3511,32 @@ STATIC_INLINE int sprites_differ (struct draw_info *dip, struct draw_info *dip_o
     return 0;
 }
 
+/****i* januae-custom-raster/color_changes_differ
+ *
+ *   NAME
+ *       color_changes_differ()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int color_changes_differ (struct draw_info *dip, struct
+ *       draw_info *dip_old)
+ *
+ *   FUNCTION
+ *       Compare the number and contents of current versus prior line color
+ *       changes.
+ *
+ *   INPUTS
+ *       dip -- current line drawing information
+ *       dip_old -- previous-frame line drawing information
+ *
+ *   RESULT
+ *       Returns 1 when the line color-change lists differ; otherwise 0.
+ *
+ *   NOTES
+ *       Performs a raw memcmp of the recorded color-change entries when their
+ *       counts are nonzero.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int color_changes_differ (struct draw_info *dip, struct draw_info *dip_old)
 {
     if (dip->nr_color_changes != dip_old->nr_color_changes)
@@ -3322,6 +3553,25 @@ STATIC_INLINE int color_changes_differ (struct draw_info *dip, struct draw_info 
 
 /* End of a horizontal scan line. Finish off all decisions that were not
  * made yet. */
+/****i* januae-custom-raster/finish_decisions
+ *
+ *   NAME
+ *       finish_decisions()
+ *
+ *   SYNOPSIS
+ *       static void finish_decisions (void)
+ *
+ *   FUNCTION
+ *       Finalize DIW, bitplane fetch and sprite decisions for the current
+ *       scanline.
+ *
+ *   NOTES
+ *       Marks a line changed when its geometry, color changes or sprite state
+ *       differs from the preceding frame; incomplete fetches are diagnosed
+ *       rather than silently repaired.
+ *
+ ****************************************************************************/
+
 static void finish_decisions (void)
 {
     struct draw_info *dip;
@@ -3402,6 +3652,24 @@ static void finish_decisions (void)
 }
 
 /* Set the state of all decisions to "undecided" for a new scanline. */
+/****i* januae-custom-raster/reset_decisions
+ *
+ *   NAME
+ *       reset_decisions()
+ *
+ *   SYNOPSIS
+ *       static void reset_decisions (void)
+ *
+ *   FUNCTION
+ *       Reset per-line drawing and fetch decisions before processing a new
+ *       scanline.
+ *
+ *   NOTES
+ *       Clears bitplane buffers, line comparison cursors and fetch state;
+ *       preserves current BPLCON values for subsequent comparisons.
+ *
+ ****************************************************************************/
+
 static void reset_decisions (void)
 {
     if (nodraw ())
@@ -3462,6 +3730,24 @@ static void reset_decisions (void)
 int vsynctime_orig;
 int turbo_emulation;
 
+/****i* januae-custom-raster/compute_vsynctime
+ *
+ *   NAME
+ *       compute_vsynctime()
+ *
+ *   SYNOPSIS
+ *       void compute_vsynctime (void)
+ *
+ *   FUNCTION
+ *       Calculate frame pacing from configured refresh rate and emulation
+ *       timing.
+ *
+ *   NOTES
+ *       In turbo mode sets both timing values to one. Otherwise divides syncbase
+ *       by fake_vblank_hz and optionally refreshes sound and rendering backends.
+ *
+ ****************************************************************************/
+
 void compute_vsynctime (void)
 {
     fake_vblank_hz = 0;
@@ -3492,6 +3778,23 @@ void compute_vsynctime (void)
 }
 
 
+/****i* januae-custom-raster/dumpsync
+ *
+ *   NAME
+ *       dumpsync()
+ *
+ *   SYNOPSIS
+ *       static void dumpsync (void)
+ *
+ *   FUNCTION
+ *       Log the current programmable synchronization register state.
+ *
+ *   NOTES
+ *       Uses a static counter and stops logging after the initial limited
+ *       diagnostic emissions.
+ *
+ ****************************************************************************/
+
 static void dumpsync (void)
 {
     static int cnt = 10;
@@ -3505,6 +3808,24 @@ static void dumpsync (void)
 }
 
 /* set PAL or NTSC timing variables */
+/****i* januae-custom-raster/init_hz
+ *
+ *   NAME
+ *       init_hz()
+ *
+ *   SYNOPSIS
+ *       void init_hz (void)
+ *
+ *   FUNCTION
+ *       Initialize PAL, NTSC or programmable beam timing and reschedule
+ *       horizontal sync.
+ *
+ *   NOTES
+ *       Clamps refresh rate to 10 through 300 Hz, sets event timing and calls
+ *       compute_vsynctime(); configured and active preferences can be changed.
+ *
+ ****************************************************************************/
+
 void init_hz (void)
 {
     int isntsc;
@@ -3578,6 +3899,23 @@ void init_hz (void)
 	isntsc ? "NTSC" : "PAL", vblank_hz, maxhpos, maxvpos);
 }
 
+/****i* januae-custom-raster/calcdiw
+ *
+ *   NAME
+ *       calcdiw()
+ *
+ *   SYNOPSIS
+ *       static void calcdiw (void)
+ *
+ *   FUNCTION
+ *       Derive display-window and fetch bounds from DIW/DDF register values.
+ *
+ *   NOTES
+ *       Uses DIWHIGH extension bits only after they were written; clamps left
+ *       window edge and adjusts ECS Agnus fetch start.
+ *
+ ****************************************************************************/
+
 static void calcdiw (void)
 {
     unsigned int hstrt = diwstrt & 0xFF;
@@ -3622,6 +3960,24 @@ static void calcdiw (void)
 }
 
 /* display mode changed (lores, doubling etc..), recalculate everything */
+/****i* januae-custom-raster/init_custom
+ *
+ *   NAME
+ *       init_custom()
+ *
+ *   SYNOPSIS
+ *       void init_custom (void)
+ *
+ *   FUNCTION
+ *       Reinitialize drawing tables and raster timing after a display-mode
+ *       change.
+ *
+ *   NOTES
+ *       Runs cycle-diagram creation, drawing reset, PAL/NTSC timing setup, and
+ *       display-window recalculation in that order.
+ *
+ ****************************************************************************/
+
 void init_custom (void)
 {
     create_cycle_diagram_table ();
@@ -3631,6 +3987,32 @@ void init_custom (void)
 }
 
 static int timehack_alive = 0;
+
+/****i* januae-custom-raster/timehack_helper
+ *
+ *   NAME
+ *       timehack_helper()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 timehack_helper (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Expose a small guest trap for host wall-clock time and the timehack
+ *       liveness flag.
+ *
+ *   INPUTS
+ *       context -- guest CPU trap context
+ *
+ *   RESULT
+ *       Returns timehack_alive for a D0==0 query or 0 after a successful clock
+ *       write; returns 2 without HAVE_GETTIMEOFDAY.
+ *
+ *   NOTES
+ *       When gettimeofday is available, D0==0 returns timehack_alive; otherwise
+ *       writes time relative to the Amiga epoch into the guest buffer addressed
+ *       by A0. Without gettimeofday returns 2.
+ *
+ ****************************************************************************/
 
 static uae_u32 REGPARAM2 timehack_helper (TrapContext *context)
 {
@@ -3657,6 +4039,34 @@ static uae_u32 REGPARAM2 timehack_helper (TrapContext *context)
  ****************************************/
 
 struct Window *native_window;
+
+/****i* januae-custom-raster/copyonepixel
+ *
+ *   NAME
+ *       copyonepixel()
+ *
+ *   SYNOPSIS
+ *       static void copyonepixel (PLANEPTR src, ULONG xsrc, PLANEPTR dest, ULONG
+ *       xdest, ULONG minterm)
+ *
+ *   FUNCTION
+ *       Apply the selected minterm to a single source and destination bitplane
+ *       pixel.
+ *
+ *   INPUTS
+ *       src -- source plane pointer; NULL supplies zero and (PLANEPTR)-1
+ *           supplies one
+ *       xsrc -- horizontal bit coordinate in source bitplane
+ *       dest -- valid writable destination bitplane
+ *       xdest -- horizontal bit coordinate in destination bitplane
+ *       minterm -- boolean pixel-combine minterm bits
+ *
+ *   NOTES
+ *       A null source means zero and source (PLANEPTR)-1 means one; destination
+ *       must be a valid writable bitplane. Only minterm bits 0x10 to 0x80 are
+ *       used.
+ *
+ ****************************************************************************/
 
 static void copyonepixel (PLANEPTR src, ULONG xsrc, PLANEPTR dest, ULONG xdest,
 	ULONG minterm)
@@ -3716,6 +4126,26 @@ static void copyonepixel (PLANEPTR src, ULONG xsrc, PLANEPTR dest, ULONG xdest,
  /*
   * register functions
   */
+/****i* januae-custom-raster/DENISEID
+ *
+ *   NAME
+ *       DENISEID()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u16 DENISEID (void)
+ *
+ *   FUNCTION
+ *       Report the emulated Denise identity value for the active chipset.
+ *
+ *   RESULT
+ *       Returns 0xF8 for AGA, 0xFC for ECS Denise or 0xFFFF otherwise.
+ *
+ *   NOTES
+ *       Returns 0xF8 for AGA, 0xFC for ECS Denise, or 0xFFFF for the remaining
+ *       case.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE uae_u16 DENISEID (void)
 {
 #ifdef AGA
@@ -3726,6 +4156,26 @@ STATIC_INLINE uae_u16 DENISEID (void)
 	return 0xFC;
     return 0xffff;
 }
+/****i* januae-custom-raster/DMACONR
+ *
+ *   NAME
+ *       DMACONR()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u16 DMACONR (void)
+ *
+ *   FUNCTION
+ *       Read the DMA control register augmented with current blitter status.
+ *
+ *   RESULT
+ *       Returns DMA control with the current blitter busy and zero status bits.
+ *
+ *   NOTES
+ *       Synchronizes the blitter first; sets busy bit 0x4000 unless done, and
+ *       zero flag bit 0x2000 when blt_info.blitzero is set.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE uae_u16 DMACONR (void)
 {
     uae_u16 v;
@@ -3734,27 +4184,146 @@ STATIC_INLINE uae_u16 DMACONR (void)
 	    | (blt_info.blitzero ? 0x2000 : 0);
     return v;
 }
+/****i* januae-custom-raster/INTENAR
+ *
+ *   NAME
+ *       INTENAR()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u16 INTENAR (void)
+ *
+ *   FUNCTION
+ *       Read the current interrupt enable mask.
+ *
+ *   RESULT
+ *       Returns the current interrupt enable mask.
+ *
+ *   NOTES
+ *       Returns intena without side effects.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE uae_u16 INTENAR (void)
 {
     return intena;
 }
+/****i* januae-custom-raster/INTREQR
+ *
+ *   NAME
+ *       INTREQR()
+ *
+ *   SYNOPSIS
+ *       uae_u16 INTREQR (void)
+ *
+ *   FUNCTION
+ *       Read the current interrupt request mask.
+ *
+ *   RESULT
+ *       Returns the current interrupt request mask.
+ *
+ *   NOTES
+ *       Returns intreq without side effects.
+ *
+ ****************************************************************************/
+
 uae_u16 INTREQR (void)
 {
     return intreq;
 }
+/****i* januae-custom-raster/ADKCONR
+ *
+ *   NAME
+ *       ADKCONR()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u16 ADKCONR (void)
+ *
+ *   FUNCTION
+ *       Read the audio/disk control register image.
+ *
+ *   RESULT
+ *       Returns the current ADKCON state.
+ *
+ *   NOTES
+ *       Returns adkcon without side effects.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE uae_u16 ADKCONR (void)
 {
     return adkcon;
 }
 
+/****i* januae-custom-raster/GETVPOS
+ *
+ *   NAME
+ *       GETVPOS()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int GETVPOS(void)
+ *
+ *   FUNCTION
+ *       Select the effective vertical beam position for custom-register reads.
+ *
+ *   RESULT
+ *       Returns the selected vertical beam position.
+ *
+ *   NOTES
+ *       Prefers latched lightpen position when positive; otherwise can use the
+ *       previous position in genlock-related mode.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int GETVPOS(void)
 {
     return vpos_lpen > 0 ? vpos_lpen : (((bplcon0 & 2) && !currprefs.genlock) ? vpos_previous : (int)vpos);
 }
+/****i* januae-custom-raster/GETHPOS
+ *
+ *   NAME
+ *       GETHPOS()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int GETHPOS(void)
+ *
+ *   FUNCTION
+ *       Select the effective horizontal beam position for custom-register reads.
+ *
+ *   RESULT
+ *       Returns the selected horizontal beam position.
+ *
+ *   NOTES
+ *       Prefers latched lightpen position when positive; otherwise uses prior
+ *       beam position or current_hpos().
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int GETHPOS(void)
 {
     return vpos_lpen > 0 ? hpos_lpen : (((bplcon0 & 2) && !currprefs.genlock) ? hpos_previous : (int)current_hpos ());
 }
+
+/****i* januae-custom-raster/VPOSR
+ *
+ *   NAME
+ *       VPOSR()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u16 VPOSR (void)
+ *
+ *   FUNCTION
+ *       Synthesize the VPOSR register from vertical beam, interlace and chipset
+ *       bits.
+ *
+ *   RESULT
+ *       Returns the constructed 16-bit vertical position and
+ *       chipset-identification register.
+ *
+ *   NOTES
+ *       Applies OCS/ECS vertical high-bit limits and optional AGA chip ID bits;
+ *       hsyncdelay() currently has no effect.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE uae_u16 VPOSR (void)
 {
@@ -3771,6 +4340,27 @@ STATIC_INLINE uae_u16 VPOSR (void)
 	hsyncdelay ();
     return vp;
 }
+/****i* januae-custom-raster/VPOSW
+ *
+ *   NAME
+ *       VPOSW()
+ *
+ *   SYNOPSIS
+ *       static void VPOSW (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Apply a guest write to the vertical-position and long-frame flag
+ *       register.
+ *
+ *   INPUTS
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Updates LOF and marks LOF changes; bit zero can activate the hack_vpos
+ *       override when the beam is beyond line zero.
+ *
+ ****************************************************************************/
+
 static void VPOSW (uae_u16 v)
 {
     if (lof != (v & 0x8000))
@@ -3779,6 +4369,27 @@ static void VPOSW (uae_u16 v)
     if ( (v & 1) && vpos > 0)
 	hack_vpos = vpos;
 }
+
+/****i* januae-custom-raster/VHPOSR
+ *
+ *   NAME
+ *       VHPOSR()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u16 VHPOSR (void)
+ *
+ *   FUNCTION
+ *       Read the combined low-byte vertical and horizontal beam positions.
+ *
+ *   RESULT
+ *       Returns the low eight bits of the vertical position as the high byte and
+ *       the low eight bits of horizontal position as the low byte.
+ *
+ *   NOTES
+ *       Uses GETVPOS() and GETHPOS(); the optional CPU-level horizontal delay
+ *       hook is a no-op.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE uae_u16 VHPOSR (void)
 {
@@ -3791,10 +4402,106 @@ STATIC_INLINE uae_u16 VHPOSR (void)
     return vp;
 }
 
+/****i* januae-custom-raster/COP1LCH
+ *
+ *   NAME
+ *       COP1LCH()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void COP1LCH (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Update the high 16 bits of the Copper 1 list pointer.
+ *
+ *   INPUTS
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Retains its existing low halfword.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void COP1LCH (uae_u16 v) { cop1lc = (cop1lc & 0xffff) | ((uae_u32)v << 16); }
+/****i* januae-custom-raster/COP1LCL
+ *
+ *   NAME
+ *       COP1LCL()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void COP1LCL (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Update the low 16 bits of the Copper 1 list pointer.
+ *
+ *   INPUTS
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Forces bit zero to zero, keeping the Copper list pointer even.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void COP1LCL (uae_u16 v) { cop1lc = (cop1lc & ~0xffff) | (v & 0xfffe); }
+/****i* januae-custom-raster/COP2LCH
+ *
+ *   NAME
+ *       COP2LCH()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void COP2LCH (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Update the high 16 bits of the Copper 2 list pointer.
+ *
+ *   INPUTS
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Retains its existing low halfword.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void COP2LCH (uae_u16 v) { cop2lc = (cop2lc & 0xffff) | ((uae_u32)v << 16); }
+/****i* januae-custom-raster/COP2LCL
+ *
+ *   NAME
+ *       COP2LCL()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void COP2LCL (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Update the low 16 bits of the Copper 2 list pointer.
+ *
+ *   INPUTS
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Forces bit zero to zero, keeping the Copper list pointer even.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void COP2LCL (uae_u16 v) { cop2lc = (cop2lc & ~0xffff) | (v & 0xfffe); }
+
+/****i* januae-custom-raster/COPJMP
+ *
+ *   NAME
+ *       COPJMP()
+ *
+ *   SYNOPSIS
+ *       static void COPJMP (int num)
+ *
+ *   FUNCTION
+ *       Strobe a Copper jump and restart the instruction-fetch state.
+ *
+ *   INPUTS
+ *       num -- Copper strobe selector 1 or 2
+ *
+ *   NOTES
+ *       Cancels the pending Copper event, records the strobe number, and
+ *       schedules CPU Copper handling only when Copper DMA is enabled.
+ *
+ ****************************************************************************/
 
 static void COPJMP (int num)
 {
@@ -3824,12 +4531,52 @@ static void COPJMP (int num)
     }
 }
 
+/****i* januae-custom-raster/COPCON
+ *
+ *   NAME
+ *       COPCON()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void COPCON (uae_u16 a)
+ *
+ *   FUNCTION
+ *       Store the writable Copper control register state.
+ *
+ *   INPUTS
+ *       a -- new Copper control value
+ *
+ *   NOTES
+ *       Assigns the 16-bit value directly to copcon.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void COPCON (uae_u16 a)
 {
     copcon = a;
 }
 
 static void compute_spcflag_copper (void);
+/****i* januae-custom-raster/DMACON
+ *
+ *   NAME
+ *       DMACON()
+ *
+ *   SYNOPSIS
+ *       static void DMACON (unsigned int hpos, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Apply DMA set/clear bits and resynchronize dependent hardware state.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Masks writable state to 0x1FFF and updates Copper, blitter, audio,
+ *       bitplane-fetch, and event scheduling as relevant.
+ *
+ ****************************************************************************/
+
 static void DMACON (unsigned int hpos, uae_u16 v)
 {
     int oldcop, newcop;
@@ -3892,6 +4639,27 @@ static unsigned long irq_due[15]; /* Cycle time that IRQ will arrive at CPU */
 /*
  * Handle interrupt delay in cycle-exact mode.
  */
+/****i* januae-custom-raster/intlev_2
+ *
+ *   NAME
+ *       intlev_2()
+ *
+ *   SYNOPSIS
+ *       static int intlev_2 (void)
+ *
+ *   FUNCTION
+ *       Resolve a pending interrupt with cycle-exact delivery delay.
+ *
+ *   RESULT
+ *       Returns the available interrupt level (1 through 5), or -1 if none is
+ *       due.
+ *
+ *   NOTES
+ *       Compiled with CPUEMU_6. Returns -1 if none is ready, otherwise a
+ *       hardware IRQ level; pending sources are retired when due.
+ *
+ ****************************************************************************/
+
 static int intlev_2 (void)
 {
     uae_u16 imask = intreq & intena;
@@ -3931,6 +4699,27 @@ static int intlev_2 (void)
 /*
  * Get interrupt level of IRQ.
  */
+/****i* januae-custom-raster/intlev
+ *
+ *   NAME
+ *       intlev()
+ *
+ *   SYNOPSIS
+ *       int intlev (void)
+ *
+ *   FUNCTION
+ *       Resolve the highest enabled and requested Amiga interrupt level.
+ *
+ *   RESULT
+ *       Returns the highest eligible interrupt level (1 through 6), or -1 when
+ *       none is enabled.
+ *
+ *   NOTES
+ *       Uses the delayed cycle-exact resolver when configured; otherwise maps
+ *       matching INTREQ/INTENA groups into levels 1 through 6.
+ *
+ ****************************************************************************/
+
 int intlev (void)
 {
     int il = -1;
@@ -3963,6 +4752,23 @@ int intlev (void)
     return il;
 }
 
+/****i* januae-custom-raster/doint
+ *
+ *   NAME
+ *       doint()
+ *
+ *   SYNOPSIS
+ *       static void doint (void)
+ *
+ *   FUNCTION
+ *       Signal the CPU that interrupt processing needs reevaluation.
+ *
+ *   NOTES
+ *       With cycle-exact CPU emulation, also schedules newly pending enabled IRQ
+ *       sources four CYCLE_UNIT units later.
+ *
+ ****************************************************************************/
+
 static void doint (void)
 {
     set_special (&regs, SPCFLAG_INT);
@@ -3988,12 +4794,53 @@ static void doint (void)
 #endif
 }
 
+/****i* januae-custom-raster/INTENA
+ *
+ *   NAME
+ *       INTENA()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void INTENA (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Apply interrupt-enable register set/clear semantics.
+ *
+ *   INPUTS
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Calls doint() when the write has the set bit 0x8000; clearing does not
+ *       call doint() here.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void INTENA (uae_u16 v)
 {
     setclr (&intena,v);
     if (v & 0x8000)
 	doint ();
 }
+
+/****i* januae-custom-raster/INTREQ_0
+ *
+ *   NAME
+ *       INTREQ_0()
+ *
+ *   SYNOPSIS
+ *       void INTREQ_0 (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Apply interrupt request set/clear semantics to the custom-chip IRQ
+ *       latch.
+ *
+ *   INPUTS
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Updates audio IRQ state for relevant bits and clears cycle-exact pending
+ *       flags for cleared sources before calling doint().
+ *
+ ****************************************************************************/
 
 void INTREQ_0 (uae_u16 v)
 {
@@ -4020,6 +4867,27 @@ void INTREQ_0 (uae_u16 v)
 }
 
 
+/****i* januae-custom-raster/INTREQ_f
+ *
+ *   NAME
+ *       INTREQ_f()
+ *
+ *   SYNOPSIS
+ *       void INTREQ_f (uae_u32 data)
+ *
+ *   FUNCTION
+ *       Write a full interrupt request and notify device-specific interrupt
+ *       producers.
+ *
+ *   INPUTS
+ *       data -- sprite low data words
+ *
+ *   NOTES
+ *       Calls INTREQ_0(), serial and CIA reevaluation plus optional
+ *       A2091/CDTV/CD32 hooks.
+ *
+ ****************************************************************************/
+
 void INTREQ_f (uae_u32 data)
 {
     INTREQ_0 (data);
@@ -4036,12 +4904,53 @@ void INTREQ_f (uae_u32 data)
 #endif
 }
 
+/****i* januae-custom-raster/INTREQ
+ *
+ *   NAME
+ *       INTREQ()
+ *
+ *   SYNOPSIS
+ *       void INTREQ (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write interrupt requests and notify serial and CIA interrupt producers.
+ *
+ *   INPUTS
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Delegates to INTREQ_0() then reevaluates serial and CIA state; does not
+ *       call the optional device hooks present in INTREQ_f().
+ *
+ ****************************************************************************/
+
 void INTREQ (uae_u16 v)
 {
     INTREQ_0 (v);
     serial_check_irq ();
     rethink_cias ();
 }
+
+/****i* januae-custom-raster/ADKCON
+ *
+ *   NAME
+ *       ADKCON()
+ *
+ *   SYNOPSIS
+ *       static void ADKCON (int hpos, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Apply disk/audio control set/clear bits and propagate their effects.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Refreshes audio masks and disk timing; bit 11 may trigger a serial break
+ *       according to the updated register.
+ *
+ ****************************************************************************/
 
 static void ADKCON (int hpos, uae_u16 v)
 {
@@ -4055,6 +4964,26 @@ static void ADKCON (int hpos, uae_u16 v)
     if ((v >> 11) & 1)
 	serial_uartbreak ((adkcon >> 11) & 1);
 }
+
+/****i* januae-custom-raster/BEAMCON0
+ *
+ *   NAME
+ *       BEAMCON0()
+ *
+ *   SYNOPSIS
+ *       static void BEAMCON0 (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Stage programmable beam-control changes for ECS Agnus timing.
+ *
+ *   INPUTS
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Ignored without ECS Agnus; if ECS Denise is absent masks all bits except
+ *       0x20. Changes are staged in new_beamcon0 until timing setup.
+ *
+ ****************************************************************************/
 
 static void BEAMCON0 (uae_u16 v)
 {
@@ -4070,6 +4999,23 @@ static void BEAMCON0 (uae_u16 v)
 }
 
 #ifndef CUSTOM_SIMPLE
+
+/****i* januae-custom-raster/varsync
+ *
+ *   NAME
+ *       varsync()
+ *
+ *   SYNOPSIS
+ *       static void varsync (void)
+ *
+ *   FUNCTION
+ *       Adjust synchronization state for programmable beam timing.
+ *
+ *   NOTES
+ *       Excluded with CUSTOM_SIMPLE. Picasso96 refresh can set vtotal; otherwise
+ *       requires ECS Denise and beamcon0 programmable-sync bit.
+ *
+ ****************************************************************************/
 
 static void varsync (void)
 {
@@ -4094,6 +5040,30 @@ static void varsync (void)
 }
 #endif
 
+/****i* januae-custom-raster/is_bitplane_dma
+ *
+ *   NAME
+ *       is_bitplane_dma()
+ *
+ *   SYNOPSIS
+ *       int is_bitplane_dma (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Identify the active bitplane fetch slot at a horizontal beam position.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *
+ *   RESULT
+ *       Returns zero when no fetch is active, or the current cycle-diagram slot
+ *       value.
+ *
+ *   NOTES
+ *       Returns zero outside the current active DMA interval; otherwise returns
+ *       the precomputed cycle-diagram slot identifier.
+ *
+ ****************************************************************************/
+
 int is_bitplane_dma (unsigned int hpos)
 {
     if (fetch_state == fetch_not_started || (int)hpos < thisline_decision.plfleft)
@@ -4103,6 +5073,30 @@ int is_bitplane_dma (unsigned int hpos)
 	return 0;
     return curr_diagram[(hpos - cycle_diagram_shift) & fetchstart_mask];
 }
+
+/****i* januae-custom-raster/is_bitplane_dma_inline
+ *
+ *   NAME
+ *       is_bitplane_dma_inline()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int is_bitplane_dma_inline (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Inline variant of bitplane DMA slot identification.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *
+ *   RESULT
+ *       Returns zero when no fetch is active, or the current cycle-diagram slot
+ *       value.
+ *
+ *   NOTES
+ *       Returns the same cycle-diagram slot result and zero outside the active
+ *       DMA interval as is_bitplane_dma().
+ *
+ ****************************************************************************/
 
 STATIC_INLINE int is_bitplane_dma_inline (unsigned int hpos)
 {
@@ -4114,6 +5108,28 @@ STATIC_INLINE int is_bitplane_dma_inline (unsigned int hpos)
     return curr_diagram[(hpos - cycle_diagram_shift) & fetchstart_mask];
 }
 
+/****i* januae-custom-raster/BPLxPTH
+ *
+ *   NAME
+ *       BPLxPTH()
+ *
+ *   SYNOPSIS
+ *       static void BPLxPTH (unsigned int hpos, uae_u16 v, int num)
+ *
+ *   FUNCTION
+ *       Write the high halfword of a numbered bitplane DMA pointer.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *       num -- zero-based bitplane pointer index
+ *
+ *   NOTES
+ *       Synchronizes line and fetch state before preserving the pointer low
+ *       halfword.
+ *
+ ****************************************************************************/
+
 static void BPLxPTH (unsigned int hpos, uae_u16 v, int num)
 {
     decide_line (hpos);
@@ -4121,6 +5137,28 @@ static void BPLxPTH (unsigned int hpos, uae_u16 v, int num)
     bplpt[num] = (bplpt[num] & 0xffff) | ((uae_u32)v << 16);
     //write_log("%d:%d:BPL%dPTH %08.8X\n", hpos, vpos, num, v);
 }
+/****i* januae-custom-raster/BPLxPTL
+ *
+ *   NAME
+ *       BPLxPTL()
+ *
+ *   SYNOPSIS
+ *       static void BPLxPTL (unsigned int hpos, uae_u16 v, int num)
+ *
+ *   FUNCTION
+ *       Write the low halfword of a numbered bitplane DMA pointer.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *       num -- zero-based bitplane pointer index
+ *
+ *   NOTES
+ *       For a concurrent DMA fetch on a nonzero plane, adds 2 << fetchmode to
+ *       the new offset; clears the low address bit.
+ *
+ ****************************************************************************/
+
 static void BPLxPTL (unsigned int hpos, uae_u16 v, int num)
 {
     int delta = 0;
@@ -4133,6 +5171,28 @@ static void BPLxPTL (unsigned int hpos, uae_u16 v, int num)
     bplpt[num] = (bplpt[num] & ~0xffff) | ((v + delta) & 0xfffe);
     //write_log("%d:%d:BPL%dPTL %08.8X\n", hpos, vpos, num, v);
 }
+
+/****i* januae-custom-raster/BPLCON0
+ *
+ *   NAME
+ *       BPLCON0()
+ *
+ *   SYNOPSIS
+ *       static void BPLCON0 (unsigned int hpos, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write primary bitplane mode control and refresh affected raster
+ *       decisions.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Masks unsupported OCS/ECS mode bits; synchronizes line/fetch/blitter,
+ *       tracks interlace and HAM, updates fetch geometry and DIW.
+ *
+ ****************************************************************************/
 
 static void BPLCON0 (unsigned int hpos, uae_u16 v)
 {
@@ -4172,6 +5232,27 @@ static void BPLCON0 (unsigned int hpos, uae_u16 v)
     estimate_last_fetch_cycle (hpos);
 }
 
+/****i* januae-custom-raster/BPLCON1
+ *
+ *   NAME
+ *       BPLCON1()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void BPLCON1 (unsigned int hpos, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write bitplane scroll delay control.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Masks the high bits when AGA is absent and synchronizes line and fetch
+ *       decisions before assigning the changed value.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void BPLCON1 (unsigned int hpos, uae_u16 v)
 {
     if (!(currprefs.chipset_mask & CSMASK_AGA))
@@ -4183,6 +5264,27 @@ STATIC_INLINE void BPLCON1 (unsigned int hpos, uae_u16 v)
     decide_fetch (hpos);
     bplcon1 = v;
 }
+
+/****i* januae-custom-raster/BPLCON2
+ *
+ *   NAME
+ *       BPLCON2()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void BPLCON2 (unsigned int hpos, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write playfield priority and collision control.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Masks unsupported non-AGA bits and records the register change for line
+ *       rendering.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void BPLCON2 (unsigned int hpos, uae_u16 v)
 {
@@ -4196,6 +5298,27 @@ STATIC_INLINE void BPLCON2 (unsigned int hpos, uae_u16 v)
 }
 
 #ifdef AGA
+/****i* januae-custom-raster/BPLCON3
+ *
+ *   NAME
+ *       BPLCON3()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void BPLCON3 (unsigned int hpos, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the AGA-specific bitplane and sprite control register.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Compiled with AGA; returns without effect on a non-AGA active chipset
+ *       and updates sprite resolution and register-change history.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void BPLCON3 (unsigned int hpos, uae_u16 v)
 {
     if (! (currprefs.chipset_mask & CSMASK_AGA))
@@ -4209,6 +5332,27 @@ STATIC_INLINE void BPLCON3 (unsigned int hpos, uae_u16 v)
     record_register_change (hpos, 0x106, v);
 }
 
+/****i* januae-custom-raster/BPLCON4
+ *
+ *   NAME
+ *       BPLCON4()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void BPLCON4 (unsigned int hpos, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write the AGA-specific sprite color-bank control register.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Compiled with AGA; returns without effect on a non-AGA active chipset
+ *       and records the timed register write.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void BPLCON4 (unsigned int hpos, uae_u16 v)
 {
     if (! (currprefs.chipset_mask & CSMASK_AGA))
@@ -4221,6 +5365,27 @@ STATIC_INLINE void BPLCON4 (unsigned int hpos, uae_u16 v)
 }
 #endif
 
+/****i* januae-custom-raster/BPL1MOD
+ *
+ *   NAME
+ *       BPL1MOD()
+ *
+ *   SYNOPSIS
+ *       static void BPL1MOD (unsigned int hpos, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Update odd-bitplane modulo for the following DMA row.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Forces even addressing and synchronizes line and fetch state only when
+ *       the effective modulo changes.
+ *
+ ****************************************************************************/
+
 static void BPL1MOD (unsigned int hpos, uae_u16 v)
 {
     v &= ~1;
@@ -4230,6 +5395,27 @@ static void BPL1MOD (unsigned int hpos, uae_u16 v)
     decide_fetch (hpos);
     bpl1mod = v;
 }
+
+/****i* januae-custom-raster/BPL2MOD
+ *
+ *   NAME
+ *       BPL2MOD()
+ *
+ *   SYNOPSIS
+ *       static void BPL2MOD (unsigned int hpos, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Update even-bitplane modulo for the following DMA row.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Forces even addressing and synchronizes line and fetch state only when
+ *       the effective modulo changes.
+ *
+ ****************************************************************************/
 
 static void BPL2MOD (unsigned int hpos, uae_u16 v)
 {
@@ -4241,6 +5427,27 @@ static void BPL2MOD (unsigned int hpos, uae_u16 v)
     bpl2mod = v;
 }
 
+/****i* januae-custom-raster/BPL1DAT
+ *
+ *   NAME
+ *       BPL1DAT()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void BPL1DAT (unsigned int hpos, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Latch a CPU-written first bitplane data word.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Synchronizes line state and calls maybe_first_bpl1dat() so CPU-fed
+ *       display output can start before DMA.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void BPL1DAT (unsigned int hpos, uae_u16 v)
 {
     decide_line (hpos);
@@ -4248,6 +5455,27 @@ STATIC_INLINE void BPL1DAT (unsigned int hpos, uae_u16 v)
 
     maybe_first_bpl1dat (hpos);
 }
+
+/****i* januae-custom-raster/DIWSTRT
+ *
+ *   NAME
+ *       DIWSTRT()
+ *
+ *   SYNOPSIS
+ *       static void DIWSTRT (unsigned int hpos, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write display-window start position.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Clears the DIWHIGH-written extension flag and recalculates the window
+ *       after synchronizing the line.
+ *
+ ****************************************************************************/
 
 static void DIWSTRT (unsigned int hpos, uae_u16 v)
 {
@@ -4259,6 +5487,27 @@ static void DIWSTRT (unsigned int hpos, uae_u16 v)
     calcdiw ();
 }
 
+/****i* januae-custom-raster/DIWSTOP
+ *
+ *   NAME
+ *       DIWSTOP()
+ *
+ *   SYNOPSIS
+ *       static void DIWSTOP (unsigned int hpos, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write display-window stop position.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Clears the DIWHIGH-written extension flag and recalculates the window
+ *       after synchronizing the line.
+ *
+ ****************************************************************************/
+
 static void DIWSTOP (unsigned int hpos, uae_u16 v)
 {
     if (diwstop == v && ! diwhigh_written)
@@ -4268,6 +5517,27 @@ static void DIWSTOP (unsigned int hpos, uae_u16 v)
     diwstop = v;
     calcdiw ();
 }
+
+/****i* januae-custom-raster/DIWHIGH
+ *
+ *   NAME
+ *       DIWHIGH()
+ *
+ *   SYNOPSIS
+ *       static void DIWHIGH (int hpos, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write ECS high display-window coordinate extension bits.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Ignored without ECS Agnus; records that extended positions are active
+ *       and recalculates DIW.
+ *
+ ****************************************************************************/
 
 static void DIWHIGH (int hpos, uae_u16 v)
 {
@@ -4280,6 +5550,27 @@ static void DIWHIGH (int hpos, uae_u16 v)
     diwhigh = v;
     calcdiw ();
 }
+
+/****i* januae-custom-raster/DDFSTRT
+ *
+ *   NAME
+ *       DDFSTRT()
+ *
+ *   SYNOPSIS
+ *       static void DDFSTRT (unsigned int hpos, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write and align bitplane fetch start position.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Clears low address bits according to OCS/ECS Agnus, remembers write
+ *       position for fetch-delay handling and recalculates DIW.
+ *
+ ****************************************************************************/
 
 static void DDFSTRT (unsigned int hpos, uae_u16 v)
 {
@@ -4302,6 +5593,27 @@ static void DDFSTRT (unsigned int hpos, uae_u16 v)
     }
 }
 
+/****i* januae-custom-raster/DDFSTOP
+ *
+ *   NAME
+ *       DDFSTOP()
+ *
+ *   SYNOPSIS
+ *       static void DDFSTOP (unsigned int hpos, uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write and align bitplane fetch stop position.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Synchronizes line/fetch/blitter, recalculates the fetch window and
+ *       revises the final-fetch estimate when DMA is in progress.
+ *
+ ****************************************************************************/
+
 static void DDFSTOP (unsigned int hpos, uae_u16 v)
 {
     v &= 0xfe;
@@ -4323,6 +5635,26 @@ static void DDFSTOP (unsigned int hpos, uae_u16 v)
 	last_warned = (last_warned + 1) & 4095;
     }
 }
+
+/****i* januae-custom-raster/FMODE
+ *
+ *   NAME
+ *       FMODE()
+ *
+ *   SYNOPSIS
+ *       static void FMODE (uae_u16 v)
+ *
+ *   FUNCTION
+ *       Write AGA fetch mode and recompute fetch geometry and sprite width.
+ *
+ *   INPUTS
+ *       v -- new register value
+ *
+ *   NOTES
+ *       Forces zero on non-AGA chipsets; maps FMODE low two bits to fetchmode
+ *       0/1/2 and recalculates DIW.
+ *
+ ****************************************************************************/
 
 static void FMODE (uae_u16 v)
 {
