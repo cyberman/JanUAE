@@ -9205,6 +9205,31 @@ uae_u32 REGPARAM2 custom_lget (uaecptr addr)
     return ((uae_u32)custom_wget (addr) << 16) | custom_wget (addr + 2);
 }
 
+/****i* januae-custom-frame-memory/custom_wput_1
+ *
+ *   NAME
+ *       custom_wput_1()
+ *
+ *   SYNOPSIS
+ *       int REGPARAM2 custom_wput_1 (unsigned int hpos, uaecptr addr, uae_u32 value, int noget)
+ *
+ *   FUNCTION
+ *       Dispatch a custom-chip register write at the specified beam position.
+ *
+ *   INPUTS
+ *       hpos -- current horizontal beam position
+ *       addr -- custom register address
+ *       value -- value written to the register
+ *       noget -- suppress fallback reads for unhandled register addresses when nonzero.
+ *
+ *   RESULT
+ *       Zero for a handled register write; one when the address takes the default path.
+ *
+ *   NOTES
+ *       Only the low nine address bits and low 16 value bits are used. An unhandled address may trigger a custom register read when noget is zero.
+ *
+ ****************************************************************************/
+
 int REGPARAM2 custom_wput_1 (unsigned int hpos, uaecptr addr, uae_u32 value, int noget)
 {
     addr &= 0x1FE;
@@ -9529,6 +9554,28 @@ void custom_prepare_savestate (void)
 #define RW restore_u16 ()
 #define RL restore_u32 ()
 
+/****i* januae-custom-frame-memory/restore_custom
+ *
+ *   NAME
+ *       restore_custom()
+ *
+ *   SYNOPSIS
+ *       const uae_u8 *restore_custom (const uae_u8 *src)
+ *
+ *   FUNCTION
+ *       Restore the custom-chip register state from serialized data.
+ *
+ *   INPUTS
+ *       src -- pointer to the serialized custom-chip state.
+ *
+ *   RESULT
+ *       Pointer immediately following the consumed state data.
+ *
+ *   NOTES
+ *       Resets audio state and restores the disk controller state. Requires SAVESTATE; the caller supplies a valid serialized buffer.
+ *
+ ****************************************************************************/
+
 const uae_u8 *restore_custom (const uae_u8 *src)
 {
     uae_u16 dsklen, dskbytr;
@@ -9830,6 +9877,28 @@ uae_u8 *save_custom (uae_u32 *len, uae_u8 *dstptr, int full)
 
 #ifdef SAVESTATE
 
+/****i* januae-custom-frame-memory/restore_custom_agacolors
+ *
+ *   NAME
+ *       restore_custom_agacolors()
+ *
+ *   SYNOPSIS
+ *       const uae_u8 *restore_custom_agacolors (const uae_u8 *src)
+ *
+ *   FUNCTION
+ *       Read the saved 256-entry AGA color register table.
+ *
+ *   INPUTS
+ *       src -- pointer to serialized AGA color values.
+ *
+ *   RESULT
+ *       Pointer immediately after the 256 consumed 32-bit values.
+ *
+ *   NOTES
+ *       When AGA is disabled at build time, the values are consumed without changing the color registers. Requires SAVESTATE.
+ *
+ ****************************************************************************/
+
 const uae_u8 *restore_custom_agacolors (const uae_u8 *src)
 {
     unsigned int i;
@@ -9861,6 +9930,29 @@ uae_u8 *save_custom_agacolors (uae_u32 *len, uae_u8 *dstptr)
     *len = dst - dstbak;
     return dstbak;
 }
+
+/****i* januae-custom-frame-memory/restore_custom_sprite
+ *
+ *   NAME
+ *       restore_custom_sprite()
+ *
+ *   SYNOPSIS
+ *       const uae_u8 *restore_custom_sprite (unsigned int num, const uae_u8 *src)
+ *
+ *   FUNCTION
+ *       Restore the saved state of one custom-chip sprite.
+ *
+ *   INPUTS
+ *       num -- sprite index
+ *       src -- pointer to serialized sprite state.
+ *
+ *   RESULT
+ *       Pointer immediately following the consumed sprite state.
+ *
+ *   NOTES
+ *       Restores the sprite data pointer, position, control, data words and armed state. The caller must supply a valid sprite index and serialized buffer. Requires SAVESTATE.
+ *
+ ****************************************************************************/
 
 const uae_u8 *restore_custom_sprite (unsigned int num, const uae_u8 *src)
 {
