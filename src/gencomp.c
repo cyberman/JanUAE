@@ -46,6 +46,30 @@ static int comp_index=0;
 
 static int cond_codes_x86[]={-1,-1,7,6,3,2,5,4,-1,-1,9,8,13,12,15,14};
 
+/****i* januae-gencomp/comprintf
+*
+*   NAME
+*       comprintf() -- Append generated C text.
+*
+*   SYNOPSIS
+*       static void comprintf(const char* format, ...);
+*
+*   FUNCTION
+*       Format into the shared lines[] buffer at comp_index and advance that index
+*       by the formatted character count.
+*
+*   INPUTS
+*       format -- printf-style format string for appended generated C text.
+*       ... -- Values consumed by the printf-style format.
+*
+*   NOTES
+*       The fixed-size buffer is not bounds-checked; the caller must limit
+*       generated output.
+*
+***************************************************************************
+*
+*/
+
 static void comprintf(const char* format, ...)
 {
     va_list args;
@@ -54,10 +78,48 @@ static void comprintf(const char* format, ...)
     comp_index+=vsprintf(lines+comp_index,format,args);
 }
 
+/****i* januae-gencomp/com_discard
+*
+*   NAME
+*       com_discard() -- Discard pending generated text.
+*
+*   SYNOPSIS
+*       static void com_discard(void);
+*
+*   FUNCTION
+*       Reset the buffered-character count so later output overwrites the pending
+*       contents.
+*
+*   NOTES
+*       Does not clear the buffer or write to stdout.
+*
+***************************************************************************
+*
+*/
+
 static void com_discard(void)
 {
     comp_index=0;
 }
+
+/****i* januae-gencomp/com_flush
+*
+*   NAME
+*       com_flush() -- Write the buffered generated text.
+*
+*   SYNOPSIS
+*       static void com_flush(void);
+*
+*   FUNCTION
+*       Send the first comp_index bytes of lines[] to stdout with putchar(), then
+*       reset the buffered-character count.
+*
+*   NOTES
+*       Output errors are not checked.
+*
+***************************************************************************
+*
+*/
 
 static void com_flush(void)
 {
@@ -87,6 +149,27 @@ static int *opcode_last_postfix;
 static unsigned long *counts;
 
 static void
+/****i* januae-gencomp/read_counts
+*
+*   NAME
+*       read_counts() -- Order opcode handlers for code generation.
+*
+*   SYNOPSIS
+*       read_counts (void);
+*
+*   FUNCTION
+*       Initialize the opcode counts and ordering arrays. If frequent.68k exists,
+*       read its opcode entries first, then append the remaining eligible distinct
+*       handlers.
+*
+*   NOTES
+*       Aborts if the final opcode count differs from nr_cpuop_funcs. Input parsing
+*       is not range-checked.
+*
+***************************************************************************
+*
+*/
+
 read_counts (void)
 {
     FILE *file;
@@ -129,6 +212,22 @@ static int n_braces = 0;
 static int insn_n_cycles;
 
 static void
+/****i* januae-gencomp/start_brace
+*
+*   NAME
+*       start_brace() -- Open a generated C block.
+*
+*   SYNOPSIS
+*       start_brace (void);
+*
+*   FUNCTION
+*       Increase the tracked brace nesting level and append an opening brace to the
+*       pending generated source.
+*
+***************************************************************************
+*
+*/
+
 start_brace (void)
 {
     n_braces++;
@@ -136,6 +235,25 @@ start_brace (void)
 }
 
 static void
+/****i* januae-gencomp/close_brace
+*
+*   NAME
+*       close_brace() -- Close a generated C block.
+*
+*   SYNOPSIS
+*       close_brace (void);
+*
+*   FUNCTION
+*       Assert that at least one tracked block is open, decrease the nesting level
+*       and append a closing brace.
+*
+*   NOTES
+*       An unmatched close triggers an assertion failure.
+*
+***************************************************************************
+*
+*/
+
 close_brace (void)
 {
     assert (n_braces > 0);
@@ -144,6 +262,21 @@ close_brace (void)
 }
 
 static void
+/****i* januae-gencomp/finish_braces
+*
+*   NAME
+*       finish_braces() -- Close all tracked C blocks.
+*
+*   SYNOPSIS
+*       finish_braces (void);
+*
+*   FUNCTION
+*       Emit closing braces until the generator brace nesting count reaches zero.
+*
+***************************************************************************
+*
+*/
+
 finish_braces (void)
 {
     while (n_braces > 0)
@@ -151,6 +284,25 @@ finish_braces (void)
 }
 
 static void
+/****i* januae-gencomp/pop_braces
+*
+*   NAME
+*       pop_braces() -- Close blocks to a specified nesting level.
+*
+*   SYNOPSIS
+*       pop_braces (int to);
+*
+*   FUNCTION
+*       Emit closing braces while the tracked nesting level exceeds the requested
+*       depth.
+*
+*   INPUTS
+*       to -- Desired remaining nesting depth.
+*
+***************************************************************************
+*
+*/
+
 pop_braces (int to)
 {
     while (n_braces > to)
@@ -158,6 +310,30 @@ pop_braces (int to)
 }
 
 static int
+/****i* januae-gencomp/bit_size
+*
+*   NAME
+*       bit_size() -- Determine an operand width in bits.
+*
+*   SYNOPSIS
+*       bit_size (int size);
+*
+*   FUNCTION
+*       Map byte, word and long operand sizes to 8, 16 and 32 bits.
+*
+*   INPUTS
+*       size -- Operand width (byte, word or long).
+*
+*   RESULT
+*       Operand width in bits.
+*
+*   NOTES
+*       Aborts for unsupported sizes.
+*
+***************************************************************************
+*
+*/
+
 bit_size (int size)
 {
     switch (size)
@@ -175,6 +351,30 @@ bit_size (int size)
 }
 
 static const char *
+/****i* januae-gencomp/bit_mask
+*
+*   NAME
+*       bit_mask() -- Select a width-specific mask literal.
+*
+*   SYNOPSIS
+*       bit_mask (int size);
+*
+*   FUNCTION
+*       Return the hexadecimal mask expression for byte, word or long operands.
+*
+*   INPUTS
+*       size -- Operand width (byte, word or long).
+*
+*   RESULT
+*       Pointer to a static C literal string.
+*
+*   NOTES
+*       Aborts for unsupported sizes.
+*
+***************************************************************************
+*
+*/
+
 bit_mask (int size)
 {
     switch (size)
@@ -191,35 +391,173 @@ bit_mask (int size)
     return 0;
 }
 
+/****i* januae-gencomp/gen_update_next_handler
+*
+*   NAME
+*       gen_update_next_handler() -- Reserved next-handler generation hook.
+*
+*   SYNOPSIS
+*       static __inline__ void gen_update_next_handler(void);
+*
+*   FUNCTION
+*       Return without emitting code or changing generator state.
+*
+*   NOTES
+*       The hook is currently a no-op.
+*
+***************************************************************************
+*
+*/
+
 static __inline__ void gen_update_next_handler(void)
 {
     return; /* Can anything clever be done here? */
 }
+
+/****i* januae-gencomp/gen_writebyte
+*
+*   NAME
+*       gen_writebyte() -- Generate a byte memory write.
+*
+*   SYNOPSIS
+*       static void gen_writebyte (const char *address, const char *source);
+*
+*   FUNCTION
+*       Append a writebyte(address, source, scratchie) call to the pending
+*       compiled-handler source.
+*
+*   INPUTS
+*       address -- C expression naming the guest memory address.
+*       source -- C expression naming the value to write.
+*
+***************************************************************************
+*
+*/
 
 static void gen_writebyte (const char *address, const char *source)
 {
     comprintf("\twritebyte(%s,%s,scratchie);\n",address,source);
 }
 
+/****i* januae-gencomp/gen_writeword
+*
+*   NAME
+*       gen_writeword() -- Generate a word memory write.
+*
+*   SYNOPSIS
+*       static void gen_writeword (const char *address, const char *source);
+*
+*   FUNCTION
+*       Append a writeword(address, source, scratchie) call to the pending
+*       compiled-handler source.
+*
+*   INPUTS
+*       address -- C expression naming the guest memory address.
+*       source -- C expression naming the value to write.
+*
+***************************************************************************
+*
+*/
+
 static void gen_writeword (const char *address, const char *source)
 {
     comprintf("\twriteword(%s,%s,scratchie);\n",address,source);
 }
+
+/****i* januae-gencomp/gen_writelong
+*
+*   NAME
+*       gen_writelong() -- Generate a longword memory write.
+*
+*   SYNOPSIS
+*       static void gen_writelong (const char *address, const char *source);
+*
+*   FUNCTION
+*       Append a writelong(address, source, scratchie) call to the pending
+*       compiled-handler source.
+*
+*   INPUTS
+*       address -- C expression naming the guest memory address.
+*       source -- C expression naming the value to write.
+*
+***************************************************************************
+*
+*/
 
 static void gen_writelong (const char *address, const char *source)
 {
     comprintf("\twritelong(%s,%s,scratchie);\n",address,source);
 }
 
+/****i* januae-gencomp/gen_readbyte
+*
+*   NAME
+*       gen_readbyte() -- Generate a byte memory read.
+*
+*   SYNOPSIS
+*       static void gen_readbyte (const char *address, const char *dest);
+*
+*   FUNCTION
+*       Append a readbyte(address, dest, scratchie) call to the pending
+*       compiled-handler source.
+*
+*   INPUTS
+*       address -- C expression naming the guest memory address.
+*       dest -- C expression naming the destination register or temporary.
+*
+***************************************************************************
+*
+*/
+
 static void gen_readbyte (const char *address, const char *dest)
 {
     comprintf("\treadbyte(%s,%s,scratchie);\n",address,dest);
 }
 
+/****i* januae-gencomp/gen_readword
+*
+*   NAME
+*       gen_readword() -- Generate a word memory read.
+*
+*   SYNOPSIS
+*       static void gen_readword (const char *address, const char *dest);
+*
+*   FUNCTION
+*       Append a readword(address, dest, scratchie) call to the pending
+*       compiled-handler source.
+*
+*   INPUTS
+*       address -- C expression naming the guest memory address.
+*       dest -- C expression naming the destination register or temporary.
+*
+***************************************************************************
+*
+*/
+
 static void gen_readword (const char *address, const char *dest)
 {
     comprintf("\treadword(%s,%s,scratchie);\n",address,dest);
 }
+
+/****i* januae-gencomp/gen_readlong
+*
+*   NAME
+*       gen_readlong() -- Generate a longword memory read.
+*
+*   SYNOPSIS
+*       static void gen_readlong (const char *address, const char *dest);
+*
+*   FUNCTION
+*       Append a readlong(address, dest, scratchie) call to the pending
+*       compiled-handler source.
+*
+*   INPUTS
+*       address -- C expression naming the guest memory address.
+*       dest -- C expression naming the destination register or temporary.
+*
+***************************************************************************
+*
+*/
 
 static void gen_readlong (const char *address, const char *dest)
 {
@@ -229,6 +567,28 @@ static void gen_readlong (const char *address, const char *dest)
 
 
 static const char *
+/****i* januae-gencomp/gen_nextilong
+*
+*   NAME
+*       gen_nextilong() -- Format a long immediate fetch.
+*
+*   SYNOPSIS
+*       gen_nextilong (void);
+*
+*   FUNCTION
+*       Advance the generated instruction offset by four bytes, add four to the
+*       generator cycle count and mark long_opcode.
+*
+*   RESULT
+*       Pointer to a static expression buffer for comp_get_ilong().
+*
+*   NOTES
+*       The next call to this function overwrites the buffer.
+*
+***************************************************************************
+*
+*/
+
 gen_nextilong (void)
 {
     static char buffer[80];
@@ -241,6 +601,28 @@ gen_nextilong (void)
 }
 
 static const char *
+/****i* januae-gencomp/gen_nextiword
+*
+*   NAME
+*       gen_nextiword() -- Format a word immediate fetch.
+*
+*   SYNOPSIS
+*       gen_nextiword (void);
+*
+*   FUNCTION
+*       Advance the generated instruction offset by two bytes, add two to the
+*       generator cycle count and mark long_opcode.
+*
+*   RESULT
+*       Pointer to a static expression buffer for comp_get_iword().
+*
+*   NOTES
+*       The next call to this function overwrites the buffer.
+*
+***************************************************************************
+*
+*/
+
 gen_nextiword (void)
 {
     static char buffer[80];
@@ -253,6 +635,28 @@ gen_nextiword (void)
 }
 
 static const char *
+/****i* januae-gencomp/gen_nextibyte
+*
+*   NAME
+*       gen_nextibyte() -- Format a byte immediate fetch.
+*
+*   SYNOPSIS
+*       gen_nextibyte (void);
+*
+*   FUNCTION
+*       Advance the generated instruction offset by two bytes, add two to the
+*       generator cycle count and mark long_opcode.
+*
+*   RESULT
+*       Pointer to a static expression buffer for comp_get_ibyte().
+*
+*   NOTES
+*       The next call to this function overwrites the buffer.
+*
+***************************************************************************
+*
+*/
+
 gen_nextibyte (void)
 {
     static char buffer[80];
@@ -265,6 +669,25 @@ gen_nextibyte (void)
 }
 
 static void
+/****i* januae-gencomp/sync_m68k_pc
+*
+*   NAME
+*       sync_m68k_pc() -- Generate a conditional PC synchronization.
+*
+*   SYNOPSIS
+*       sync_m68k_pc (void);
+*
+*   FUNCTION
+*       Append a runtime check that calls sync_m68k_pc() when the compiled
+*       instruction offset exceeds 100.
+*
+*   NOTES
+*       Does not itself advance or reset the generator-side PC offset.
+*
+***************************************************************************
+*
+*/
+
 sync_m68k_pc (void)
 {
     comprintf("\t if (m68k_pc_offset>100) sync_m68k_pc();\n");
@@ -274,6 +697,37 @@ sync_m68k_pc (void)
 /* getv == 1: fetch data; getv != 0: check for odd address. If movem != 0,
  * the calling routine handles Apdi and Aipi modes. */
 static void
+/****i* januae-gencomp/genamode
+*
+*   NAME
+*       genamode() -- Generate effective-address preparation.
+*
+*   SYNOPSIS
+*       genamode (amodes mode, const char *reg, wordsizes size, const char *name,
+*       int getv, int movem);
+*
+*   FUNCTION
+*       Emit code for register, indirect, indexed, displacement, absolute,
+*       PC-relative and immediate source operands, optionally fetching a value or
+*       arranging address-register changes.
+*
+*   INPUTS
+*       mode -- Decoded effective-address mode.
+*       reg -- C expression naming the instruction register index.
+*       size -- Operand width (byte, word or long).
+*       name -- Base name of generated operand temporaries.
+*       getv -- Whether and how the effective-address operand value is loaded.
+*       movem -- Nonzero for MOVEM-specific address-register treatment.
+*
+*   NOTES
+*       The getv and movem options change emitted register handling. Unsupported
+*       modes and sizes abort the generator; opened braces are tracked for later
+*       closure.
+*
+***************************************************************************
+*
+*/
+
 genamode (amodes mode, const char *reg, wordsizes size, const char *name, int getv, int movem)
 {
     start_brace ();
@@ -513,6 +967,34 @@ genamode (amodes mode, const char *reg, wordsizes size, const char *name, int ge
 }
 
 static void
+/****i* januae-gencomp/genastore
+*
+*   NAME
+*       genastore() -- Generate a destination operand write.
+*
+*   SYNOPSIS
+*       genastore (const char *from, amodes mode, const char *reg, wordsizes size,
+*       const char *to);
+*
+*   FUNCTION
+*       Emit register-sized moves or a byte, word or long memory write for the
+*       specified destination addressing mode.
+*
+*   INPUTS
+*       from -- C expression for the value to store.
+*       mode -- Decoded effective-address mode.
+*       reg -- C expression naming the instruction register index.
+*       size -- Operand width (byte, word or long).
+*       to -- Base name of the effective-address temporary.
+*
+*   NOTES
+*       Immediate destinations and unsupported operand sizes abort the generator;
+*       memory stores add the corresponding cycle count.
+*
+***************************************************************************
+*
+*/
+
 genastore (const char *from, amodes mode, const char *reg, wordsizes size, const char *to)
 {
     switch (mode)
@@ -595,6 +1077,30 @@ genastore (const char *from, amodes mode, const char *reg, wordsizes size, const
 	abort ();
     }
 }
+/****i* januae-gencomp/genmov16
+*
+*   NAME
+*       genmov16() -- Generate MOVE16 translation.
+*
+*   SYNOPSIS
+*       static void genmov16(uae_u32 opcode, struct instr *curi);
+*
+*   FUNCTION
+*       Emit a 16-byte aligned transfer, with runtime special-memory handling and
+*       the address-register updates required by the opcode variant.
+*
+*   INPUTS
+*       opcode -- 16-bit instruction opcode to generate.
+*       curi -- Decoded instruction description.
+*
+*   NOTES
+*       Uses different generated paths for mapped native memory and special memory.
+*       The disabled alternative in #if 0 is not built.
+*
+***************************************************************************
+*
+*/
+
 static void genmov16(uae_u32 opcode, struct instr *curi)
 {
     comprintf("\tint src=scratchie++;\n");
@@ -712,6 +1218,30 @@ static void genmov16(void)
 #endif
 
 static void
+/****i* januae-gencomp/genmovemel
+*
+*   NAME
+*       genmovemel() -- Generate memory-to-register MOVEM.
+*
+*   SYNOPSIS
+*       genmovemel (uae_u16 opcode);
+*
+*   FUNCTION
+*       Emit mask-driven word or longword transfers from guest memory to CPU
+*       registers, including sign extension for word transfers and postincrement
+*       updates.
+*
+*   INPUTS
+*       opcode -- 16-bit instruction opcode to generate.
+*
+*   NOTES
+*       Uses a direct mapped-memory path unless special_mem requires the accessor
+*       path.
+*
+***************************************************************************
+*
+*/
+
 genmovemel (uae_u16 opcode)
 {
     comprintf ("\tuae_u16 mask = %s;\n", gen_nextiword ());
@@ -778,6 +1308,29 @@ genmovemel (uae_u16 opcode)
 
 
 static void
+/****i* januae-gencomp/genmovemle
+*
+*   NAME
+*       genmovemle() -- Generate register-to-memory MOVEM.
+*
+*   SYNOPSIS
+*       genmovemle (uae_u16 opcode);
+*
+*   FUNCTION
+*       Emit mask-driven word or longword transfers from CPU registers to guest
+*       memory, reversing register order for predecrement.
+*
+*   INPUTS
+*       opcode -- 16-bit instruction opcode to generate.
+*
+*   NOTES
+*       Uses a direct mapped-memory path unless special_mem requires the accessor
+*       path.
+*
+***************************************************************************
+*
+*/
+
 genmovemle (uae_u16 opcode)
 {
     comprintf ("\tuae_u16 mask = %s;\n", gen_nextiword ());
@@ -885,6 +1438,22 @@ genmovemle (uae_u16 opcode)
 
 
 static void
+/****i* januae-gencomp/duplicate_carry
+*
+*   NAME
+*       duplicate_carry() -- Generate extend-flag propagation.
+*
+*   SYNOPSIS
+*       duplicate_carry (void);
+*
+*   FUNCTION
+*       Append a runtime check that calls duplicate_carry() only when FLAG_X is
+*       needed.
+*
+***************************************************************************
+*
+*/
+
 duplicate_carry (void)
 {
     comprintf ("\tif (needed_flags&FLAG_X) duplicate_carry();\n");
@@ -900,6 +1469,35 @@ flagtypes;
 
 
 static void
+/****i* januae-gencomp/genflags
+*
+*   NAME
+*       genflags() -- Generate arithmetic and condition-code operations.
+*
+*   SYNOPSIS
+*       genflags (flagtypes type, wordsizes size, const char *value, const char
+*       *src, const char *dst);
+*
+*   FUNCTION
+*       Emit the operation and status-flag updates for the requested flag type and
+*       operand width. In noflags mode, omit flag preservation where possible.
+*
+*   INPUTS
+*       type -- Requested arithmetic or condition-code operation.
+*       size -- Operand width (byte, word or long).
+*       value -- Expression for the operation value, used by applicable flag
+*       variants.
+*       src -- Generated source operand expression.
+*       dst -- Generated destination operand expression.
+*
+*   NOTES
+*       Unsupported combinations can mark the generated handler as failed; emitted
+*       operations depend on noflags and the requested flag type.
+*
+***************************************************************************
+*
+*/
+
 genflags (flagtypes type, wordsizes size, const char *value, const char *src, const char *dst)
 {
     if (noflags) {
@@ -1257,6 +1855,26 @@ genflags (flagtypes type, wordsizes size, const char *value, const char *src, co
 }
 
 static void
+/****i* januae-gencomp/force_range_for_rox
+*
+*   NAME
+*       force_range_for_rox() -- Normalize a generated rotate-through-extend count.
+*
+*   SYNOPSIS
+*       force_range_for_rox (const char *var, wordsizes size);
+*
+*   FUNCTION
+*       Append size-specific comparisons and subtractions to reduce a ROX shift
+*       count for byte, word or long operations.
+*
+*   INPUTS
+*       var -- Generated C expression holding the ROX shift count.
+*       size -- Operand width (byte, word or long).
+*
+***************************************************************************
+*
+*/
+
 force_range_for_rox (const char *var, wordsizes size)
 {
     /* Could do a modulo operation here... which one is faster? */
@@ -1278,6 +1896,30 @@ force_range_for_rox (const char *var, wordsizes size)
 }
 
 static const char *
+/****i* januae-gencomp/cmask
+*
+*   NAME
+*       cmask() -- Select an operand sign-bit literal.
+*
+*   SYNOPSIS
+*       cmask (wordsizes size);
+*
+*   FUNCTION
+*       Return the hexadecimal sign-bit mask for byte, word or long operands.
+*
+*   INPUTS
+*       size -- Operand width (byte, word or long).
+*
+*   RESULT
+*       Pointer to a static C literal string.
+*
+*   NOTES
+*       Aborts for unsupported sizes.
+*
+***************************************************************************
+*
+*/
+
 cmask (wordsizes size)
 {
     switch (size)
@@ -1294,12 +1936,62 @@ cmask (wordsizes size)
 }
 
 static int
+/****i* januae-gencomp/source_is_imm1_8
+*
+*   NAME
+*       source_is_imm1_8() -- Identify quick immediate operands.
+*
+*   SYNOPSIS
+*       source_is_imm1_8 (struct instr *i);
+*
+*   FUNCTION
+*       Test whether the decoded instruction uses the quick-immediate encoding
+*       class (stype 3).
+*
+*   INPUTS
+*       i -- Decoded instruction descriptor.
+*
+*   RESULT
+*       Nonzero if stype is 3; zero otherwise.
+*
+***************************************************************************
+*
+*/
+
 source_is_imm1_8 (struct instr *i)
 {
     return i->stype == 3;
 }
 
 static int  /* returns zero for success, non-zero for failure */
+/****i* januae-gencomp/gen_opcode
+*
+*   NAME
+*       gen_opcode() -- Generate a compiled 68k instruction body.
+*
+*   SYNOPSIS
+*       gen_opcode (unsigned long int opcode);
+*
+*   FUNCTION
+*       Dispatch the decoded opcode mnemonic to generate effective-address
+*       operations, arithmetic, flag handling, exceptions, memory accesses and
+*       control-flow effects. Collect handler capability flags.
+*
+*   INPUTS
+*       opcode -- 16-bit instruction opcode to generate.
+*
+*   RESULT
+*       Zero for a successfully generated handler; nonzero if generation marked the
+*       opcode unsupported.
+*
+*   NOTES
+*       Some unsupported mnemonics or operand sizes abort generation outright.
+*       Other cases emit fallback markers.
+*
+***************************************************************************
+*
+*/
+
 gen_opcode (unsigned long int opcode)
 {
     struct instr *curi = table68k + opcode;
@@ -2866,6 +3558,28 @@ gen_opcode (unsigned long int opcode)
 }
 
 static void
+/****i* januae-gencomp/generate_includes
+*
+*   NAME
+*       generate_includes() -- Write the compiler source prologue.
+*
+*   SYNOPSIS
+*       generate_includes (FILE * f);
+*
+*   FUNCTION
+*       Write the fixed set of common UAE and JIT-related header includes to the
+*       specified output stream.
+*
+*   INPUTS
+*       f -- Output file stream for the generated include directives.
+*
+*   NOTES
+*       Stream errors are not checked.
+*
+***************************************************************************
+*
+*/
+
 generate_includes (FILE * f)
 {
     fprintf (f, "#include \"sysconfig.h\"\n");
@@ -2881,6 +3595,32 @@ generate_includes (FILE * f)
 static int postfix;
 
 static void
+/****i* januae-gencomp/generate_one_opcode
+*
+*   NAME
+*       generate_one_opcode() -- Generate one compiled opcode handler.
+*
+*   SYNOPSIS
+*       generate_one_opcode (int rp, int noflags);
+*
+*   FUNCTION
+*       Skip illegal, unsupported-level and shared-handler opcodes; otherwise
+*       produce the handler body, table entry and prototype for the selected flag
+*       variant. Store the next CPU-level and postfix metadata.
+*
+*   INPUTS
+*       rp -- Index into the ordered opcode_map array.
+*       noflags -- Nonzero to generate handlers that do not preserve condition
+*       flags.
+*
+*   NOTES
+*       If gen_opcode() cannot compile the instruction, writes a null table entry
+*       and discards its pending generated body.
+*
+***************************************************************************
+*
+*/
+
 generate_one_opcode (int rp, int noflags)
 {
     int i;
@@ -3029,6 +3769,29 @@ generate_one_opcode (int rp, int noflags)
 }
 
 static void
+/****i* januae-gencomp/generate_func
+*
+*   NAME
+*       generate_func() -- Generate a set of compiled opcode handlers.
+*
+*   SYNOPSIS
+*       generate_func (int noflags);
+*
+*   FUNCTION
+*       Create the flagged or noflags opcode table and emit handlers in eight
+*       independently selectable PART_n code sections.
+*
+*   INPUTS
+*       noflags -- Nonzero to generate handlers that do not preserve condition
+*       flags.
+*
+*   NOTES
+*       The generator emits only CPU level 4 in the current loop.
+*
+***************************************************************************
+*
+*/
+
 generate_func (int noflags)
 {
     int i, j, rp;
@@ -3079,6 +3842,33 @@ generate_func (int noflags)
 }
 
 int
+/****i* januae-gencomp/main
+*
+*   NAME
+*       main() -- Generate JIT compiler source and tables.
+*
+*   SYNOPSIS
+*       main (int argc, char **argv);
+*
+*   FUNCTION
+*       Read and merge opcode definitions, order compiled handlers and produce
+*       compemu.c, compstbl.c and comptbl.h for flagged and noflags modes.
+*
+*   INPUTS
+*       argc -- Command-line argument count (unused).
+*       argv -- Command-line argument vector (unused).
+*
+*   RESULT
+*       Zero after completing the generator.
+*
+*   NOTES
+*       Command-line arguments are unused. File-open and output errors are not
+*       checked, and opcode arrays are allocated again before the noflags pass.
+*
+***************************************************************************
+*
+*/
+
 main (int argc, char **argv)
 {
     read_table68k ();
