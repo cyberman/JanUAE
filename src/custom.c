@@ -8227,6 +8227,22 @@ static void fpscounter (void)
     }
 }
 
+/****i* januae-custom-timing-cycle/vsync_handler
+ *
+ *   NAME
+ *       vsync_handler()
+ *
+ *   SYNOPSIS
+ *       static void vsync_handler (void)
+ *
+ *   FUNCTION
+ *       Complete vertical synchronization processing for the current frame.
+ *
+ *   NOTES
+ *       Accounts for frame timing, delivers the vertical-blank interrupt, redraws the display, and resets Copper and drawing state.
+ *
+ ****************************************************************************/
+
 static void vsync_handler (void)
 {
     fpscounter ();
@@ -8317,15 +8333,76 @@ static void vsync_handler (void)
 
 #define N_LINES 8
 
+/****i* januae-custom-timing-cycle/trigger_frh
+ *
+ *   NAME
+ *       trigger_frh()
+ *
+ *   SYNOPSIS
+ *       static __inline__ int trigger_frh(int v)
+ *
+ *   FUNCTION
+ *       Test whether a scanline reaches the JIT frame-rate pacing interval.
+ *
+ *   INPUTS
+ *       v -- current scanline number
+ *
+ *   RESULT
+ *       Nonzero at a multiple of N_LINES; otherwise zero.
+ *
+ *   NOTES
+ *       Available only with JIT.
+ *
+ ****************************************************************************/
+
 static __inline__ int trigger_frh(int v)
 {
     return (v & (N_LINES - 1)) == 0;
 }
 
+/****i* januae-custom-timing-cycle/diff32
+ *
+ *   NAME
+ *       diff32()
+ *
+ *   SYNOPSIS
+ *       static long int diff32 (frame_time_t x, frame_time_t y)
+ *
+ *   FUNCTION
+ *       Calculate the signed difference between two frame-timer readings.
+ *
+ *   INPUTS
+ *       x -- first timer reading
+ *       y -- second timer reading
+ *
+ *   RESULT
+ *       Signed difference converted to long int.
+ *
+ *   NOTES
+ *       Available only with JIT.
+ *
+ ****************************************************************************/
+
 static long int diff32 (frame_time_t x, frame_time_t y)
 {
     return (long int)(x - y);
 }
+
+/****i* januae-custom-timing-cycle/frh_handler
+ *
+ *   NAME
+ *       frh_handler()
+ *
+ *   SYNOPSIS
+ *       static void frh_handler(void)
+ *
+ *   FUNCTION
+ *       Advance the JIT frame pacing deadline when CPU speed is unrestricted.
+ *
+ *   NOTES
+ *       Corrects an overdue deadline in scanline-sized increments; turbo mode limits the catch-up loop. Available only with JIT.
+ *
+ ****************************************************************************/
 
 static void frh_handler(void)
 {
@@ -8349,6 +8426,22 @@ static void frh_handler(void)
 }
 #endif
 
+
+/****i* januae-custom-timing-cycle/hsync_handler
+ *
+ *   NAME
+ *       hsync_handler()
+ *
+ *   SYNOPSIS
+ *       void hsync_handler (void)
+ *
+ *   FUNCTION
+ *       Finish the current raster line and process horizontal synchronization.
+ *
+ *   NOTES
+ *       Synchronizes Copper and rendering decisions, dispatches per-line device handlers, and advances raster and frame state.
+ *
+ ****************************************************************************/
 
 void hsync_handler (void)
 {
@@ -9862,6 +9955,25 @@ void check_prefs_changed_custom (void)
 
 #ifdef CPUEMU_6
 
+/****i* januae-custom-timing-cycle/sync_copper
+ *
+ *   NAME
+ *       sync_copper()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void sync_copper (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Advance the Copper through the requested horizontal position when required.
+ *
+ *   INPUTS
+ *       hpos -- horizontal position through which Copper execution is updated
+ *
+ *   NOTES
+ *       Clears an active scheduled Copper event before updating. Available only with CPUEMU_6.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void sync_copper (unsigned int hpos)
 {
     if (eventtab[ev_copper].active) {
@@ -9873,11 +9985,46 @@ STATIC_INLINE void sync_copper (unsigned int hpos)
 	update_copper (hpos);
 }
 
+/****i* januae-custom-timing-cycle/decide_fetch_ce
+ *
+ *   NAME
+ *       decide_fetch_ce()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void decide_fetch_ce (unsigned int hpos)
+ *
+ *   FUNCTION
+ *       Update cycle-exact bitplane fetch decisions near a display-fetch change.
+ *
+ *   INPUTS
+ *       hpos -- horizontal position for the fetch decision
+ *
+ *   NOTES
+ *       Updates only on the fetch-change line or the following line before the frame limit. Available only with CPUEMU_6.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void decide_fetch_ce (unsigned int hpos)
 {
     if ((ddf_change == vpos || ddf_change + 1 == vpos) && vpos < maxvpos)
 	decide_fetch (hpos);
 }
+
+/****i* januae-custom-timing-cycle/dma_cycle
+ *
+ *   NAME
+ *       dma_cycle()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void dma_cycle (void)
+ *
+ *   FUNCTION
+ *       Wait until a CPU bus cycle is available and mark it as CPU-owned.
+ *
+ *   NOTES
+ *       Accounts for Copper, bitplane and blitter activity while advancing emulated cycles. Available only with CPUEMU_6.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void dma_cycle (void)
 {
@@ -9910,6 +10057,29 @@ STATIC_INLINE void dma_cycle (void)
     cycle_line[hpos] |= CYCLE_CPU;
 }
 
+/****i* januae-custom-timing-cycle/wait_cpu_cycle_read
+ *
+ *   NAME
+ *       wait_cpu_cycle_read()
+ *
+ *   SYNOPSIS
+ *       uae_u32 wait_cpu_cycle_read (uaecptr addr, int mode)
+ *
+ *   FUNCTION
+ *       Read chip memory during an available cycle-exact CPU bus slot.
+ *
+ *   INPUTS
+ *       addr -- emulated memory address
+ *       mode -- positive for word, zero for byte, negative for no read
+ *
+ *   RESULT
+ *       Read value, or zero when mode is negative.
+ *
+ *   NOTES
+ *       Consumes the arbitration cycle and one following CPU cycle. Available only with CPUEMU_6.
+ *
+ ****************************************************************************/
+
 uae_u32 wait_cpu_cycle_read (uaecptr addr, int mode)
 {
     uae_u32 v = 0;
@@ -9922,6 +10092,27 @@ uae_u32 wait_cpu_cycle_read (uaecptr addr, int mode)
     return v;
 }
 
+/****i* januae-custom-timing-cycle/wait_cpu_cycle_write
+ *
+ *   NAME
+ *       wait_cpu_cycle_write()
+ *
+ *   SYNOPSIS
+ *       void wait_cpu_cycle_write (uaecptr addr, int mode, uae_u32 v)
+ *
+ *   FUNCTION
+ *       Write chip memory during an available cycle-exact CPU bus slot.
+ *
+ *   INPUTS
+ *       addr -- emulated memory address
+ *       mode -- positive for word, zero for byte, negative for no write
+ *       v -- value to store
+ *
+ *   NOTES
+ *       Consumes the arbitration cycle and one following CPU cycle. Available only with CPUEMU_6.
+ *
+ ****************************************************************************/
+
 void wait_cpu_cycle_write (uaecptr addr, int mode, uae_u32 v)
 {
     dma_cycle ();
@@ -9931,6 +10122,25 @@ void wait_cpu_cycle_write (uaecptr addr, int mode, uae_u32 v)
 	put_byte (addr, v);
     do_cycles (1 * CYCLE_UNIT);
 }
+
+/****i* januae-custom-timing-cycle/do_cycles_ce
+ *
+ *   NAME
+ *       do_cycles_ce()
+ *
+ *   SYNOPSIS
+ *       void do_cycles_ce (long cycles)
+ *
+ *   FUNCTION
+ *       Advance emulation in cycle-exact steps while updating chip activity.
+ *
+ *   INPUTS
+ *       cycles -- amount of emulated time to advance
+ *
+ *   NOTES
+ *       Synchronizes Copper, line, bitplane fetch and blitter decisions after each step. Available only with CPUEMU_6.
+ *
+ ****************************************************************************/
 
 void do_cycles_ce (long cycles)
 {
