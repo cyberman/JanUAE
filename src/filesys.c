@@ -2312,6 +2312,29 @@ static void free_key (Unit *unit, Key *k)
     xfree(k);
 }
 
+/****i* januae-filesys-internal/lookup_key
+ *
+ *   NAME
+ *       lookup_key()
+ *
+ *   SYNOPSIS
+ *       static Key *lookup_key (Unit *unit, uae_u32 uniq)
+ *
+ *   FUNCTION
+ *       Look up a file key by its unit-local identifier.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit whose key list is searched.
+ *       uniq -- Identifier assigned when the key was created.
+ *
+ *   RESULT
+ *       The matching key, or NULL if the identifier is absent.
+ *
+ *   NOTES
+ *       Traverses the unit's linked key list without changing it. Logs two diagnostics when no key matches.
+ *
+ ****************************************************************************/
+
 static Key *lookup_key (Unit *unit, uae_u32 uniq)
 {
     Key *k;
@@ -2327,6 +2350,28 @@ static Key *lookup_key (Unit *unit, uae_u32 uniq)
     write_log ("Better reset that Amiga - the system is messed up.\n");
     return 0;
 }
+
+/****i* januae-filesys-internal/new_key
+ *
+ *   NAME
+ *       new_key()
+ *
+ *   SYNOPSIS
+ *       static Key *new_key (Unit *unit)
+ *
+ *   FUNCTION
+ *       Allocate and link a file key to a filesystem unit.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit that owns the new key.
+ *
+ *   RESULT
+ *       The newly allocated key.
+ *
+ *   NOTES
+ *       Allocates a Key with xmalloc(), assigns the next unit-local identifier, initializes the file descriptor to -1 and the file position to zero, and prepends the key to unit->keys. No allocation-failure branch is present in this function.
+ *
+ ****************************************************************************/
 
 static Key *new_key (Unit *unit)
 {
@@ -2366,6 +2411,31 @@ static void dumplock (Unit *unit, uaecptr lock) {
 
 }
 
+/****i* januae-filesys-internal/find_aino
+ *
+ *   NAME
+ *       find_aino()
+ *
+ *   SYNOPSIS
+ *       static a_inode *find_aino (Unit *unit, uaecptr lock, const char *name, uae_u32 *err)
+ *
+ *   FUNCTION
+ *       Resolve a guest path relative to a lock or the unit root.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit to search.
+ *       lock -- Guest lock address, or zero to start at the root.
+ *       name -- Guest path to resolve.
+ *       err -- Error result passed through to get_aino().
+ *
+ *   RESULT
+ *       The inode returned by get_aino(), which may be NULL.
+ *
+ *   NOTES
+ *       When the lock refers to an unknown inode, resolution falls back to the unit root. Calls aino_test() on the returned inode.
+ *
+ ****************************************************************************/
+
 static a_inode *find_aino (Unit *unit, uaecptr lock, const char *name, uae_u32 *err)
 {
     a_inode *a;
@@ -2393,6 +2463,30 @@ static a_inode *find_aino (Unit *unit, uaecptr lock, const char *name, uae_u32 *
 
     return a;
 }
+
+/****i* januae-filesys-internal/make_lock
+ *
+ *   NAME
+ *       make_lock()
+ *
+ *   SYNOPSIS
+ *       static uaecptr make_lock (Unit *unit, uae_u32 uniq, long mode)
+ *
+ *   FUNCTION
+ *       Allocate a guest lock and link it to the volume's lock chain.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit that owns the guest lock pool and volume.
+ *       uniq -- Inode identifier stored in the new lock.
+ *       mode -- Lock mode written to the guest lock.
+ *
+ *   RESULT
+ *       Guest address of the newly initialized lock.
+ *
+ *   NOTES
+ *       Removes the first entry from the guest lock free list, fills its inode, mode, handler port and volume fields, and prepends it to the volume lock chain. The free list is assumed to contain an available entry; this function does not check for exhaustion.
+ *
+ ****************************************************************************/
 
 static uaecptr make_lock (Unit *unit, uae_u32 uniq, long mode)
 {
@@ -2654,6 +2748,29 @@ action_remove_notify (Unit *unit, dpacket packet)
     //write_log ("Tried to free non-existing NotifyRequest %08.8X\n", nr);
     PUT_PCK_RES1 (packet, DOS_TRUE);
 }
+
+/****i* januae-filesys-internal/free_lock
+ *
+ *   NAME
+ *       free_lock()
+ *
+ *   SYNOPSIS
+ *       static void free_lock (Unit *unit, uaecptr lock)
+ *
+ *   FUNCTION
+ *       Return a guest lock to the unit's lock free list.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the volume lock chain and free list.
+ *       lock -- Guest lock address; zero is ignored.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Unlinks the lock from the volume lock chain and pushes its backing slot onto unit->locklist. The non-head unlink path assumes the lock is present in the chain; no missing-lock check is performed.
+ *
+ ****************************************************************************/
 
 static void free_lock (Unit *unit, uaecptr lock)
 {
