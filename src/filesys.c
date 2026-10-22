@@ -4528,6 +4528,29 @@ static void action_set_comment (Unit * unit, dpacket packet)
     gui_hd_led (2);
 }
 
+/****i* januae-filesys-internal/action_same_lock
+ *
+ *   NAME
+ *       action_same_lock()
+ *
+ *   SYNOPSIS
+ *       static void action_same_lock (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Compare the inode identifiers held by two guest locks.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit used for lock diagnostics.
+ *       packet -- Guest packet containing the two lock values.
+ *
+ *   RESULT
+ *       None. The packet primary result is DOS_TRUE when both locks identify the same inode or when both locks are null.
+ *
+ *   NOTES
+ *       A null lock and a nonnull lock compare unequal. The function does not validate the addresses of nonnull guest locks and does not explicitly update the secondary packet result.
+ *
+ ****************************************************************************/
+
 static void
 action_same_lock (Unit *unit, dpacket packet)
 {
@@ -4543,6 +4566,29 @@ action_same_lock (Unit *unit, dpacket packet)
         PUT_PCK_RES1 (packet, get_long (lock1 + 4) == get_long (lock2 + 4) ? DOS_TRUE : DOS_FALSE);
     }
 }
+
+/****i* januae-filesys-internal/action_change_mode
+ *
+ *   NAME
+ *       action_change_mode()
+ *
+ *   SYNOPSIS
+ *       static void action_change_mode (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Change the recorded shared or exclusive access mode of a lock or file handle.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the inode and file-key state.
+ *       packet -- Guest packet specifying object kind, object reference, and requested mode.
+ *
+ *   RESULT
+ *       None. The packet primary result reports success or failure.
+ *
+ *   NOTES
+ *       Rejects null objects, unknown object kinds, absent file keys, or missing inodes. File-handle modes are translated into shared or exclusive inode modes. The conversion checks the shared-lock count before granting exclusive access, but does not perform a general compatibility check against all extant handles. On success it does not explicitly clear the packet secondary result.
+ *
+ ****************************************************************************/
 
 static void
 action_change_mode (Unit *unit, dpacket packet)
@@ -4613,6 +4659,30 @@ action_change_mode (Unit *unit, dpacket packet)
     }
 }
 
+/****i* januae-filesys-internal/action_parent_common
+ *
+ *   NAME
+ *       action_parent_common()
+ *
+ *   SYNOPSIS
+ *       static void action_parent_common (Unit *unit, dpacket packet, unsigned long uniq)
+ *
+ *   FUNCTION
+ *       Acquire a shared guest lock for the parent of an inode.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit owning the inode and lock records.
+ *       packet -- Guest packet receiving the resulting parent lock or error.
+ *       uniq -- Identifier of the inode whose parent is requested.
+ *
+ *   RESULT
+ *       None. The packet receives a parent lock, zero for a root object, or DOS_FALSE on error.
+ *
+ *   NOTES
+ *       Rejects unknown inode identifiers and parents with an exclusive lock. A successful parent lookup increments the parent shared-lock count and allocates a guest lock. The success path does not explicitly set the secondary packet result.
+ *
+ ****************************************************************************/
+
 static void
 action_parent_common (Unit *unit, dpacket packet, unsigned long uniq)
 {
@@ -4638,6 +4708,29 @@ action_parent_common (Unit *unit, dpacket packet, unsigned long uniq)
     PUT_PCK_RES1 (packet, make_lock (unit, olda->parent->uniq, -2) >> 2);
 }
 
+/****i* januae-filesys-internal/action_parent_fh
+ *
+ *   NAME
+ *       action_parent_fh()
+ *
+ *   SYNOPSIS
+ *       static void action_parent_fh (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Resolve an open file key and request a lock for its parent directory.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the file key.
+ *       packet -- Guest packet whose first argument is the file-key identifier.
+ *
+ *   RESULT
+ *       None. Results are stored in the packet.
+ *
+ *   NOTES
+ *       An absent file key reports ERROR_OBJECT_NOT_AROUND. For an existing key, delegates the parent lookup and lock creation to action_parent_common().
+ *
+ ****************************************************************************/
+
 static void
 action_parent_fh (Unit *unit, dpacket packet)
 {
@@ -4649,6 +4742,29 @@ action_parent_fh (Unit *unit, dpacket packet)
     }
     action_parent_common (unit, packet, k->aino->uniq);
 }
+
+/****i* januae-filesys-internal/action_parent
+ *
+ *   NAME
+ *       action_parent()
+ *
+ *   SYNOPSIS
+ *       static void action_parent (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Request the parent lock of a guest lock.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit owning the lock records.
+ *       packet -- Guest packet whose first argument is a guest lock.
+ *
+ *   RESULT
+ *       None. Results are stored in the packet.
+ *
+ *   NOTES
+ *       A null lock returns zero for both packet results. Otherwise reads the inode identifier from the guest lock and delegates to action_parent_common(). The input lock address is not independently validated.
+ *
+ ****************************************************************************/
 
 static void
 action_parent (Unit *unit, dpacket packet)
@@ -4665,6 +4781,29 @@ action_parent (Unit *unit, dpacket packet)
     }
     TRACE(("=%x %d\n", GET_PCK_RES1 (packet), GET_PCK_RES2 (packet)));
 }
+
+/****i* januae-filesys-internal/action_create_dir
+ *
+ *   NAME
+ *       action_create_dir()
+ *
+ *   SYNOPSIS
+ *       static void action_create_dir (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Create a directory on the host filesystem and return its guest lock.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit owning the destination path and inode records.
+ *       packet -- Guest packet specifying the base lock and directory name.
+ *
+ *   RESULT
+ *       None. The packet receives a new lock or an error result.
+ *
+ *   NOTES
+ *       Rejects read-only units, unresolved parent paths, and existing objects. Allocates an inode before invoking mkdir() with mode 0777. Reports ERROR_DISK_IS_FULL if inode creation fails and dos_errno() on mkdir() failure. The newly allocated inode is not explicitly removed when mkdir() fails. On success updates attributes, notifications, and parent time and returns a shared lock.
+ *
+ ****************************************************************************/
 
 static void
 action_create_dir (Unit *unit, dpacket packet)
