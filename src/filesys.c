@@ -73,6 +73,28 @@
 
 
 
+/****i* januae-filesys-internal/aino_test
+ *
+ *   NAME
+ *       aino_test()
+ *
+ *   SYNOPSIS
+ *       static void aino_test (a_inode *aino)
+ *
+ *   FUNCTION
+ *       Inspect inode recycling links when inode diagnostics are enabled.
+ *
+ *   INPUTS
+ *       aino -- Inode at which to begin checking the linked list.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       When AINO_DEBUG is not defined, this function does nothing. The diagnostic path reports an invalid checksum or broken backward link; it does not repair either condition.
+ *
+ ****************************************************************************/
+
 static void aino_test (a_inode *aino)
 {
 #ifdef AINO_DEBUG
@@ -93,6 +115,28 @@ static void aino_test (a_inode *aino)
     }
 #endif
 }
+
+/****i* januae-filesys-internal/aino_test_init
+ *
+ *   NAME
+ *       aino_test_init()
+ *
+ *   SYNOPSIS
+ *       static void aino_test_init (a_inode *aino)
+ *
+ *   FUNCTION
+ *       Initialize the diagnostic checksum fields of an inode.
+ *
+ *   INPUTS
+ *       aino -- Inode whose diagnostic fields are initialized.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       The fields are written only when AINO_DEBUG is defined; otherwise the function has no effect.
+ *
+ ****************************************************************************/
 
 static void aino_test_init (a_inode *aino)
 {
@@ -245,6 +289,37 @@ static void close_filesys_unit (UnitInfo *uip)
     uip->rootdir = 0;
 }
 
+/****i* januae-filesys-internal/get_filesys_unit
+ *
+ *   NAME
+ *       get_filesys_unit()
+ *
+ *   SYNOPSIS
+ *       const char *get_filesys_unit (struct uaedev_mount_info *mountinfo, int nr,
+ *       char **devname, char **volname, char **rootdir, int *readonly,
+ *       int *secspertrack, int *surfaces, int *reserved,
+ *       int *cylinders, uae_u64 *size, int *blocksize, int *bootpri,
+ *       char **filesysdir, int *flags)
+ *
+ *   FUNCTION
+ *       Copy the configuration of a selected mount unit into caller-provided output fields.
+ *
+ *   INPUTS
+ *       mountinfo -- Mount configuration to inspect.
+ *       nr -- Unit index.
+ *       devname, volname, rootdir -- Receivers for allocated strings or null pointers.
+ *       readonly, secspertrack, surfaces, reserved, cylinders, size, blocksize, bootpri -- Receivers for the stored unit properties.
+ *       filesysdir -- Optional receiver for the allocated filesystem directory string.
+ *       flags -- Optional receiver, set to zero.
+ *
+ *   RESULT
+ *       Null on success; an error string when the index is greater than or equal to the number of units.
+ *
+ *   NOTES
+ *       The caller owns the duplicated strings. Negative unit indices are not rejected. There are no corresponding output writes on the reported index-error path.
+ *
+ ****************************************************************************/
+
 const char *get_filesys_unit (struct uaedev_mount_info *mountinfo, int nr,
                               char **devname, char **volname, char **rootdir, int *readonly,
                               int *secspertrack, int *surfaces, int *reserved,
@@ -278,6 +353,38 @@ const char *get_filesys_unit (struct uaedev_mount_info *mountinfo, int nr,
         *filesysdir = uip->filesysdir ? my_strdup (uip->filesysdir) : 0;
     return 0;
 }
+
+/****i* januae-filesys-internal/set_filesys_unit_1
+ *
+ *   NAME
+ *       set_filesys_unit_1()
+ *
+ *   SYNOPSIS
+ *       static const char *set_filesys_unit_1 (struct uaedev_mount_info *mountinfo, int nr,
+ *       const char *devname, const char *volname, const char *rootdir,
+ *       int readonly, int secspertrack, int surfaces, int reserved,
+ *       int blocksize, int bootpri, const char *filesysdir, int flags)
+ *
+ *   FUNCTION
+ *       Configure an allocated mount slot for a host directory or hardfile.
+ *
+ *   INPUTS
+ *       mountinfo -- Mount configuration to modify.
+ *       nr -- Existing unit index.
+ *       devname, volname, rootdir -- Device, volume, and host path names.
+ *       readonly -- Requested read-only mode.
+ *       secspertrack, surfaces, reserved, blocksize -- Hardfile geometry.
+ *       bootpri -- Boot priority.
+ *       filesysdir -- Optional filesystem directory.
+ *       flags -- Configuration flags.
+ *
+ *   RESULT
+ *       Null on success; a literal or static error string when validation or opening fails.
+ *
+ *   NOTES
+ *       A null volume name selects hardfile handling. A failed writable hardfile open may be retried read-only. The boot priority is limited to -128 through 127. On failure, the function may already have changed the selected slot; the caller must handle rollback.
+ *
+ ****************************************************************************/
 
 static const char *set_filesys_unit_1 (struct uaedev_mount_info *mountinfo, int nr,
                                        const char *devname, const char *volname, const char *rootdir,
@@ -385,6 +492,38 @@ static const char *set_filesys_unit_1 (struct uaedev_mount_info *mountinfo, int 
     return 0;
 }
 
+/****i* januae-filesys-internal/set_filesys_unit
+ *
+ *   NAME
+ *       set_filesys_unit()
+ *
+ *   SYNOPSIS
+ *       const char *set_filesys_unit (struct uaedev_mount_info *mountinfo, int nr,
+ *       const char *devname, const char *volname, const char *rootdir,
+ *       int readonly, int secspertrack, int surfaces, int reserved,
+ *       int blocksize, int bootpri, const char *filesysdir, int flags)
+ *
+ *   FUNCTION
+ *       Replace a mount unit configuration while retaining the previous slot contents on an error.
+ *
+ *   INPUTS
+ *       mountinfo -- Mount configuration to modify.
+ *       nr -- Index of the unit to replace.
+ *       devname, volname, rootdir -- Device, volume, and host path names.
+ *       readonly -- Requested read-only mode.
+ *       secspertrack, surfaces, reserved, blocksize -- Hardfile geometry.
+ *       bootpri -- Boot priority.
+ *       filesysdir -- Optional filesystem directory.
+ *       flags -- Configuration flags.
+ *
+ *   RESULT
+ *       Null on success; an error string returned by set_filesys_unit_1() otherwise.
+ *
+ *   NOTES
+ *       The previous hardfile handle is closed before the replacement attempt. On failure the saved unit structure is restored; restoration does not reopen that handle. This function does not validate nr before indexing the unit array.
+ *
+ ****************************************************************************/
+
 const char *set_filesys_unit (struct uaedev_mount_info *mountinfo, int nr,
                               const char *devname, const char *volname, const char *rootdir,
                               int readonly, int secspertrack, int surfaces, int reserved,
@@ -403,6 +542,37 @@ const char *set_filesys_unit (struct uaedev_mount_info *mountinfo, int nr,
 
     return result;
 }
+
+/****i* januae-filesys-internal/add_filesys_unit
+ *
+ *   NAME
+ *       add_filesys_unit()
+ *
+ *   SYNOPSIS
+ *       const char *add_filesys_unit (struct uaedev_mount_info *mountinfo,
+ *       const char *devname, const char *volname, const char *rootdir,
+ *       int readonly, int secspertrack, int surfaces, int reserved,
+ *       int blocksize, int bootpri, const char *filesysdir, int flags)
+ *
+ *   FUNCTION
+ *       Append a directory or hardfile configuration to the mount-unit table.
+ *
+ *   INPUTS
+ *       mountinfo -- Mount configuration to extend.
+ *       devname, volname, rootdir -- Device, volume, and host path names.
+ *       readonly -- Requested read-only mode.
+ *       secspertrack, surfaces, reserved, blocksize -- Hardfile geometry.
+ *       bootpri -- Boot priority.
+ *       filesysdir -- Optional filesystem directory.
+ *       flags -- Configuration flags.
+ *
+ *   RESULT
+ *       Null on success; an error string if the table is full or unit configuration fails.
+ *
+ *   NOTES
+ *       The unit count is incremented before configuration and decremented if configuration fails. The function does not otherwise discard partial slot changes on failure.
+ *
+ ****************************************************************************/
 
 const char *add_filesys_unit (struct uaedev_mount_info *mountinfo,
                               const char *devname, const char *volname, const char *rootdir,
@@ -676,6 +846,28 @@ void free_mountinfo (struct uaedev_mount_info *mip)
         close_filesys_unit (mip->ui + i);
     mip->num_units = 0;
 }
+
+/****i* januae-filesys-internal/get_hardfile_data
+ *
+ *   NAME
+ *       get_hardfile_data()
+ *
+ *   SYNOPSIS
+ *       struct hardfiledata *get_hardfile_data (int nr)
+ *
+ *   FUNCTION
+ *       Return the hardfile descriptor associated with a configured mount unit.
+ *
+ *   INPUTS
+ *       nr -- Index in current_mountinfo.
+ *
+ *   RESULT
+ *       Pointer to the stored hardfiledata structure, or null for an out-of-range index or a directory-backed unit.
+ *
+ *   NOTES
+ *       The returned pointer is borrowed from current_mountinfo and is invalidated if the owning mount configuration changes or is released.
+ *
+ ****************************************************************************/
 
 struct hardfiledata *get_hardfile_data (int nr)
 {
@@ -1024,6 +1216,28 @@ find_unit (uaecptr port)
 
     return u;
 }
+
+/****i* januae-filesys-internal/prepare_for_open
+ *
+ *   NAME
+ *       prepare_for_open()
+ *
+ *   SYNOPSIS
+ *       static void prepare_for_open (char *name)
+ *
+ *   FUNCTION
+ *       Accept a host path at the file-opening hook.
+ *
+ *   INPUTS
+ *       name -- Path supplied by the caller.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       The current implementation is empty and does not inspect or modify name.
+ *
+ ****************************************************************************/
 
 static void prepare_for_open (char *name)
 {
@@ -2385,6 +2599,29 @@ static Key *new_key (Unit *unit)
     return k;
 }
 
+/****i* januae-filesys-internal/dumplock
+ *
+ *   NAME
+ *       dumplock()
+ *
+ *   SYNOPSIS
+ *       static void dumplock (Unit *unit, uaecptr lock)
+ *
+ *   FUNCTION
+ *       Trace a guest lock and its associated inode name.
+ *
+ *   INPUTS
+ *       unit -- Unit used to resolve the inode.
+ *       lock -- Guest lock address, or zero.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Trace output depends on TRACE configuration. A zero lock is reported without dereferencing it; an unknown inode is traced as not found.
+ *
+ ****************************************************************************/
+
 static void dumplock (Unit *unit, uaecptr lock) {
   a_inode *a;
 
@@ -2540,6 +2777,29 @@ static uae_u32 notifyhash (char *s)
     while (*s) hash = (hash << 5) + *s++;
     return hash % NOTIFY_HASH_SIZE;
 }
+
+/****i* januae-filesys-internal/new_notify
+ *
+ *   NAME
+ *       new_notify()
+ *
+ *   SYNOPSIS
+ *       static Notify *new_notify (Unit *unit, char *name)
+ *
+ *   FUNCTION
+ *       Allocate a notification record and link it into the unit hash table.
+ *
+ *   INPUTS
+ *       unit -- Unit that owns the notification table.
+ *       name -- Path string stored in the notification record.
+ *
+ *   RESULT
+ *       Pointer to the newly allocated notification record.
+ *
+ *   NOTES
+ *       The record takes the name pointer without duplicating it. The caller must ensure that the name remains allocated for the lifetime expected by free_notify().
+ *
+ ****************************************************************************/
 
 static Notify *new_notify (Unit *unit, char *name)
 {
@@ -3612,6 +3872,31 @@ static void populate_directory (Unit *unit, a_inode *base) {
 #endif
 
 
+
+/****i* januae-filesys-internal/do_examine
+ *
+ *   NAME
+ *       do_examine()
+ *
+ *   SYNOPSIS
+ *       static void do_examine (Unit *unit, dpacket packet, ExamineKey *ek, uaecptr info)
+ *
+ *   FUNCTION
+ *       Return the current directory entry and advance an examination cursor.
+ *
+ *   INPUTS
+ *       unit -- Unit containing the examination key.
+ *       packet -- Guest packet receiving the examination result.
+ *       ek -- Examination cursor.
+ *       info -- Guest FileInfoBlock address.
+ *
+ *   RESULT
+ *       None. On end of enumeration, the packet reports DOS_FALSE and ERROR_NO_MORE_ENTRIES.
+ *
+ *   NOTES
+ *       For an available entry, get_fileinfo() writes its information and the cursor advances to the next sibling. At end of enumeration, the examination key is released.
+ *
+ ****************************************************************************/
 
 static void do_examine (Unit *unit, dpacket packet, ExamineKey *ek, uaecptr info)
 {
