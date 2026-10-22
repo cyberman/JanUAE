@@ -3689,6 +3689,32 @@ static void action_examine_next (Unit *unit, dpacket packet)
     PUT_PCK_RES2 (packet, ERROR_NO_MORE_ENTRIES);
 }
 
+/****i* januae-filesys-internal/do_find
+ *
+ *   NAME
+ *       do_find()
+ *
+ *   SYNOPSIS
+ *       static void do_find (Unit *unit, dpacket packet, int mode, int create, int fallback)
+ *
+ *   FUNCTION
+ *       Open a host file for a guest filesystem handle.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the inode and key tables.
+ *       packet -- Guest packet containing the filehandle, base lock, and pathname.
+ *       mode -- Requested Amiga file protection/access flags.
+ *       create -- Zero to open an existing object, one to allow creation, or two to create and truncate.
+ *       fallback -- Allow a read-only fallback when requested write access is unavailable.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Resolves the pathname, rejects directories and conflicting locks, and checks applicable protection and read-only restrictions. Creates an inode when permitted and missing, opens the host file, and registers a file key. On success stores its key identifier in the guest filehandle at offset 36 and sets DOS_TRUE. On failure writes DOS_FALSE and the applicable error to the packet; a newly created inode is discarded if the host open fails.
+ *
+ ****************************************************************************/
+
 static void do_find (Unit *unit, dpacket packet, int mode, int create, int fallback)
 {
     uaecptr fh = GET_PCK_ARG1 (packet) << 2;
@@ -3818,6 +3844,29 @@ static void do_find (Unit *unit, dpacket packet, int mode, int create, int fallb
     PUT_PCK_RES1 (packet, DOS_TRUE);
 }
 
+/****i* januae-filesys-internal/action_lock_from_fh
+ *
+ *   NAME
+ *       action_lock_from_fh()
+ *
+ *   SYNOPSIS
+ *       static void action_lock_from_fh (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Request a filesystem lock from an existing guest filehandle.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the open file keys.
+ *       packet -- Guest packet identifying the file key.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Looks up the file key and reports DOS_FALSE if it is absent. Otherwise constructs a lock for the associated inode and passes it to action_dup_lock_2(), which supplies the packet result. The intermediate lock is not explicitly released here.
+ *
+ ****************************************************************************/
+
 static void
 action_lock_from_fh (Unit *unit, dpacket packet)
 {
@@ -3833,6 +3882,29 @@ action_lock_from_fh (Unit *unit, dpacket packet)
     lock = action_dup_lock_2 (unit, packet, make_lock (unit, k->aino->uniq, -2));
     TRACE (("=%08x\n", lock));
 }
+
+/****i* januae-filesys-internal/action_fh_from_lock
+ *
+ *   NAME
+ *       action_fh_from_lock()
+ *
+ *   SYNOPSIS
+ *       static void action_fh_from_lock (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Open a guest filehandle for a filesystem object identified by a lock.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the lock and inode tables.
+ *       packet -- Guest packet carrying the destination filehandle and source lock.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       A zero lock produces DOS_FALSE and a zero secondary result. An unresolved inode identifier selects the root inode. Opens the host path using the inode protection flags, or read-only access for a read-only unit. A successful open registers a file key in the guest filehandle and reports DOS_TRUE; open failures report the host-mapped DOS error. This routine does not adjust shared-lock counts or free the supplied lock.
+ *
+ ****************************************************************************/
 
 static void
 action_fh_from_lock (Unit *unit, dpacket packet)
@@ -3895,11 +3967,57 @@ action_fh_from_lock (Unit *unit, dpacket packet)
     /* PUT_PCK_RES2 (packet, k->uniq); - this shouldn't be necessary, try without it */
 }
 
+/****i* januae-filesys-internal/action_find_input
+ *
+ *   NAME
+ *       action_find_input()
+ *
+ *   SYNOPSIS
+ *       static void action_find_input (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Open an existing file for guest input.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the file.
+ *       packet -- Guest packet containing the filehandle, base lock, and pathname.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Delegates to do_find() with read/write mode flags, no file creation, and read-only fallback enabled. The helper writes the packet results.
+ *
+ ****************************************************************************/
+
 static void
 action_find_input (Unit *unit, dpacket packet)
 {
     do_find(unit, packet, A_FIBF_READ|A_FIBF_WRITE, 0, 1);
 }
+
+/****i* januae-filesys-internal/action_find_output
+ *
+ *   NAME
+ *       action_find_output()
+ *
+ *   SYNOPSIS
+ *       static void action_find_output (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Create or truncate a file for guest output.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the file.
+ *       packet -- Guest packet containing the filehandle, base lock, and pathname.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Rejects read-only units with DOS_FALSE and ERROR_DISK_WRITE_PROTECTED. Otherwise delegates to do_find() with create-and-truncate mode and no read-only fallback.
+ *
+ ****************************************************************************/
 
 static void
 action_find_output (Unit *unit, dpacket packet)
@@ -3911,6 +4029,29 @@ action_find_output (Unit *unit, dpacket packet)
     }
     do_find(unit, packet, A_FIBF_READ|A_FIBF_WRITE, 2, 0);
 }
+
+/****i* januae-filesys-internal/action_find_write
+ *
+ *   NAME
+ *       action_find_write()
+ *
+ *   SYNOPSIS
+ *       static void action_find_write (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Open or create a file for guest writing.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the file.
+ *       packet -- Guest packet containing the filehandle, base lock, and pathname.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Rejects read-only units with DOS_FALSE and ERROR_DISK_WRITE_PROTECTED. Otherwise delegates to do_find() with creation enabled but without truncation or read-only fallback.
+ *
+ ****************************************************************************/
 
 static void
 action_find_write (Unit *unit, dpacket packet)
