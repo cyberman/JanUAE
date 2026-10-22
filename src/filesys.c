@@ -1977,6 +1977,29 @@ action_info (Unit *unit, dpacket packet)
     do_info(unit, packet, GET_PCK_ARG2 (packet) << 2);
 }
 
+/****i* januae-filesys-internal/free_key
+ *
+ *   NAME
+ *       free_key()
+ *
+ *   SYNOPSIS
+ *       static void free_key (Unit *unit, Key *k)
+ *
+ *   FUNCTION
+ *       Release an open-file key and its host descriptor.
+ *
+ *   INPUTS
+ *       unit -- Unit whose open-key list is searched.
+ *       k -- Key to remove and release.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Unlinks the key if present in the unit list. Closes its host descriptor when nonnegative, then frees the key even if it was not found in the list.
+ *
+ ****************************************************************************/
+
 static void free_key (Unit *unit, Key *k)
 {
     Key *k1;
@@ -2104,6 +2127,28 @@ static uaecptr make_lock (Unit *unit, uae_u32 uniq, long mode)
     return lock;
 }
 
+/****i* januae-filesys-internal/notifyhash
+ *
+ *   NAME
+ *       notifyhash()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 notifyhash (char *s)
+ *
+ *   FUNCTION
+ *       Compute the notification table bucket for a name.
+ *
+ *   INPUTS
+ *       s -- NUL-terminated name to hash.
+ *
+ *   RESULT
+ *       Bucket index from zero to NOTIFY_HASH_SIZE - 1.
+ *
+ *   NOTES
+ *       Accumulates each character with a five-bit shift before taking the table modulus. The caller supplies a valid string.
+ *
+ ****************************************************************************/
+
 static uae_u32 notifyhash (char *s)
 {
     uae_u32 hash = 0;
@@ -2120,6 +2165,30 @@ static Notify *new_notify (Unit *unit, char *name)
     n->partname = name;
     return n;
 }
+
+/****i* januae-filesys-internal/free_notify
+ *
+ *   NAME
+ *       free_notify()
+ *
+ *   SYNOPSIS
+ *       static void free_notify (Unit *unit, int hash, Notify *n)
+ *
+ *   FUNCTION
+ *       Unlink and release a notification record.
+ *
+ *   INPUTS
+ *       unit -- Unit containing the notification table.
+ *       hash -- Notification table bucket to search.
+ *       n -- Notification record to release.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Searches the selected bucket and unlinks the matching record when present. Frees the supplied record regardless of whether it was found. The caller remains responsible for its separately allocated name fields.
+ *
+ ****************************************************************************/
 
 static void free_notify (Unit *unit, int hash, Notify *n)
 {
@@ -2148,6 +2217,29 @@ static void free_notify (Unit *unit, int hash, Notify *n)
 # define NRF_MAGIC (1 << 31)
 #endif
 
+/****i* januae-filesys-internal/notify_send
+ *
+ *   NAME
+ *       notify_send()
+ *
+ *   SYNOPSIS
+ *       static void notify_send (Unit *unit, Notify *n)
+ *
+ *   FUNCTION
+ *       Dispatch a filesystem change notification to the guest.
+ *
+ *   INPUTS
+ *       unit -- Unit whose message port is used for notification.
+ *       n -- Notification record containing the guest request address.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Reads the guest request flags. Message notifications use uae_NotificationHack or mark a reply-pending request; signal notifications use uae_Signal. Message delivery takes precedence when both flag types are set.
+ *
+ ****************************************************************************/
+
 static void notify_send (Unit *unit, Notify *n)
 {
     uaecptr nr = n->notifyrequest;
@@ -2163,6 +2255,29 @@ static void notify_send (Unit *unit, Notify *n)
         uae_Signal (get_long (nr + 16), 1 << get_byte (nr + 20));
     }
 }
+
+/****i* januae-filesys-internal/notify_check
+ *
+ *   NAME
+ *       notify_check()
+ *
+ *   SYNOPSIS
+ *       static void notify_check (Unit *unit, a_inode *a)
+ *
+ *   FUNCTION
+ *       Check notification registrations for an inode and its parent.
+ *
+ *   INPUTS
+ *       unit -- Unit containing registered notifications.
+ *       a -- Inode whose name is checked.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Checks matching name buckets and resolves full paths before dispatch. A registration is notified only when its resolved inode is identical to the changed inode or its parent.
+ *
+ ****************************************************************************/
 
 static void notify_check (Unit *unit, a_inode *a)
 {
@@ -2481,6 +2596,29 @@ put_time (long days, long mins, long ticks)
     return t;
 }
 #endif
+
+/****i* januae-filesys-internal/free_exkey
+ *
+ *   NAME
+ *       free_exkey()
+ *
+ *   SYNOPSIS
+ *       static void free_exkey (Unit *unit, ExamineKey *ek)
+ *
+ *   FUNCTION
+ *       Release an examine cursor reference to its inode.
+ *
+ *   INPUTS
+ *       unit -- Unit tracking locked inode counts.
+ *       ek -- Examine cursor to clear.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Decrements the inode examination count. When it reaches zero, subtracts the inode locked-child count from the unit total and clears that count. Sets the cursor inode and identifier to zero.
+ *
+ ****************************************************************************/
 
 static void free_exkey (Unit *unit, ExamineKey *ek)
 {
