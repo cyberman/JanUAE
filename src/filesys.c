@@ -4855,6 +4855,29 @@ action_create_dir (Unit *unit, dpacket packet)
     gui_hd_led (2);
 }
 
+/****i* januae-filesys-internal/action_examine_fh
+ *
+ *   NAME
+ *       action_examine_fh()
+ *
+ *   SYNOPSIS
+ *       static void action_examine_fh (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Fill a guest FileInfoBlock from the inode associated with a file key.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the file keys and root inode.
+ *       *       packet -- Guest packet with the file-key identifier in argument 1 and the FileInfoBlock BPTR in argument 2.
+ *
+ *   RESULT
+ *       None. get_fileinfo() writes the packet result and the guest information buffer.
+ *
+ *   NOTES
+ *       An unknown file key selects the root inode. The FileInfoBlock disk-key field is then set to 0xFFFFFFFF for directories and zero for other objects.
+ *
+ ****************************************************************************/
+
 static void
 action_examine_fh (Unit *unit, dpacket packet)
 {
@@ -4882,6 +4905,29 @@ action_examine_fh (Unit *unit, dpacket packet)
  * Autodoc for DOS:SetFileSize and the Packets.txt description of this packet...
  * This implementation tries to mimic the behaviour of the Kick 3.1 ramdisk
  * (which seems to match the Autodoc description). */
+/****i* januae-filesys-internal/action_set_file_size
+ *
+ *   NAME
+ *       action_set_file_size()
+ *
+ *   SYNOPSIS
+ *       static void action_set_file_size (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Resize an open host file using the guest file-size packet.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the open file keys.
+ *       *       packet -- Guest packet with a file-key identifier, signed offset, and seek mode.
+ *
+ *   RESULT
+ *       None. The packet primary result receives the computed offset on the successful truncate path, or DOS_FALSE on a truncate failure.
+ *
+ *   NOTES
+ *       Positive, negative, and zero modes select SEEK_END, SEEK_SET, and SEEK_CUR. The implementation raises the requested offset to accommodate other open file positions before seeking, writing one byte, and truncating. A missing file key sets DOS_TRUE with ERROR_OBJECT_NOT_AROUND; seek and write results are not checked.
+ *
+ ****************************************************************************/
+
 static void
 action_set_file_size (Unit *unit, dpacket packet)
 {
@@ -4934,6 +4980,29 @@ action_set_file_size (Unit *unit, dpacket packet)
     PUT_PCK_RES2 (packet, 0);
 }
 
+/****i* januae-filesys-internal/relock_do
+ *
+ *   NAME
+ *       relock_do()
+ *
+ *   SYNOPSIS
+ *       static int relock_do (Unit *unit, a_inode *a1)
+ *
+ *   FUNCTION
+ *       Close open host descriptors associated with an inode before retrying a rename.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the file keys.
+ *       *       a1 -- Inode whose open descriptors are selected.
+ *
+ *   RESULT
+ *       Number of selected keys whose descriptors were passed to close().
+ *
+ *   NOTES
+ *       The descriptors remain recorded in the keys until relock_re() processes them. The return value of close() is not checked.
+ *
+ ****************************************************************************/
+
 static int relock_do(Unit *unit, a_inode *a1)
 {
     Key *k1, *knext;
@@ -4949,6 +5018,31 @@ static int relock_do(Unit *unit, a_inode *a1)
     }
     return wehavekeys;
 }
+
+/****i* januae-filesys-internal/relock_re
+ *
+ *   NAME
+ *       relock_re()
+ *
+ *   SYNOPSIS
+ *       static void relock_re (Unit *unit, a_inode *a1, a_inode *a2, int failed)
+ *
+ *   FUNCTION
+ *       Reopen file descriptors closed during a rename retry.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the file keys.
+ *       *       a1 -- Inode matched by the original file keys.
+ *       *       a2 -- Destination inode when the rename succeeded.
+ *       *       failed -- Nonzero when the rename failed and the old filename is to be reopened.
+ *
+ *   RESULT
+ *       None. Matching file keys may receive reopened descriptors, be reassigned to a2, or be freed.
+ *
+ *   NOTES
+ *       The open mode is derived from each key's DOS access flags. Failed opens cause free_key() to be called; successful opens seek to the recorded file position without checking that seek result. A successful rename with no destination inode does not reopen its matching descriptors.
+ *
+ ****************************************************************************/
 
 static void relock_re(Unit *unit, a_inode *a1, a_inode *a2, int failed)
 {
@@ -4982,6 +5076,29 @@ static void relock_re(Unit *unit, a_inode *a1, a_inode *a2, int failed)
         }
     }
 }
+
+/****i* januae-filesys-internal/action_delete_object
+ *
+ *   NAME
+ *       action_delete_object()
+ *
+ *   SYNOPSIS
+ *       static void action_delete_object (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Remove a guest filesystem object from the host filesystem.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing mount and inode state.
+ *       *       packet -- Guest packet with a parent lock and object name.
+ *
+ *   RESULT
+ *       None. The packet primary result is DOS_TRUE after removal, or DOS_FALSE on the checked failure paths.
+ *
+ *   NOTES
+ *       Rejects write-protected units, unresolved objects, delete-protected objects, and objects with active inode locks. Directories are removed with rmdir() after metadata writeback; other objects use unlink(). On success the inode is deleted or marked deleted if children remain, notifications are checked, and the parent time is updated.
+ *
+ ****************************************************************************/
 
 static void
 action_delete_object (Unit *unit, dpacket packet)
@@ -5043,6 +5160,29 @@ action_delete_object (Unit *unit, dpacket packet)
     gui_hd_led (2);
 }
 
+/****i* januae-filesys-internal/action_set_date
+ *
+ *   NAME
+ *       action_set_date()
+ *
+ *   SYNOPSIS
+ *       static void action_set_date (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Set the date of a named guest filesystem object.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing mount and inode state.
+ *       *       packet -- Guest packet containing the parent lock, object name, and guest date pointer.
+ *
+ *   RESULT
+ *       None. The packet primary result is DOS_TRUE on success or DOS_FALSE when a checked operation fails.
+ *
+ *   NOTES
+ *       Rejects read-only units. TARGET_AMIGAOS with WORDS_BIGENDIAN uses SetFileDate(); other builds convert the guest timestamp and call utime(). Notification checking and activity indication run after the date operation, including its failure path.
+ *
+ ****************************************************************************/
+
 static void
 action_set_date (Unit *unit, dpacket packet)
 {
@@ -5079,6 +5219,29 @@ action_set_date (Unit *unit, dpacket packet)
     notify_check (unit, a);
     gui_hd_led (2);
 }
+
+/****i* januae-filesys-internal/action_rename_object
+ *
+ *   NAME
+ *       action_rename_object()
+ *
+ *   SYNOPSIS
+ *       static void action_rename_object (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Rename or move a guest filesystem object and update its inode references.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit holding the source and destination directories.
+ *       *       packet -- Guest packet containing source lock/name and destination lock/name.
+ *
+ *   RESULT
+ *       None. The packet primary result is DOS_TRUE after a successful rename or an exact-name no-op, or DOS_FALSE on checked failure paths.
+ *
+ *   NOTES
+ *       Rejects read-only units and source files opened in creation mode 2. A failed host rename triggers a retry after relock_do(), followed by relock_re(). On success the function transfers inode metadata and child, key, and examine references to the new inode and updates notifications and parent time. Reopen and seek failures are not propagated as a separate packet result.
+ *
+ ****************************************************************************/
 
 static void
 action_rename_object (Unit *unit, dpacket packet)
