@@ -3040,6 +3040,29 @@ static void free_exkey (Unit *unit, ExamineKey *ek)
     ek->uniq = 0;
 }
 
+/****i* januae-filesys-internal/lookup_exkey
+ *
+ *   NAME
+ *       lookup_exkey()
+ *
+ *   SYNOPSIS
+ *       static ExamineKey *lookup_exkey (Unit *unit, uae_u32 uniq)
+ *
+ *   FUNCTION
+ *       Find a directory examination key by its identifier.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the examination-key array.
+ *       uniq -- Examination-key identifier to find.
+ *
+ *   RESULT
+ *       The matching examination key, or NULL if none matches.
+ *
+ *   NOTES
+ *       Searches all EXKEYS slots by identifier, including slots that may have no current inode. Writes a diagnostic if no identifier matches.
+ *
+ ****************************************************************************/
+
 static ExamineKey *lookup_exkey (Unit *unit, uae_u32 uniq)
 {
     ExamineKey *ek;
@@ -3057,6 +3080,29 @@ static ExamineKey *lookup_exkey (Unit *unit, uae_u32 uniq)
 
 /* This is so sick... who invented ACTION_EXAMINE_NEXT? What did he THINK??? */
 /* o1i: always the same (unit,aino) for one directoy */
+/****i* januae-filesys-internal/new_exkey
+ *
+ *   NAME
+ *       new_exkey()
+ *
+ *   SYNOPSIS
+ *       static ExamineKey *new_exkey (Unit *unit, a_inode *aino)
+ *
+ *   FUNCTION
+ *       Allocate a directory examination key for an inode.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit owning the examination keys.
+ *       aino -- Inode to associate with the key.
+ *
+ *   RESULT
+ *       The initialized examination-key slot.
+ *
+ *   NOTES
+ *       Uses an unused slot if one is available. Otherwise releases the key with the smallest identifier before reusing its slot. Assigns the unit sequence number, wrapping it to 1 near its upper limit, and resets the current-file cursor. Does not increment the inode examination count here.
+ *
+ ****************************************************************************/
+
 static ExamineKey *new_exkey (Unit *unit, a_inode *aino)
 {
     uae_u32 uniq;
@@ -3100,6 +3146,30 @@ static ExamineKey *new_exkey (Unit *unit, a_inode *aino)
     return ek;
 }
 
+/****i* januae-filesys-internal/move_exkeys
+ *
+ *   NAME
+ *       move_exkeys()
+ *
+ *   SYNOPSIS
+ *       static void move_exkeys (Unit *unit, a_inode *from, a_inode *to)
+ *
+ *   FUNCTION
+ *       Transfer examination-key references and bookkeeping to another inode.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit whose examination keys are scanned.
+ *       from -- Inode whose examination references are transferred.
+ *       to -- Inode receiving those references.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Repoints every occupied examination-key slot that refers to from. Copies examination and locked-child counts to to, clears both counts in from, and logs a discrepancy if the number of reassigned slots differs from the recorded examination count.
+ *
+ ****************************************************************************/
+
 static void move_exkeys (Unit *unit, a_inode *from, a_inode *to)
 {
     int i;
@@ -3120,6 +3190,31 @@ static void move_exkeys (Unit *unit, a_inode *from, a_inode *to)
     from->exnext_count = 0;
     from->locked_children = 0;
 }
+
+/****i* januae-filesys-internal/get_fileinfo
+ *
+ *   NAME
+ *       get_fileinfo()
+ *
+ *   SYNOPSIS
+ *       static void get_fileinfo (Unit *unit, dpacket packet, uaecptr info, a_inode *aino)
+ *
+ *   FUNCTION
+ *       Write an inode's information into a guest FileInfoBlock.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit providing the volume name.
+ *       packet -- Filesystem packet whose result field is updated.
+ *       info -- Guest address of the FileInfoBlock.
+ *       aino -- Inode whose details are written.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Writes the entry type, name, protection flags, host file size, block count, timestamps, and comment into guest memory. Names are limited to 106 characters and comments to 78. The host metadata paths do not validate all acquisition failures before using the result. Sets the packet primary result to DOS_TRUE.
+ *
+ ****************************************************************************/
 
 static void
 get_fileinfo (Unit *unit, dpacket packet, uaecptr info, a_inode *aino)
@@ -3215,6 +3310,29 @@ get_fileinfo (Unit *unit, dpacket packet, uaecptr info, a_inode *aino)
     }
     PUT_PCK_RES1 (packet, DOS_TRUE);
 }
+
+/****i* januae-filesys-internal/action_examine_object
+ *
+ *   NAME
+ *       action_examine_object()
+ *
+ *   SYNOPSIS
+ *       static void action_examine_object (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Handle examination of a filesystem object.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the inode table and root inode.
+ *       packet -- Guest filesystem packet containing the lock and information-buffer addresses.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Resolves the inode associated with the supplied lock, falling back to the root inode for a zero or unresolved lock. Writes its file information, then sets the disk-key field to 0xFFFFFFFF for directories or zero for other objects.
+ *
+ ****************************************************************************/
 
 static void action_examine_object (Unit *unit, dpacket packet)
 {
