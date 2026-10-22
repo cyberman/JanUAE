@@ -1812,6 +1812,31 @@ static a_inode *create_child_aino (Unit *unit, a_inode *base, char *rel, int isd
     return aino;
 }
 
+/****i* januae-filesys-internal/lookup_child_aino
+ *
+ *   NAME
+ *       lookup_child_aino()
+ *
+ *   SYNOPSIS
+ *       static a_inode *lookup_child_aino (Unit *unit, a_inode *base, char *rel, uae_u32 *err)
+ *
+ *   FUNCTION
+ *       Resolve a guest-named child from the inode cache or native filesystem.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the inode cache.
+ *       base -- Parent inode to search.
+ *       rel -- Guest entry name.
+ *       err -- Receives an error code when resolution fails.
+ *
+ *   RESULT
+ *       The matching child inode, or NULL when the parent is not a directory or the child cannot be resolved.
+ *
+ *   NOTES
+ *       Checks that the parent is a directory. Matches cached names case-insensitively using same_aname(), then calls new_child_aino() if no cached child matches. Sets ERROR_OBJECT_WRONG_TYPE or ERROR_OBJECT_NOT_AROUND on the corresponding failure; it does not clear *err on success.
+ *
+ ****************************************************************************/
+
 static a_inode *lookup_child_aino (Unit *unit, a_inode *base, char *rel, uae_u32 *err)
 {
     a_inode *c = base->child;
@@ -1841,6 +1866,31 @@ static a_inode *lookup_child_aino (Unit *unit, a_inode *base, char *rel, uae_u32
 }
 
 /* Different version because for this one, REL is an nname.  */
+/****i* januae-filesys-internal/lookup_child_aino_for_exnext
+ *
+ *   NAME
+ *       lookup_child_aino_for_exnext()
+ *
+ *   SYNOPSIS
+ *       static a_inode *lookup_child_aino_for_exnext (Unit *unit, a_inode *base, char *rel, uae_u32 *err)
+ *
+ *   FUNCTION
+ *       Resolve a directory-enumeration entry by its native name.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the inode cache.
+ *       base -- Parent directory inode.
+ *       rel -- Native entry name returned during directory enumeration.
+ *       err -- Receives zero initially or an allocation/attribute error on failure.
+ *
+ *   RESULT
+ *       The matching or newly initialized inode, or NULL on allocation or attribute-loading failure.
+ *
+ *   NOTES
+ *       Searches cached native path suffixes with strcmp(), then consults fsdb_lookup_aino_nname(). If no inode exists, allocates one, builds its names, and reads native attributes. Newly resolved entries are linked under the parent and entered into the recycle cache. The attribute failure path releases the inode structure but not its allocated names.
+ *
+ ****************************************************************************/
+
 static a_inode *lookup_child_aino_for_exnext (Unit *unit, a_inode *base, char *rel, uae_u32 *err)
 {
     a_inode *c = base->child;
@@ -1902,6 +1952,31 @@ static a_inode *lookup_child_aino_for_exnext (Unit *unit, a_inode *base, char *r
     return c;
 }
 
+/****i* januae-filesys-internal/get_aino
+ *
+ *   NAME
+ *       get_aino()
+ *
+ *   SYNOPSIS
+ *       static a_inode *get_aino (Unit *unit, a_inode *base, const char *rel, uae_u32 *err)
+ *
+ *   FUNCTION
+ *       Resolve a guest path starting from an inode.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit used for child lookup.
+ *       base -- Starting inode.
+ *       rel -- Guest path containing optional volume prefix and slash-separated components.
+ *       err -- Receives the result of child lookup or a type error.
+ *
+ *   RESULT
+ *       The resolved inode, NULL on an unresolved intermediate component or other lookup failure, or the parent inode when only the final component is absent.
+ *
+ *   NOTES
+ *       Discards a prefix ending with colon before traversal. A leading slash in a component moves to the parent when one exists. Copies the input path for destructive component splitting, then frees the copy. The final-missing-component case retains ERROR_OBJECT_NOT_AROUND in *err.
+ *
+ ****************************************************************************/
+
 static a_inode *get_aino (Unit *unit, a_inode *base, const char *rel, uae_u32 *err)
 {
     char *tmp;
@@ -1958,6 +2033,29 @@ static a_inode *get_aino (Unit *unit, a_inode *base, const char *rel, uae_u32 *e
     return curr;
 }
 
+/****i* januae-filesys-internal/startup_update_unit
+ *
+ *   NAME
+ *       startup_update_unit()
+ *
+ *   SYNOPSIS
+ *       static void startup_update_unit (Unit *unit, UnitInfo *uinfo)
+ *
+ *   FUNCTION
+ *       Update the active unit configuration from a mount description.
+ *
+ *   INPUTS
+ *       unit -- Unit to update; NULL is ignored.
+ *       uinfo -- Mount description providing the replacement fields.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Copies device, root path, read-only state, and pipe references; frees the previous volume name and duplicates the replacement. Other pointer fields are assigned without duplicating their storage.
+ *
+ ****************************************************************************/
+
 static void startup_update_unit (Unit *unit, UnitInfo *uinfo)
 {
     if (!unit)
@@ -1970,6 +2068,29 @@ static void startup_update_unit (Unit *unit, UnitInfo *uinfo)
     unit->ui.unit_pipe = uinfo->unit_pipe;
     unit->ui.back_pipe = uinfo->back_pipe;
 }
+
+/****i* januae-filesys-internal/startup_create_unit
+ *
+ *   NAME
+ *       startup_create_unit()
+ *
+ *   SYNOPSIS
+ *       static Unit *startup_create_unit (UnitInfo *uinfo, uae_u32 port)
+ *
+ *   FUNCTION
+ *       Allocate and initialize a filesystem unit for a startup packet.
+ *
+ *   INPUTS
+ *       uinfo -- Mount description associated with the new unit.
+ *       port -- Guest message port associated with the unit.
+ *
+ *   RESULT
+ *       The newly initialized unit pointer.
+ *
+ *   NOTES
+ *       Prepends the unit to the global units list, stores the back-reference in uinfo, initializes the root inode, key state, hash buckets, and examine slots. The allocation result is used without an explicit NULL check; allocation failure is not handled locally.
+ *
+ ****************************************************************************/
 
 static Unit *startup_create_unit (UnitInfo *uinfo, uae_u32 port)
 {
