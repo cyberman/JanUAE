@@ -2689,6 +2689,29 @@ static void notify_check (Unit *unit, a_inode *a)
     }
 }
 
+/****i* januae-filesys-internal/action_add_notify
+ *
+ *   NAME
+ *       action_add_notify()
+ *
+ *   SYNOPSIS
+ *       static void action_add_notify (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Register a filesystem change notification request.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit that owns the notification table.
+ *       packet -- Guest packet containing a NotifyRequest address.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Rejects requests without NRF_SEND_MESSAGE or NRF_SEND_SIGNAL with DOS_FALSE and ERROR_BAD_NUMBER. Extracts a basename from the requested path, registers the notification, and sends an initial notification when NRF_NOTIFY_INITIAL is set and the path resolves. Reports DOS_TRUE after registration.
+ *
+ ****************************************************************************/
+
 static void
 action_add_notify (Unit *unit, dpacket packet)
 {
@@ -2725,6 +2748,29 @@ action_add_notify (Unit *unit, dpacket packet)
     }
     PUT_PCK_RES1 (packet, DOS_TRUE);
 }
+/****i* januae-filesys-internal/action_remove_notify
+ *
+ *   NAME
+ *       action_remove_notify()
+ *
+ *   SYNOPSIS
+ *       static void action_remove_notify (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Unregister a filesystem change notification request.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit that owns the notification table.
+ *       packet -- Guest packet identifying the NotifyRequest.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Searches all notification buckets by guest NotifyRequest address. Frees the stored names and removes the first matching entry. Reports DOS_TRUE even when no matching request exists.
+ *
+ ****************************************************************************/
+
 static void
 action_remove_notify (Unit *unit, dpacket packet)
 {
@@ -2795,6 +2841,29 @@ static void free_lock (Unit *unit, uaecptr lock)
     put_long (unit->locklist, lock);
 }
 
+/****i* januae-filesys-internal/action_lock
+ *
+ *   NAME
+ *       action_lock()
+ *
+ *   SYNOPSIS
+ *       static void action_lock (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Resolve an object name and acquire a guest filesystem lock.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the inode and guest-lock state.
+ *       packet -- Guest packet carrying the base lock, pathname, and lock mode.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Normalizes an unsupported mode to SHARED_LOCK. Rejects conflicting shared or exclusive locks with ERROR_OBJECT_IN_USE; other lookup errors are propagated through the packet. On success updates inode lock bookkeeping and writes the new BPTR lock to the primary packet result. Does not perform access checks.
+ *
+ ****************************************************************************/
+
 static void
 action_lock (Unit *unit, dpacket packet)
 {
@@ -2835,6 +2904,29 @@ action_lock (Unit *unit, dpacket packet)
     PUT_PCK_RES1 (packet, make_lock (unit, a->uniq, mode) >> 2);
 }
 
+/****i* januae-filesys-internal/action_free_lock
+ *
+ *   NAME
+ *       action_free_lock()
+ *
+ *   SYNOPSIS
+ *       static void action_free_lock (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Release an existing guest filesystem lock.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing inode and lock state.
+ *       packet -- Guest packet carrying the lock BPTR.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Looks up the inode identifier stored in the lock. Reports ERROR_OBJECT_NOT_AROUND when that inode is absent. Otherwise clears its exclusive-lock flag or decrements its shared-lock count, updates recycling state, returns the lock slot to the free list, and reports DOS_TRUE.
+ *
+ ****************************************************************************/
+
 static void action_free_lock (Unit *unit, dpacket packet)
 {
     uaecptr lock = GET_PCK_ARG1 (packet) << 2;
@@ -2861,6 +2953,30 @@ static void action_free_lock (Unit *unit, dpacket packet)
 
     PUT_PCK_RES1 (packet, DOS_TRUE);
 }
+
+/****i* januae-filesys-internal/action_dup_lock_2
+ *
+ *   NAME
+ *       action_dup_lock_2()
+ *
+ *   SYNOPSIS
+ *       static uaecptr action_dup_lock_2 (Unit *unit, dpacket packet, uaecptr lock)
+ *
+ *   FUNCTION
+ *       Duplicate a shared guest filesystem lock.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing inode and lock state.
+ *       packet -- Guest packet receiving the duplicated lock or error.
+ *       lock -- Guest address of the lock to duplicate.
+ *
+ *   RESULT
+ *       The duplicated lock BPTR, or zero when no lock is supplied or duplication fails.
+ *
+ *   NOTES
+ *       A zero input lock produces a zero primary packet result. Missing inodes report ERROR_OBJECT_NOT_AROUND; inodes with an exclusive lock report ERROR_OBJECT_IN_USE. On success increments the shared-lock count and creates another guest lock.
+ *
+ ****************************************************************************/
 
 static uaecptr
 action_dup_lock_2 (Unit *unit, dpacket packet, uaecptr lock)
@@ -2894,6 +3010,29 @@ action_dup_lock_2 (Unit *unit, dpacket packet, uaecptr lock)
     PUT_PCK_RES1 (packet, out);
     return out;
 }
+
+/****i* januae-filesys-internal/action_dup_lock
+ *
+ *   NAME
+ *       action_dup_lock()
+ *
+ *   SYNOPSIS
+ *       static void action_dup_lock (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Handle a guest request to duplicate a filesystem lock.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing inode and lock state.
+ *       packet -- Guest packet carrying the lock BPTR.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Converts the packet lock BPTR to a guest address and delegates to action_dup_lock_2(), which writes the result and error fields.
+ *
+ ****************************************************************************/
 
 static void
 action_dup_lock (Unit *unit, dpacket packet)
