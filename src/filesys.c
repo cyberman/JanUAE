@@ -4065,6 +4065,29 @@ action_find_write (Unit *unit, dpacket packet)
 }
 
 /* change file/dir's parent dir modification time */
+/****i* januae-filesys-internal/updatedirtime
+ *
+ *   NAME
+ *       updatedirtime()
+ *
+ *   SYNOPSIS
+ *       static void updatedirtime (a_inode *a1, int now)
+ *
+ *   FUNCTION
+ *       Update the host modification time of an inode's parent directory.
+ *
+ *   INPUTS
+ *       a1 -- Inode whose parent directory is to be updated.
+ *       now -- Nonzero to use the current time, or zero to copy the inode timestamp.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       If there is no parent, the function returns without updating anything. For now == 0, a failed stat() call also leaves the parent unchanged. On the AmigaOS big-endian build selected by the conditional compilation guard, this function has no body effect.
+ *
+ ****************************************************************************/
+
 static void updatedirtime (a_inode *a1, int now)
 {
 #if !defined TARGET_AMIGAOS || !defined WORDS_BIGENDIAN
@@ -4085,6 +4108,29 @@ static void updatedirtime (a_inode *a1, int now)
     }
 #endif   
 }
+
+/****i* januae-filesys-internal/action_end
+ *
+ *   NAME
+ *       action_end()
+ *
+ *   SYNOPSIS
+ *       static void action_end (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Close a guest file key and release its inode lock state.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the file keys and inodes.
+ *       packet -- Guest packet whose first argument identifies the file key.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       If the key exists, checks pending notifications, updates the parent timestamp when required, decrements the shared-lock count or clears the exclusive lock, recycles the inode, and releases the key. An unknown key is ignored. In either case, the packet receives DOS_TRUE and a zero secondary result.
+ *
+ ****************************************************************************/
 
 static void
 action_end (Unit *unit, dpacket packet)
@@ -4114,6 +4160,29 @@ action_end (Unit *unit, dpacket packet)
  * GET_PCK_ARG2 (packet): target buffer
  * GET_PCK_ARG3 (packet): number of bytes to read
  */
+/****i* januae-filesys-internal/action_read
+ *
+ *   NAME
+ *       action_read()
+ *
+ *   SYNOPSIS
+ *       static void action_read (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Read bytes from an open host file into guest memory.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the open file key.
+ *       packet -- Guest packet providing the key identifier, target address, and byte count.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       An unknown key sets DOS_FALSE without explicitly setting the secondary result. For directly addressable guest memory, reads into its mapped buffer; otherwise uses a temporary allocation and writes the returned bytes through put_byte(). Reports the byte count or an applicable read/allocation error in the packet. Advances the tracked position by the number of bytes read. The indirect path limits the requested count against the host file size, rather than the number of bytes remaining at the current offset.
+ *
+ ****************************************************************************/
+
 static void action_read (Unit *unit, dpacket packet) {
 
   Key *k = lookup_key (unit, GET_PCK_ARG1 (packet));
@@ -4192,6 +4261,29 @@ static void action_read (Unit *unit, dpacket packet) {
   TRACE(("=%d\n", actual));
 }
 
+/****i* januae-filesys-internal/action_write
+ *
+ *   NAME
+ *       action_write()
+ *
+ *   SYNOPSIS
+ *       static void action_write (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Write bytes from guest memory to an open host file.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the open file key.
+ *       packet -- Guest packet providing the key identifier, source address, and byte count.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Rejects unknown keys and read-only units. Allocates a temporary buffer, copies the guest bytes through get_byte(), and writes them to the host descriptor. Stores the host write result in the packet and reports dos_errno() when the number of written bytes differs from the request. Advances the tracked file position for nonnegative writes and marks the key for notification checks. An unknown key does not explicitly set the packet secondary result.
+ *
+ ****************************************************************************/
+
 static void
 action_write (Unit *unit, dpacket packet)
 {
@@ -4239,6 +4331,29 @@ action_write (Unit *unit, dpacket packet)
     k->notifyactive = 1;
     xfree (buf);
 }
+
+/****i* januae-filesys-internal/action_seek
+ *
+ *   NAME
+ *       action_seek()
+ *
+ *   SYNOPSIS
+ *       static void action_seek (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Reposition the host file descriptor for a guest file key.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the open file key.
+ *       packet -- Guest packet providing the key identifier, signed offset, and seek mode.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Negative, zero, and positive modes select SEEK_SET, SEEK_CUR, and SEEK_END, respectively. Rejects unknown keys and destinations beyond the current file size with packet errors. On success returns the previous offset in the packet; on host seek failure reports ERROR_SEEK_ERROR. Updates the tracked position with the host seek result, including a failed result.
+ *
+ ****************************************************************************/
 
 static void
 action_seek (Unit *unit, dpacket packet)
@@ -4288,6 +4403,29 @@ action_seek (Unit *unit, dpacket packet)
     k->file_pos = res;
 }
 
+/****i* januae-filesys-internal/action_set_protect
+ *
+ *   NAME
+ *       action_set_protect()
+ *
+ *   SYNOPSIS
+ *       static void action_set_protect (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Set the Amiga protection mask for a filesystem inode.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the requested object.
+ *       packet -- Guest packet providing the base lock, pathname, and protection mask.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Rejects read-only units or unresolved paths and reports the error in the packet. Otherwise assigns the inode mask and calls fsdb_set_file_attrs(); the packet reports whether that operation succeeded. Notification checks and disk activity reporting follow even when setting host attributes fails.
+ *
+ ****************************************************************************/
+
 static void
 action_set_protect (Unit *unit, dpacket packet)
 {
@@ -4323,6 +4461,29 @@ action_set_protect (Unit *unit, dpacket packet)
     notify_check (unit, a);
     gui_hd_led (2);
 }
+
+/****i* januae-filesys-internal/action_set_comment
+ *
+ *   NAME
+ *       action_set_comment()
+ *
+ *   SYNOPSIS
+ *       static void action_set_comment (Unit * unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Set or clear the comment associated with a filesystem inode.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the requested object.
+ *       packet -- Guest packet providing the base lock, pathname, and comment string.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Rejects read-only units or unresolved paths. A zero-length comment clears the stored comment. If the new comment matches the existing one, returns success without rewriting attributes. Otherwise replaces the owned comment string, invokes fsdb_set_file_attrs(), and notifies listeners. The return value of fsdb_set_file_attrs() is not checked here; the packet already reports success.
+ *
+ ****************************************************************************/
 
 static void action_set_comment (Unit * unit, dpacket packet)
 {
