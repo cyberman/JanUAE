@@ -6339,6 +6339,30 @@ void filesys_prepare_reset (void)
     }
 }
 
+/****i* januae-filesys-internal/filesys_diagentry
+ *
+ *   NAME
+ *       filesys_diagentry()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 filesys_diagentry (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Build resident data and initialization code in the guest diagnostic area.
+ *
+ *   INPUTS
+ *       context -- CPU registers providing the diagnostic and configuration
+ *                  addresses.
+ *
+ *   RESULT
+ *       Returns 1 and sets guest register A0 to the resident-array address.
+ *
+ *   NOTES
+ *       Initializes the filesystem diagnostic entry and semaphore, and emits
+ *       guest instructions used to initialize discovered residents.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 filesys_diagentry (TrapContext *context)
 {
     uaecptr resaddr = m68k_areg (&context->regs, 2) + 0x10;
@@ -6412,6 +6436,31 @@ static uae_u32 REGPARAM2 filesys_diagentry (TrapContext *context)
 #define PP_EXPLIB 412
 #define PP_FSHDSTART 416
 
+/****i* januae-filesys-internal/filesys_dev_bootfilesys
+ *
+ *   NAME
+ *       filesys_dev_bootfilesys()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 filesys_dev_bootfilesys (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Find a matching filesystem resource for a hardfile device node.
+ *
+ *   INPUTS
+ *       context -- CPU registers identifying the device node, parameter
+ *                  packet and unit number.
+ *
+ *   RESULT
+ *       Returns 1 when the DOS type matches an entry in the filesystem
+ *       resource list; returns 0 for a virtual unit or no match.
+ *
+ *   NOTES
+ *       Copies the segment list and global vector to the device node only
+ *       when the matching resource entry has the required flag set.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 filesys_dev_bootfilesys (TrapContext *context)
 {
     uaecptr devicenode = m68k_areg (&context->regs, 3);
@@ -6444,6 +6493,31 @@ static uae_u32 REGPARAM2 filesys_dev_bootfilesys (TrapContext *context)
 
 /* Remember a pointer AmigaOS gave us so we can later use it to identify
  * which unit a given startup message belongs to.  */
+/****i* januae-filesys-internal/filesys_dev_remember
+ *
+ *   NAME
+ *       filesys_dev_remember()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 filesys_dev_remember (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Record guest device startup data for a mounted unit.
+ *
+ *   INPUTS
+ *       context -- CPU registers selecting the unit, device node and
+ *                  parameter packet.
+ *
+ *   RESULT
+ *       Returns the guest device-node address from register A3.
+ *
+ *   NOTES
+ *       When the parameter packet supplies a filesystem destination, copies
+ *       the stored RDB filesystem bytes there and releases the host buffer.
+ *       Records the device startup pointer only when register D3 is nonnegative.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 filesys_dev_remember (TrapContext *context)
 {
     uae_u32 no = m68k_dreg (&context->regs, 6);
@@ -6571,6 +6645,32 @@ static int rdb_checksum (const char *id, uae_u8 *p, int block)
     }
     return 1;
 }
+
+/****i* januae-filesys-internal/device_dupfix
+ *
+ *   NAME
+ *       device_dupfix()
+ *
+ *   SYNOPSIS
+ *       static char *device_dupfix (uaecptr expbase, const char *devname)
+ *
+ *   FUNCTION
+ *       Choose a device name not already present in the guest boot-node list.
+ *
+ *   INPUTS
+ *       expbase -- Guest expansion.library base containing the boot-node list.
+ *       devname -- Requested null-terminated device name.
+ *
+ *   RESULT
+ *       Returns a newly allocated copy of the chosen name.
+ *
+ *   NOTES
+ *       Compares names without regard to case and adds or advances an
+ *       underscore-number suffix on collisions. The caller owns the returned
+ *       allocation. The implementation uses fixed-size local buffers without
+ *       checking the requested name length.
+ *
+ ****************************************************************************/
 
 static char *device_dupfix (uaecptr expbase, const char *devname)
 {
@@ -6868,6 +6968,32 @@ static void addfakefilesys (uaecptr parmpacket, uae_u32 dostype)
 }
 
 /* o1i: merged from winuae */
+/****i* januae-filesys-internal/dofakefilesys
+ *
+ *   NAME
+ *       dofakefilesys()
+ *
+ *   SYNOPSIS
+ *       static int dofakefilesys (UnitInfo *uip, uaecptr parmpacket)
+ *
+ *   FUNCTION
+ *       Load or describe a filesystem for a hardfile without an RDB filesystem entry.
+ *
+ *   INPUTS
+ *       uip -- Hardfile unit and optional filesystem path.
+ *       parmpacket -- Guest parameter packet updated with filesystem details.
+ *
+ *   RESULT
+ *       Returns FILESYS_HARDFILE when a filesystem can be represented
+ *       through the available resource or synthetic header; returns -1
+ *       when a required non-DOS filesystem cannot be loaded.
+ *
+ *   NOTES
+ *       May read an external filesystem image into the unit-owned RDB buffer.
+ *       Existing read, size and allocation failures are not fully checked.
+ *
+ ****************************************************************************/
+
 static int dofakefilesys (UnitInfo *uip, uaecptr parmpacket) {
 
     int i, size;
