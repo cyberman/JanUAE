@@ -1438,6 +1438,29 @@ static a_inode *lookup_aino (Unit *unit, uae_u32 uniq)
     return a;
 }
 
+/****i* januae-filesys-internal/build_nname
+ *
+ *   NAME
+ *       build_nname()
+ *
+ *   SYNOPSIS
+ *       char *build_nname (const char *d, const char *n)
+ *
+ *   FUNCTION
+ *       Construct a native path from a directory and entry name.
+ *
+ *   INPUTS
+ *       d -- Native directory path.
+ *       n -- Entry name to append.
+ *
+ *   RESULT
+ *       A newly allocated path string; the caller releases it.
+ *
+ *   NOTES
+ *       Adds a directory separator before the entry name, subject to the TARGET_AMIGAOS separator guard. No explicit allocation failure handling is performed.
+ *
+ ****************************************************************************/
+
 char *build_nname (const char *d, const char *n)
 {
     unsigned int   d_len = strlen (d);
@@ -1458,6 +1481,32 @@ char *build_nname (const char *d, const char *n)
 
 /* This gets called to translate an Amiga name that some program used to
  * a name that we can use on the native filesystem.  */
+/****i* januae-filesys-internal/get_nname
+ *
+ *   NAME
+ *       get_nname()
+ *
+ *   SYNOPSIS
+ *       static char *get_nname (Unit *unit, a_inode *base, char *rel,
+ *                               char **modified_rel)
+ *
+ *   FUNCTION
+ *       Resolve a guest entry name to an existing native filesystem path.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit (unused by this function).
+ *       base -- Parent inode providing the native directory.
+ *       rel -- Guest entry name to resolve.
+ *       modified_rel -- Receives an alternate native entry name when the directory search returns one.
+ *
+ *   RESULT
+ *       A newly allocated native path, or NULL if the guest name is invalid, reserved by a mapping, or not found.
+ *
+ *   NOTES
+ *       Clears *modified_rel before lookup. A non-NULL alternate name returned by fsdb_search_dir is passed to the caller through *modified_rel; its ownership follows the filesystem database contract.
+ *
+ ****************************************************************************/
+
 static char *get_nname (Unit *unit, a_inode *base, char *rel,
                         char **modified_rel)
 {
@@ -1506,6 +1555,30 @@ static char *get_nname (Unit *unit, a_inode *base, char *rel,
     return result;
 }
 
+/****i* januae-filesys-internal/create_nname
+ *
+ *   NAME
+ *       create_nname()
+ *
+ *   SYNOPSIS
+ *       static char *create_nname (Unit *unit, a_inode *base, char *rel)
+ *
+ *   FUNCTION
+ *       Choose a native path for a new guest filesystem entry.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit (unused by this function).
+ *       base -- Parent inode whose directory contains the entry.
+ *       rel -- Guest entry name to create.
+ *
+ *   RESULT
+ *       A native path string obtained from the filesystem database or build_nname().
+ *
+ *   NOTES
+ *       Requests a unique native name when the guest name cannot be represented directly or collides with an existing native-name mapping.
+ *
+ ****************************************************************************/
+
 static char *create_nname (Unit *unit, a_inode *base, char *rel)
 {
     char *p;
@@ -1534,12 +1607,60 @@ static char *create_nname (Unit *unit, a_inode *base, char *rel)
  * figure out that this is supposed to be the file "foobar.inf".
  * DOS sucks...
  */
+/****i* januae-filesys-internal/get_aname
+ *
+ *   NAME
+ *       get_aname()
+ *
+ *   SYNOPSIS
+ *       static char *get_aname (Unit *unit, a_inode *base, char *rel)
+ *
+ *   FUNCTION
+ *       Copy a native entry name for use as a guest entry name.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit (unused by this function).
+ *       base -- Parent inode (unused by this function).
+ *       rel -- Native entry name to copy.
+ *
+ *   RESULT
+ *       A duplicate of rel, as returned by my_strdup().
+ *
+ *   NOTES
+ *       This helper performs no name translation or validation.
+ *
+ ****************************************************************************/
+
 static char *get_aname (Unit *unit, a_inode *base, char *rel)
 {
     return my_strdup (rel);
 }
 
 /* not called for subsequent exnext calls to same directory */
+/****i* januae-filesys-internal/init_child_aino
+ *
+ *   NAME
+ *       init_child_aino()
+ *
+ *   SYNOPSIS
+ *       static void init_child_aino (Unit *unit, a_inode *base, a_inode *aino)
+ *
+ *   FUNCTION
+ *       Initialize an inode and link it as the first child of a parent.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit supplying the inode sequence and lock counters.
+ *       base -- Parent inode.
+ *       aino -- New or recovered inode to initialize.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Assigns an incremented inode identifier, clears lock and deletion state, and inserts the inode at the head of the parent child list. Updates locked-inode accounting when the parent is being enumerated. Identifier exhaustion is logged but not prevented.
+ *
+ ****************************************************************************/
+
 static void init_child_aino (Unit *unit, a_inode *base, a_inode *aino)
 {
     aino->uniq = ++unit->a_uniq;
@@ -1571,6 +1692,30 @@ static void init_child_aino (Unit *unit, a_inode *base, a_inode *aino)
     aino_test_init (aino);
     aino_test (aino);
 }
+
+/****i* januae-filesys-internal/new_child_aino
+ *
+ *   NAME
+ *       new_child_aino()
+ *
+ *   SYNOPSIS
+ *       static a_inode *new_child_aino (Unit *unit, a_inode *base, char *rel)
+ *
+ *   FUNCTION
+ *       Find or create an inode representing an existing guest-visible entry.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the inode cache.
+ *       base -- Parent inode.
+ *       rel -- Guest entry name to resolve.
+ *
+ *   RESULT
+ *       The initialized child inode, or NULL when path resolution, allocation, or attribute loading fails.
+ *
+ *   NOTES
+ *       Reuses an inode from the filesystem database when available. Otherwise resolves the native path, allocates an inode, and reads its attributes. Initializes the parent-child link and places the inode in the recycle cache. The failure path after fsdb_fill_file_attrs() frees the inode structure without releasing its previously assigned name strings.
+ *
+ ****************************************************************************/
 
 static a_inode *new_child_aino (Unit *unit, a_inode *base, char *rel)
 {
@@ -1615,6 +1760,31 @@ static a_inode *new_child_aino (Unit *unit, a_inode *base, char *rel)
     TRACE(("created aino %x, lookup, amigaos_mode %d\n", aino->uniq, aino->amigaos_mode));
     return aino;
 }
+
+/****i* januae-filesys-internal/create_child_aino
+ *
+ *   NAME
+ *       create_child_aino()
+ *
+ *   SYNOPSIS
+ *       static a_inode *create_child_aino (Unit *unit, a_inode *base, char *rel, int isdir)
+ *
+ *   FUNCTION
+ *       Create an inode record for a guest-requested new entry.
+ *
+ *   INPUTS
+ *       unit -- Filesystem unit containing the inode cache.
+ *       base -- Parent inode.
+ *       rel -- Guest entry name.
+ *       isdir -- Directory flag stored in the new inode.
+ *
+ *   RESULT
+ *       The newly initialized inode, or NULL on inode or native-name allocation failure.
+ *
+ *   NOTES
+ *       Selects a native path, duplicates the guest name, marks the inode dirty, links it beneath the parent, and adds it to the recycle cache. The corresponding native filesystem object is not created here.
+ *
+ ****************************************************************************/
 
 static a_inode *create_child_aino (Unit *unit, a_inode *base, char *rel, int isdir)
 {
