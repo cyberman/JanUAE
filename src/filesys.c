@@ -6467,6 +6467,31 @@ static uae_u32 REGPARAM2 filesys_dev_remember (TrapContext *context)
     return devicenode;
 }
 
+/****i* januae-filesys-internal/legalrdbblock
+ *
+ *   NAME
+ *       legalrdbblock()
+ *
+ *   SYNOPSIS
+ *       static int legalrdbblock (UnitInfo *uip, unsigned int block)
+ *
+ *   FUNCTION
+ *       Check whether a block number is inside the hardfile address range.
+ *
+ *   INPUTS
+ *       uip -- Unit containing the hardfile geometry.
+ *       block -- Block number to check.
+ *
+ *   RESULT
+ *       Returns 1 for a nonzero block below the calculated block count,
+ *       or 0 otherwise.
+ *
+ *   NOTES
+ *       The calculation divides the hardfile size by its block size;
+ *       callers must provide a nonzero block size.
+ *
+ ****************************************************************************/
+
 static int legalrdbblock (UnitInfo *uip, unsigned int block)
 {
     if (block == 0)
@@ -6476,10 +6501,56 @@ static int legalrdbblock (UnitInfo *uip, unsigned int block)
     return 1;
 }
 
+/****i* januae-filesys-internal/rl
+ *
+ *   NAME
+ *       rl()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE unsigned int rl (uae_u8 *p)
+ *
+ *   FUNCTION
+ *       Read a four-byte big-endian value from a byte buffer.
+ *
+ *   INPUTS
+ *       p -- Address of at least four readable bytes.
+ *
+ *   RESULT
+ *       Returns the assembled unsigned value.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE unsigned int rl (uae_u8 *p)
 {
     return (p[0] << 24) | (p[1] << 16) | (p[2] << 8) | (p[3]);
 }
+
+/****i* januae-filesys-internal/rdb_checksum
+ *
+ *   NAME
+ *       rdb_checksum()
+ *
+ *   SYNOPSIS
+ *       static int rdb_checksum (const char *id, uae_u8 *p, int block)
+ *
+ *   FUNCTION
+ *       Inspect an RDB block identifier, declared length, and checksum.
+ *
+ *   INPUTS
+ *       id -- Expected four-byte block identifier.
+ *       p -- Block data containing the identifier and length field.
+ *       block -- Block number used in diagnostic output.
+ *
+ *   RESULT
+ *       Returns 0 for an identifier mismatch or invalid declared length.
+ *       Returns 1 after checking a block with a valid identifier and length,
+ *       including when the checksum is incorrect.
+ *
+ *   NOTES
+ *       An incorrect checksum is logged but does not change the return
+ *       value. The caller must provide a readable block buffer.
+ *
+ ****************************************************************************/
 
 static int rdb_checksum (const char *id, uae_u8 *p, int block)
 {
@@ -6536,6 +6607,28 @@ static char *device_dupfix (uaecptr expbase, const char *devname)
     }
     return strdup (newname);
 }
+
+/****i* januae-filesys-internal/dump_partinfo
+ *
+ *   NAME
+ *       dump_partinfo()
+ *
+ *   SYNOPSIS
+ *       static void dump_partinfo (const char *name, int num, uaecptr pp)
+ *
+ *   FUNCTION
+ *       Log DOS type and geometry fields from a guest partition packet.
+ *
+ *   INPUTS
+ *       name -- Partition name included in the diagnostic output.
+ *       num -- Partition number; not read by this implementation.
+ *       pp -- Guest address of the partition parameter packet.
+ *
+ *   NOTES
+ *       Reads packet fields from guest memory without validating the
+ *       supplied packet address.
+ *
+ ****************************************************************************/
 
 static void dump_partinfo (const char *name, int num, uaecptr pp)
 {
@@ -6741,6 +6834,27 @@ error:
     return err;
 }
 
+/****i* januae-filesys-internal/addfakefilesys
+ *
+ *   NAME
+ *       addfakefilesys()
+ *
+ *   SYNOPSIS
+ *       static void addfakefilesys (uaecptr parmpacket, uae_u32 dostype)
+ *
+ *   FUNCTION
+ *       Populate a guest filesystem header area with a synthetic entry.
+ *
+ *   INPUTS
+ *       parmpacket -- Guest address of the parameter packet to update.
+ *       dostype -- DOS type written to the packet and filesystem header.
+ *
+ *   NOTES
+ *       Clears 140 bytes of the filesystem header area before setting
+ *       its DOS type, flags, and global-vector field.
+ *
+ ****************************************************************************/
+
 static void addfakefilesys (uaecptr parmpacket, uae_u32 dostype)
 {
     int i;
@@ -6821,6 +6935,33 @@ static int dofakefilesys (UnitInfo *uip, uaecptr parmpacket) {
     return FILESYS_HARDFILE;
 }
 
+
+/****i* januae-filesys-internal/get_new_device
+ *
+ *   NAME
+ *       get_new_device()
+ *
+ *   SYNOPSIS
+ *       static void get_new_device (int type, uaecptr parmpacket,
+ *                                   char **devname, uaecptr *devname_amiga,
+ *                                   int unit_no)
+ *
+ *   FUNCTION
+ *       Choose a device name and store its guest-memory representation.
+ *
+ *   INPUTS
+ *       type -- Filesystem type used in mount diagnostics.
+ *       parmpacket -- Guest parameter packet used for duplicate-name lookup.
+ *       devname -- Configured name, or null or empty for a generated DH name.
+ *       devname_amiga -- Receives the guest address of the selected name.
+ *       unit_no -- Mounted unit number.
+ *
+ *   NOTES
+ *       Checks for duplicate names through device_dupfix() and logs the
+ *       selected unit. The intermediate fixed-size buffer is not bounds
+ *       checked against an externally supplied device name.
+ *
+ ****************************************************************************/
 
 static void get_new_device (int type, uaecptr parmpacket, char **devname, uaecptr *devname_amiga, int unit_no)
 {
