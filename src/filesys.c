@@ -5843,6 +5843,29 @@ static uae_u32 REGPARAM2 exter_int_helper (TrapContext *context)
     return 0;
 }
 
+/****i* januae-filesys-internal/handle_packet
+ *
+ *   NAME
+ *       handle_packet()
+ *
+ *   SYNOPSIS
+ *       static int handle_packet (Unit *unit, dpacket pck)
+ *
+ *   FUNCTION
+ *       Dispatch a filesystem packet to the supported action handler.
+ *
+ *   INPUTS
+ *       unit -- Mounted filesystem unit receiving the packet.
+ *       pck -- Guest DOS packet to process.
+ *
+ *   RESULT
+ *       Returns 1 when the packet type was dispatched, or 0 for unsupported or unknown packet types.
+ *
+ *   NOTES
+ *       Clears the secondary packet result before dispatch. Individual actions set their own results; unsupported packets are not assigned an error here.
+ *
+ ****************************************************************************/
+
 static int handle_packet (Unit *unit, dpacket pck)
 {
     uae_s32 type = GET_PCK_TYPE (pck);
@@ -5908,6 +5931,28 @@ static int handle_packet (Unit *unit, dpacket pck)
 }
 
 #ifdef UAE_FILESYS_THREADS
+/****i* januae-filesys-internal/filesys_thread
+ *
+ *   NAME
+ *       filesys_thread()
+ *
+ *   SYNOPSIS
+ *       static void *filesys_thread (void *unit_v)
+ *
+ *   FUNCTION
+ *       Receive and process filesystem packets on a unit worker thread.
+ *
+ *   INPUTS
+ *       unit_v -- Pointer to the UnitInfo owning the communication pipes.
+ *
+ *   RESULT
+ *       Returns null after receiving the shutdown message.
+ *
+ *   NOTES
+ *       Compiled only with UAE_FILESYS_THREADS. The loop blocks on the unit pipe, returns lock lists through the back pipe, and requests an emulator interrupt for replies.
+ *
+ ****************************************************************************/
+
 static void *filesys_thread (void *unit_v)
 {
     UnitInfo *ui = (UnitInfo *)unit_v;
@@ -5955,6 +6000,28 @@ static void *filesys_thread (void *unit_v)
 #endif
 
 /* Talk about spaghetti code... */
+/****i* januae-filesys-internal/filesys_handler
+ *
+ *   NAME
+ *       filesys_handler()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 filesys_handler (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Handle a filesystem trap request from the emulated system.
+ *
+ *   INPUTS
+ *       context -- Trap register context containing the packet, message, and unit references.
+ *
+ *   RESULT
+ *       Returns 1 when a threaded request is queued without an immediate reply; otherwise returns 0.
+ *
+ *   NOTES
+ *       Rejects invalid guest packet or message addresses. Unknown packets and unavailable units receive DOS_FALSE and ERROR_ACTION_NOT_KNOWN when the packet address is valid.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 filesys_handler (TrapContext *context)
 {
     Unit *unit = find_unit (m68k_areg (&context->regs, 5));
@@ -6011,6 +6078,28 @@ static uae_u32 REGPARAM2 filesys_handler (TrapContext *context)
     return 0;
 }
 
+/****i* januae-filesys-internal/init_filesys_diagentry
+ *
+ *   NAME
+ *       init_filesys_diagentry()
+ *
+ *   SYNOPSIS
+ *       static void init_filesys_diagentry (void)
+ *
+ *   FUNCTION
+ *       Initialize filesystem configuration data in the emulator ROM area.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Writes expansion and DOS library references, the configuration-device address, and the current mount-unit count before initializing native-to-guest startup.
+ *
+ ****************************************************************************/
+
 static void init_filesys_diagentry (void)
 {
     do_put_mem_long ((uae_u32 *)(filesysory + 0x2100), EXPANSION_explibname);
@@ -6019,6 +6108,28 @@ static void init_filesys_diagentry (void)
     do_put_mem_long ((uae_u32 *)(filesysory + 0x210c), current_mountinfo.num_units);
     native2amiga_startup ();
 }
+
+/****i* januae-filesys-internal/filesys_start_threads
+ *
+ *   NAME
+ *       filesys_start_threads()
+ *
+ *   SYNOPSIS
+ *       void filesys_start_threads (void)
+ *
+ *   FUNCTION
+ *       Prepare runtime mount units and start configured filesystem workers.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Replaces the current mount configuration with a copy of the option configuration. Worker pipes and threads are created for virtual filesystem units only when UAE_FILESYS_THREADS is enabled. On state restore, updates unit startup data instead.
+ *
+ ****************************************************************************/
 
 void filesys_start_threads (void)
 {
@@ -6051,10 +6162,54 @@ void filesys_start_threads (void)
     }
 }
 
+/****i* januae-filesys-internal/filesys_cleanup
+ *
+ *   NAME
+ *       filesys_cleanup()
+ *
+ *   SYNOPSIS
+ *       void filesys_cleanup (void)
+ *
+ *   FUNCTION
+ *       Release the current mount configuration.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Calls free_mountinfo() for current_mountinfo. No additional worker shutdown or unit-list cleanup is performed here.
+ *
+ ****************************************************************************/
+
 void filesys_cleanup (void)
 {
     free_mountinfo (&current_mountinfo);
 }
+
+/****i* januae-filesys-internal/filesys_reset
+ *
+ *   NAME
+ *       filesys_reset()
+ *
+ *   SYNOPSIS
+ *       void filesys_reset (void)
+ *
+ *   FUNCTION
+ *       Discard allocated runtime units during a non-restore reset.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Does nothing when restoring saved state. Otherwise frees the unit list and clears the list head and unit counter; this function does not free current_mountinfo.
+ *
+ ****************************************************************************/
 
 void filesys_reset (void)
 {
@@ -6073,6 +6228,29 @@ void filesys_reset (void)
     units = 0;
 }
 
+/****i* januae-filesys-internal/free_all_ainos
+ *
+ *   NAME
+ *       free_all_ainos()
+ *
+ *   SYNOPSIS
+ *       static void free_all_ainos (Unit *u, a_inode *parent)
+ *
+ *   FUNCTION
+ *       Dispose of all descendants in an inode tree.
+ *
+ *   INPUTS
+ *       u -- Filesystem unit owning the inode cache.
+ *       parent -- Root of the subtree whose children are to be disposed.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Recursively removes each child using dispose_aino(); the parent inode itself is not disposed by this function.
+ *
+ ****************************************************************************/
+
 static void free_all_ainos (Unit *u, a_inode *parent)
 {
     a_inode *a;
@@ -6082,9 +6260,53 @@ static void free_all_ainos (Unit *u, a_inode *parent)
     }
 }
 
+/****i* januae-filesys-internal/filesys_flush_cache
+ *
+ *   NAME
+ *       filesys_flush_cache()
+ *
+ *   SYNOPSIS
+ *       void filesys_flush_cache (void)
+ *
+ *   FUNCTION
+ *       Filesystem cache-flush entry point.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       The current implementation has an empty body and does not flush cached data.
+ *
+ ****************************************************************************/
+
 void filesys_flush_cache (void)
 {
 }
+
+/****i* januae-filesys-internal/filesys_prepare_reset
+ *
+ *   NAME
+ *       filesys_prepare_reset()
+ *
+ *   SYNOPSIS
+ *       void filesys_prepare_reset (void)
+ *
+ *   FUNCTION
+ *       Quiesce filesystem workers and clear cached child inodes before reset.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Does nothing during saved-state restore. With UAE_FILESYS_THREADS, requests worker shutdown and waits for acknowledgements; then disposes cached descendants and resets the inode-list links and cache counts.
+ *
+ ****************************************************************************/
 
 void filesys_prepare_reset (void)
 {
