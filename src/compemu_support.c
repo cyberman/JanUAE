@@ -147,6 +147,28 @@ uae_u32 needflags=0;
 */
 
 
+/****i* januae-compemu-internal/get_blockinfo
+ *
+ *   NAME
+ *       get_blockinfo()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE blockinfo* get_blockinfo(uae_u32 cl)
+ *
+ *   FUNCTION
+ *       Retrieve the block metadata at a cache-tag index.
+ *
+ *   INPUTS
+ *       cl -- cache-tag index.
+ *
+ *   RESULT
+ *       Pointer stored in the following cache-tag entry.
+ *
+ *   NOTES
+ *       Performs no index validation.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE blockinfo* get_blockinfo(uae_u32 cl)
 {
     return cache_tags[cl+1].bi;
@@ -190,6 +212,28 @@ STATIC_INLINE blockinfo* get_blockinfo_addr(void* addr)
 /*******************************************************************
  * All sorts of list related functions for all of the lists        *
  *******************************************************************/
+
+/****i* januae-compemu-internal/remove_from_cl_list
+ *
+ *   NAME
+ *       remove_from_cl_list()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void remove_from_cl_list(blockinfo* bi)
+ *
+ *   FUNCTION
+ *       Unlink a compiled block from its cacheline chain and select the remaining handler.
+ *
+ *   INPUTS
+ *       bi -- block metadata to unlink.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Updates neighboring links and the tag handler; does not free the block.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void remove_from_cl_list(blockinfo* bi)
 {
@@ -484,6 +528,29 @@ STATIC_INLINE void adjust_jmpdep(dependency* d, void* a)
 /********************************************************************
  * Soft flush handling support functions                            *
  ********************************************************************/
+
+/****i* januae-compemu-internal/set_dhtu
+ *
+ *   NAME
+ *       set_dhtu()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void set_dhtu(blockinfo* bi, void* dh)
+ *
+ *   FUNCTION
+ *       Update the direct handler used by dependent compiled branches.
+ *
+ *   INPUTS
+ *       bi -- block whose direct handler is changing.
+ *       dh -- replacement direct-handler address.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Adjusts recorded jump dependencies when the pointer changes.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void set_dhtu(blockinfo* bi, void* dh)
 {
@@ -7784,6 +7851,31 @@ void get_n_addr_jmp (int address, int dest, int tmp)
 
 /* base is a register, but dp is an actual value.
    target is a register, as is tmp */
+/****i* januae-compemu-internal/calc_disp_ea_020
+ *
+ *   NAME
+ *       calc_disp_ea_020()
+ *
+ *   SYNOPSIS
+ *       void calc_disp_ea_020(int base, uae_u32 dp, int target, int tmp)
+ *
+ *   FUNCTION
+ *       Generate effective-address calculation for 68020 indexed displacement forms.
+ *
+ *   INPUTS
+ *       base -- base register.
+ *       dp -- extension word.
+ *       target -- destination register.
+ *       tmp -- temporary register.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Handles base/index suppression, optional memory indirection, inner and outer displacements; advances the instruction offset when extension words are consumed.
+ *
+ ****************************************************************************/
+
 void calc_disp_ea_020(int base, uae_u32 dp, int target, int tmp)
 {
     int reg = (dp >> 12) & 15;
@@ -7850,12 +7942,58 @@ void calc_disp_ea_020(int base, uae_u32 dp, int target, int tmp)
     forget_about(tmp);
 }
 
+/****i* januae-compemu-internal/cft_map
+ *
+ *   NAME
+ *       cft_map()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE unsigned int cft_map (unsigned int f)
+ *
+ *   FUNCTION
+ *       Exchange the low and high bytes of the lower sixteen bits of a value.
+ *
+ *   INPUTS
+ *       f -- value to transform.
+ *
+ *   RESULT
+ *       Byte-exchanged sixteen-bit value.
+ *
+ *   NOTES
+ *       Shifts and masks without consulting host byte order.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE unsigned int cft_map (unsigned int f)
 {
     return ((f >> 8) & 255) | ((f & 255) << 8);
 }
 
 extern unsigned long op_illg (uae_u32 opcode, struct regstruct *regs) REGPARAM;
+
+/****i* januae-compemu-internal/calc_checksum
+ *
+ *   NAME
+ *       calc_checksum()
+ *
+ *   SYNOPSIS
+ *       static void calc_checksum(blockinfo* bi, uae_u32* c1, uae_u32* c2)
+ *
+ *   FUNCTION
+ *       Calculate additive and exclusive-OR checksums over a compiled block source region.
+ *
+ *   INPUTS
+ *       bi -- block metadata defining source length and address.
+ *       c1 -- additive checksum destination.
+ *       c2 -- exclusive-OR checksum destination.
+ *
+ *   RESULT
+ *       Writes both checksum values through c1 and c2.
+ *
+ *   NOTES
+ *       Aligns the starting address down to four bytes; out-of-range lengths produce two zero values.
+ *
+ ****************************************************************************/
 
 static void calc_checksum(blockinfo* bi, uae_u32* c1, uae_u32* c2)
 {
@@ -7885,6 +8023,28 @@ static void calc_checksum(blockinfo* bi, uae_u32* c1, uae_u32* c2)
     }
 }
 
+/****i* januae-compemu-internal/check_for_cache_miss
+ *
+ *   NAME
+ *       check_for_cache_miss()
+ *
+ *   SYNOPSIS
+ *       int check_for_cache_miss(void)
+ *
+ *   FUNCTION
+ *       Determine whether the block at the current emulated PC occupies its cacheline primary slot.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       Returns 1 for a known block not currently primary; otherwise returns 0.
+ *
+ *   NOTES
+ *       Promotes a nonprimary matching block in the cacheline chain.
+ *
+ ****************************************************************************/
+
 int check_for_cache_miss(void)
 {
     blockinfo* bi=get_blockinfo_addr(regs.pc_p);
@@ -7900,6 +8060,28 @@ int check_for_cache_miss(void)
 }
 
 
+/****i* januae-compemu-internal/recompile_block
+ *
+ *   NAME
+ *       recompile_block()
+ *
+ *   SYNOPSIS
+ *       static void recompile_block(void)
+ *
+ *   FUNCTION
+ *       Promote the block at the current PC and resume normal execution to trigger recompilation.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Aborts when the block cannot be located.
+ *
+ ****************************************************************************/
+
 static void recompile_block(void)
 {
     /* An existing block's countdown code has expired. We need to make
@@ -7913,6 +8095,28 @@ static void recompile_block(void)
     execute_normal();
     return;
 }
+
+/****i* januae-compemu-internal/cache_miss
+ *
+ *   NAME
+ *       cache_miss()
+ *
+ *   SYNOPSIS
+ *       static void cache_miss(void)
+ *
+ *   FUNCTION
+ *       Recover from a compiled-block cacheline mismatch.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Falls back to normal execution if no matching block exists; aborts on an inconsistent primary cacheline entry.
+ *
+ ****************************************************************************/
 
 static void cache_miss(void)
 {
@@ -7931,6 +8135,28 @@ static void cache_miss(void)
     raise_in_cl_list(bi);
     return;
 }
+
+/****i* januae-compemu-internal/check_checksum
+ *
+ *   NAME
+ *       check_checksum()
+ *
+ *   SYNOPSIS
+ *       static void check_checksum(void)
+ *
+ *   FUNCTION
+ *       Validate a dormant block and either reactivate or invalidate it.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       An unchanged checksum restores active handlers and links; a changed checksum invalidates the block and resumes normal execution.
+ *
+ ****************************************************************************/
 
 static void check_checksum(void)
 {
@@ -7983,6 +8209,28 @@ static void check_checksum(void)
     }
 }
 
+/****i* januae-compemu-internal/free_popalls
+ *
+ *   NAME
+ *       free_popalls()
+ *
+ *   SYNOPSIS
+ *       static void free_popalls (void)
+ *
+ *   FUNCTION
+ *       Release the allocated generated-entry trampoline area and clear trampoline pointers.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Frees popallspace when allocated, then resets all associated entry pointers.
+ *
+ ****************************************************************************/
+
 static void free_popalls (void)
 {
     if (popallspace) {
@@ -7997,6 +8245,28 @@ static void free_popalls (void)
     popall_check_checksum  = 0;
     pushall_call_handler   = 0;
 }
+
+/****i* januae-compemu-internal/create_popalls
+ *
+ *   NAME
+ *       create_popalls()
+ *
+ *   SYNOPSIS
+ *       static void create_popalls (void)
+ *
+ *   FUNCTION
+ *       Generate or assign compiled-code exit and dispatch trampolines.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Uses cache_alloc(1024); builds register-saving thunks when USE_PUSH_POP is enabled and writes dispatch target addresses only after allocation succeeds.
+ *
+ ****************************************************************************/
 
 static void create_popalls (void)
 {
@@ -8088,6 +8358,28 @@ static void create_popalls (void)
     }
 }
 
+/****i* januae-compemu-internal/reset_lists
+ *
+ *   NAME
+ *       reset_lists()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void reset_lists (void)
+ *
+ *   FUNCTION
+ *       Clear the compiled-block hold table and both active and dormant list heads.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Does not deallocate the blocks previously reachable through these lists.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void reset_lists (void)
 {
     int i;
@@ -8097,6 +8389,28 @@ STATIC_INLINE void reset_lists (void)
     active  = NULL;
     dormant = NULL;
 }
+
+/****i* januae-compemu-internal/prepare_block
+ *
+ *   NAME
+ *       prepare_block()
+ *
+ *   SYNOPSIS
+ *       static void prepare_block(blockinfo* bi)
+ *
+ *   FUNCTION
+ *       Generate direct-entry fallback stubs and initialize a compiled block record.
+ *
+ *   INPUTS
+ *       bi -- compiled-block descriptor to prepare.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Emits normal-execution and checksum-check branches and resets dependency links and state fields.
+ *
+ ****************************************************************************/
 
 static void prepare_block(blockinfo* bi)
 {
@@ -8128,10 +8442,54 @@ static void prepare_block(blockinfo* bi)
     //bi->env=empty_ss;
 }
 
+/****i* januae-compemu-internal/compemu_reset
+ *
+ *   NAME
+ *       compemu_reset()
+ *
+ *   SYNOPSIS
+ *       void compemu_reset(void)
+ *
+ *   FUNCTION
+ *       Reset the JIT cache-state selector.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Delegates to set_cache_state(0); it does not clear the active and dormant lists.
+ *
+ ****************************************************************************/
+
 void compemu_reset(void)
 {
     set_cache_state(0);
 }
+
+/****i* januae-compemu-internal/build_comp
+ *
+ *   NAME
+ *       build_comp()
+ *
+ *   SYNOPSIS
+ *       void build_comp (void)
+ *
+ *   FUNCTION
+ *       Build opcode compiler dispatch tables and initialize compiled-code cache state.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Uses the configured CPU level and optional no-flags handlers; conditionally installs NATMEM signal handling, allocates the cache, creates trampolines and resets block lists.
+ *
+ ****************************************************************************/
 
 void build_comp (void)
 {
@@ -8280,6 +8638,28 @@ void build_comp (void)
     default_ss=empty_ss;
 }
 
+/****i* januae-compemu-internal/flush_icache_hard
+ *
+ *   NAME
+ *       flush_icache_hard()
+ *
+ *   SYNOPSIS
+ *       static void flush_icache_hard(int n)
+ *
+ *   FUNCTION
+ *       Discard all compiled block-list associations and reset the compiled-code allocation cursor.
+ *
+ *   INPUTS
+ *       n -- flush reason code, used only by disabled diagnostics.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Replaces cache-tag dispatch entries for active and dormant blocks, resets lists and requests a return from compiled execution if code storage exists.
+ *
+ ****************************************************************************/
+
 static void flush_icache_hard(int n)
 {
     uae_u32 i;
@@ -8314,6 +8694,28 @@ static void flush_icache_hard(int n)
 /* "Soft flushing" --- instead of actually throwing everything away,
    we simply mark everything as "needs to be checked".
 */
+
+/****i* januae-compemu-internal/flush_icache
+ *
+ *   NAME
+ *       flush_icache()
+ *
+ *   SYNOPSIS
+ *       void flush_icache(int n)
+ *
+ *   FUNCTION
+ *       Invalidate compiled blocks with either hard clearing or checksum-based soft flushing.
+ *
+ *   INPUTS
+ *       n -- flush reason forwarded to the hard-flush path.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       The soft path marks active entries for revalidation and moves them onto the dormant list without discarding allocated code.
+ *
+ ****************************************************************************/
 
 void flush_icache(int n)
 {
@@ -8359,6 +8761,30 @@ void flush_icache(int n)
 }
 
 int failure;
+
+/****i* januae-compemu-internal/compile_block
+ *
+ *   NAME
+ *       compile_block()
+ *
+ *   SYNOPSIS
+ *       void compile_block (const cpu_history *pc_hist, int blocklen, int totcycles)
+ *
+ *   FUNCTION
+ *       Compile an instruction-history block into native code when JIT execution is enabled.
+ *
+ *   INPUTS
+ *       pc_hist -- instruction history for the block.
+ *       blocklen -- number of history entries.
+ *       totcycles -- cycle count associated with the block.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Compilation requires letit, allocated compiled-code storage and CPU level 2 or higher; the implementation may flush caches, use the interpreter fallback or invalidate earlier mappings.
+ *
+ ****************************************************************************/
 
 void compile_block (const cpu_history *pc_hist, int blocklen, int totcycles)
 {
