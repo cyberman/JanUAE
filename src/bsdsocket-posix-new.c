@@ -167,6 +167,24 @@ static int mapErrno (int e)
 /*
  * Map amiga (s|g)etsockopt level into native one
  */
+/****i* januae-bsdsocket-internal/mapsockoptlevel
+ *
+ *   NAME
+ *       mapsockoptlevel()
+ *
+ *   SYNOPSIS
+ *       static int mapsockoptlevel (int level)
+ *
+ *   FUNCTION
+ *       Translate a guest socket-option level to its host protocol constant. Unknown levels are logged and returned unchanged.
+ *
+ *   INPUTS
+ *       level -- Socket-option protocol level.
+ *
+ *   RESULT
+ *       The mapped or original option level.
+ *
+ ****************************************************************************/
 static int mapsockoptlevel (int level)
 {
     switch (level) {
@@ -207,6 +225,25 @@ static int mapsockoptlevel (int level)
 /*
  * Map amiga (s|g)etsockopt optname into native one
  */
+/****i* januae-bsdsocket-internal/mapsockoptname
+ *
+ *   NAME
+ *       mapsockoptname()
+ *
+ *   SYNOPSIS
+ *       static int mapsockoptname (int level, int optname)
+ *
+ *   FUNCTION
+ *       Translate a guest socket-option identifier for the supplied native protocol level. Only explicitly recognized options are accepted.
+ *
+ *   INPUTS
+ *       level -- Socket-option protocol level.
+ *       optname -- Socket-option identifier.
+ *
+ *   RESULT
+ *       The host option identifier, or -1 for an unsupported option or level.
+ *
+ ****************************************************************************/
 static int mapsockoptname (int level, int optname)
 {
     switch (level) {
@@ -317,6 +354,27 @@ static int mapsockoptname (int level, int optname)
 /*
  * Map amiga (s|g)etsockopt return value into the correct form
  */
+/****i* januae-bsdsocket-internal/mapsockoptreturn
+ *
+ *   NAME
+ *       mapsockoptreturn()
+ *
+ *   SYNOPSIS
+ *       static void mapsockoptreturn(int level, int optname, uae_u32 optval, void *buf)
+ *
+ *   FUNCTION
+ *       Write a supported integer-valued native socket option into guest memory. For SO_ERROR, translate the host errno first. Other options are not copied.
+ *
+ *   INPUTS
+ *       level -- Socket-option protocol level.
+ *       optname -- Socket-option identifier.
+ *       optval -- Guest address of the socket option value.
+ *       buf -- Native buffer for the value.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void mapsockoptreturn(int level, int optname, uae_u32 optval, void *buf)
 {
     switch (level) {
@@ -397,6 +455,27 @@ static void mapsockoptreturn(int level, int optname, uae_u32 optval, void *buf)
 /*
  * Map amiga (s|g)etsockopt value from amiga to the appropriate value
  */
+/****i* januae-bsdsocket-internal/mapsockoptvalue
+ *
+ *   NAME
+ *       mapsockoptvalue()
+ *
+ *   SYNOPSIS
+ *       static void mapsockoptvalue(int level, int optname, uae_u32 optval, void *buf)
+ *
+ *   FUNCTION
+ *       Read a supported integer-valued socket option from guest memory into the supplied host buffer. Unrecognized options leave the buffer unchanged.
+ *
+ *   INPUTS
+ *       level -- Socket-option protocol level.
+ *       optname -- Socket-option identifier.
+ *       optval -- Guest address of the socket option value.
+ *       buf -- Native buffer for the value.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void mapsockoptvalue(int level, int optname, uae_u32 optval, void *buf)
 {
     switch (level) {
@@ -591,6 +670,24 @@ STATIC_INLINE void bsd_amigaside_FD_SET (int n, uae_u32 set)
 }
 
 #ifdef DEBUG_BSDSOCKET
+/****i* januae-bsdsocket-internal/printSockAddr
+ *
+ *   NAME
+ *       printSockAddr()
+ *
+ *   SYNOPSIS
+ *       static void printSockAddr (struct sockaddr_in *in)
+ *
+ *   FUNCTION
+ *       Log the supplied socket address for diagnostics using the address family and IPv4 address representation supported by this helper.
+ *
+ *   INPUTS
+ *       in -- Operation input or output parameter.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void printSockAddr (struct sockaddr_in *in)
 {
     DEBUG_LOG ("Family %d, ", in->sin_family);
@@ -835,6 +932,24 @@ static void copyProtoent (TrapContext *context, SB, const struct protoent *p)
 
 
 
+/****i* januae-bsdsocket-internal/bsdthr_WaitSelect
+ *
+ *   NAME
+ *       bsdthr_WaitSelect()
+ *
+ *   SYNOPSIS
+ *       uae_u32 bsdthr_WaitSelect (SB)
+ *
+ *   FUNCTION
+ *       Perform the thread-side select operation using socket descriptor sets, the abort pipe, and the requested timeout; transfer ready-set information to guest memory.
+ *
+ *   INPUTS
+ *       SB -- Socketbase context supplied by the calling macro.
+ *
+ *   RESULT
+ *       The native select result or failure indication.
+ *
+ ****************************************************************************/
 uae_u32 bsdthr_WaitSelect (SB)
 {
     fd_set sets [3];
@@ -925,6 +1040,24 @@ uae_u32 bsdthr_WaitSelect (SB)
     return r;
 }
 
+/****i* januae-bsdsocket-internal/bsdthr_Accept_2
+ *
+ *   NAME
+ *       bsdthr_Accept_2()
+ *
+ *   SYNOPSIS
+ *       uae_u32 bsdthr_Accept_2 (SB)
+ *
+ *   FUNCTION
+ *       Attempt a native accept operation on the socket stored in the socketbase, transfer its address, and register the accepted descriptor when successful.
+ *
+ *   INPUTS
+ *       SB -- Socketbase context supplied by the calling macro.
+ *
+ *   RESULT
+ *       The accept result, or a failure indication.
+ *
+ ****************************************************************************/
 uae_u32 bsdthr_Accept_2 (SB)
 {
     int foo, s, s2;
@@ -951,6 +1084,24 @@ uae_u32 bsdthr_Accept_2 (SB)
     }
 }
 
+/****i* januae-bsdsocket-internal/bsdthr_Recv_2
+ *
+ *   NAME
+ *       bsdthr_Recv_2()
+ *
+ *   SYNOPSIS
+ *       uae_u32 bsdthr_Recv_2 (SB)
+ *
+ *   FUNCTION
+ *       Attempt a native socket receive using the buffer, flags, and source-address fields stored in the socketbase.
+ *
+ *   INPUTS
+ *       SB -- Socketbase context supplied by the calling macro.
+ *
+ *   RESULT
+ *       The native receive result.
+ *
+ ****************************************************************************/
 uae_u32 bsdthr_Recv_2 (SB)
 {
     int foo;
@@ -973,6 +1124,24 @@ uae_u32 bsdthr_Recv_2 (SB)
     return foo;
 }
 
+/****i* januae-bsdsocket-internal/bsdthr_Send_2
+ *
+ *   NAME
+ *       bsdthr_Send_2()
+ *
+ *   SYNOPSIS
+ *       uae_u32 bsdthr_Send_2 (SB)
+ *
+ *   FUNCTION
+ *       Attempt a native socket send using the buffer, flags, and destination fields stored in the socketbase.
+ *
+ *   INPUTS
+ *       SB -- Socketbase context supplied by the calling macro.
+ *
+ *   RESULT
+ *       The native send result.
+ *
+ ****************************************************************************/
 uae_u32 bsdthr_Send_2 (SB)
 {
     if (sb->to == 0) {
@@ -986,6 +1155,24 @@ uae_u32 bsdthr_Send_2 (SB)
     }
 }
 
+/****i* januae-bsdsocket-internal/bsdthr_Connect_2
+ *
+ *   NAME
+ *       bsdthr_Connect_2()
+ *
+ *   SYNOPSIS
+ *       uae_u32 bsdthr_Connect_2 (SB)
+ *
+ *   FUNCTION
+ *       Attempt a native connect or inspect SO_ERROR after a nonblocking connection attempt.
+ *
+ *   INPUTS
+ *       SB -- Socketbase context supplied by the calling macro.
+ *
+ *   RESULT
+ *       Zero on a completed connection, or a failure indication.
+ *
+ ****************************************************************************/
 uae_u32 bsdthr_Connect_2 (SB)
 {
     if (sb->action == 1) {
@@ -1016,11 +1203,49 @@ uae_u32 bsdthr_Connect_2 (SB)
     }
 }
 
+/****i* januae-bsdsocket-internal/bsdthr_SendRecvAcceptConnect
+ *
+ *   NAME
+ *       bsdthr_SendRecvAcceptConnect()
+ *
+ *   SYNOPSIS
+ *       uae_u32 bsdthr_SendRecvAcceptConnect (uae_u32 (*tryfunc)(SB), SB)
+ *
+ *   FUNCTION
+ *       Forward the selected native socket operation to the common blocking-operation handler.
+ *
+ *   INPUTS
+ *       tryfunc -- Native socket operation to attempt.
+ *       SB -- Socketbase context supplied by the calling macro.
+ *
+ *   RESULT
+ *       The result returned by the common handler.
+ *
+ ****************************************************************************/
 uae_u32 bsdthr_SendRecvAcceptConnect (uae_u32 (*tryfunc)(SB), SB)
 {
     return bsdthr_blockingstuff (tryfunc, sb);
 }
 
+/****i* januae-bsdsocket-internal/bsdthr_blockingstuff
+ *
+ *   NAME
+ *       bsdthr_blockingstuff()
+ *
+ *   SYNOPSIS
+ *       uae_u32 bsdthr_blockingstuff (uae_u32 (*tryfunc)(SB), SB)
+ *
+ *   FUNCTION
+ *       Temporarily enable O_NONBLOCK, retry a pending operation via select when the guest socket was blocking, and watch the abort pipe for interruption. Restore the original file status flags before returning.
+ *
+ *   INPUTS
+ *       tryfunc -- Native socket operation to attempt.
+ *       SB -- Socketbase context supplied by the calling macro.
+ *
+ *   RESULT
+ *       The attempted operation result, or -1 if the waiting select fails. An abort sets EINTR.
+ *
+ ****************************************************************************/
 uae_u32 bsdthr_blockingstuff (uae_u32 (*tryfunc)(SB), SB)
 {
   int done = 0, foo;
@@ -1081,6 +1306,24 @@ uae_u32 bsdthr_blockingstuff (uae_u32 (*tryfunc)(SB), SB)
 }
 
 
+/****i* januae-bsdsocket-internal/bsdlib_threadfunc
+ *
+ *   NAME
+ *       bsdlib_threadfunc()
+ *
+ *   SYNOPSIS
+ *       static void *bsdlib_threadfunc (void *arg)
+ *
+ *   FUNCTION
+ *       Wait for socketbase actions and dispatch connect, send, receive, host lookups, select, and accept operations. Propagate error and signal state; destroy the semaphore when instructed to terminate.
+ *
+ *   INPUTS
+ *       arg -- Socketbase passed to the worker thread.
+ *
+ *   RESULT
+ *       NULL when action zero terminates the socket thread.
+ *
+ ****************************************************************************/
 static void *bsdlib_threadfunc (void *arg)
 {
     struct socketbase *sb = (struct socketbase *) arg;
@@ -1503,6 +1746,31 @@ void host_gethostbynameaddr (TrapContext *context, SB, uae_u32 name, uae_u32 nam
     WAITSIGNAL;
 }
 
+/****i* januae-bsdsocket-internal/host_WaitSelect
+ *
+ *   NAME
+ *       host_WaitSelect()
+ *
+ *   SYNOPSIS
+ *       void host_WaitSelect (TrapContext *context, SB, uae_u32 nfds, uae_u32 readfds, uae_u32 writefds, uae_u32 exceptfds, uae_u32 timeout, uae_u32 sigmp)
+ *
+ *   FUNCTION
+ *       Schedule a socketbase select request, incorporating guest descriptor sets, timeout, and signal mask into the request sent to the worker.
+ *
+ *   INPUTS
+ *       context -- Guest trap context.
+ *       SB -- Socketbase context supplied by the calling macro.
+ *       nfds -- Number of descriptor positions to inspect.
+ *       readfds -- Guest read descriptor set.
+ *       writefds -- Guest write descriptor set.
+ *       exceptfds -- Guest exceptional descriptor set.
+ *       timeout -- Guest timeout pointer.
+ *       sigmp -- Guest signal-mask pointer.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void host_WaitSelect (TrapContext *context, SB, uae_u32 nfds, uae_u32 readfds, uae_u32 writefds, uae_u32 exceptfds,
 		      uae_u32 timeout, uae_u32 sigmp)
 {
@@ -1859,6 +2127,28 @@ void host_getprotobynumber (TrapContext *context, SB, uae_u32 number)
     TRACE (("OK (%s, %d)\n", p->p_name, p->p_proto));
 }
 
+/****i* januae-bsdsocket-internal/host_getservbynameport
+ *
+ *   NAME
+ *       host_getservbynameport()
+ *
+ *   SYNOPSIS
+ *       void host_getservbynameport (TrapContext *context, SB, uae_u32 name, uae_u32 proto, uae_u32 type)
+ *
+ *   FUNCTION
+ *       Look up a service by name or port using the host service database and translate the resulting record to guest storage.
+ *
+ *   INPUTS
+ *       context -- Guest trap context.
+ *       SB -- Socketbase context supplied by the calling macro.
+ *       name -- Guest address for a name or record.
+ *       proto -- Transport protocol name.
+ *       type -- Operation input or output parameter.
+ *
+ *   RESULT
+ *       The guest-side service record pointer or failure result.
+ *
+ ****************************************************************************/
 void host_getservbynameport (TrapContext *context, SB, uae_u32 name, uae_u32 proto, uae_u32 type)
 {
     struct servent *s = (type) ?
@@ -2179,6 +2469,26 @@ uae_u32 host_shutdown (SB, uae_u32 sd, uae_u32 how)
     return -1;
 }
 
+/****i* januae-bsdsocket-internal/host_dup2socket
+ *
+ *   NAME
+ *       host_dup2socket()
+ *
+ *   SYNOPSIS
+ *       int host_dup2socket (SB, int fd1, int fd2)
+ *
+ *   FUNCTION
+ *       Duplicate a registered host socket descriptor into a selected guest descriptor slot or allocate an available slot. Existing target sockets are closed before replacement.
+ *
+ *   INPUTS
+ *       SB -- Socketbase context supplied by the calling macro.
+ *       fd1 -- Source guest socket descriptor.
+ *       fd2 -- Destination guest socket descriptor, or -1 to allocate one.
+ *
+ *   RESULT
+ *       Zero for a specified destination, the allocated guest descriptor for automatic allocation, or -1 on failure.
+ *
+ ****************************************************************************/
 int host_dup2socket (SB, int fd1, int fd2) {
     int s1, s2;
 
