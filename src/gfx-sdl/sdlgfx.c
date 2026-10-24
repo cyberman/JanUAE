@@ -189,6 +189,24 @@ int get_sdlgfx_type (void)
     return driver;
 }
 
+/****i* januae-sdlgfx-internal/bitsInMask
+ *
+ *   NAME
+ *       bitsInMask()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE unsigned long bitsInMask (unsigned long mask)
+ *
+ *   FUNCTION
+ *       Count the set bits in a pixel-component mask.
+ *
+ *   INPUTS
+ *       mask -- Pixel component bit mask.
+ *
+ *   RESULT
+ *       The number of set bits.
+ *
+ ****************************************************************************/
 STATIC_INLINE unsigned long bitsInMask (unsigned long mask)
 {
     /* count bits in mask */
@@ -200,6 +218,24 @@ STATIC_INLINE unsigned long bitsInMask (unsigned long mask)
     return n;
 }
 
+/****i* januae-sdlgfx-internal/maskShift
+ *
+ *   NAME
+ *       maskShift()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE unsigned long maskShift (unsigned long mask)
+ *
+ *   FUNCTION
+ *       Count the low-order zero bits preceding the first set bit in a nonzero pixel-component mask.
+ *
+ *   INPUTS
+ *       mask -- Pixel component bit mask.
+ *
+ *   RESULT
+ *       The bit shift needed to reach the first set bit. A zero mask does not terminate this loop.
+ *
+ ****************************************************************************/
 STATIC_INLINE unsigned long maskShift (unsigned long mask)
 {
     /* determine how far mask is shifted */
@@ -749,6 +785,26 @@ static int alloc_gl_buffer (struct gl_buffer_t *buffer, int width, int height, i
 
 
 
+/****i* januae-sdlgfx-internal/flush_gl_buffer
+ *
+ *   NAME
+ *       flush_gl_buffer()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void flush_gl_buffer (const struct gl_buffer_t *buffer, int first_line, int last_line)
+ *
+ *   FUNCTION
+ *       Upload the requested contiguous line range from the host pixel buffer into the existing OpenGL texture.
+ *
+ *   INPUTS
+ *       buffer -- Texture buffer and pixel-storage description.
+ *       first_line -- First affected scanline.
+ *       last_line -- Last affected scanline, inclusive.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void flush_gl_buffer (const struct gl_buffer_t *buffer, int first_line, int last_line)
 {
     glTexSubImage2D (buffer->target, 0,
@@ -757,6 +813,26 @@ STATIC_INLINE void flush_gl_buffer (const struct gl_buffer_t *buffer, int first_
 		     buffer->pixels + buffer->pitch * first_line);
 }
 
+/****i* januae-sdlgfx-internal/render_gl_buffer
+ *
+ *   NAME
+ *       render_gl_buffer()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void render_gl_buffer (const struct gl_buffer_t *buffer, int first_line, int last_line)
+ *
+ *   FUNCTION
+ *       Compute texture coordinates for the requested line range and submit the corresponding textured geometry to OpenGL.
+ *
+ *   INPUTS
+ *       buffer -- Texture buffer and pixel-storage description.
+ *       first_line -- First affected scanline.
+ *       last_line -- Last affected scanline, inclusive.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void render_gl_buffer (const struct gl_buffer_t *buffer, int first_line, int last_line)
 {
     float tx0, ty0;
@@ -863,6 +939,26 @@ static void sdl_unlock_nolock (struct vidbuf_description *gfxinfo)
 {
 }
 
+/****i* januae-sdlgfx-internal/sdl_flush_block_nolock
+ *
+ *   NAME
+ *       sdl_flush_block_nolock()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void sdl_flush_block_nolock (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+ *
+ *   FUNCTION
+ *       Update the specified scanline range of the SDL display surface without acquiring the surface lock.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *       first_line -- First affected scanline.
+ *       last_line -- Last affected scanline, inclusive.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void sdl_flush_block_nolock (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
    SDL_UpdateRect (display, 0, first_line, current_width, last_line - first_line + 1);
@@ -1259,6 +1355,24 @@ static void sdl_gl_flush_clear_screen (struct vidbuf_description *gfxinfo)
 
 #endif /* USE_GL */
 
+/****i* januae-sdlgfx-internal/graphics_setup
+ *
+ *   NAME
+ *       graphics_setup()
+ *
+ *   SYNOPSIS
+ *       int graphics_setup (void)
+ *
+ *   FUNCTION
+ *       Initialize the SDL video subsystem, discover display pixel depth, and enumerate available screen modes.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       1 after successful initialization; 0 if SDL video initialization fails.
+ *
+ ****************************************************************************/
 int graphics_setup (void)
 {
     int result = 0;
@@ -1293,6 +1407,24 @@ int graphics_setup (void)
  * Mergin this function into graphics_subinit_gl is possible but gives us a lot of
  * ifdefs.
  */
+/****i* januae-sdlgfx-internal/graphics_subinit_gl
+ *
+ *   NAME
+ *       graphics_subinit_gl()
+ *
+ *   SYNOPSIS
+ *       static int graphics_subinit_gl (void)
+ *
+ *   FUNCTION
+ *       Create the OpenGL-backed video mode and associated graphics buffers, applying the supported double-buffer and synchronization settings.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       A success or failure status for OpenGL video initialization.
+ *
+ ****************************************************************************/
 static int graphics_subinit_gl (void)
 {
     Uint32 uiSDLVidModFlags = 0;
@@ -1425,6 +1557,24 @@ static int graphics_subinit_gl (void)
 
 #endif /* USE_GL */
 
+/****i* januae-sdlgfx-internal/graphics_subinit
+ *
+ *   NAME
+ *       graphics_subinit()
+ *
+ *   SYNOPSIS
+ *       static int graphics_subinit (void)
+ *
+ *   FUNCTION
+ *       Initialize the selected SDL or OpenGL display path and configure cursor, input grab, buffers and color handling.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       A success or failure status for display initialization.
+ *
+ ****************************************************************************/
 static int graphics_subinit (void)
 {
 #ifdef USE_GL
@@ -1565,6 +1715,24 @@ static int graphics_subinit (void)
     return init_colors ();
 }
 
+/****i* januae-sdlgfx-internal/graphics_init
+ *
+ *   NAME
+ *       graphics_init()
+ *
+ *   SYNOPSIS
+ *       int graphics_init (void)
+ *
+ *   FUNCTION
+ *       Validate the configured color mode, select the requested display dimensions, and initialize the active display.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       1 on successful display initialization; otherwise 0.
+ *
+ ****************************************************************************/
 int graphics_init (void)
 {
     int success = 0;
@@ -1599,6 +1767,24 @@ int graphics_init (void)
     return success;
 }
 
+/****i* januae-sdlgfx-internal/graphics_subshutdown
+ *
+ *   NAME
+ *       graphics_subshutdown()
+ *
+ *   SYNOPSIS
+ *       static void graphics_subshutdown (void)
+ *
+ *   FUNCTION
+ *       Release the active SDL or OpenGL display resources and any allocated emergency graphics buffer.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void graphics_subshutdown (void)
 {
     DEBUG_LOG ("Function: graphics_subshutdown\n");
@@ -1638,6 +1824,24 @@ static void graphics_subshutdown (void)
 #endif
 }
 
+/****i* januae-sdlgfx-internal/graphics_leave
+ *
+ *   NAME
+ *       graphics_leave()
+ *
+ *   SYNOPSIS
+ *       void graphics_leave (void)
+ *
+ *   FUNCTION
+ *       Shut down graphics resources, quit the SDL video subsystem, and dump custom-chip state.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void graphics_leave (void)
 {
     DEBUG_LOG ("Function: graphics_leave\n");
@@ -1647,6 +1851,24 @@ void graphics_leave (void)
     dumpcustom ();
 }
 
+/****i* januae-sdlgfx-internal/graphics_notify_state
+ *
+ *   NAME
+ *       graphics_notify_state()
+ *
+ *   SYNOPSIS
+ *       void graphics_notify_state (int state)
+ *
+ *   FUNCTION
+ *       Update the cached emulator state and refresh the window title when the state changes and a display exists.
+ *
+ *   INPUTS
+ *       state -- New emulator or display state.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void graphics_notify_state (int state)
 {
     if (last_state != state) {
@@ -1656,6 +1878,24 @@ void graphics_notify_state (int state)
     }
 }
 
+/****i* januae-sdlgfx-internal/handle_events
+ *
+ *   NAME
+ *       handle_events()
+ *
+ *   SYNOPSIS
+ *       void handle_events (void)
+ *
+ *   FUNCTION
+ *       Poll SDL events and forward quit requests, pointer and keyboard input, and other recognized host events to the emulator.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void handle_events (void)
 {
     SDL_Event rEvent;
@@ -1846,6 +2086,24 @@ void handle_events (void)
 #endif /* PICASSSO96 */
 }
 
+/****i* januae-sdlgfx-internal/switch_keymaps
+ *
+ *   NAME
+ *       switch_keymaps()
+ *
+ *   SYNOPSIS
+ *       static void switch_keymaps (void)
+ *
+ *   FUNCTION
+ *       Select raw or translated host key mapping, restoring supported defaults and disabling raw mapping when unavailable.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void switch_keymaps (void)
 {
     if (currprefs.map_raw_keys) {
@@ -1863,6 +2121,24 @@ static void switch_keymaps (void)
     }
 }
 
+/****i* januae-sdlgfx-internal/check_prefs_changed_gfx
+ *
+ *   NAME
+ *       check_prefs_changed_gfx()
+ *
+ *   SYNOPSIS
+ *       int check_prefs_changed_gfx (void)
+ *
+ *   FUNCTION
+ *       Compare pending and active graphics settings, apply input-map updates, and reconfigure the display when required.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       A graphics-preference change status as determined by the implemented comparison path.
+ *
+ ****************************************************************************/
 int check_prefs_changed_gfx (void)
 {
     if (changed_prefs.map_raw_keys != currprefs.map_raw_keys) {
@@ -1976,6 +2252,25 @@ void LED (int on)
 
 #ifdef PICASSO96
 
+/****i* januae-sdlgfx-internal/DX_Invalidate
+ *
+ *   NAME
+ *       DX_Invalidate()
+ *
+ *   SYNOPSIS
+ *       void DX_Invalidate (int first, int last)
+ *
+ *   FUNCTION
+ *       Accumulate the first and last invalid scanlines for a Picasso96 software surface; ignore reversed ranges and hardware surfaces.
+ *
+ *   INPUTS
+ *       first -- First invalid scanline.
+ *       last -- Last invalid scanline.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void DX_Invalidate (int first, int last)
 {
     DEBUG_LOG ("Function: DX_Invalidate %i - %i\n", first, last);
@@ -1998,6 +2293,24 @@ void DX_Invalidate (int first, int last)
     }
 }
 
+/****i* januae-sdlgfx-internal/DX_BitsPerCannon
+ *
+ *   NAME
+ *       DX_BitsPerCannon()
+ *
+ *   SYNOPSIS
+ *       int DX_BitsPerCannon (void)
+ *
+ *   FUNCTION
+ *       Report the fixed per-channel color precision used by this Picasso96 graphics interface.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       8.
+ *
+ ****************************************************************************/
 int DX_BitsPerCannon (void)
 {
     return 8;
@@ -2006,6 +2319,25 @@ int DX_BitsPerCannon (void)
 static int palette_update_start = 256;
 static int palette_update_end   = 0;
 
+/****i* januae-sdlgfx-internal/DX_SetPalette
+ *
+ *   NAME
+ *       DX_SetPalette()
+ *
+ *   SYNOPSIS
+ *       void DX_SetPalette (int start, int count)
+ *
+ *   FUNCTION
+ *       Apply the specified Picasso96 CLUT range when a compatible chunky display is active.
+ *
+ *   INPUTS
+ *       start -- First palette entry.
+ *       count -- Palette entry count or mode-table count pointer.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void DX_SetPalette (int start, int count)
 {
     DEBUG_LOG ("Function: DX_SetPalette\n");
@@ -2035,6 +2367,24 @@ void DX_SetPalette (int start, int count)
     }
 }
 
+/****i* januae-sdlgfx-internal/DX_SetPalette_vsync
+ *
+ *   NAME
+ *       DX_SetPalette_vsync()
+ *
+ *   SYNOPSIS
+ *       void DX_SetPalette_vsync(void)
+ *
+ *   FUNCTION
+ *       Apply the queued Picasso96 palette range when a nonempty update range is pending.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void DX_SetPalette_vsync(void)
 {
     if (palette_update_end > palette_update_start) {
@@ -2045,6 +2395,29 @@ void DX_SetPalette_vsync(void)
   }
 }
 
+/****i* januae-sdlgfx-internal/DX_Fill
+ *
+ *   NAME
+ *       DX_Fill()
+ *
+ *   SYNOPSIS
+ *       int DX_Fill (int dstx, int dsty, int width, int height, uae_u32 color, RGBFTYPE rgbtype)
+ *
+ *   FUNCTION
+ *       Attempt to fill a rectangle of the SDL surface and mark the affected scanlines invalid when the fill succeeds.
+ *
+ *   INPUTS
+ *       dstx -- Destination x coordinate.
+ *       dsty -- Destination y coordinate.
+ *       width -- Requested rectangle or display width.
+ *       height -- Requested rectangle or display height.
+ *       color -- Pixel fill value.
+ *       rgbtype -- Requested RGB format.
+ *
+ *   RESULT
+ *       The implementation-defined success status of the surface fill operation.
+ *
+ ****************************************************************************/
 int DX_Fill (int dstx, int dsty, int width, int height, uae_u32 color, RGBFTYPE rgbtype)
 {
     int result = 0;
@@ -2066,6 +2439,30 @@ int DX_Fill (int dstx, int dsty, int width, int height, uae_u32 color, RGBFTYPE 
     return result;
 }
 
+/****i* januae-sdlgfx-internal/DX_Blit
+ *
+ *   NAME
+ *       DX_Blit()
+ *
+ *   SYNOPSIS
+ *       int DX_Blit (int srcx, int srcy, int dstx, int dsty, int width, int height, BLIT_OPCODE opcode)
+ *
+ *   FUNCTION
+ *       Attempt a source-copy blit on the SDL surface and invalidate the destination lines after success. Other blit opcodes are not handled by this path.
+ *
+ *   INPUTS
+ *       srcx -- Source x coordinate.
+ *       srcy -- Source y coordinate.
+ *       dstx -- Destination x coordinate.
+ *       dsty -- Destination y coordinate.
+ *       width -- Requested rectangle or display width.
+ *       height -- Requested rectangle or display height.
+ *       opcode -- Requested blit operation.
+ *
+ *   RESULT
+ *       The implementation-defined success status of the blit operation.
+ *
+ ****************************************************************************/
 int DX_Blit (int srcx, int srcy, int dstx, int dsty, int width, int height, BLIT_OPCODE opcode)
 {
     int result = 0;
@@ -2091,6 +2488,27 @@ int DX_Blit (int srcx, int srcy, int dstx, int dsty, int width, int height, BLIT
 /*
  * Add a screenmode to the emulated P96 display database
  */
+/****i* januae-sdlgfx-internal/add_p96_mode
+ *
+ *   NAME
+ *       add_p96_mode()
+ *
+ *   SYNOPSIS
+ *       static void add_p96_mode (int width, int height, int emulate_chunky, int *count)
+ *
+ *   FUNCTION
+ *       Append the requested Picasso96 resolution and optional emulated chunky variant while the mode table has capacity.
+ *
+ *   INPUTS
+ *       width -- Requested rectangle or display width.
+ *       height -- Requested rectangle or display height.
+ *       emulate_chunky -- Whether to include the emulated 8-bit chunky mode.
+ *       count -- Palette entry count or mode-table count pointer.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void add_p96_mode (int width, int height, int emulate_chunky, int *count)
 {
     unsigned int i;
@@ -2109,6 +2527,24 @@ static void add_p96_mode (int width, int height, int emulate_chunky, int *count)
     return;
 }
 
+/****i* januae-sdlgfx-internal/DX_FillResolutions
+ *
+ *   NAME
+ *       DX_FillResolutions()
+ *
+ *   SYNOPSIS
+ *       int DX_FillResolutions (uae_u16 *ppixel_format)
+ *
+ *   FUNCTION
+ *       Determine supported Picasso96 pixel formats and populate the advertised graphics-mode table.
+ *
+ *   INPUTS
+ *       ppixel_format -- Output pointer for supported pixel-format flags.
+ *
+ *   RESULT
+ *       The number of display modes registered.
+ *
+ ****************************************************************************/
 int DX_FillResolutions (uae_u16 *ppixel_format)
 {
     int i;
@@ -2182,6 +2618,24 @@ int DX_FillResolutions (uae_u16 *ppixel_format)
     return count;
 }
 
+/****i* januae-sdlgfx-internal/set_window_for_picasso
+ *
+ *   NAME
+ *       set_window_for_picasso()
+ *
+ *   SYNOPSIS
+ *       static void set_window_for_picasso (void)
+ *
+ *   FUNCTION
+ *       Recreate the display for the current Picasso96 dimensions unless the matching Picasso96 window is already active.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void set_window_for_picasso (void)
 {
     DEBUG_LOG ("Function: set_window_for_picasso\n");
@@ -2196,6 +2650,27 @@ static void set_window_for_picasso (void)
     graphics_subinit();
 }
 
+/****i* januae-sdlgfx-internal/gfx_set_picasso_modeinfo
+ *
+ *   NAME
+ *       gfx_set_picasso_modeinfo()
+ *
+ *   SYNOPSIS
+ *       void gfx_set_picasso_modeinfo (int w, int h, int depth, int rgbfmt)
+ *
+ *   FUNCTION
+ *       Store the requested Picasso96 width, height and depth and refresh the active Picasso96 window as needed.
+ *
+ *   INPUTS
+ *       w -- Requested Picasso96 display width.
+ *       h -- Requested Picasso96 display height.
+ *       depth -- Pixel depth.
+ *       rgbfmt -- Requested Picasso96 RGB format.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void gfx_set_picasso_modeinfo (int w, int h, int depth, int rgbfmt)
 {
     DEBUG_LOG ("Function: gfx_set_picasso_modeinfo w: %i h: %i depth: %i rgbfmt: %i\n", w, h, depth, rgbfmt);
@@ -2208,6 +2683,24 @@ void gfx_set_picasso_modeinfo (int w, int h, int depth, int rgbfmt)
 	set_window_for_picasso();
 }
 
+/****i* januae-sdlgfx-internal/gfx_set_picasso_state
+ *
+ *   NAME
+ *       gfx_set_picasso_state()
+ *
+ *   SYNOPSIS
+ *       void gfx_set_picasso_state (int on)
+ *
+ *   FUNCTION
+ *       Switch between native and Picasso96 display state when a display is available.
+ *
+ *   INPUTS
+ *       on -- Requested Picasso96 activation state.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void gfx_set_picasso_state (int on)
 {
     DEBUG_LOG ("Function: gfx_set_picasso_state: %d\n", on);
@@ -2259,6 +2752,24 @@ uae_u8 *gfx_lock_picasso (void)
 #endif /* USE_GL */
 }
 
+/****i* januae-sdlgfx-internal/gfx_unlock_picasso
+ *
+ *   NAME
+ *       gfx_unlock_picasso()
+ *
+ *   SYNOPSIS
+ *       void gfx_unlock_picasso (void)
+ *
+ *   FUNCTION
+ *       Unlock the Picasso96 SDL surface when the current non-OpenGL surface requires locking.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void gfx_unlock_picasso (void)
 {
     DEBUG_LOG ("Function: gfx_unlock_picasso\n");
