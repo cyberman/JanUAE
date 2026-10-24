@@ -1393,16 +1393,64 @@ int check_prefs_changed_gfx (void)
     return 0;
 }
 
+/****i* januae-sdlgfx-internal/debuggable
+ *
+ *   NAME
+ *       debuggable()
+ *
+ *   SYNOPSIS
+ *       int debuggable (void)
+ *
+ *   FUNCTION
+ *       Reports whether the SDL graphics backend exposes debugger support.
+ *
+ *   RESULT
+ *       Returns 1 unconditionally.
+ *
+ ****************************************************************************/
 int debuggable (void)
 {
     return 1;
 }
 
+/****i* januae-sdlgfx-internal/mousehack_allowed
+ *
+ *   NAME
+ *       mousehack_allowed()
+ *
+ *   SYNOPSIS
+ *       int mousehack_allowed (void)
+ *
+ *   FUNCTION
+ *       Reports the current mouse-hack availability flag.
+ *
+ *   RESULT
+ *       Returns the value of mousehack.
+ *
+ ****************************************************************************/
 int mousehack_allowed (void)
 {
     return mousehack;
 }
 
+/****i* januae-sdlgfx-internal/LED
+ *
+ *   NAME
+ *       LED()
+ *
+ *   SYNOPSIS
+ *       void LED (int on)
+ *
+ *   FUNCTION
+ *       Legacy LED callback. The SDL implementation performs no operation.
+ *
+ *   INPUTS
+ *       on -- Requested LED state.
+ *
+ *   RESULT
+ *       No result; on is ignored.
+ *
+ ****************************************************************************/
 void LED (int on)
 {
 }
@@ -1707,16 +1755,61 @@ void gfx_unlock_picasso (void)
 }
 #endif /* PICASSO96 */
 
+/****i* januae-sdlgfx-internal/is_fullscreen
+ *
+ *   NAME
+ *       is_fullscreen()
+ *
+ *   SYNOPSIS
+ *       int is_fullscreen (void)
+ *
+ *   FUNCTION
+ *       Queries the current full-screen mode flag.
+ *
+ *   RESULT
+ *       Returns fullscreen.
+ *
+ ****************************************************************************/
 int is_fullscreen (void)
 {
     return fullscreen;
 }
 
+/****i* januae-sdlgfx-internal/is_vsync
+ *
+ *   NAME
+ *       is_vsync()
+ *
+ *   SYNOPSIS
+ *       int is_vsync (void)
+ *
+ *   FUNCTION
+ *       Queries the current vertical-sync flag.
+ *
+ *   RESULT
+ *       Returns vsync.
+ *
+ ****************************************************************************/
 int is_vsync (void)
 {
     return vsync;
 }
 
+/****i* januae-sdlgfx-internal/toggle_fullscreen
+ *
+ *   NAME
+ *       toggle_fullscreen()
+ *
+ *   SYNOPSIS
+ *       void toggle_fullscreen (void)
+ *
+ *   FUNCTION
+ *       Toggles the full-screen flag, recreates the graphics display, and marks screen contents lost.
+ *
+ *   RESULT
+ *       No result; a Picasso display also requests refresh.
+ *
+ ****************************************************************************/
 void toggle_fullscreen (void)
 {
     /* FIXME: Add support for separate full-screen/windowed sizes */
@@ -1733,6 +1826,21 @@ void toggle_fullscreen (void)
     DEBUG_LOG ("ToggleFullScreen: %d\n", fullscreen );
 };
 
+/****i* januae-sdlgfx-internal/toggle_mousegrab
+ *
+ *   NAME
+ *       toggle_mousegrab()
+ *
+ *   SYNOPSIS
+ *       void toggle_mousegrab (void)
+ *
+ *   FUNCTION
+ *       Changes SDL input grabbing when not in full-screen mode, updating mousegrab, mousehack, and cursor visibility only when SDL accepts the change.
+ *
+ *   RESULT
+ *       No result; full-screen mode is left unchanged.
+ *
+ ****************************************************************************/
 void toggle_mousegrab (void)
 {
     if (!fullscreen) {
@@ -1752,6 +1860,24 @@ void toggle_mousegrab (void)
     }
 }
 
+/****i* januae-sdlgfx-internal/screenshot
+ *
+ *   NAME
+ *       screenshot()
+ *
+ *   SYNOPSIS
+ *       void screenshot (int mode)
+ *
+ *   FUNCTION
+ *       Reports that screenshot capture is not implemented by this SDL backend.
+ *
+ *   INPUTS
+ *       mode -- Screenshot mode.
+ *
+ *   RESULT
+ *       No result; mode is ignored.
+ *
+ ****************************************************************************/
 void screenshot (int mode)
 {
    write_log ("Screenshot not supported yet\n");
@@ -1770,42 +1896,179 @@ void screenshot (int mode)
 #define FIRST_AXIS	0
 #define FIRST_BUTTON	MAX_AXES
 
+/****i* januae-sdlgfx-internal/init_mouse
+ *
+ *   NAME
+ *       init_mouse()
+ *
+ *   SYNOPSIS
+ *       static int init_mouse (void)
+ *
+ *   FUNCTION
+ *       Initializes the SDL mouse input-device hook without allocating backend state.
+ *
+ *   RESULT
+ *       Returns 1.
+ *
+ ****************************************************************************/
 static int init_mouse (void)
 {
    return 1;
 }
 
+/****i* januae-sdlgfx-internal/close_mouse
+ *
+ *   NAME
+ *       close_mouse()
+ *
+ *   SYNOPSIS
+ *       static void close_mouse (void)
+ *
+ *   FUNCTION
+ *       Completes the SDL mouse input-device close hook without additional cleanup.
+ *
+ *   RESULT
+ *       No result.
+ *
+ ****************************************************************************/
 static void close_mouse (void)
 {
    return;
 }
 
+/****i* januae-sdlgfx-internal/acquire_mouse
+ *
+ *   NAME
+ *       acquire_mouse()
+ *
+ *   SYNOPSIS
+ *       static int acquire_mouse (unsigned int num, int flags)
+ *
+ *   FUNCTION
+ *       Accepts an SDL mouse acquisition request without per-device acquisition work.
+ *
+ *   INPUTS
+ *       num -- Device or widget identifier.
+ *       flags -- Acquisition flags.
+ *
+ *   RESULT
+ *       Returns 1; num and flags are not inspected.
+ *
+ ****************************************************************************/
 static int acquire_mouse (unsigned int num, int flags)
 {
    /* SDL supports only one mouse */
    return 1;
 }
 
+/****i* januae-sdlgfx-internal/unacquire_mouse
+ *
+ *   NAME
+ *       unacquire_mouse()
+ *
+ *   SYNOPSIS
+ *       static void unacquire_mouse (unsigned int num)
+ *
+ *   FUNCTION
+ *       Releases an SDL mouse acquisition request without backend work.
+ *
+ *   INPUTS
+ *       num -- Device or widget identifier.
+ *
+ *   RESULT
+ *       No result; num is ignored.
+ *
+ ****************************************************************************/
 static void unacquire_mouse (unsigned int num)
 {
    return;
 }
 
+/****i* januae-sdlgfx-internal/get_mouse_num
+ *
+ *   NAME
+ *       get_mouse_num()
+ *
+ *   SYNOPSIS
+ *       static unsigned int get_mouse_num (void)
+ *
+ *   FUNCTION
+ *       Reports the number of SDL mouse devices exposed through this backend.
+ *
+ *   RESULT
+ *       Returns 1.
+ *
+ ****************************************************************************/
 static unsigned int get_mouse_num (void)
 {
     return 1;
 }
 
+/****i* januae-sdlgfx-internal/get_mouse_name
+ *
+ *   NAME
+ *       get_mouse_name()
+ *
+ *   SYNOPSIS
+ *       static const char *get_mouse_name (unsigned int mouse)
+ *
+ *   FUNCTION
+ *       Returns the fixed descriptive name used for the SDL mouse device.
+ *
+ *   INPUTS
+ *       mouse -- Mouse device index.
+ *
+ *   RESULT
+ *       Returns the string "Default mouse"; mouse is ignored.
+ *
+ ****************************************************************************/
 static const char *get_mouse_name (unsigned int mouse)
 {
     return "Default mouse";
 }
 
+/****i* januae-sdlgfx-internal/get_mouse_widget_num
+ *
+ *   NAME
+ *       get_mouse_widget_num()
+ *
+ *   SYNOPSIS
+ *       static unsigned int get_mouse_widget_num (unsigned int mouse)
+ *
+ *   FUNCTION
+ *       Reports three axes and three buttons for the SDL mouse interface.
+ *
+ *   INPUTS
+ *       mouse -- Mouse device index.
+ *
+ *   RESULT
+ *       Returns MAX_AXES + MAX_BUTTONS (6).
+ *
+ ****************************************************************************/
 static unsigned int get_mouse_widget_num (unsigned int mouse)
 {
     return MAX_AXES + MAX_BUTTONS;
 }
 
+/****i* januae-sdlgfx-internal/get_mouse_widget_first
+ *
+ *   NAME
+ *       get_mouse_widget_first()
+ *
+ *   SYNOPSIS
+ *       static int get_mouse_widget_first (unsigned int mouse, int type)
+ *
+ *   FUNCTION
+ *       Maps a requested mouse widget class to its first axis or button slot.
+ *
+ *   INPUTS
+ *       mouse -- Mouse device index.
+ *       type -- Requested widget class.
+ *
+ *   RESULT
+ *       Returns FIRST_BUTTON for buttons, FIRST_AXIS for axes, or -1 for another type.
+ *
+ ****************************************************************************/
 static int get_mouse_widget_first (unsigned int mouse, int type)
 {
     switch (type) {
@@ -1817,6 +2080,27 @@ static int get_mouse_widget_first (unsigned int mouse, int type)
     return -1;
 }
 
+/****i* januae-sdlgfx-internal/get_mouse_widget_type
+ *
+ *   NAME
+ *       get_mouse_widget_type()
+ *
+ *   SYNOPSIS
+ *       static int get_mouse_widget_type (unsigned int mouse, unsigned int num, char *name, uae_u32 *code)
+ *
+ *   FUNCTION
+ *       Classifies a mouse widget index as an axis, button, or unsupported widget and optionally writes its display name.
+ *
+ *   INPUTS
+ *       mouse -- Mouse device index.
+ *       num -- Device or widget identifier.
+ *       name -- Optional widget-name output buffer.
+ *       code -- Optional widget-code output pointer.
+ *
+ *   RESULT
+ *       Returns IDEV_WIDGET_AXIS, IDEV_WIDGET_BUTTON, or IDEV_WIDGET_NONE; code is not written.
+ *
+ ****************************************************************************/
 static int get_mouse_widget_type (unsigned int mouse, unsigned int num, char *name, uae_u32 *code)
 {
     if (num >= MAX_AXES && num < MAX_AXES + MAX_BUTTONS) {
@@ -1831,6 +2115,21 @@ static int get_mouse_widget_type (unsigned int mouse, unsigned int num, char *na
     return IDEV_WIDGET_NONE;
 }
 
+/****i* januae-sdlgfx-internal/read_mouse
+ *
+ *   NAME
+ *       read_mouse()
+ *
+ *   SYNOPSIS
+ *       static void read_mouse (void)
+ *
+ *   FUNCTION
+ *       Mouse polling hook; SDL mouse events are processed by handle_events() instead.
+ *
+ *   RESULT
+ *       No result; this hook performs no work.
+ *
+ ****************************************************************************/
 static void read_mouse (void)
 {
     /* We handle mouse input in handle_events() */
@@ -1852,27 +2151,118 @@ struct inputdevice_functions inputdevicefunc_mouse = {
 /*
  * Keyboard inputdevice functions
  */
+/****i* januae-sdlgfx-internal/get_kb_num
+ *
+ *   NAME
+ *       get_kb_num()
+ *
+ *   SYNOPSIS
+ *       static unsigned int get_kb_num (void)
+ *
+ *   FUNCTION
+ *       Reports the number of SDL keyboards made available through this backend.
+ *
+ *   RESULT
+ *       Returns 1.
+ *
+ ****************************************************************************/
 static unsigned int get_kb_num (void)
 {
     /* SDL supports only one keyboard */
     return 1;
 }
 
+/****i* januae-sdlgfx-internal/get_kb_name
+ *
+ *   NAME
+ *       get_kb_name()
+ *
+ *   SYNOPSIS
+ *       static const char *get_kb_name (unsigned int kb)
+ *
+ *   FUNCTION
+ *       Returns the fixed SDL keyboard device description.
+ *
+ *   INPUTS
+ *       kb -- Keyboard device index.
+ *
+ *   RESULT
+ *       Returns "Default keyboard"; kb is ignored.
+ *
+ ****************************************************************************/
 static const char *get_kb_name (unsigned int kb)
 {
     return "Default keyboard";
 }
 
+/****i* januae-sdlgfx-internal/get_kb_widget_num
+ *
+ *   NAME
+ *       get_kb_widget_num()
+ *
+ *   SYNOPSIS
+ *       static unsigned  int get_kb_widget_num (unsigned int kb)
+ *
+ *   FUNCTION
+ *       Returns the current fixed keyboard widget-count placeholder.
+ *
+ *   INPUTS
+ *       kb -- Keyboard device index.
+ *
+ *   RESULT
+ *       Returns 255; kb is ignored.
+ *
+ ****************************************************************************/
 static unsigned  int get_kb_widget_num (unsigned int kb)
 {
     return 255; // fix me
 }
 
+/****i* januae-sdlgfx-internal/get_kb_widget_first
+ *
+ *   NAME
+ *       get_kb_widget_first()
+ *
+ *   SYNOPSIS
+ *       static int get_kb_widget_first (unsigned int kb, int type)
+ *
+ *   FUNCTION
+ *       Returns the first keyboard widget slot without examining the requested widget type.
+ *
+ *   INPUTS
+ *       kb -- Keyboard device index.
+ *       type -- Requested widget class.
+ *
+ *   RESULT
+ *       Returns 0.
+ *
+ ****************************************************************************/
 static int get_kb_widget_first (unsigned int kb, int type)
 {
     return 0;
 }
 
+/****i* januae-sdlgfx-internal/get_kb_widget_type
+ *
+ *   NAME
+ *       get_kb_widget_type()
+ *
+ *   SYNOPSIS
+ *       static int get_kb_widget_type (unsigned int kb, unsigned int num, char *name, uae_u32 *code)
+ *
+ *   FUNCTION
+ *       Classifies a keyboard widget index as a key and stores that index as its code.
+ *
+ *   INPUTS
+ *       kb -- Keyboard device index.
+ *       num -- Device or widget identifier.
+ *       name -- Optional widget-name output buffer.
+ *       code -- Optional widget-code output pointer.
+ *
+ *   RESULT
+ *       Returns IDEV_WIDGET_KEY; writes num to *code; name is ignored.
+ *
+ ****************************************************************************/
 static int get_kb_widget_type (unsigned int kb, unsigned int num, char *name, uae_u32 *code)
 {
     // fix me
@@ -1880,6 +2270,21 @@ static int get_kb_widget_type (unsigned int kb, unsigned int num, char *name, ua
     return IDEV_WIDGET_KEY;
 }
 
+/****i* januae-sdlgfx-internal/init_kb
+ *
+ *   NAME
+ *       init_kb()
+ *
+ *   SYNOPSIS
+ *       static int init_kb (void)
+ *
+ *   FUNCTION
+ *       Selects the platform raw-key translation table when available and updates keyboard maps.
+ *
+ *   RESULT
+ *       Returns 1; sets have_rawkeys when a raw-keymap exists.
+ *
+ ****************************************************************************/
 static int init_kb (void)
 {
     struct uae_input_device_kbr_default *keymap = 0;
@@ -1894,24 +2299,111 @@ static int init_kb (void)
     return 1;
 }
 
+/****i* januae-sdlgfx-internal/close_kb
+ *
+ *   NAME
+ *       close_kb()
+ *
+ *   SYNOPSIS
+ *       static void close_kb (void)
+ *
+ *   FUNCTION
+ *       Keyboard close hook with no backend-specific cleanup.
+ *
+ *   RESULT
+ *       No result.
+ *
+ ****************************************************************************/
 static void close_kb (void)
 {
 }
 
+/****i* januae-sdlgfx-internal/keyhack
+ *
+ *   NAME
+ *       keyhack()
+ *
+ *   SYNOPSIS
+ *       static int keyhack (int scancode, int pressed, int num)
+ *
+ *   FUNCTION
+ *       Passes an SDL keyboard scancode through unchanged.
+ *
+ *   INPUTS
+ *       scancode -- SDL key scan code.
+ *       pressed -- Key press state.
+ *       num -- Device or widget identifier.
+ *
+ *   RESULT
+ *       Returns scancode; pressed and num are ignored.
+ *
+ ****************************************************************************/
 static int keyhack (int scancode, int pressed, int num)
 {
     return scancode;
 }
 
+/****i* januae-sdlgfx-internal/read_kb
+ *
+ *   NAME
+ *       read_kb()
+ *
+ *   SYNOPSIS
+ *       static void read_kb (void)
+ *
+ *   FUNCTION
+ *       Keyboard polling hook; event handling occurs outside this function.
+ *
+ *   RESULT
+ *       No result.
+ *
+ ****************************************************************************/
 static void read_kb (void)
 {
 }
 
+/****i* januae-sdlgfx-internal/acquire_kb
+ *
+ *   NAME
+ *       acquire_kb()
+ *
+ *   SYNOPSIS
+ *       static int acquire_kb (unsigned int num, int flags)
+ *
+ *   FUNCTION
+ *       Accepts keyboard acquisition without doing per-device work.
+ *
+ *   INPUTS
+ *       num -- Device or widget identifier.
+ *       flags -- Acquisition flags.
+ *
+ *   RESULT
+ *       Returns 1; num and flags are ignored.
+ *
+ ****************************************************************************/
 static int acquire_kb (unsigned int num, int flags)
 {
     return 1;
 }
 
+/****i* januae-sdlgfx-internal/unacquire_kb
+ *
+ *   NAME
+ *       unacquire_kb()
+ *
+ *   SYNOPSIS
+ *       static void unacquire_kb (unsigned int num)
+ *
+ *   FUNCTION
+ *       Keyboard release hook with no backend work.
+ *
+ *   INPUTS
+ *       num -- Device or widget identifier.
+ *
+ *   RESULT
+ *       No result; num is ignored.
+ *
+ ****************************************************************************/
 static void unacquire_kb (unsigned int num)
 {
 }
@@ -1932,12 +2424,45 @@ struct inputdevice_functions inputdevicefunc_keyboard =
 
 //static int capslockstate;
 
+/****i* januae-sdlgfx-internal/getcapslockstate
+ *
+ *   NAME
+ *       getcapslockstate()
+ *
+ *   SYNOPSIS
+ *       int getcapslockstate (void)
+ *
+ *   FUNCTION
+ *       Reports the SDL Caps Lock placeholder state; tracking has not been implemented.
+ *
+ *   RESULT
+ *       Returns 0 unconditionally.
+ *
+ ****************************************************************************/
 int getcapslockstate (void)
 {
 // TODO
 //    return capslockstate;
     return 0;
 }
+/****i* januae-sdlgfx-internal/setcapslockstate
+ *
+ *   NAME
+ *       setcapslockstate()
+ *
+ *   SYNOPSIS
+ *       void setcapslockstate (int state)
+ *
+ *   FUNCTION
+ *       Caps Lock state-update placeholder with no implemented state change.
+ *
+ *   INPUTS
+ *       state -- Requested Caps Lock state.
+ *
+ *   RESULT
+ *       No result; state is ignored.
+ *
+ ****************************************************************************/
 void setcapslockstate (int state)
 {
 // TODO
@@ -1948,6 +2473,24 @@ void setcapslockstate (int state)
 /*
  * Default inputdevice config for SDL mouse
  */
+/****i* januae-sdlgfx-internal/input_get_default_mouse
+ *
+ *   NAME
+ *       input_get_default_mouse()
+ *
+ *   SYNOPSIS
+ *       void input_get_default_mouse (struct uae_input_device *uid)
+ *
+ *   FUNCTION
+ *       Installs the SDL default mouse axis, wheel, and button event mappings in the first input-device entry.
+ *
+ *   INPUTS
+ *       uid -- Destination input-device array.
+ *
+ *   RESULT
+ *       No result; enables uid[0].
+ *
+ ****************************************************************************/
 void input_get_default_mouse (struct uae_input_device *uid)
 {
     /* SDL supports only one mouse */
@@ -1963,6 +2506,24 @@ void input_get_default_mouse (struct uae_input_device *uid)
 /*
  * Handle gfx specific cfgfile options
  */
+/****i* januae-sdlgfx-internal/gfx_default_options
+ *
+ *   NAME
+ *       gfx_default_options()
+ *
+ *   SYNOPSIS
+ *       void gfx_default_options (struct uae_prefs *p)
+ *
+ *   FUNCTION
+ *       Chooses the SDL raw-key default from the graphics driver type and disables OpenGL by default when compiled with USE_GL.
+ *
+ *   INPUTS
+ *       p -- SDL preference structure.
+ *
+ *   RESULT
+ *       No result; updates fields in *p.
+ *
+ ****************************************************************************/
 void gfx_default_options (struct uae_prefs *p)
 {
     int type = get_sdlgfx_type ();
@@ -1976,6 +2537,25 @@ void gfx_default_options (struct uae_prefs *p)
 #endif /* USE_GL */
 }
 
+/****i* januae-sdlgfx-internal/gfx_save_options
+ *
+ *   NAME
+ *       gfx_save_options()
+ *
+ *   SYNOPSIS
+ *       void gfx_save_options (FILE *f, const struct uae_prefs *p)
+ *
+ *   FUNCTION
+ *       Writes SDL graphics raw-key and conditional OpenGL settings to the configuration file.
+ *
+ *   INPUTS
+ *       f -- Configuration output stream.
+ *       p -- SDL preference structure.
+ *
+ *   RESULT
+ *       No result; writes through cfgfile_write().
+ *
+ ****************************************************************************/
 void gfx_save_options (FILE *f, const struct uae_prefs *p)
 {
     cfgfile_write (f, GFX_NAME ".map_raw_keys=%s\n", p->map_raw_keys ? "true" : "false");
@@ -1984,6 +2564,26 @@ void gfx_save_options (FILE *f, const struct uae_prefs *p)
 #endif /* USE_GL */
 }
 
+/****i* januae-sdlgfx-internal/gfx_parse_option
+ *
+ *   NAME
+ *       gfx_parse_option()
+ *
+ *   SYNOPSIS
+ *       int gfx_parse_option (struct uae_prefs *p, const char *option, const char *value)
+ *
+ *   FUNCTION
+ *       Parses the SDL raw-key option and, when compiled with USE_GL, the OpenGL option.
+ *
+ *   INPUTS
+ *       p -- SDL preference structure.
+ *       option -- Option name.
+ *       value -- Option value.
+ *
+ *   RESULT
+ *       Returns the cfgfile_yesno() match result, combined with the conditional OpenGL parser.
+ *
+ ****************************************************************************/
 int gfx_parse_option (struct uae_prefs *p, const char *option, const char *value)
 {
     int result = (cfgfile_yesno (option, value, "map_raw_keys", &p->map_raw_keys));
