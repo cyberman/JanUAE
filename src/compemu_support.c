@@ -152,6 +152,28 @@ STATIC_INLINE blockinfo* get_blockinfo(uae_u32 cl)
     return cache_tags[cl+1].bi;
 }
 
+/****i* januae-compemu-internal/get_blockinfo_addr
+ *
+ *   NAME
+ *       get_blockinfo_addr()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE blockinfo* get_blockinfo_addr(void* addr)
+ *
+ *   FUNCTION
+ *       Find cached block metadata for an exact guest instruction address.
+ *
+ *   INPUTS
+ *       addr -- guest instruction address to look up.
+ *
+ *   RESULT
+ *       Returns the matching blockinfo pointer, or NULL if the cacheline list has no match.
+ *
+ *   NOTES
+ *       Traverses entries chained under the address cacheline; the hash alone does not establish an address match.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE blockinfo* get_blockinfo_addr(void* addr)
 {
     blockinfo*  bi=get_blockinfo(cacheline(addr));
@@ -183,6 +205,28 @@ STATIC_INLINE void remove_from_cl_list(blockinfo* bi)
 	cache_tags[cl].handler=popall_execute_normal;
 }
 
+/****i* januae-compemu-internal/remove_from_list
+ *
+ *   NAME
+ *       remove_from_list()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void remove_from_list(blockinfo* bi)
+ *
+ *   FUNCTION
+ *       Unlink a block from its current active or dormant list.
+ *
+ *   INPUTS
+ *       bi -- block whose list links are to be removed.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Repairs the preceding link and successor back-link when present; callers own the block lifetime.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void remove_from_list(blockinfo* bi)
 {
     if (bi->prev_p)
@@ -191,11 +235,55 @@ STATIC_INLINE void remove_from_list(blockinfo* bi)
 	bi->next->prev_p=bi->prev_p;
 }
 
+/****i* januae-compemu-internal/remove_from_lists
+ *
+ *   NAME
+ *       remove_from_lists()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void remove_from_lists(blockinfo* bi)
+ *
+ *   FUNCTION
+ *       Unlink a block from its state list and cacheline list.
+ *
+ *   INPUTS
+ *       bi -- block to unlink.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Invokes both list removal operations; it does not free the block.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void remove_from_lists(blockinfo* bi)
 {
     remove_from_list(bi);
     remove_from_cl_list(bi);
 }
+
+/****i* januae-compemu-internal/add_to_cl_list
+ *
+ *   NAME
+ *       add_to_cl_list()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void add_to_cl_list(blockinfo* bi)
+ *
+ *   FUNCTION
+ *       Insert a block at the head of its cacheline list.
+ *
+ *   INPUTS
+ *       bi -- block to insert.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Updates the cache tag to use the new head block handler and repairs the linked-list back-links.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void add_to_cl_list(blockinfo* bi)
 {
@@ -211,11 +299,55 @@ STATIC_INLINE void add_to_cl_list(blockinfo* bi)
     cache_tags[cl].handler=bi->handler_to_use;
 }
 
+/****i* januae-compemu-internal/raise_in_cl_list
+ *
+ *   NAME
+ *       raise_in_cl_list()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raise_in_cl_list(blockinfo* bi)
+ *
+ *   FUNCTION
+ *       Move a block to the head of its cacheline list.
+ *
+ *   INPUTS
+ *       bi -- existing block to promote.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Removes and reinserts the block, updating the cacheline handler.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void raise_in_cl_list(blockinfo* bi)
 {
     remove_from_cl_list(bi);
     add_to_cl_list(bi);
 }
+
+/****i* januae-compemu-internal/add_to_active
+ *
+ *   NAME
+ *       add_to_active()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void add_to_active(blockinfo* bi)
+ *
+ *   FUNCTION
+ *       Insert a block at the head of the active block list.
+ *
+ *   INPUTS
+ *       bi -- block to link into the active list.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Updates the global active head and predecessor links.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void add_to_active(blockinfo* bi)
 {
@@ -227,6 +359,28 @@ STATIC_INLINE void add_to_active(blockinfo* bi)
     bi->prev_p=&active;
 }
 
+/****i* januae-compemu-internal/add_to_dormant
+ *
+ *   NAME
+ *       add_to_dormant()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void add_to_dormant(blockinfo* bi)
+ *
+ *   FUNCTION
+ *       Insert a block at the head of the dormant block list.
+ *
+ *   INPUTS
+ *       bi -- block to link into the dormant list.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Updates the global dormant head and predecessor links.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void add_to_dormant(blockinfo* bi)
 {
     if (dormant)
@@ -236,6 +390,28 @@ STATIC_INLINE void add_to_dormant(blockinfo* bi)
     dormant=bi;
     bi->prev_p=&dormant;
 }
+
+/****i* januae-compemu-internal/remove_dep
+ *
+ *   NAME
+ *       remove_dep()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void remove_dep(dependency* d)
+ *
+ *   FUNCTION
+ *       Detach a jump dependency from its owning list.
+ *
+ *   INPUTS
+ *       d -- dependency to detach.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Repairs adjacent links and clears the dependency next and back-link pointers.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void remove_dep(dependency* d)
 {
@@ -249,11 +425,56 @@ STATIC_INLINE void remove_dep(dependency* d)
 
 /* This block's code is about to be thrown away, so it no longer
    depends on anything else */
+/****i* januae-compemu-internal/remove_deps
+ *
+ *   NAME
+ *       remove_deps()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void remove_deps(blockinfo* bi)
+ *
+ *   FUNCTION
+ *       Detach both outgoing jump dependencies of a block.
+ *
+ *   INPUTS
+ *       bi -- block whose two dependency records are detached.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Operates on dep[0] and dep[1]; it does not release either record.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void remove_deps(blockinfo* bi)
 {
     remove_dep(&(bi->dep[0]));
     remove_dep(&(bi->dep[1]));
 }
+
+/****i* januae-compemu-internal/adjust_jmpdep
+ *
+ *   NAME
+ *       adjust_jmpdep()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void adjust_jmpdep(dependency* d, void* a)
+ *
+ *   FUNCTION
+ *       Rewrite a relative jump displacement for a new destination.
+ *
+ *   INPUTS
+ *       d -- dependency holding the displacement location.
+ *       a -- replacement native jump destination.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Writes the displacement relative to the four bytes following d->jmp_off; requires a valid writable displacement location.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void adjust_jmpdep(dependency* d, void* a)
 {
@@ -284,6 +505,28 @@ STATIC_INLINE void set_dhtu(blockinfo* bi, void* dh)
     }
 }
 
+/****i* januae-compemu-internal/invalidate_block
+ *
+ *   NAME
+ *       invalidate_block()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void invalidate_block(blockinfo* bi)
+ *
+ *   FUNCTION
+ *       Reset a block to the unoptimized execution state.
+ *
+ *   INPUTS
+ *       bi -- block whose compiled execution metadata is invalidated.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Resets handlers, flag requirements and outgoing dependencies, and redirects registered direct users through set_dhtu().
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void invalidate_block(blockinfo* bi)
 {
     int i;
@@ -303,6 +546,31 @@ STATIC_INLINE void invalidate_block(blockinfo* bi)
     remove_deps(bi);
 }
 
+/****i* januae-compemu-internal/create_jmpdep
+ *
+ *   NAME
+ *       create_jmpdep()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void create_jmpdep(blockinfo* bi, int i, uae_u32* jmpaddr, uae_uintptr target)
+ *
+ *   FUNCTION
+ *       Register a direct jump dependency on a target block.
+ *
+ *   INPUTS
+ *       bi -- source block.
+ *       i -- source dependency slot.
+ *       jmpaddr -- native displacement field to update.
+ *       target -- guest address identifying the target block.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Looks up target metadata and links the dependency into its incoming list. Aborts if no target block metadata exists; the caller must supply a valid slot.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void create_jmpdep(blockinfo* bi, int i, uae_u32* jmpaddr, uae_uintptr target)
 {
     blockinfo*  tbi=get_blockinfo_addr((void*)target);
@@ -319,6 +587,29 @@ STATIC_INLINE void create_jmpdep(blockinfo* bi, int i, uae_u32* jmpaddr, uae_uin
     bi->dep[i].prev_p=&(tbi->deplist);
     tbi->deplist=&(bi->dep[i]);
 }
+
+/****i* januae-compemu-internal/big_to_small_state
+ *
+ *   NAME
+ *       big_to_small_state()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void big_to_small_state(bigstate* b, smallstate* s)
+ *
+ *   FUNCTION
+ *       Copy register allocation information into a compact block state.
+ *
+ *   INPUTS
+ *       b -- current full register state.
+ *       s -- destination compact state.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Copies the last held guest register per native register and its valid size; clears all output dirty sizes afterward.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void big_to_small_state(bigstate* b, smallstate* s)
 {
@@ -343,6 +634,28 @@ STATIC_INLINE void big_to_small_state(bigstate* b, smallstate* s)
     }
 }
 
+/****i* januae-compemu-internal/attached_state
+ *
+ *   NAME
+ *       attached_state()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void attached_state(blockinfo* bi)
+ *
+ *   FUNCTION
+ *       Mark a block as having an attached register state.
+ *
+ *   INPUTS
+ *       bi -- block whose attached-state status changes.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Marks the block targeted and changes its direct-handler selection to the entry trampoline as needed.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void attached_state(blockinfo* bi)
 {
     bi->havestate=1;
@@ -351,6 +664,29 @@ STATIC_INLINE void attached_state(blockinfo* bi)
     bi->direct_handler=bi->direct_pen;
     bi->status=BI_TARGETTED;
 }
+
+/****i* januae-compemu-internal/get_blockinfo_addr_new
+ *
+ *   NAME
+ *       get_blockinfo_addr_new()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE blockinfo* get_blockinfo_addr_new(void* addr, int setstate)
+ *
+ *   FUNCTION
+ *       Find or assign metadata for a guest instruction address.
+ *
+ *   INPUTS
+ *       addr -- guest instruction address.
+ *       setstate -- request state attachment when that feature is compiled in.
+ *
+ *   RESULT
+ *       Returns existing or newly assigned block metadata.
+ *
+ *   NOTES
+ *       Reuses a held block when no match exists; aborts if no free metadata entry is available. State attachment is conditional on USE_MATCHSTATE.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE blockinfo* get_blockinfo_addr_new(void* addr, int setstate)
 {
@@ -386,6 +722,28 @@ STATIC_INLINE blockinfo* get_blockinfo_addr_new(void* addr, int setstate)
 
 static void prepare_block(blockinfo* bi);
 
+/****i* januae-compemu-internal/alloc_blockinfos
+ *
+ *   NAME
+ *       alloc_blockinfos()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void alloc_blockinfos(void)
+ *
+ *   FUNCTION
+ *       Allocate the initial pool of block metadata records in the translation area.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Returns without allocating if a held slot is already occupied. Otherwise advances current_compile_p and prepares MAX_HOLD_BI records; the caller must provide sufficient cache space.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void alloc_blockinfos(void)
 {
     int i;
@@ -406,6 +764,28 @@ STATIC_INLINE void alloc_blockinfos(void)
  * Translation cache management
  */
 
+/****i* januae-compemu-internal/free_cache
+ *
+ *   NAME
+ *       free_cache()
+ *
+ *   SYNOPSIS
+ *       static void free_cache (void)
+ *
+ *   FUNCTION
+ *       Release the allocated translation cache.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Flushes cached code, releases compiled_code, and clears its global pointer when the cache exists.
+ *
+ ****************************************************************************/
+
 static void free_cache (void)
 {
     if (compiled_code) {
@@ -416,6 +796,28 @@ static void free_cache (void)
 	write_log ("JIT: Deallocated translation cache.\n");
     }
 }
+
+/****i* januae-compemu-internal/alloc_cache
+ *
+ *   NAME
+ *       alloc_cache()
+ *
+ *   SYNOPSIS
+ *       static void alloc_cache (void)
+ *
+ *   FUNCTION
+ *       Allocate a translation cache according to current preferences.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Does nothing for a zero cache size. Retries allocation with a halved requested size on failure, then sets emission bounds and synchronizes changed_prefs.cachesize.
+ *
+ ****************************************************************************/
 
 static void alloc_cache (void)
 {
@@ -437,6 +839,28 @@ static void alloc_cache (void)
     write_log ("JIT: Allocated %d KB translation cache.\n", currprefs.cachesize);
 }
 
+/****i* januae-compemu-internal/set_cache_state
+ *
+ *   NAME
+ *       set_cache_state()
+ *
+ *   SYNOPSIS
+ *       void set_cache_state (int enabled)
+ *
+ *   FUNCTION
+ *       Set whether compiled execution is enabled.
+ *
+ *   INPUTS
+ *       enabled -- new cache execution state.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Performs a hard cache flush when the state changes, then stores enabled in letit.
+ *
+ ****************************************************************************/
+
 void set_cache_state (int enabled)
 {
     if (enabled != letit)
@@ -448,6 +872,28 @@ void set_cache_state (int enabled)
  * Preferences handling. This is just a convenient place to put it  *
  ********************************************************************/
 extern int have_done_picasso;
+
+/****i* januae-compemu-internal/check_prefs_changed_comp
+ *
+ *   NAME
+ *       check_prefs_changed_comp()
+ *
+ *   SYNOPSIS
+ *       void check_prefs_changed_comp (void)
+ *
+ *   FUNCTION
+ *       Apply changed dynamic-compiler preferences.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Copies JIT-related preferences; reallocates the cache when its requested size changes. Forces indirect memory access settings when direct access is unavailable or the cache is disabled.
+ *
+ ****************************************************************************/
 
 void check_prefs_changed_comp (void)
 {
@@ -493,10 +939,54 @@ void check_prefs_changed_comp (void)
 
 static uae_u8* target;
 
+/****i* januae-compemu-internal/emit_byte
+ *
+ *   NAME
+ *       emit_byte()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void emit_byte(uae_u8 x)
+ *
+ *   FUNCTION
+ *       Append one byte to the current native-code target.
+ *
+ *   INPUTS
+ *       x -- byte to emit.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Writes through target and advances it by one byte; space and target initialization must be established by the caller.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void emit_byte(uae_u8 x)
 {
     *target++=x;
 }
+
+/****i* januae-compemu-internal/emit_word
+ *
+ *   NAME
+ *       emit_word()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void emit_word(uae_u16 x)
+ *
+ *   FUNCTION
+ *       Append one native-endian 16-bit value to the code target.
+ *
+ *   INPUTS
+ *       x -- 16-bit value to emit.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Stores through a uae_u16 pointer and advances target by two bytes; alignment and available space are not checked here.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void emit_word(uae_u16 x)
 {
@@ -504,11 +994,56 @@ STATIC_INLINE void emit_word(uae_u16 x)
     target+=2;
 }
 
+/****i* januae-compemu-internal/emit_long
+ *
+ *   NAME
+ *       emit_long()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void emit_long(uae_u32 x)
+ *
+ *   FUNCTION
+ *       Append one native-endian 32-bit value to the code target.
+ *
+ *   INPUTS
+ *       x -- 32-bit value to emit.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Stores through a uae_u32 pointer and advances target by four bytes; alignment and available space are not checked here.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void emit_long(uae_u32 x)
 {
     *((uae_u32*)target)=x;
     target+=4;
 }
+
+/****i* januae-compemu-internal/emit_block
+ *
+ *   NAME
+ *       emit_block()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void emit_block (const uae_u8 *block, uae_u32 blocklen)
+ *
+ *   FUNCTION
+ *       Append a byte sequence to the native-code target.
+ *
+ *   INPUTS
+ *       block -- source byte sequence.
+ *       blocklen -- number of bytes to copy.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Copies blocklen bytes and advances target by that length; source validity and destination capacity are caller responsibilities.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void emit_block (const uae_u8 *block, uae_u32 blocklen)
 {
@@ -516,20 +1051,108 @@ STATIC_INLINE void emit_block (const uae_u8 *block, uae_u32 blocklen)
     target += blocklen;
 }
 
+/****i* januae-compemu-internal/reverse32
+ *
+ *   NAME
+ *       reverse32()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u32 reverse32 (uae_u32 oldv)
+ *
+ *   FUNCTION
+ *       Reverse the byte order of a 32-bit value.
+ *
+ *   INPUTS
+ *       oldv -- input value.
+ *
+ *   RESULT
+ *       Returns the byte-swapped value.
+ *
+ *   NOTES
+ *       Uses bswap_32 without changing global compiler state.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE uae_u32 reverse32 (uae_u32 oldv)
 {
     return bswap_32 (oldv);
 }
+
+/****i* januae-compemu-internal/set_target
+ *
+ *   NAME
+ *       set_target()
+ *
+ *   SYNOPSIS
+ *       void set_target(uae_u8* t)
+ *
+ *   FUNCTION
+ *       Set the destination for subsequent native-code emission.
+ *
+ *   INPUTS
+ *       t -- next destination byte pointer.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Replaces the global emission pointer; does not allocate or validate the destination.
+ *
+ ****************************************************************************/
 
 void set_target(uae_u8* t)
 {
     target=t;
 }
 
+/****i* januae-compemu-internal/get_target_noopt
+ *
+ *   NAME
+ *       get_target_noopt()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u8* get_target_noopt(void)
+ *
+ *   FUNCTION
+ *       Read the current native-code emission pointer.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       Returns the current target pointer.
+ *
+ *   NOTES
+ *       Does not modify the emission position.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE uae_u8* get_target_noopt(void)
 {
     return target;
 }
+
+/****i* januae-compemu-internal/get_target
+ *
+ *   NAME
+ *       get_target()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u8* get_target(void)
+ *
+ *   FUNCTION
+ *       Return the current native-code emission pointer.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       Returns the pointer supplied by get_target_noopt().
+ *
+ *   NOTES
+ *       Does not perform optimization or modify the emission position.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE uae_u8* get_target(void)
 {
