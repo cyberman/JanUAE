@@ -103,6 +103,28 @@ static uae_sem_t sem_queue;
 /*
  * Map host errno to amiga errno
  */
+/****i* januae-bsdsocket-internal/mapErrno
+ *
+ *   NAME
+ *       mapErrno()
+ *
+ *   SYNOPSIS
+ *       static int mapErrno (int e)
+ *
+ *   FUNCTION
+ *       Translate selected host errno values to the corresponding Amiga socket error numbers.
+ *
+ *   INPUTS
+ *       e -- Host errno value.
+ *
+ *   RESULT
+ *       Mapped error number.
+ *
+ *   NOTES
+ *       Unlisted errno values are returned unchanged.
+ *
+ ****************************************************************************/
+
 static int mapErrno (int e)
 {
     switch (e) {
@@ -449,6 +471,29 @@ static void mapsockoptvalue(int level, int optname, uae_u32 optval, void *buf)
 }
 
 
+/****i* januae-bsdsocket-internal/fd_zero
+ *
+ *   NAME
+ *       fd_zero()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void fd_zero (uae_u32 fdset, uae_u32 nfds)
+ *
+ *   FUNCTION
+ *       Clear a guest descriptor-bitset over the requested descriptor range.
+ *
+ *   INPUTS
+ *       fdset -- Guest address of the bitset.
+ *       nfds -- Descriptor range to clear.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Writes zero-valued 32-bit words through guest-memory accessors.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void fd_zero (uae_u32 fdset, uae_u32 nfds)
 {
     unsigned int i;
@@ -456,6 +501,29 @@ STATIC_INLINE void fd_zero (uae_u32 fdset, uae_u32 nfds)
     for (i = 0; i < nfds; i += 32, fdset += 4)
 	put_long (fdset, 0);
 }
+
+/****i* januae-bsdsocket-internal/bsd_amigaside_FD_ISSET
+ *
+ *   NAME
+ *       bsd_amigaside_FD_ISSET()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int bsd_amigaside_FD_ISSET (int n, uae_u32 set)
+ *
+ *   FUNCTION
+ *       Test a descriptor bit in a guest-side descriptor set.
+ *
+ *   INPUTS
+ *       n -- Descriptor index.
+ *       set -- Guest descriptor-set address.
+ *
+ *   RESULT
+ *       Nonzero if the selected bit is present; otherwise zero.
+ *
+ *   NOTES
+ *       Reads the guest word at the offset computed by the implementation.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE int bsd_amigaside_FD_ISSET (int n, uae_u32 set)
 {
@@ -465,11 +533,56 @@ STATIC_INLINE int bsd_amigaside_FD_ISSET (int n, uae_u32 set)
     return 0;
 }
 
+/****i* januae-bsdsocket-internal/bsd_amigaside_FD_ZERO
+ *
+ *   NAME
+ *       bsd_amigaside_FD_ZERO()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void bsd_amigaside_FD_ZERO (uae_u32 set)
+ *
+ *   FUNCTION
+ *       Clear the first two guest words of a descriptor set.
+ *
+ *   INPUTS
+ *       set -- Guest descriptor-set address.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       This helper writes eight bytes regardless of the requested select range.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void bsd_amigaside_FD_ZERO (uae_u32 set)
 {
     put_long (set, 0);
     put_long (set + 4, 0);
 }
+
+/****i* januae-bsdsocket-internal/bsd_amigaside_FD_SET
+ *
+ *   NAME
+ *       bsd_amigaside_FD_SET()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void bsd_amigaside_FD_SET (int n, uae_u32 set)
+ *
+ *   FUNCTION
+ *       Set a descriptor bit in the guest-side descriptor set.
+ *
+ *   INPUTS
+ *       n -- Descriptor index.
+ *       set -- Guest descriptor-set address.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Updates the guest word selected by the descriptor index.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void bsd_amigaside_FD_SET (int n, uae_u32 set)
 {
@@ -491,6 +604,30 @@ static void printSockAddr (struct sockaddr_in *in)
 /*
  * Copy a sockaddr object from amiga space to native space
  */
+/****i* januae-bsdsocket-internal/copysockaddr_a2n
+ *
+ *   NAME
+ *       copysockaddr_a2n()
+ *
+ *   SYNOPSIS
+ *       static int copysockaddr_a2n (struct sockaddr_in *addr, uae_u32 a_addr, unsigned int len)
+ *
+ *   FUNCTION
+ *       Convert a guest IPv4 socket address to a native sockaddr_in.
+ *
+ *   INPUTS
+ *       addr -- Native destination address.
+ *       a_addr -- Guest source address.
+ *       len -- Guest structure length.
+ *
+ *   RESULT
+ *       Zero for accepted lengths or a null guest address; one for an invalid length.
+ *
+ *   NOTES
+ *       Lengths outside the accepted range are rejected before guest-memory access.
+ *
+ ****************************************************************************/
+
 static int copysockaddr_a2n (struct sockaddr_in *addr, uae_u32 a_addr, unsigned int len)
 {
     if ((len > sizeof (struct sockaddr_in)) || (len < 8))
@@ -512,6 +649,30 @@ static int copysockaddr_a2n (struct sockaddr_in *addr, uae_u32 a_addr, unsigned 
 /*
  * Copy a sockaddr object from native space to amiga space
  */
+/****i* januae-bsdsocket-internal/copysockaddr_n2a
+ *
+ *   NAME
+ *       copysockaddr_n2a()
+ *
+ *   SYNOPSIS
+ *       static int copysockaddr_n2a (uae_u32 a_addr, const struct sockaddr_in *addr, unsigned int len)
+ *
+ *   FUNCTION
+ *       Write a native IPv4 socket address into guest memory.
+ *
+ *   INPUTS
+ *       a_addr -- Guest destination address.
+ *       addr -- Native source address.
+ *       len -- Guest destination length.
+ *
+ *   RESULT
+ *       Zero for accepted lengths or a null destination; one for a short length.
+ *
+ *   NOTES
+ *       Zeroes any trailing guest bytes beyond the eight converted address bytes.
+ *
+ ****************************************************************************/
+
 static int copysockaddr_n2a (uae_u32 a_addr, const struct sockaddr_in *addr, unsigned int len)
 {
     if (len < 8)
@@ -534,6 +695,29 @@ static int copysockaddr_n2a (uae_u32 a_addr, const struct sockaddr_in *addr, uns
 /*
  * Copy a hostent object from native space to amiga space
  */
+/****i* januae-bsdsocket-internal/copyHostent
+ *
+ *   NAME
+ *       copyHostent()
+ *
+ *   SYNOPSIS
+ *       static void copyHostent (const struct hostent *hostent, SB)
+ *
+ *   FUNCTION
+ *       Copy host name, alias, and address fields into the guest hostent buffer.
+ *
+ *   INPUTS
+ *       hostent -- Native host record.
+ *       sb -- Socket-base state.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Uses the socket base hostent storage and clears its recorded socket error on completion.
+ *
+ ****************************************************************************/
+
 static void copyHostent (const struct hostent *hostent, SB)
 {
     int size = 28;
@@ -582,6 +766,30 @@ static void copyHostent (const struct hostent *hostent, SB)
 /*
  * Copy a protoent object from native space to Amiga space
  */
+/****i* januae-bsdsocket-internal/copyProtoent
+ *
+ *   NAME
+ *       copyProtoent()
+ *
+ *   SYNOPSIS
+ *       static void copyProtoent (TrapContext *context, SB, const struct protoent *p)
+ *
+ *   FUNCTION
+ *       Allocate and populate the guest representation of a protocol database entry.
+ *
+ *   INPUTS
+ *       context -- Trap context for guest allocation.
+ *       sb -- Socket-base state.
+ *       p -- Native protocol entry.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Replaces the prior guest buffer; on allocation failure records an out-of-memory error.
+ *
+ ****************************************************************************/
+
 static void copyProtoent (TrapContext *context, SB, const struct protoent *p)
 {
     size_t size = 16;
@@ -946,6 +1154,32 @@ static void *bsdlib_threadfunc (void *arg)
 
 
 
+/****i* januae-bsdsocket-internal/host_connect
+ *
+ *   NAME
+ *       host_connect()
+ *
+ *   SYNOPSIS
+ *       void host_connect (TrapContext *context, SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
+ *
+ *   FUNCTION
+ *       Submit a connection request to the socket worker.
+ *
+ *   INPUTS
+ *       context -- Trap context.
+ *       sb -- Socket-base state.
+ *       sd -- Guest descriptor.
+ *       name -- Guest peer address.
+ *       namelen -- Address length.
+ *
+ *   RESULT
+ *       None; completion is reported through socket-base state.
+ *
+ *   NOTES
+ *       An invalid descriptor sets EBADF immediately; otherwise the caller waits for the worker signal.
+ *
+ ****************************************************************************/
+
 void host_connect (TrapContext *context, SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
 {
     sb->s = getsock (sb, sd + 1);
@@ -962,6 +1196,35 @@ void host_connect (TrapContext *context, SB, uae_u32 sd, uae_u32 name, uae_u32 n
 
     WAITSIGNAL;
 }
+
+/****i* januae-bsdsocket-internal/host_sendto
+ *
+ *   NAME
+ *       host_sendto()
+ *
+ *   SYNOPSIS
+ *       void host_sendto (TrapContext *context, SB, uae_u32 sd, uae_u32 msg, uae_u32 len, uae_u32 flags, uae_u32 to, uae_u32 tolen)
+ *
+ *   FUNCTION
+ *       Submit a datagram or stream send request to the socket worker.
+ *
+ *   INPUTS
+ *       context -- Trap context.
+ *       sb -- Socket-base state.
+ *       sd -- Guest descriptor.
+ *       msg -- Guest data buffer.
+ *       len -- Byte count.
+ *       flags -- Send flags.
+ *       to -- Optional guest destination.
+ *       tolen -- Destination length.
+ *
+ *   RESULT
+ *       None; result is recorded in socket-base state.
+ *
+ *   NOTES
+ *       Converts the guest message pointer to host memory before dispatch.
+ *
+ ****************************************************************************/
 
 void host_sendto (TrapContext *context, SB, uae_u32 sd, uae_u32 msg, uae_u32 len, uae_u32 flags, uae_u32 to, uae_u32 tolen)
 {
@@ -982,6 +1245,35 @@ void host_sendto (TrapContext *context, SB, uae_u32 sd, uae_u32 msg, uae_u32 len
 
     WAITSIGNAL;
 }
+
+/****i* januae-bsdsocket-internal/host_recvfrom
+ *
+ *   NAME
+ *       host_recvfrom()
+ *
+ *   SYNOPSIS
+ *       void host_recvfrom (TrapContext *context, SB, uae_u32 sd, uae_u32 msg, uae_u32 len, uae_u32 flags, uae_u32 addr, uae_u32 addrlen)
+ *
+ *   FUNCTION
+ *       Submit a socket receive request to the socket worker.
+ *
+ *   INPUTS
+ *       context -- Trap context.
+ *       sb -- Socket-base state.
+ *       sd -- Guest descriptor.
+ *       msg -- Guest destination buffer.
+ *       len -- Buffer length.
+ *       flags -- Receive flags.
+ *       addr -- Optional peer-address buffer.
+ *       addrlen -- Peer-address length pointer.
+ *
+ *   RESULT
+ *       None; result is recorded in socket-base state.
+ *
+ *   NOTES
+ *       Rejects an invalid descriptor before queuing the receive operation.
+ *
+ ****************************************************************************/
 
 void host_recvfrom (TrapContext *context, SB, uae_u32 sd, uae_u32 msg, uae_u32 len, uae_u32 flags, uae_u32 addr, uae_u32 addrlen)
 {
@@ -1008,6 +1300,33 @@ void host_recvfrom (TrapContext *context, SB, uae_u32 sd, uae_u32 msg, uae_u32 l
 
     WAITSIGNAL;
 }
+
+/****i* januae-bsdsocket-internal/host_setsockopt
+ *
+ *   NAME
+ *       host_setsockopt()
+ *
+ *   SYNOPSIS
+ *       void host_setsockopt (SB, uae_u32 sd, uae_u32 level, uae_u32 optname, uae_u32 optval, uae_u32 optlen)
+ *
+ *   FUNCTION
+ *       Map and apply a guest socket option through native setsockopt.
+ *
+ *   INPUTS
+ *       sb -- Socket-base state.
+ *       sd -- Guest descriptor.
+ *       level -- Guest option level.
+ *       optname -- Guest option name.
+ *       optval -- Guest option value address.
+ *       optlen -- Value byte length.
+ *
+ *   RESULT
+ *       None; native result and error are stored in socket-base state.
+ *
+ *   NOTES
+ *       Allocates a temporary converted value when optval is supplied; there is no allocation-failure check before conversion.
+ *
+ ****************************************************************************/
 
 void host_setsockopt (SB, uae_u32 sd, uae_u32 level, uae_u32 optname, uae_u32 optval, uae_u32 optlen)
 {
@@ -1037,6 +1356,31 @@ void host_setsockopt (SB, uae_u32 sd, uae_u32 level, uae_u32 optname, uae_u32 op
 	       sb->resultval, errno);
 }
 
+/****i* januae-bsdsocket-internal/host_getsockname
+ *
+ *   NAME
+ *       host_getsockname()
+ *
+ *   SYNOPSIS
+ *       uae_u32 host_getsockname (SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
+ *
+ *   FUNCTION
+ *       Retrieve the local socket address and write it to guest memory.
+ *
+ *   INPUTS
+ *       sb -- Socket-base state.
+ *       sd -- Guest descriptor.
+ *       name -- Guest address buffer.
+ *       namelen -- Guest length pointer.
+ *
+ *   RESULT
+ *       Zero on native success; minus one on failure.
+ *
+ *   NOTES
+ *       The supplied guest length controls copying; the length pointer is capped to 16 only when greater than 16.
+ *
+ ****************************************************************************/
+
 uae_u32 host_getsockname (SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
 {
     int s;
@@ -1065,6 +1409,31 @@ uae_u32 host_getsockname (SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
 	return -1;
 }
 
+/****i* januae-bsdsocket-internal/host_getpeername
+ *
+ *   NAME
+ *       host_getpeername()
+ *
+ *   SYNOPSIS
+ *       uae_u32 host_getpeername (SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
+ *
+ *   FUNCTION
+ *       Retrieve the peer socket address and write it to guest memory.
+ *
+ *   INPUTS
+ *       sb -- Socket-base state.
+ *       sd -- Guest descriptor.
+ *       name -- Guest address buffer.
+ *       namelen -- Guest length pointer.
+ *
+ *   RESULT
+ *       Zero on native success; minus one on failure.
+ *
+ *   NOTES
+ *       The guest length is read and passed to the address-copy helper.
+ *
+ ****************************************************************************/
+
 uae_u32 host_getpeername (SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
 {
     int s;
@@ -1092,6 +1461,32 @@ uae_u32 host_getpeername (SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
 
     return -1;
 }
+
+/****i* januae-bsdsocket-internal/host_gethostbynameaddr
+ *
+ *   NAME
+ *       host_gethostbynameaddr()
+ *
+ *   SYNOPSIS
+ *       void host_gethostbynameaddr (TrapContext *context, SB, uae_u32 name, uae_u32 namelen, long addrtype)
+ *
+ *   FUNCTION
+ *       Queue a host lookup by name or address on the socket worker.
+ *
+ *   INPUTS
+ *       context -- Trap context.
+ *       sb -- Socket-base state.
+ *       name -- Guest query address.
+ *       namelen -- Query length.
+ *       addrtype -- Lookup selector.
+ *
+ *   RESULT
+ *       None; worker completion updates socket-base state.
+ *
+ *   NOTES
+ *       The address type selects the name-lookup or address-lookup worker action.
+ *
+ ****************************************************************************/
 
 void host_gethostbynameaddr (TrapContext *context, SB, uae_u32 name, uae_u32 namelen, long addrtype)
 {
@@ -1194,6 +1589,32 @@ void host_WaitSelect (TrapContext *context, SB, uae_u32 nfds, uae_u32 readfds, u
 
 
 
+/****i* januae-bsdsocket-internal/host_accept
+ *
+ *   NAME
+ *       host_accept()
+ *
+ *   SYNOPSIS
+ *       void host_accept (TrapContext *context, SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
+ *
+ *   FUNCTION
+ *       Queue an incoming-connection acceptance request on the socket worker.
+ *
+ *   INPUTS
+ *       context -- Trap context.
+ *       sb -- Socket-base state.
+ *       sd -- Listening descriptor.
+ *       name -- Guest peer-address buffer.
+ *       namelen -- Peer-address length pointer.
+ *
+ *   RESULT
+ *       None; socket-base state receives the result.
+ *
+ *   NOTES
+ *       An invalid descriptor immediately records EBADF; the normal path waits for a worker signal.
+ *
+ ****************************************************************************/
+
 void host_accept (TrapContext *context, SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
 {
     sb->s = getsock (sb, sd + 1);
@@ -1214,6 +1635,31 @@ void host_accept (TrapContext *context, SB, uae_u32 sd, uae_u32 name, uae_u32 na
     WAITSIGNAL;
     DEBUG_LOG ("Accept returns %d\n", sb->resultval);
 }
+
+/****i* januae-bsdsocket-internal/host_socket
+ *
+ *   NAME
+ *       host_socket()
+ *
+ *   SYNOPSIS
+ *       int host_socket (SB, int af, int type, int protocol)
+ *
+ *   FUNCTION
+ *       Create a native socket and assign a guest descriptor.
+ *
+ *   INPUTS
+ *       sb -- Socket-base state.
+ *       af -- Address family.
+ *       type -- Socket type.
+ *       protocol -- Protocol number.
+ *
+ *   RESULT
+ *       Zero-based guest descriptor on success; minus one on native socket failure.
+ *
+ *   NOTES
+ *       Attempts SO_REUSEADDR and marks the mapped descriptor blocking.
+ *
+ ****************************************************************************/
 
 int host_socket (SB, int af, int type, int protocol)
 {
@@ -1238,6 +1684,31 @@ int host_socket (SB, int af, int type, int protocol)
     DEBUG_LOG ("socket returns Amiga %d, NativeSide %d\n", sd - 1, s);
     return sd - 1;
 }
+
+/****i* januae-bsdsocket-internal/host_bind
+ *
+ *   NAME
+ *       host_bind()
+ *
+ *   SYNOPSIS
+ *       uae_u32 host_bind (SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
+ *
+ *   FUNCTION
+ *       Bind a guest socket descriptor to a converted native IPv4 address.
+ *
+ *   INPUTS
+ *       sb -- Socket-base state.
+ *       sd -- Guest descriptor.
+ *       name -- Guest local address.
+ *       namelen -- Address length.
+ *
+ *   RESULT
+ *       Native bind result, or minus one for an invalid descriptor.
+ *
+ *   NOTES
+ *       Calls the address conversion helper without acting on its status.
+ *
+ ****************************************************************************/
 
 uae_u32 host_bind (SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
 {
@@ -1265,6 +1736,30 @@ uae_u32 host_bind (SB, uae_u32 sd, uae_u32 name, uae_u32 namelen)
     return success;
 }
 
+/****i* januae-bsdsocket-internal/host_listen
+ *
+ *   NAME
+ *       host_listen()
+ *
+ *   SYNOPSIS
+ *       uae_u32 host_listen (SB, uae_u32 sd, uae_u32 backlog)
+ *
+ *   FUNCTION
+ *       Enable native listening on a guest socket descriptor.
+ *
+ *   INPUTS
+ *       sb -- Socket-base state.
+ *       sd -- Guest descriptor.
+ *       backlog -- Requested connection backlog.
+ *
+ *   RESULT
+ *       Native listen result, or minus one for an invalid descriptor.
+ *
+ *   NOTES
+ *       Sets socket-base errno on a failed native listen.
+ *
+ ****************************************************************************/
+
 uae_u32 host_listen (SB, uae_u32 sd, uae_u32 backlog)
 {
     int s;
@@ -1287,6 +1782,30 @@ uae_u32 host_listen (SB, uae_u32 sd, uae_u32 backlog)
     return success;
 }
 
+/****i* januae-bsdsocket-internal/host_getprotobyname
+ *
+ *   NAME
+ *       host_getprotobyname()
+ *
+ *   SYNOPSIS
+ *       void host_getprotobyname (TrapContext *context, SB, uae_u32 name)
+ *
+ *   FUNCTION
+ *       Look up a native protocol by guest name and copy its record to guest memory.
+ *
+ *   INPUTS
+ *       context -- Trap context.
+ *       sb -- Socket-base state.
+ *       name -- Guest protocol-name string.
+ *
+ *   RESULT
+ *       None; error and record are stored in socket-base state.
+ *
+ *   NOTES
+ *       Reports the native lookup error when no record is found.
+ *
+ ****************************************************************************/
+
 void host_getprotobyname (TrapContext *context, SB, uae_u32 name)
 {
     struct protoent *p = getprotobyname ((char *)get_real_address (name));
@@ -1301,6 +1820,30 @@ void host_getprotobyname (TrapContext *context, SB, uae_u32 name)
     copyProtoent (context, sb, p);
     TRACE (("OK (%s, %d)\n", p->p_name, p->p_proto));
 }
+
+/****i* januae-bsdsocket-internal/host_getprotobynumber
+ *
+ *   NAME
+ *       host_getprotobynumber()
+ *
+ *   SYNOPSIS
+ *       void host_getprotobynumber (TrapContext *context, SB, uae_u32 number)
+ *
+ *   FUNCTION
+ *       Look up a native protocol number and copy its record to guest memory.
+ *
+ *   INPUTS
+ *       context -- Trap context.
+ *       sb -- Socket-base state.
+ *       number -- Protocol number.
+ *
+ *   RESULT
+ *       None; error and record are stored in socket-base state.
+ *
+ *   NOTES
+ *       A missing lookup result takes the error path without guest allocation.
+ *
+ ****************************************************************************/
 
 void host_getprotobynumber (TrapContext *context, SB, uae_u32 number)
 {
@@ -1380,6 +1923,29 @@ void host_getservbynameport (TrapContext *context, SB, uae_u32 name, uae_u32 pro
     bsdsocklib_seterrno (sb,0);
 }
 
+/****i* januae-bsdsocket-internal/host_sbinit
+ *
+ *   NAME
+ *       host_sbinit()
+ *
+ *   SYNOPSIS
+ *       int host_sbinit (TrapContext *context, SB)
+ *
+ *   FUNCTION
+ *       Create the socket abort pipe, semaphore, guest hostent buffer, and worker thread.
+ *
+ *   INPUTS
+ *       context -- Trap context.
+ *       sb -- Socket-base state.
+ *
+ *   RESULT
+ *       One on success; zero when pipe, semaphore, or thread creation fails.
+ *
+ *   NOTES
+ *       The thread-failure path closes pipe descriptors and destroys the semaphore; the allocation result for hostent is not checked.
+ *
+ ****************************************************************************/
+
 int host_sbinit (TrapContext *context, SB)
 {
     if (pipe (sb->sockabort) < 0) {
@@ -1413,6 +1979,28 @@ int host_sbinit (TrapContext *context, SB)
     return 1;
 }
 
+/****i* januae-bsdsocket-internal/host_sbcleanup
+ *
+ *   NAME
+ *       host_sbcleanup()
+ *
+ *   SYNOPSIS
+ *       void host_sbcleanup (SB)
+ *
+ *   FUNCTION
+ *       Close socket resources and terminate the socket worker.
+ *
+ *   INPUTS
+ *       sb -- Socket-base state.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Closes the abort pipe and mapped sockets, signals worker shutdown, and joins the worker thread.
+ *
+ ****************************************************************************/
+
 void host_sbcleanup (SB)
 {
     int i;
@@ -1437,10 +2025,56 @@ void host_sbcleanup (SB)
     uae_wait_thread (thread);
 }
 
+/****i* januae-bsdsocket-internal/host_sbreset
+ *
+ *   NAME
+ *       host_sbreset()
+ *
+ *   SYNOPSIS
+ *       void host_sbreset (void)
+ *
+ *   FUNCTION
+ *       Provide the socket-layer reset entry point.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       The current implementation is empty and performs no reset.
+ *
+ ****************************************************************************/
+
 void host_sbreset (void)
 {
     /* TODO */
 }
+
+/****i* januae-bsdsocket-internal/host_Inet_NtoA
+ *
+ *   NAME
+ *       host_Inet_NtoA()
+ *
+ *   SYNOPSIS
+ *       uae_u32 host_Inet_NtoA (TrapContext *context, SB, uae_u32 in)
+ *
+ *   FUNCTION
+ *       Convert an IPv4 numeric address to a guest scratch-buffer string.
+ *
+ *   INPUTS
+ *       context -- Trap context.
+ *       sb -- Socket-base state.
+ *       in -- IPv4 address value.
+ *
+ *   RESULT
+ *       Guest pointer to the formatted address, or zero on failure.
+ *
+ *   NOTES
+ *       Uses the library-base scratch buffer and its fixed copy limit.
+ *
+ ****************************************************************************/
 
 uae_u32 host_Inet_NtoA (TrapContext *context, SB, uae_u32 in)
 {
@@ -1465,6 +2099,28 @@ uae_u32 host_Inet_NtoA (TrapContext *context, SB, uae_u32 in)
     return 0;
 }
 
+/****i* januae-bsdsocket-internal/host_inet_addr
+ *
+ *   NAME
+ *       host_inet_addr()
+ *
+ *   SYNOPSIS
+ *       uae_u32 host_inet_addr (uae_u32 cp)
+ *
+ *   FUNCTION
+ *       Convert a guest IPv4 address string to its numeric representation.
+ *
+ *   INPUTS
+ *       cp -- Guest string address.
+ *
+ *   RESULT
+ *       Converted value after the host-to-network byte-order operation.
+ *
+ *   NOTES
+ *       Reads the string directly from guest-address-mapped memory.
+ *
+ ****************************************************************************/
+
 uae_u32 host_inet_addr (uae_u32 cp)
 {
     uae_u32 addr;
@@ -1478,6 +2134,30 @@ uae_u32 host_inet_addr (uae_u32 cp)
 
     return addr;
 }
+
+/****i* januae-bsdsocket-internal/host_shutdown
+ *
+ *   NAME
+ *       host_shutdown()
+ *
+ *   SYNOPSIS
+ *       uae_u32 host_shutdown (SB, uae_u32 sd, uae_u32 how)
+ *
+ *   FUNCTION
+ *       Shut down one or both directions of a mapped native socket.
+ *
+ *   INPUTS
+ *       sb -- Socket-base state.
+ *       sd -- Guest descriptor.
+ *       how -- Shutdown mode.
+ *
+ *   RESULT
+ *       Zero on successful shutdown; minus one otherwise.
+ *
+ *   NOTES
+ *       The native error is mapped into socket-base state on shutdown failure.
+ *
+ ****************************************************************************/
 
 uae_u32 host_shutdown (SB, uae_u32 sd, uae_u32 how)
 {
@@ -1536,6 +2216,34 @@ int host_dup2socket (SB, int fd1, int fd2) {
     return -1;
 }
 
+/****i* januae-bsdsocket-internal/host_getsockopt
+ *
+ *   NAME
+ *       host_getsockopt()
+ *
+ *   SYNOPSIS
+ *       uae_u32 host_getsockopt (SB, uae_u32 sd, uae_u32 level, uae_u32 optname,
+ *       uae_u32 optval, uae_u32 optlen)
+ *
+ *   FUNCTION
+ *       Retrieve a mapped native socket option into guest memory.
+ *
+ *   INPUTS
+ *       sb -- Socket-base state.
+ *       sd -- Guest descriptor.
+ *       level -- Guest option level.
+ *       optname -- Guest option name.
+ *       optval -- Guest result address.
+ *       optlen -- Guest length pointer.
+ *
+ *   RESULT
+ *       Native getsockopt result, or minus one on descriptor or allocation failure.
+ *
+ *   NOTES
+ *       Updates guest length before converting a successful native option value.
+ *
+ ****************************************************************************/
+
 uae_u32 host_getsockopt (SB, uae_u32 sd, uae_u32 level, uae_u32 optname,
 			 uae_u32 optval, uae_u32 optlen)
 {
@@ -1580,6 +2288,31 @@ uae_u32 host_getsockopt (SB, uae_u32 sd, uae_u32 level, uae_u32 optname,
 	free(buf);
     return r;
 }
+
+/****i* januae-bsdsocket-internal/host_IoctlSocket
+ *
+ *   NAME
+ *       host_IoctlSocket()
+ *
+ *   SYNOPSIS
+ *       uae_u32 host_IoctlSocket (SB, uae_u32 sd, uae_u32 request, uae_u32 arg)
+ *
+ *   FUNCTION
+ *       Handle supported socket ownership, async, nonblocking, and pending-data controls.
+ *
+ *   INPUTS
+ *       sb -- Socket-base state.
+ *       sd -- Guest descriptor.
+ *       request -- Guest ioctl request.
+ *       arg -- Guest argument pointer.
+ *
+ *   RESULT
+ *       Operation-specific native result; minus one for an invalid or unsupported request.
+ *
+ *   NOTES
+ *       The FIONBIO branch also updates the guest descriptor blocking flag.
+ *
+ ****************************************************************************/
 
 uae_u32 host_IoctlSocket (SB, uae_u32 sd, uae_u32 request, uae_u32 arg)
 {
@@ -1642,6 +2375,29 @@ uae_u32 host_IoctlSocket (SB, uae_u32 sd, uae_u32 request, uae_u32 arg)
     return -1;
 }
 
+/****i* januae-bsdsocket-internal/host_CloseSocket
+ *
+ *   NAME
+ *       host_CloseSocket()
+ *
+ *   SYNOPSIS
+ *       int host_CloseSocket (SB, int sd)
+ *
+ *   FUNCTION
+ *       Close a mapped socket and release its guest descriptor.
+ *
+ *   INPUTS
+ *       sb -- Socket-base state.
+ *       sd -- Guest descriptor.
+ *
+ *   RESULT
+ *       Native close return value, or minus one on invalid descriptor.
+ *
+ *   NOTES
+ *       Releases the guest mapping even when native close returns failure.
+ *
+ ****************************************************************************/
+
 int host_CloseSocket (SB, int sd)
 {
     int s = getsock (sb, sd + 1);
@@ -1664,6 +2420,28 @@ int host_CloseSocket (SB, int sd)
     return retval;
 }
 
+/****i* januae-bsdsocket-internal/host_closesocketquick
+ *
+ *   NAME
+ *       host_closesocketquick()
+ *
+ *   SYNOPSIS
+ *       void host_closesocketquick (int s)
+ *
+ *   FUNCTION
+ *       Close a native socket with SO_LINGER explicitly disabled.
+ *
+ *   INPUTS
+ *       s -- Native socket descriptor.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Skips the operation for the minus-one invalid descriptor.
+ *
+ ****************************************************************************/
+
 void host_closesocketquick (int s)
 {
     struct linger l;
@@ -1675,10 +2453,55 @@ void host_closesocketquick (int s)
     }
 }
 
+/****i* januae-bsdsocket-internal/host_gethostname
+ *
+ *   NAME
+ *       host_gethostname()
+ *
+ *   SYNOPSIS
+ *       uae_u32 host_gethostname (uae_u32 name, uae_u32 namelen)
+ *
+ *   FUNCTION
+ *       Write the native host name directly into a guest buffer.
+ *
+ *   INPUTS
+ *       name -- Guest buffer address.
+ *       namelen -- Buffer size.
+ *
+ *   RESULT
+ *       Native gethostname return status.
+ *
+ *   NOTES
+ *       Uses the guest-address translation and supplied buffer length.
+ *
+ ****************************************************************************/
+
 uae_u32 host_gethostname (uae_u32 name, uae_u32 namelen)
 {
     return gethostname ((char *)get_real_address (name), namelen);
 }
+
+/****i* januae-bsdsocket-internal/init_socket_layer
+ *
+ *   NAME
+ *       init_socket_layer()
+ *
+ *   SYNOPSIS
+ *       int init_socket_layer(void)
+ *
+ *   FUNCTION
+ *       Initialize the semaphore protecting the socket signal queue.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       One on successful semaphore creation; zero otherwise.
+ *
+ *   NOTES
+ *       The semaphore is initialized with a count of one.
+ *
+ ****************************************************************************/
 
 int init_socket_layer(void)
 {
@@ -1689,6 +2512,28 @@ int init_socket_layer(void)
 
     return 1;
 }
+
+/****i* januae-bsdsocket-internal/clearsockabort
+ *
+ *   NAME
+ *       clearsockabort()
+ *
+ *   SYNOPSIS
+ *       void clearsockabort (SB)
+ *
+ *   FUNCTION
+ *       Drain pending bytes from the socket abort pipe.
+ *
+ *   INPUTS
+ *       sb -- Socket-base state.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Reads repeatedly until the nonblocking descriptor yields a negative result.
+ *
+ ****************************************************************************/
 
 void clearsockabort (SB)
 {
@@ -1701,6 +2546,28 @@ void clearsockabort (SB)
     }
 }
 
+/****i* januae-bsdsocket-internal/sockabort
+ *
+ *   NAME
+ *       sockabort()
+ *
+ *   SYNOPSIS
+ *       void sockabort (SB)
+ *
+ *   FUNCTION
+ *       Signal an in-progress blocking socket operation through the abort pipe.
+ *
+ *   INPUTS
+ *       sb -- Socket-base state.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Writes a single integer token to the pipe without checking the write result.
+ *
+ ****************************************************************************/
+
 void sockabort (SB)
 {
     int chr = 1;
@@ -1708,10 +2575,54 @@ void sockabort (SB)
     write (sb->sockabort[1], &chr, sizeof (chr));
 }
 
+/****i* januae-bsdsocket-internal/locksigqueue
+ *
+ *   NAME
+ *       locksigqueue()
+ *
+ *   SYNOPSIS
+ *       void locksigqueue (void)
+ *
+ *   FUNCTION
+ *       Acquire the global socket signal-queue semaphore.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Waits on sem_queue.
+ *
+ ****************************************************************************/
+
 void locksigqueue (void)
 {
     uae_sem_wait(&sem_queue);
 }
+
+/****i* januae-bsdsocket-internal/unlocksigqueue
+ *
+ *   NAME
+ *       unlocksigqueue()
+ *
+ *   SYNOPSIS
+ *       void unlocksigqueue (void)
+ *
+ *   FUNCTION
+ *       Release the global socket signal-queue semaphore.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Posts to sem_queue.
+ *
+ ****************************************************************************/
 
 void unlocksigqueue (void)
 {
