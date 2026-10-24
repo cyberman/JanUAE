@@ -4614,6 +4614,24 @@ static void create_guidlg (void) {
  * this calls the standard GTK+ event processing loop.
  *
  */
+/****i* januae-gtk-ui-internal/gtk_gui_thread
+ *
+ *   NAME
+ *       gtk_gui_thread()
+ *
+ *   SYNOPSIS
+ *       static void *gtk_gui_thread (void *dummy)
+ *
+ *   FUNCTION
+ *       Initialize the GTK user interface in its dedicated thread, then process the GUI event loop.
+ *
+ *   INPUTS
+ *       dummy -- Unused thread argument.
+ *
+ *   RESULT
+ *       The thread exit value.
+ *
+ ****************************************************************************/
 static void *gtk_gui_thread (void *dummy)
 {
     /* fake args for gtk_init() */
@@ -4706,6 +4724,25 @@ void gui_fps (int fps, int idle)
  * We don't respond to this, since our LEDs are updated
  * periodically by my_idle()
  */
+/****i* januae-gtk-ui-internal/gui_led
+ *
+ *   NAME
+ *       gui_led()
+ *
+ *   SYNOPSIS
+ *       void gui_led (int num, int on)
+ *
+ *   FUNCTION
+ *       Accept the disk activity notification without changing the display; periodic idle processing refreshes the indicators.
+ *
+ *   INPUTS
+ *       num -- Floppy drive or indicator index.
+ *       on -- Requested activity state.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void gui_led (int num, int on)
 {
 }
@@ -4717,6 +4754,25 @@ void gui_led (int num, int on)
  * This is called from the main UAE thread to inform
  * the GUI that a floppy disk has been inserted or ejected.
  */
+/****i* januae-gtk-ui-internal/gui_filename
+ *
+ *   NAME
+ *       gui_filename()
+ *
+ *   SYNOPSIS
+ *       void gui_filename (int num, const char *name)
+ *
+ *   FUNCTION
+ *       Notify the GUI thread that the floppy media associated with a drive has changed, when the GUI is available.
+ *
+ *   INPUTS
+ *       num -- Floppy drive or indicator index.
+ *       name -- Media filename supplied by the caller.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void gui_filename (int num, const char *name)
 {
     DEBUG_LOG ("Entered with drive:%d name:%s\n", num, name);
@@ -4741,6 +4797,24 @@ void gui_filename (int num, const char *name)
  * the emulation is running, this is called periodically from
  * the main UAE event loop.
  */
+/****i* januae-gtk-ui-internal/gui_handle_events
+ *
+ *   NAME
+ *       gui_handle_events()
+ *
+ *   SYNOPSIS
+ *       void gui_handle_events (void)
+ *
+ *   FUNCTION
+ *       Process queued GUI-to-emulator commands on the emulation thread, including floppy media and execution-control requests.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void gui_handle_events (void)
 {
     if (!gui_available)
@@ -4855,6 +4929,24 @@ void gui_handle_events (void)
  * until it receives a message from the GUI telling it that the update
  * is complete.
  */
+/****i* januae-gtk-ui-internal/gui_update
+ *
+ *   NAME
+ *       gui_update()
+ *
+ *   SYNOPSIS
+ *       int gui_update (void)
+ *
+ *   FUNCTION
+ *       Request that the GUI synchronize its controls with current emulator preferences and wait for acknowledgement when available.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       0.
+ *
+ ****************************************************************************/
 int gui_update (void) {
   DEBUG_LOG( "Entered\n" );
 
@@ -4873,6 +4965,24 @@ int gui_update (void) {
  * quit. We don't need to do anything here for now. Our main() takes
  * care of putting the GUI to bed.
  */
+/****i* januae-gtk-ui-internal/gui_exit
+ *
+ *   NAME
+ *       gui_exit()
+ *
+ *   SYNOPSIS
+ *       void gui_exit (void)
+ *
+ *   FUNCTION
+ *       Provide the emulator-facing GUI exit hook; the function currently performs no operation.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void gui_exit (void)
 {
 }
@@ -4885,6 +4995,24 @@ void gui_exit (void)
 #ifndef GTKMUI
 static 
 #endif
+/****i* januae-gtk-ui-internal/gui_shutdown
+ *
+ *   NAME
+ *       gui_shutdown()
+ *
+ *   SYNOPSIS
+ *       void gui_shutdown (void)
+ *
+ *   FUNCTION
+ *       Request GUI-thread shutdown and await its completion when the GUI is active and has not already been asked to quit.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void gui_shutdown (void) {
 
   DEBUG_LOG( "entered\n" );
@@ -5121,6 +5249,27 @@ void gui_notify_state (int state)
  * modal   - should the dialog block input to the rest of the GUI
  * wait    - should the dialog wait until the user has acknowledged it
  */
+/****i* januae-gtk-ui-internal/do_message_box
+ *
+ *   NAME
+ *       do_message_box()
+ *
+ *   SYNOPSIS
+ *       static void do_message_box (const gchar *title, const gchar *message, gboolean modal, gboolean wait )
+ *
+ *   FUNCTION
+ *       Queue a message-box request to the GUI context and optionally wait for acknowledgement.
+ *
+ *   INPUTS
+ *       title -- Dialog window title.
+ *       message -- Text displayed in the dialog.
+ *       modal -- Whether the dialog is modal.
+ *       wait -- Whether to wait for acknowledgement.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void do_message_box (const gchar *title, const gchar *message, gboolean modal, gboolean wait )
 {
     uae_sem_t msg_quit_sem;
@@ -5148,6 +5297,24 @@ static void do_message_box (const gchar *title, const gchar *message, gboolean m
  * This is called from the GUI's context in repsonse to do_message_box()
  * to actually create the dialog box
  */
+/****i* januae-gtk-ui-internal/handle_message_box_request
+ *
+ *   NAME
+ *       handle_message_box_request()
+ *
+ *   SYNOPSIS
+ *       static void handle_message_box_request (smp_comm_pipe *msg_pipe)
+ *
+ *   FUNCTION
+ *       Read the queued message-box parameters from the communication pipe and create the GTK dialog.
+ *
+ *   INPUTS
+ *       msg_pipe -- Pipe containing the queued dialog request.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void handle_message_box_request (smp_comm_pipe *msg_pipe)
 {
     const gchar *title      = (const gchar *)  read_comm_pipe_pvoid_blocking (msg_pipe);
@@ -5164,6 +5331,25 @@ static void handle_message_box_request (smp_comm_pipe *msg_pipe)
  * Handler called when message box is exited. Signals anybody that cares
  * via the semaphore it is supplied.
  */
+/****i* januae-gtk-ui-internal/on_message_box_quit
+ *
+ *   NAME
+ *       on_message_box_quit()
+ *
+ *   SYNOPSIS
+ *       void on_message_box_quit (GtkWidget *w, gpointer user_data)
+ *
+ *   FUNCTION
+ *       Signal the caller-provided semaphore when a message dialog is dismissed.
+ *
+ *   INPUTS
+ *       w -- Widget that emitted the notification.
+ *       user_data -- Semaphore pointer to signal.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void on_message_box_quit (GtkWidget *w, gpointer user_data)
 {
     uae_sem_post ((uae_sem_t *)user_data);
@@ -5181,6 +5367,27 @@ void on_message_box_quit (GtkWidget *w, gpointer user_data)
  *
  * TODO: Make that semaphore go away. We shouldn't need to know about it here.
  */
+/****i* januae-gtk-ui-internal/make_message_box
+ *
+ *   NAME
+ *       make_message_box()
+ *
+ *   SYNOPSIS
+ *       static GtkWidget *make_message_box (const gchar *title, const gchar *message, int modal, uae_sem_t *sem )
+ *
+ *   FUNCTION
+ *       Construct the requested GTK message dialog and connect its acknowledgement signal to the supplied semaphore.
+ *
+ *   INPUTS
+ *       title -- Dialog window title.
+ *       message -- Text displayed in the dialog.
+ *       modal -- Whether the dialog is modal.
+ *       sem -- Semaphore signalled on dialog acknowledgement.
+ *
+ *   RESULT
+ *       The constructed GTK dialog widget.
+ *
+ ****************************************************************************/
 static GtkWidget *make_message_box (const gchar *title, const gchar *message, int modal, uae_sem_t *sem )
 {
     GtkWidget *dialog;
