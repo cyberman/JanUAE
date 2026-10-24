@@ -2173,6 +2173,24 @@ static void make_floppy_disks (GtkWidget *vbox)
 /*
  * CPU configuration page
  */
+/****i* januae-gtk-ui-internal/on_cputype_changed
+ *
+ *   NAME
+ *       on_cputype_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_cputype_changed (void)
+ *
+ *   FUNCTION
+ *       Copy CPU level, address width, compatibility, and cycle-exact settings from the CPU type panel into pending preferences; refresh 32-bit memory controls.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_cputype_changed (void)
 {
     int i;
@@ -2192,6 +2210,24 @@ static void on_cputype_changed (void)
     changed_prefs.cpu_compatible, changed_prefs.cpu_cycle_exact);
 }
 
+/****i* januae-gtk-ui-internal/on_addr24bit_changed
+ *
+ *   NAME
+ *       on_addr24bit_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_addr24bit_changed (void)
+ *
+ *   FUNCTION
+ *       Copy the 24-bit addressing selection from the CPU type panel into pending preferences and update memory widget availability.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_addr24bit_changed (void)
 {
     int i;
@@ -2207,6 +2243,24 @@ static void on_addr24bit_changed (void)
     //D(bug("address_space_24=%d\n", changed_prefs.address_space_24));
 }
 
+/****i* januae-gtk-ui-internal/on_cpuspeed_changed
+ *
+ *   NAME
+ *       on_cpuspeed_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_cpuspeed_changed (void)
+ *
+ *   FUNCTION
+ *       Copy the selected emulated CPU speed from the speed panel into pending preferences.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_cpuspeed_changed (void)
 {
     DEBUG_LOG ("called\n");
@@ -2216,6 +2270,24 @@ static void on_cpuspeed_changed (void)
     DEBUG_LOG ("m68k_speed=%d\n", changed_prefs.m68k_speed);
 }
 
+/****i* januae-gtk-ui-internal/on_cpuidle_changed
+ *
+ *   NAME
+ *       on_cpuidle_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_cpuidle_changed (void)
+ *
+ *   FUNCTION
+ *       Copy the CPU idle setting from the speed panel into pending preferences.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_cpuidle_changed (void)
 {
    DEBUG_LOG ("called\n");
@@ -2285,18 +2357,72 @@ static void make_cpu_widgets (GtkWidget *vbox)
                         NULL);
 }
 
+/****i* januae-gtk-ui-internal/on_framerate_changed
+ *
+ *   NAME
+ *       on_framerate_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_framerate_changed (void)
+ *
+ *   FUNCTION
+ *       Copy the chipset-speed panel frame-rate value into pending graphics preferences.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_framerate_changed (void)
 {
     changed_prefs.gfx_framerate = CHIPSETSPEEDPANEL (chipsetspeed_panel)->framerate;
     DEBUG_LOG("gfx_framerate = %d\n", changed_prefs.gfx_framerate);
 }
 
+/****i* januae-gtk-ui-internal/on_collision_level_changed
+ *
+ *   NAME
+ *       on_collision_level_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_collision_level_changed (void)
+ *
+ *   FUNCTION
+ *       Copy the collision-level selection into pending preferences.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_collision_level_changed (void)
 {
     changed_prefs.collision_level = CHIPSETSPEEDPANEL (chipsetspeed_panel)->collision_level;
     DEBUG_LOG("collision_level = %d\n", changed_prefs.collision_level);
 }
 
+/****i* januae-gtk-ui-internal/on_immediate_blits_changed
+ *
+ *   NAME
+ *       on_immediate_blits_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_immediate_blits_changed (void)
+ *
+ *   FUNCTION
+ *       Copy the immediate-blitter setting from the chipset-speed panel into pending preferences.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_immediate_blits_changed (void)
 {
     changed_prefs.immediate_blits = CHIPSETSPEEDPANEL (chipsetspeed_panel)->immediate_blits;
@@ -2311,6 +2437,24 @@ void hide_uae_main_window(void);
 void close_all_janus_windows(void);
 void switch_off_coherence(void);
 
+/****i* januae-gtk-ui-internal/switch_off_coherence
+ *
+ *   NAME
+ *       switch_off_coherence()
+ *
+ *   SYNOPSIS
+ *       void switch_off_coherence(void)
+ *
+ *   FUNCTION
+ *       Disable Janus coherence only when coherence is enabled and the AmigaOS task is present. Close Janus windows and screens, display the UAE window, and update the coherence selection.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None. Does nothing when coherence is already disabled or the AmigaOS task is absent.
+ *
+ ****************************************************************************/
 void switch_off_coherence(void) {
 
   if((changed_prefs.jcoherence == FALSE) | (!aos3_task)) {
@@ -2329,6 +2473,24 @@ void switch_off_coherence(void) {
   gtk_list_select_item (GTK_LIST (GTK_COMBO (JINTEGRATION (jint_panel)->combo_coherence)->list), FALSE);
 }
 
+/****i* januae-gtk-ui-internal/on_coherent_changed
+ *
+ *   NAME
+ *       on_coherent_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_coherent_changed (void)
+ *
+ *   FUNCTION
+ *       Update the selected coherence mode. When an AmigaOS task exists and coherence is disabled, close Janus windows and screens and display UAE; otherwise request hiding the UAE window.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None. An unchanged selection is ignored.
+ *
+ ****************************************************************************/
 static void on_coherent_changed (void) {
 
   if(changed_prefs.jcoherence == JINTEGRATION (jint_panel)->coherence) {
@@ -2352,6 +2514,24 @@ static void on_coherent_changed (void) {
   /* if changed to coherence, windows are opened automatically */
 }
 
+/****i* januae-gtk-ui-internal/on_mouse_changed
+ *
+ *   NAME
+ *       on_mouse_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_mouse_changed (void)
+ *
+ *   FUNCTION
+ *       Copy a changed Janus mouse integration setting into pending preferences.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None. An unchanged value is ignored.
+ *
+ ****************************************************************************/
 static void on_mouse_changed (void) {
 
   if(changed_prefs.jmouse == JINTEGRATION (jint_panel)->mouse) {
@@ -2367,6 +2547,24 @@ static void on_mouse_changed (void) {
 extern BOOL clipboard_aros_changed;
 void copy_clipboard_to_amigaos(void);
 
+/****i* januae-gtk-ui-internal/on_clipboard_changed
+ *
+ *   NAME
+ *       on_clipboard_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_clipboard_changed (void)
+ *
+ *   FUNCTION
+ *       Copy a changed Janus clipboard setting into pending preferences. When enabling integration, mark the AROS clipboard changed and request a copy to AmigaOS.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_clipboard_changed (void) {
 
   if(changed_prefs.jclipboard == JINTEGRATION (jint_panel)->clipboard) {
@@ -2385,6 +2583,24 @@ static void on_clipboard_changed (void) {
   }
 }
 
+/****i* januae-gtk-ui-internal/on_launch_changed
+ *
+ *   NAME
+ *       on_launch_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_launch_changed (void)
+ *
+ *   FUNCTION
+ *       Update the Janus launch-integration preference. Start the launch and CLI threads on enable; request termination of both on disable.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None. An unchanged selection is ignored.
+ *
+ ****************************************************************************/
 static void on_launch_changed (void) {
 
   if(changed_prefs.jlaunch == JINTEGRATION (jint_panel)->launch) {
@@ -2452,6 +2668,24 @@ static void make_sound_widgets (GtkWidget *vbox)
 }
 
 /* TODO: check if this should be disabled..? */
+/****i* januae-gtk-ui-internal/chipsize_changed
+ *
+ *   NAME
+ *       chipsize_changed()
+ *
+ *   SYNOPSIS
+ *       void chipsize_changed (void)
+ *
+ *   FUNCTION
+ *       Compute chip memory size from the active size toggle and adjust fast-memory controls. Selecting more than 2 MiB chip memory disables fast memory and activates its zero-size choice.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void chipsize_changed (void) {
 
     int t = find_current_toggle (chipsize_widget, 5);
@@ -3287,6 +3521,24 @@ static void make_about_widgets (GtkWidget *dvbox) {
 /******************************
  * Quit hooks
  ******************************/
+/****i* januae-gtk-ui-internal/on_quit_clicked
+ *
+ *   NAME
+ *       on_quit_clicked()
+ *
+ *   SYNOPSIS
+ *       static void on_quit_clicked (void)
+ *
+ *   FUNCTION
+ *       Send the emulator quit command through the GUI command pipe unless the GUI is already quitting.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_quit_clicked (void) {
 
   DEBUG_LOG ("on_quit_clicked (quit_gui: %d).\n",quit_gui);
@@ -3297,6 +3549,26 @@ static void on_quit_clicked (void) {
 }
 
 
+/****i* januae-gtk-ui-internal/did_guidlg_delete
+ *
+ *   NAME
+ *       did_guidlg_delete()
+ *
+ *   SYNOPSIS
+ *       static gint did_guidlg_delete (GtkWidget* window, GdkEventAny* e, gpointer data)
+ *
+ *   FUNCTION
+ *       Handle a GTK configuration-window deletion: request emulator quit and clear the global GUI-window pointer.
+ *
+ *   INPUTS
+ *       window -- GTK callback argument; not used by this function.
+ *       e -- GTK callback argument; not used by this function.
+ *       data -- GTK callback argument; not used by this function.
+ *
+ *   RESULT
+ *       FALSE, allowing the normal GTK delete processing to proceed.
+ *
+ ****************************************************************************/
 static gint did_guidlg_delete (GtkWidget* window, GdkEventAny* e, gpointer data) {
 
   DEBUG_LOG("did_guidlg_delete(%lx, %lx, %lx)\n", window, e, data);
@@ -3306,6 +3578,26 @@ static gint did_guidlg_delete (GtkWidget* window, GdkEventAny* e, gpointer data)
   return FALSE;
 }
 
+/****i* januae-gtk-ui-internal/guidlg_show
+ *
+ *   NAME
+ *       guidlg_show()
+ *
+ *   SYNOPSIS
+ *       static gint guidlg_show (GtkWidget* window, GdkEventAny* e, gpointer data)
+ *
+ *   FUNCTION
+ *       Close the splash display when the GTK configuration window is shown.
+ *
+ *   INPUTS
+ *       window -- GTK callback argument; not used by this function.
+ *       e -- GTK callback argument; not used by this function.
+ *       data -- GTK callback argument; not used by this function.
+ *
+ *   RESULT
+ *       FALSE, allowing normal GTK event handling.
+ *
+ ****************************************************************************/
 static gint guidlg_show (GtkWidget* window, GdkEventAny* e, gpointer data) {
 
   DEBUG_LOG("guidlg_show(%lx)\n", window);
@@ -3318,6 +3610,24 @@ static gint guidlg_show (GtkWidget* window, GdkEventAny* e, gpointer data) {
 /******************************
  * "Load Config"
  ******************************/
+/****i* januae-gtk-ui-internal/on_menu_loadconfig
+ *
+ *   NAME
+ *       on_menu_loadconfig()
+ *
+ *   SYNOPSIS
+ *       static void on_menu_loadconfig (void)
+ *
+ *   FUNCTION
+ *       Send the load-configuration command to the emulator through the GUI command pipe unless the GUI is quitting.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_menu_loadconfig (void) {
 
   DEBUG_LOG ("Load config ...\n");
@@ -3330,12 +3640,48 @@ static void on_menu_loadconfig (void) {
 /******************************
  * "Load Config From"
  ******************************/
+/****i* januae-gtk-ui-internal/did_close_config
+ *
+ *   NAME
+ *       did_close_config()
+ *
+ *   SYNOPSIS
+ *       static void did_close_config (gpointer gdata)
+ *
+ *   FUNCTION
+ *       Handle cancellation or closing of the configuration-file selection without changing the current configuration filename.
+ *
+ *   INPUTS
+ *       gdata -- GTK callback argument; not used by this function.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void did_close_config (gpointer gdata) {
   DEBUG_LOG("cancel save!\n");
 
   return;
 }
 
+/****i* januae-gtk-ui-internal/load_config_select
+ *
+ *   NAME
+ *       load_config_select()
+ *
+ *   SYNOPSIS
+ *       static void load_config_select (GtkObject *o)
+ *
+ *   FUNCTION
+ *       Read a selected configuration filename, update the shared filename under the GUI semaphore, destroy its chooser, and request configuration loading.
+ *
+ *   INPUTS
+ *       o -- GTK file-selection object carrying the chosen filename.
+ *
+ *   RESULT
+ *       None. Returns without changing state when the GUI is quitting.
+ *
+ ****************************************************************************/
 static void load_config_select (GtkObject *o) {
 
   const char *s = gtk_file_selection_get_filename (GTK_FILE_SELECTION (o));
@@ -3361,6 +3707,24 @@ static void load_config_select (GtkObject *o) {
   }
 }
 
+/****i* januae-gtk-ui-internal/on_menu_loadconfigfrom
+ *
+ *   NAME
+ *       on_menu_loadconfigfrom()
+ *
+ *   SYNOPSIS
+ *       static void on_menu_loadconfigfrom (void)
+ *
+ *   FUNCTION
+ *       Create and show a file chooser initialized with the current configuration filename for loading settings from a selected file.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_menu_loadconfigfrom (void) {
 
   GtkWidget *config_selector;
@@ -3382,6 +3746,24 @@ static void on_menu_loadconfigfrom (void) {
 /***********************************
  * "Save Config"
  ***********************************/
+/****i* januae-gtk-ui-internal/on_menu_saveconfig
+ *
+ *   NAME
+ *       on_menu_saveconfig()
+ *
+ *   SYNOPSIS
+ *       static void on_menu_saveconfig (void)
+ *
+ *   FUNCTION
+ *       Request saving the current configuration through the GUI command pipe unless the GUI is quitting.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_menu_saveconfig (void) {
 
   DEBUG_LOG ("Save config ...\n");
@@ -3393,6 +3775,24 @@ static void on_menu_saveconfig (void) {
 /***********************************
  * "Save Config As"
  ***********************************/
+/****i* januae-gtk-ui-internal/did_config_select
+ *
+ *   NAME
+ *       did_config_select()
+ *
+ *   SYNOPSIS
+ *       static void did_config_select (GtkObject *o)
+ *
+ *   FUNCTION
+ *       Store a selected configuration filename under the GUI semaphore, close its chooser, request a save, and update the filename label.
+ *
+ *   INPUTS
+ *       o -- GTK file-selection object carrying the chosen filename.
+ *
+ *   RESULT
+ *       None. Returns without changing state when the GUI is quitting.
+ *
+ ****************************************************************************/
 static void did_config_select (GtkObject *o) {
 
   const char *s = gtk_file_selection_get_filename (GTK_FILE_SELECTION (o));
@@ -3420,6 +3820,24 @@ static void did_config_select (GtkObject *o) {
   }
 }
 
+/****i* januae-gtk-ui-internal/on_menu_saveconfigas
+ *
+ *   NAME
+ *       on_menu_saveconfigas()
+ *
+ *   SYNOPSIS
+ *       static void on_menu_saveconfigas (void)
+ *
+ *   FUNCTION
+ *       Create and show a configuration-file chooser, initialized with the current filename, for saving settings under another name.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_menu_saveconfigas (void) {
   GtkWidget *config_selector;
   
@@ -3436,6 +3854,24 @@ static void on_menu_saveconfigas (void) {
   DEBUG_LOG ("exit\n");
 }
 
+/****i* januae-gtk-ui-internal/on_screen_changed
+ *
+ *   NAME
+ *       on_screen_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_screen_changed (jDisplay *j)
+ *
+ *   FUNCTION
+ *       Copy fullscreen width and height from the Janus display panel into pending preferences. The clone setting is copied from current preferences rather than from the panel.
+ *
+ *   INPUTS
+ *       j -- Janus display panel containing the selected settings.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_screen_changed (jDisplay *j) {
 
   DEBUG_LOG("currprefs.gfx_fs_clone: %d\n", currprefs.gfx_fs_clone);
@@ -3446,23 +3882,95 @@ static void on_screen_changed (jDisplay *j) {
   DEBUG_LOG("changed_prefs.gfx_fs_clone: %d\n", currprefs.gfx_fs_clone);
 }
 
+/****i* januae-gtk-ui-internal/on_window_changed
+ *
+ *   NAME
+ *       on_window_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_window_changed (jDisplay *j)
+ *
+ *   FUNCTION
+ *       Copy windowed display width and height from the Janus display panel into pending preferences.
+ *
+ *   INPUTS
+ *       j -- Janus display panel containing the selected settings.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_window_changed (jDisplay *j) {
 
   changed_prefs.gfx_width_win  = j->gfx_width_win;
   changed_prefs.gfx_height_win = j->gfx_height_win;
 }
 
+/****i* januae-gtk-ui-internal/on_chipset_changed
+ *
+ *   NAME
+ *       on_chipset_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_chipset_changed (jDisplay *j)
+ *
+ *   FUNCTION
+ *       Copy the chipset mask and NTSC mode from the Janus display panel into pending preferences.
+ *
+ *   INPUTS
+ *       j -- Janus display panel containing the selected settings.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_chipset_changed (jDisplay *j) {
 
   changed_prefs.chipset_mask = j->chipset_mask;
   changed_prefs.ntscmode     = j->ntscmode;
 }
 
+/****i* januae-gtk-ui-internal/on_linemode_changed
+ *
+ *   NAME
+ *       on_linemode_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_linemode_changed (jDisplay *j)
+ *
+ *   FUNCTION
+ *       Copy the line-doubling selection from the Janus display panel into pending preferences.
+ *
+ *   INPUTS
+ *       j -- Janus display panel containing the selected settings.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_linemode_changed (jDisplay *j) {
 
   changed_prefs.gfx_linedbl  = j->gfx_linedbl;
 }
 
+/****i* januae-gtk-ui-internal/on_settings_changed
+ *
+ *   NAME
+ *       on_settings_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_settings_changed (jDisplay *j)
+ *
+ *   FUNCTION
+ *       Copy aspect correction, low-resolution and fullscreen preferences. Select custom Amiga screen type when P96 fullscreen is enabled, otherwise the public screen type, in both current and pending preferences.
+ *
+ *   INPUTS
+ *       j -- Janus display panel containing the selected settings.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_settings_changed (jDisplay *j) {
 
   changed_prefs.gfx_correct_aspect= j->gfx_correct_aspect;
@@ -3480,6 +3988,24 @@ static void on_settings_changed (jDisplay *j) {
   }
 }
 
+/****i* januae-gtk-ui-internal/on_centering_changed
+ *
+ *   NAME
+ *       on_centering_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_centering_changed (jDisplay *j)
+ *
+ *   FUNCTION
+ *       Copy horizontal and vertical display centering settings from the Janus display panel into pending preferences.
+ *
+ *   INPUTS
+ *       j -- Janus display panel containing the selected settings.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void on_centering_changed (jDisplay *j) {
 
   changed_prefs.gfx_xcenter= j->gfx_xcenter;
