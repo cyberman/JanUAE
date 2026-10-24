@@ -2935,6 +2935,25 @@ static void make_comp_widgets (GtkWidget *vbox)
 /*********************************************
  * Joystick
  *********************************************/
+/****i* januae-gtk-ui-internal/on_catweasel_joystick_changed
+ *
+ *   NAME
+ *       on_catweasel_joystick_changed()
+ *
+ *   SYNOPSIS
+ *       static void on_catweasel_joystick_changed(GtkWidget *w, GtkWidget *cat)
+ *
+ *   FUNCTION
+ *       Copy the Catweasel joystick toggle into current and changed preferences, then notify the input-device configuration.
+ *
+ *   INPUTS
+ *       w -- Callback context supplied by GTK.
+ *       cat -- Callback context supplied by GTK.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void  on_catweasel_joystick_changed(GtkWidget *w, GtkWidget *cat) {
 
   currprefs.catweasel_joy = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (catweasel_joystick_widget));
@@ -2942,6 +2961,24 @@ static void  on_catweasel_joystick_changed(GtkWidget *w, GtkWidget *cat) {
   inputdevice_config_change();
 }
 
+/****i* januae-gtk-ui-internal/make_joy_frame
+ *
+ *   NAME
+ *       make_joy_frame()
+ *
+ *   SYNOPSIS
+ *       static GtkWidget *make_joy_frame(int i)
+ *
+ *   FUNCTION
+ *       Create the radio-button frame for the specified joystick port and disable options unavailable with the detected joystick count.
+ *
+ *   INPUTS
+ *       i -- Requested joystick port.
+ *
+ *   RESULT
+ *       The GTK frame for the requested port.
+ *
+ ****************************************************************************/
 static GtkWidget *make_joy_frame(int i) {
   GtkWidget *frame;
   char buffer[20];
@@ -3018,6 +3055,24 @@ static void make_joy_widgets (GtkWidget *dvbox)
 #ifdef FILESYS
 static int hd_change_mode;
 
+/****i* januae-gtk-ui-internal/newdir_ok
+ *
+ *   NAME
+ *       newdir_ok()
+ *
+ *   SYNOPSIS
+ *       static void newdir_ok (void)
+ *
+ *   FUNCTION
+ *       Read directory-mount settings from the dialog, strip trailing colons from device and volume names, and add or replace the filesystem unit when volume and path are nonempty. Destroy the dialog afterward.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void newdir_ok (void)
 {
     int n;
@@ -3056,6 +3111,25 @@ static void newdir_ok (void)
 
 GtkWidget *path_selector;
 
+/****i* januae-gtk-ui-internal/did_dirdlg_done_select
+ *
+ *   NAME
+ *       did_dirdlg_done_select()
+ *
+ *   SYNOPSIS
+ *       static void did_dirdlg_done_select (GtkObject *o, gpointer entry )
+ *
+ *   FUNCTION
+ *       Transfer the selected path from the GTK file selector to the supplied entry.
+ *
+ *   INPUTS
+ *       o -- Callback context supplied by GTK.
+ *       entry -- Callback context supplied by GTK.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void did_dirdlg_done_select (GtkObject *o, gpointer entry )
 {
     assert (GTK_IS_ENTRY (entry));
@@ -3063,6 +3137,25 @@ static void did_dirdlg_done_select (GtkObject *o, gpointer entry )
     gtk_entry_set_text (GTK_ENTRY (entry), gtk_file_selection_get_filename (GTK_FILE_SELECTION (path_selector)));
 }
 
+/****i* januae-gtk-ui-internal/did_dirdlg_select
+ *
+ *   NAME
+ *       did_dirdlg_select()
+ *
+ *   SYNOPSIS
+ *       static void did_dirdlg_select (GtkObject *o, gpointer entry )
+ *
+ *   FUNCTION
+ *       Open a modal folder selector initialized from the supplied entry. In GTK builds without GTKMUI, hide file-related controls to present directory selection.
+ *
+ *   INPUTS
+ *       o -- Callback context supplied by GTK.
+ *       entry -- Callback context supplied by GTK.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void did_dirdlg_select (GtkObject *o, gpointer entry )
 {
     assert( GTK_IS_ENTRY(entry) );
@@ -3093,6 +3186,25 @@ static void did_dirdlg_select (GtkObject *o, gpointer entry )
     gtk_widget_show (path_selector);
 }
 
+/****i* januae-gtk-ui-internal/dirdlg_on_change
+ *
+ *   NAME
+ *       dirdlg_on_change()
+ *
+ *   SYNOPSIS
+ *       static void dirdlg_on_change (GtkObject *o, gpointer data)
+ *
+ *   FUNCTION
+ *       Enable the mount-dialog confirmation button only while path, volume name, and device name entries are all nonempty.
+ *
+ *   INPUTS
+ *       o -- Callback context supplied by GTK.
+ *       data -- Callback context supplied by GTK.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void dirdlg_on_change (GtkObject *o, gpointer data)
 {
   int can_complete = (strlen (gtk_entry_get_text (GTK_ENTRY(path_entry))) !=0)
@@ -3102,6 +3214,24 @@ static void dirdlg_on_change (GtkObject *o, gpointer data)
   gtk_widget_set_sensitive (dirdlg_ok, can_complete);
 }
 
+/****i* januae-gtk-ui-internal/create_dirdlg
+ *
+ *   NAME
+ *       create_dirdlg()
+ *
+ *   SYNOPSIS
+ *       static void create_dirdlg (const char *title)
+ *
+ *   FUNCTION
+ *       Construct the modal directory-mount properties dialog, its text fields, read-only control, boot priority and confirmation actions.
+ *
+ *   INPUTS
+ *       title -- Target widget or creation parameter.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void create_dirdlg (const char *title)
 {
     GtkWidget *dialog_vbox, *dialog_hbox, *vbox, *frame, *table, *hbox, *thing, *label, *button;
@@ -3253,16 +3383,70 @@ static void create_dirdlg (const char *title)
 #endif
 }
 
+/****i* januae-gtk-ui-internal/did_newdir
+ *
+ *   NAME
+ *       did_newdir()
+ *
+ *   SYNOPSIS
+ *       static void did_newdir (void)
+ *
+ *   FUNCTION
+ *       Select add mode and open the directory-backed hard-disk configuration dialog.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void did_newdir (void)
 {
     hd_change_mode = 0;
     create_dirdlg ("Add a hard disk");
 }
+/****i* januae-gtk-ui-internal/did_newhdf
+ *
+ *   NAME
+ *       did_newhdf()
+ *
+ *   SYNOPSIS
+ *       static void did_newhdf (void)
+ *
+ *   FUNCTION
+ *       Clear the hard-disk change-mode flag. This handler does not open a hardfile chooser.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void did_newhdf (void)
 {
     hd_change_mode = 0;
 }
 
+/****i* januae-gtk-ui-internal/did_hdchange
+ *
+ *   NAME
+ *       did_hdchange()
+ *
+ *   SYNOPSIS
+ *       static void did_hdchange (void)
+ *
+ *   FUNCTION
+ *       Read the selected filesystem unit and, for directory-backed units, open its properties dialog populated with the current settings. The hardfile branch is empty.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void did_hdchange (void)
 {
     int secspertrack, surfaces, reserved, blocksize, bootpri;
@@ -3288,12 +3472,52 @@ static void did_hdchange (void)
         gtk_spin_button_set_value (GTK_SPIN_BUTTON (bootpri_widget), bootpri);
    }
 }
+/****i* januae-gtk-ui-internal/did_hddel
+ *
+ *   NAME
+ *       did_hddel()
+ *
+ *   SYNOPSIS
+ *       static void did_hddel (void)
+ *
+ *   FUNCTION
+ *       Remove the selected filesystem unit and refresh the hard-disk state display.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void did_hddel (void)
 {
     kill_filesys_unit (currprefs.mountinfo, selected_hd_row);
     set_hd_state ();
 }
 
+/****i* januae-gtk-ui-internal/hdselect
+ *
+ *   NAME
+ *       hdselect()
+ *
+ *   SYNOPSIS
+ *       static void hdselect (GtkWidget *widget, gint row, gint column, GdkEventButton *bevent, gpointer user_data)
+ *
+ *   FUNCTION
+ *       Record the selected hard-disk row and enable its Change and Delete buttons.
+ *
+ *   INPUTS
+ *       widget -- Callback context supplied by GTK.
+ *       row -- GUI value or argument used by the operation.
+ *       column -- GUI value or argument used by the operation.
+ *       bevent -- Callback context supplied by GTK.
+ *       user_data -- Callback context supplied by GTK.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void hdselect (GtkWidget *widget, gint row, gint column, GdkEventButton *bevent,
 		      gpointer user_data)
 {
@@ -3302,6 +3526,28 @@ static void hdselect (GtkWidget *widget, gint row, gint column, GdkEventButton *
     gtk_widget_set_sensitive (hddel_button, TRUE);
 }
 
+/****i* januae-gtk-ui-internal/hdunselect
+ *
+ *   NAME
+ *       hdunselect()
+ *
+ *   SYNOPSIS
+ *       static void hdunselect (GtkWidget *widget, gint row, gint column, GdkEventButton *bevent, gpointer user_data)
+ *
+ *   FUNCTION
+ *       Disable the hard-disk Change and Delete buttons after a list-row deselection.
+ *
+ *   INPUTS
+ *       widget -- Callback context supplied by GTK.
+ *       row -- GUI value or argument used by the operation.
+ *       column -- GUI value or argument used by the operation.
+ *       bevent -- Callback context supplied by GTK.
+ *       user_data -- Callback context supplied by GTK.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void hdunselect (GtkWidget *widget, gint row, gint column, GdkEventButton *bevent,
 			gpointer user_data)
 {
@@ -3310,6 +3556,27 @@ static void hdunselect (GtkWidget *widget, gint row, gint column, GdkEventButton
 }
 #endif // FILESYS
 
+/****i* januae-gtk-ui-internal/make_buttons
+ *
+ *   NAME
+ *       make_buttons()
+ *
+ *   SYNOPSIS
+ *       static GtkWidget *make_buttons (const char *label, GtkWidget *box, void (*sigfunc) (void), GtkWidget *(*create)(const char *label))
+ *
+ *   FUNCTION
+ *       Create a labeled widget using the supplied factory, connect its clicked signal to the callback, and pack it into the destination box.
+ *
+ *   INPUTS
+ *       label -- Target widget or creation parameter.
+ *       box -- Target widget or creation parameter.
+ *       sigfunc -- Target widget or creation parameter.
+ *       create -- Target widget or creation parameter.
+ *
+ *   RESULT
+ *       The newly constructed GTK widget.
+ *
+ ****************************************************************************/
 static GtkWidget *make_buttons (const char *label, GtkWidget *box, void (*sigfunc) (void), GtkWidget *(*create)(const char *label))
 {
     GtkWidget *thing = create (label);
@@ -3323,6 +3590,24 @@ static GtkWidget *make_buttons (const char *label, GtkWidget *box, void (*sigfun
 #define make_button(label, box, sigfunc) make_buttons(label, box, sigfunc, gtk_button_new_with_label)
 
 #ifdef FILESYS
+/****i* januae-gtk-ui-internal/make_hd_widgets
+ *
+ *   NAME
+ *       make_hd_widgets()
+ *
+ *   SYNOPSIS
+ *       static void make_hd_widgets (GtkWidget *dvbox)
+ *
+ *   FUNCTION
+ *       Build the hard-disk configuration page with its mounted-volume list and management controls.
+ *
+ *   INPUTS
+ *       dvbox -- Target widget or creation parameter.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void make_hd_widgets (GtkWidget *dvbox)
 {
     GtkWidget *frame, *vbox, *scrollbox, *thing, *buttonbox, *hbox;
@@ -3416,6 +3701,25 @@ static GtkWidget *make_config_frame (const char *title, GtkWidget *vbox) {
     return buttonbox;
 }
 
+/****i* januae-gtk-ui-internal/config_descr_on_change
+ *
+ *   NAME
+ *       config_descr_on_change()
+ *
+ *   SYNOPSIS
+ *       static void config_descr_on_change (GtkObject *o, gpointer data)
+ *
+ *   FUNCTION
+ *       Copy at most 250 characters from the configuration-description entry into the pending preference description buffer.
+ *
+ *   INPUTS
+ *       o -- Callback context supplied by GTK.
+ *       data -- Callback context supplied by GTK.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void config_descr_on_change (GtkObject *o, gpointer data) {
 
   strncpy(changed_prefs.description, gtk_entry_get_text(GTK_ENTRY(config_description_widget)), 250);
@@ -4012,6 +4316,24 @@ static void on_centering_changed (jDisplay *j) {
   changed_prefs.gfx_ycenter= j->gfx_ycenter;
 }
 
+/****i* januae-gtk-ui-internal/make_display_widgets
+ *
+ *   NAME
+ *       make_display_widgets()
+ *
+ *   SYNOPSIS
+ *       static void make_display_widgets (GtkWidget *vbox)
+ *
+ *   FUNCTION
+ *       Create the Janus display panel, connect screen and chipset setting signals, and insert the panel into the destination container.
+ *
+ *   INPUTS
+ *       vbox -- Target widget or creation parameter.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void make_display_widgets (GtkWidget *vbox) {
 
   jdisp_panel=jdisplay_new();
@@ -4053,6 +4375,24 @@ static void make_display_widgets (GtkWidget *vbox) {
   gtk_container_add (GTK_CONTAINER (vbox), jdisp_panel);
 }
 
+/****i* januae-gtk-ui-internal/make_integration_widgets
+ *
+ *   NAME
+ *       make_integration_widgets()
+ *
+ *   SYNOPSIS
+ *       static void make_integration_widgets (GtkWidget *vbox)
+ *
+ *   FUNCTION
+ *       Create and connect the Janus integration panel, emit its initial lock signal, and insert it into the destination container.
+ *
+ *   INPUTS
+ *       vbox -- Target widget or creation parameter.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void make_integration_widgets (GtkWidget *vbox) {
 
   jint_panel=jintegration_new();
@@ -4085,10 +4425,46 @@ void unlock_jgui(void);
 /* this is called from j-dispatch 
  * otherwise j-dispatch would need all gtk/glib includes
  */
+/****i* januae-gtk-ui-internal/unlock_jgui
+ *
+ *   NAME
+ *       unlock_jgui()
+ *
+ *   SYNOPSIS
+ *       void unlock_jgui(void)
+ *
+ *   FUNCTION
+ *       Emit the unlock signal for the Janus integration panel, allowing the associated daemons to release its initial lock.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void unlock_jgui(void) {
     g_signal_emit_by_name(jint_panel,"unlock-it",NULL);
 }
 
+/****i* januae-gtk-ui-internal/create_guidlg
+ *
+ *   NAME
+ *       create_guidlg()
+ *
+ *   SYNOPSIS
+ *       static void create_guidlg (void)
+ *
+ *   FUNCTION
+ *       Construct the GTK configuration window and populate its notebook pages and command controls, subject to compile-time JIT and filesystem options.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void create_guidlg (void) {
 
     GtkWidget *window, *notebook;
@@ -4296,6 +4672,25 @@ static void *gtk_gui_thread (void *dummy)
     return 0;
 }
 
+/****i* januae-gtk-ui-internal/gui_fps
+ *
+ *   NAME
+ *       gui_fps()
+ *
+ *   SYNOPSIS
+ *       void gui_fps (int fps, int idle)
+ *
+ *   FUNCTION
+ *       Update the cached GUI frame-rate and idle indicators.
+ *
+ *   INPUTS
+ *       fps -- GUI value or argument used by the operation.
+ *       idle -- GUI value or argument used by the operation.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void gui_fps (int fps, int idle)
 {
     gui_data.fps  = fps;
@@ -4507,6 +4902,24 @@ void gui_shutdown (void) {
   DEBUG_LOG("left\n");
 }
 
+/****i* januae-gtk-ui-internal/gui_hd_led
+ *
+ *   NAME
+ *       gui_hd_led()
+ *
+ *   SYNOPSIS
+ *       void gui_hd_led (int led)
+ *
+ *   FUNCTION
+ *       Update the cached hard-disk activity indicator, delaying a zero indication for a short countdown before notifying the LED handler.
+ *
+ *   INPUTS
+ *       led -- GUI value or argument used by the operation.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void gui_hd_led (int led)
 {
     static int resetcounter;
@@ -4524,6 +4937,24 @@ void gui_hd_led (int led)
 	gui_led (5, gui_data.hd);
 }
 
+/****i* januae-gtk-ui-internal/gui_cd_led
+ *
+ *   NAME
+ *       gui_cd_led()
+ *
+ *   SYNOPSIS
+ *       void gui_cd_led (int led)
+ *
+ *   FUNCTION
+ *       Update the cached CD activity indicator, delaying a zero indication for a short countdown before notifying the LED handler.
+ *
+ *   INPUTS
+ *       led -- GUI value or argument used by the operation.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void gui_cd_led (int led)
 {
     static int resetcounter;
@@ -4541,6 +4972,24 @@ void gui_cd_led (int led)
 	gui_led (6, gui_data.cd);
 }
 
+/****i* januae-gtk-ui-internal/gui_display
+ *
+ *   NAME
+ *       gui_display()
+ *
+ *   SYNOPSIS
+ *       void gui_display (int shortcut)
+ *
+ *   FUNCTION
+ *       Request showing the configuration window or a floppy-drive chooser. When fullscreen is active, attempt to leave fullscreen first and abort if the switch fails.
+ *
+ *   INPUTS
+ *       shortcut -- GUI value or argument used by the operation.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void gui_display (int shortcut)
 {
     DEBUG_LOG ("called with shortcut=%d\n", shortcut);
@@ -4568,6 +5017,26 @@ void gui_display (int shortcut)
     }
 }
 
+/****i* januae-gtk-ui-internal/gui_message_with_title
+ *
+ *   NAME
+ *       gui_message_with_title()
+ *
+ *   SYNOPSIS
+ *       void gui_message_with_title (const char *title, const char *format,...)
+ *
+ *   FUNCTION
+ *       Format a message into a fixed local buffer and display it as a titled modal GTK message box when the GUI is available.
+ *
+ *   INPUTS
+ *       title -- Target widget or creation parameter.
+ *       format -- Target widget or creation parameter.
+ *       ... -- Additional printf-style format arguments.
+ *
+ *   RESULT
+ *       None. The formatting operation does not enforce the fixed buffer size.
+ *
+ ****************************************************************************/
 void gui_message_with_title (const char *title, const char *format,...)
 {
     char msg[2048];
@@ -4581,6 +5050,25 @@ void gui_message_with_title (const char *title, const char *format,...)
 	do_message_box (title, msg, TRUE, TRUE);
 }
 
+/****i* januae-gtk-ui-internal/gui_message
+ *
+ *   NAME
+ *       gui_message()
+ *
+ *   SYNOPSIS
+ *       void gui_message (const char *format,...)
+ *
+ *   FUNCTION
+ *       Format a message into a fixed local buffer, optionally display a GTK message box, and write the result to the emulator log.
+ *
+ *   INPUTS
+ *       format -- Target widget or creation parameter.
+ *       ... -- Additional printf-style format arguments.
+ *
+ *   RESULT
+ *       None. The formatting operation does not enforce the fixed buffer size.
+ *
+ ****************************************************************************/
 void gui_message (const char *format,...) {
     char msg[2048];
     va_list parms;
@@ -4595,6 +5083,24 @@ void gui_message (const char *format,...) {
     write_log (msg);
 }
 
+/****i* januae-gtk-ui-internal/gui_notify_state
+ *
+ *   NAME
+ *       gui_notify_state()
+ *
+ *   SYNOPSIS
+ *       void gui_notify_state (int state)
+ *
+ *   FUNCTION
+ *       Send a state-change command and its state value to the GUI command pipe when the GUI is available.
+ *
+ *   INPUTS
+ *       state -- GUI value or argument used by the operation.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void gui_notify_state (int state)
 {
     if (gui_available) {
@@ -4746,6 +5252,24 @@ static GtkWidget *make_message_box (const gchar *title, const gchar *message, in
  *
  * Called by the main UAE thread during start up to display the GUI.
  */
+/****i* januae-gtk-ui-internal/gui_open
+ *
+ *   NAME
+ *       gui_open()
+ *
+ *   SYNOPSIS
+ *       int gui_open (void)
+ *
+ *   FUNCTION
+ *       Request opening the configuration interface if the GUI is available.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       Zero when the GUI is available; -1 otherwise.
+ *
+ ****************************************************************************/
 int gui_open (void)
 {
     int result = 0;
@@ -4768,6 +5292,25 @@ int gui_open (void)
    return result;
 }
 
+/****i* januae-gtk-ui-internal/gui_init
+ *
+ *   NAME
+ *       gui_init()
+ *
+ *   SYNOPSIS
+ *       void gui_init (int argc, char **argv)
+ *
+ *   FUNCTION
+ *       Initialize GUI command pipes and semaphores, launch the GUI thread and wait for its initialization, but only when real and effective user IDs match.
+ *
+ *   INPUTS
+ *       argc -- GUI value or argument used by the operation.
+ *       argv -- GUI value or argument used by the operation.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void gui_init (int argc, char **argv)
 {
     uae_thread_id tid;
