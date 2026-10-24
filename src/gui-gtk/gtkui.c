@@ -304,6 +304,21 @@ static GtkWidget *make_message_box (const gchar *title, const gchar *message, in
 void on_message_box_quit (GtkWidget *w, gpointer user_data);
 
 int find_current_toggle (GtkWidget **widgets, int count);
+/****i* januae-gtkui-internal/set_mem32_widgets_state
+ *
+ *   NAME
+ *       set_mem32_widgets_state()
+ *
+ *   SYNOPSIS
+ *       static void set_mem32_widgets_state (void)
+ *
+ *   FUNCTION
+ *       Update the availability of Zorro III, Picasso96, and JIT controls according to the pending CPU and address-space settings.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 static void set_mem32_widgets_state (void) {
 
@@ -326,6 +341,21 @@ static void set_mem32_widgets_state (void) {
 }
 
 /* o1i: HERE !! */
+/****i* januae-gtkui-internal/set_cpu_state
+ *
+ *   NAME
+ *       set_cpu_state()
+ *
+ *   SYNOPSIS
+ *       static void set_cpu_state (void)
+ *
+ *   FUNCTION
+ *       Display the current CPU model, address-space mode, accuracy, speed, and idle settings in the CPU panels.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 static void set_cpu_state (void)
 {
     int i;
@@ -348,6 +378,21 @@ static void set_cpu_state (void)
     set_mem32_widgets_state ();
     //DebOut("exit\n");
 }
+/****i* januae-gtkui-internal/set_sound_state
+ *
+ *   NAME
+ *       set_sound_state()
+ *
+ *   SYNOPSIS
+ *       static void set_sound_state (void)
+ *
+ *   FUNCTION
+ *       Select the sound output, channel configuration, and sample-width controls from the current preferences.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 
 static void set_sound_state (void)
@@ -358,6 +403,21 @@ static void set_sound_state (void)
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sound_ch_widget[stereo]), 1);
     gtk_toggle_button_set_active (GTK_TOGGLE_BUTTON (sound_bits_widget[currprefs.sound_bits == 16]), 1);
 }
+/****i* januae-gtkui-internal/set_mem_state
+ *
+ *   NAME
+ *       set_mem_state()
+ *
+ *   SYNOPSIS
+ *       static void set_mem_state (void)
+ *
+ *   FUNCTION
+ *       Synchronize memory-size selections and ROM, extension-ROM, and key-file labels with the current preferences.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 static void set_mem_state (void)
 {
@@ -437,6 +497,21 @@ static void set_mem_state (void)
 }
 
 #ifdef JIT
+/****i* januae-gtkui-internal/set_comp_state
+ *
+ *   NAME
+ *       set_comp_state()
+ *
+ *   SYNOPSIS
+ *       static void set_comp_state (void)
+ *
+ *   FUNCTION
+ *       Update the JIT compilation options and cache-size adjustment from current preferences when JIT support is enabled.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 static void set_comp_state (void)
 {
   gint cache;
@@ -475,6 +550,21 @@ static void set_comp_state (void)
  *        5 = cursor
  *        6 = other
  */
+/****i* januae-gtkui-internal/map_jsem_to_widget
+ *
+ *   NAME
+ *       map_jsem_to_widget()
+ *
+ *   SYNOPSIS
+ *       static int map_jsem_to_widget (int jsem)
+ *
+ *   FUNCTION
+ *       Convert an emulated joystick or keyboard-layout input identifier into a joystick-selection widget index.
+ *
+ *   RESULT
+ *       The mapped selection index.
+ *
+ ****************************************************************************/
 static int map_jsem_to_widget (int jsem)
 {
     int widget = 0;
@@ -490,6 +580,21 @@ static int map_jsem_to_widget (int jsem)
 
     return widget;
 }
+/****i* januae-gtkui-internal/map_widget_to_jsem
+ *
+ *   NAME
+ *       map_widget_to_jsem()
+ *
+ *   SYNOPSIS
+ *       static int map_widget_to_jsem (int widget)
+ *
+ *   FUNCTION
+ *       Convert a joystick-selection widget index into the corresponding emulated input identifier.
+ *
+ *   RESULT
+ *       The mapped input identifier.
+ *
+ ****************************************************************************/
 
 static int map_widget_to_jsem (int widget)
 {
@@ -510,6 +615,21 @@ static int map_widget_to_jsem (int widget)
 
    return jsem;
 }
+/****i* januae-gtkui-internal/set_joy_state
+ *
+ *   NAME
+ *       set_joy_state()
+ *
+ *   SYNOPSIS
+ *       static void set_joy_state (void)
+ *
+ *   FUNCTION
+ *       Update the joystick port selectors from pending preferences and exclude unavailable or already assigned physical joysticks.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 static void set_joy_state (void)
 {
@@ -536,6 +656,21 @@ static void set_joy_state (void)
 }
 
 #ifdef FILESYS
+/****i* januae-gtkui-internal/set_hd_state
+ *
+ *   NAME
+ *       set_hd_state()
+ *
+ *   SYNOPSIS
+ *       static void set_hd_state (void)
+ *
+ *   FUNCTION
+ *       Repopulate the mounted-volume list from current filesystem preferences and clear the change and delete selection.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 static void set_hd_state (void)
 {
     char  texts[HDLIST_MAX_COLS][256];
@@ -599,6 +734,21 @@ static void set_hd_state (void)
     DEBUG_LOG ("set_hd_state done\n");
 }
 #endif
+/****i* januae-gtkui-internal/set_floppy_state
+ *
+ *   NAME
+ *       set_floppy_state()
+ *
+ *   SYNOPSIS
+ *       static void set_floppy_state( void )
+ *
+ *   FUNCTION
+ *       Populate the four floppy file-entry controls with the current disk-image paths.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 static void set_floppy_state( void )
 {
@@ -607,6 +757,21 @@ static void set_floppy_state( void )
     floppyfileentry_set_filename (FLOPPYFILEENTRY (floppy_widget[2]), currprefs.df[2]);
     floppyfileentry_set_filename (FLOPPYFILEENTRY (floppy_widget[3]), currprefs.df[3]);
 }
+/****i* januae-gtkui-internal/update_state
+ *
+ *   NAME
+ *       update_state()
+ *
+ *   SYNOPSIS
+ *       static void update_state (void)
+ *
+ *   FUNCTION
+ *       Refresh the GUI preference controls and configuration labels from the emulator state.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 static void update_state (void) {
 
@@ -632,6 +797,21 @@ static void update_state (void) {
   gtk_label_set_text (GTK_LABEL (config_path_widget),        optionsfile);
   gtk_entry_set_text (GTK_ENTRY (config_description_widget), currprefs.description);
 }
+/****i* januae-gtkui-internal/update_buttons
+ *
+ *   NAME
+ *       update_buttons()
+ *
+ *   SYNOPSIS
+ *       static void update_buttons (int state)
+ *
+ *   FUNCTION
+ *       Enable or disable emulator controls according to the running or paused state and synchronize the pause toggle.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 static void update_buttons (int state)
 {
@@ -741,6 +921,21 @@ DEBUG_LOG ("GUICMD_SHOW 3\n");
     }
     return 1;
 }
+/****i* januae-gtkui-internal/leds_callback
+ *
+ *   NAME
+ *       leds_callback()
+ *
+ *   SYNOPSIS
+ *       static int leds_callback (void)
+ *
+ *   FUNCTION
+ *       Refresh the GUI drive-activity indicators from the emulated LED state on the periodic GTK callback.
+ *
+ *   RESULT
+ *       Returns a GTK callback continuation status.
+ *
+ ****************************************************************************/
 
 static int leds_callback (void)
 {
@@ -778,6 +973,21 @@ static int leds_callback (void)
     }
     return 1;
 }
+/****i* januae-gtkui-internal/find_current_toggle
+ *
+ *   NAME
+ *       find_current_toggle()
+ *
+ *   SYNOPSIS
+ *       int find_current_toggle (GtkWidget **widgets, int count)
+ *
+ *   FUNCTION
+ *       Locate the selected toggle button in an array of GTK widgets.
+ *
+ *   RESULT
+ *       The selected widget index, or zero for no matching toggle.
+ *
+ ****************************************************************************/
 
 int find_current_toggle (GtkWidget **widgets, int count) {
   int i;
@@ -796,6 +1006,21 @@ int find_current_toggle (GtkWidget **widgets, int count) {
   DEBUG_LOG ("GTKUI: Can't happen!\n");
   return -1;
 }
+/****i* januae-gtkui-internal/joy_changed
+ *
+ *   NAME
+ *       joy_changed()
+ *
+ *   SYNOPSIS
+ *       static void joy_changed (void)
+ *
+ *   FUNCTION
+ *       Update the pending joystick port selection when a joystick selector changes.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 static void joy_changed (void)
 {
@@ -810,6 +1035,21 @@ static void joy_changed (void)
 
     set_joy_state ();
 }
+/****i* januae-gtkui-internal/bogosize_changed
+ *
+ *   NAME
+ *       bogosize_changed()
+ *
+ *   SYNOPSIS
+ *       static void bogosize_changed (void)
+ *
+ *   FUNCTION
+ *       Write the selected slow-memory size into the pending preferences.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 static void bogosize_changed (void)
 {
@@ -821,12 +1061,42 @@ static void bogosize_changed (void)
 	case 3: changed_prefs.bogomem_size = 0x1C0000; break;
     }
 }
+/****i* januae-gtkui-internal/fastsize_changed
+ *
+ *   NAME
+ *       fastsize_changed()
+ *
+ *   SYNOPSIS
+ *       static void fastsize_changed (void)
+ *
+ *   FUNCTION
+ *       Write the selected fast-memory size into the pending preferences.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 static void fastsize_changed (void)
 {
     int t = find_current_toggle (fastsize_widget, 5);
     changed_prefs.fastmem_size = (0x80000 << t) & ~0x80000;
 }
+/****i* januae-gtkui-internal/z3size_changed
+ *
+ *   NAME
+ *       z3size_changed()
+ *
+ *   SYNOPSIS
+ *       static void z3size_changed (void)
+ *
+ *   FUNCTION
+ *       Write the selected Zorro III fast-memory size into the pending preferences.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 static void z3size_changed (void) {
 
@@ -860,12 +1130,42 @@ static void z3size_changed (void) {
 }
 
 #ifdef PICASSO96
+/****i* januae-gtkui-internal/p96size_changed
+ *
+ *   NAME
+ *       p96size_changed()
+ *
+ *   SYNOPSIS
+ *       static void p96size_changed (void)
+ *
+ *   FUNCTION
+ *       Write the selected graphics-card memory size into the pending preferences.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 static void p96size_changed (void)
 {
     int t = find_current_toggle (p96size_widget, 10);
     changed_prefs.gfxmem_size = (0x80000 << t) & ~0x80000;
 }
 #endif
+/****i* januae-gtkui-internal/sound_changed
+ *
+ *   NAME
+ *       sound_changed()
+ *
+ *   SYNOPSIS
+ *       static void sound_changed (void)
+ *
+ *   FUNCTION
+ *       Update pending sound preferences from the GUI sound selection.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 static void sound_changed (void)
 {
@@ -878,6 +1178,21 @@ static void sound_changed (void)
 }
 
 #ifdef JIT
+/****i* januae-gtkui-internal/comp_changed
+ *
+ *   NAME
+ *       comp_changed()
+ *
+ *   SYNOPSIS
+ *       static void comp_changed (void)
+ *
+ *   FUNCTION
+ *       Update pending JIT compiler preferences from the GUI compilation controls.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 static void comp_changed (void)
 {
 		DEBUG_LOG("old changed_prefs.cachesize: %lx\n", changed_prefs.cachesize);
@@ -900,6 +1215,21 @@ static void comp_changed (void)
     changed_prefs.compfpu= find_current_toggle (compfpu_widget, 2);
 }
 #endif
+/****i* januae-gtkui-internal/on_start_clicked
+ *
+ *   NAME
+ *       on_start_clicked()
+ *
+ *   SYNOPSIS
+ *       void on_start_clicked (void)
+ *
+ *   FUNCTION
+ *       Request emulator startup from the GTK start control.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 void on_start_clicked (void) {
 
@@ -907,6 +1237,21 @@ void on_start_clicked (void) {
 
     write_comm_pipe_int (&from_gui_pipe, UAECMD_START, 1);
 }
+/****i* januae-gtkui-internal/on_stop_clicked
+ *
+ *   NAME
+ *       on_stop_clicked()
+ *
+ *   SYNOPSIS
+ *       static void on_stop_clicked (void)
+ *
+ *   FUNCTION
+ *       Request emulator shutdown from the GTK stop control.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 static void on_stop_clicked (void)
 {
@@ -914,6 +1259,21 @@ static void on_stop_clicked (void)
 
     write_comm_pipe_int (&from_gui_pipe, UAECMD_STOP, 1);
 }
+/****i* januae-gtkui-internal/on_reset_clicked
+ *
+ *   NAME
+ *       on_reset_clicked()
+ *
+ *   SYNOPSIS
+ *       static void on_reset_clicked (void)
+ *
+ *   FUNCTION
+ *       Request an emulator reset from the GTK reset control.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 static void on_reset_clicked (void)
 {
@@ -924,6 +1284,21 @@ static void on_reset_clicked (void)
 }
 
 #ifdef DEBUGGER
+/****i* januae-gtkui-internal/on_debug_clicked
+ *
+ *   NAME
+ *       on_debug_clicked()
+ *
+ *   SYNOPSIS
+ *       static void on_debug_clicked (void)
+ *
+ *   FUNCTION
+ *       Request debugger activation from the GTK debugger control.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 static void on_debug_clicked (void)
 {
     DEBUG_LOG ("Called\n");
@@ -932,6 +1307,21 @@ static void on_debug_clicked (void)
 	write_comm_pipe_int (&from_gui_pipe, UAECMD_DEBUG, 1);
 }
 #endif
+/****i* januae-gtkui-internal/on_pause_clicked
+ *
+ *   NAME
+ *       on_pause_clicked()
+ *
+ *   SYNOPSIS
+ *       static void on_pause_clicked (GtkWidget *widget, gpointer data)
+ *
+ *   FUNCTION
+ *       Toggle emulator pause state from the GTK pause control.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 static void on_pause_clicked (GtkWidget *widget, gpointer data)
 {
@@ -944,6 +1334,21 @@ static void on_pause_clicked (GtkWidget *widget, gpointer data)
 
 
 static char *gui_romname, *gui_keyname, *gui_extname;
+/****i* januae-gtkui-internal/disc_changed
+ *
+ *   NAME
+ *       disc_changed()
+ *
+ *   SYNOPSIS
+ *       static void disc_changed (FloppyFileEntry *ffe, gpointer p)
+ *
+ *   FUNCTION
+ *       Record the changed floppy-image path in the pending preferences.
+ *
+ *   RESULT
+ *       None; updates GUI state or pending emulator preferences.
+ *
+ ****************************************************************************/
 
 static void disc_changed (FloppyFileEntry *ffe, gpointer p)
 {
