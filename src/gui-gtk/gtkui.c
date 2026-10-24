@@ -1395,6 +1395,26 @@ static void disc_changed (FloppyFileEntry *ffe, gpointer p)
 
 static char fsbuffer[100];
 
+/****i* januae-gtk-ui-internal/make_file_selector
+ *
+ *   NAME
+ *       make_file_selector()
+ *
+ *   SYNOPSIS
+ *       static GtkWidget *make_file_selector (const char *title, void (*insertfunc)(GtkObject *), void (*closefunc)(gpointer))
+ *
+ *   FUNCTION
+ *       Create a GTK file-selection dialog, connect its selection and close callbacks, and show it on the non-GTKMUI path.
+ *
+ *   INPUTS
+ *       title -- Dialog title.
+ *       insertfunc -- Callback for the OK button.
+ *       closefunc -- Callback for dialog destruction and, on GTKMUI, cancellation.
+ *
+ *   RESULT
+ *       A file-selection widget. The caller owns the dialog lifecycle.
+ *
+ ****************************************************************************/
 static GtkWidget *make_file_selector (const char *title,
 				      void (*insertfunc)(GtkObject *),
 				      void (*closefunc)(gpointer))
@@ -1420,6 +1440,25 @@ static GtkWidget *make_file_selector (const char *title,
     return p;
 }
 
+/****i* januae-gtk-ui-internal/filesel_set_path
+ *
+ *   NAME
+ *       filesel_set_path()
+ *
+ *   SYNOPSIS
+ *       static void filesel_set_path (GtkWidget *p, const char *path)
+ *
+ *   FUNCTION
+ *       Initialize a file selection with a readable path suffixed by a directory separator. An empty or inaccessible path leaves the selection unchanged.
+ *
+ *   INPUTS
+ *       p -- File selector to initialize.
+ *       path -- Readable directory path.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void filesel_set_path (GtkWidget *p, const char *path)
 {
     size_t len = strlen (path);
@@ -1435,17 +1474,71 @@ static void filesel_set_path (GtkWidget *p, const char *path)
 static GtkWidget *rom_selector;
 static GtkWidget *ext_selector;
 
+/****i* januae-gtk-ui-internal/did_close_rom
+ *
+ *   NAME
+ *       did_close_rom()
+ *
+ *   SYNOPSIS
+ *       static void did_close_rom (gpointer gdata)
+ *
+ *   FUNCTION
+ *       Re-enable the main ROM selection control after its chooser closes.
+ *
+ *   INPUTS
+ *       gdata -- Unused callback data.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void did_close_rom (gpointer gdata)
 {
     gtk_widget_set_sensitive (rom_change_widget, 1);
 }
 
+/****i* januae-gtk-ui-internal/did_close_ext
+ *
+ *   NAME
+ *       did_close_ext()
+ *
+ *   SYNOPSIS
+ *       static void did_close_ext (gpointer gdata)
+ *
+ *   FUNCTION
+ *       Re-enable the extended ROM selection control after its chooser closes.
+ *
+ *   INPUTS
+ *       gdata -- Unused callback data.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void did_close_ext (gpointer gdata)
 {
     gtk_widget_set_sensitive (ext_change_widget, 1);
 }
 
 
+/****i* januae-gtk-ui-internal/did_rom_select
+ *
+ *   NAME
+ *       did_rom_select()
+ *
+ *   SYNOPSIS
+ *       static void did_rom_select (GtkObject *o)
+ *
+ *   FUNCTION
+ *       Copy the selected main ROM filename into the shared GUI state, update its display label, send the ROM-selection command, and close the chooser. A quitting GUI skips the update.
+ *
+ *   INPUTS
+ *       o -- Unused callback sender; the current ROM selector is read from GUI state.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void did_rom_select (GtkObject *o)
 {
     const char *s = gtk_file_selection_get_filename (GTK_FILE_SELECTION (rom_selector));
@@ -1464,6 +1557,24 @@ static void did_rom_select (GtkObject *o)
 }
 
 
+/****i* januae-gtk-ui-internal/did_ext_select
+ *
+ *   NAME
+ *       did_ext_select()
+ *
+ *   SYNOPSIS
+ *       static void did_ext_select (GtkObject *o)
+ *
+ *   FUNCTION
+ *       Process an extended ROM selection and update the displayed path and emulator command. Under AROS, validate that the chosen entry is a file before accepting it.
+ *
+ *   INPUTS
+ *       o -- Unused callback sender; the current extended-ROM selector is read from GUI state.
+ *
+ *   RESULT
+ *       None. Invalid selections are not accepted.
+ *
+ ****************************************************************************/
 static void did_ext_select (GtkObject *o)
 {
     const char *s = gtk_file_selection_get_filename (GTK_FILE_SELECTION (ext_selector));
@@ -1513,6 +1624,25 @@ static void did_ext_select (GtkObject *o)
     gtk_widget_destroy (ext_selector);
 }
 
+/****i* januae-gtk-ui-internal/did_romchange
+ *
+ *   NAME
+ *       did_romchange()
+ *
+ *   SYNOPSIS
+ *       static void did_romchange (GtkWidget *w, gpointer data)
+ *
+ *   FUNCTION
+ *       Disable the main ROM change button while a file selector is open and initialize the chooser from the configured ROM path.
+ *
+ *   INPUTS
+ *       w -- Unused callback widget.
+ *       data -- Unused callback data.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void did_romchange (GtkWidget *w, gpointer data)
 {
     gtk_widget_set_sensitive (rom_change_widget, 0);
@@ -1528,6 +1658,25 @@ static void did_romchange (GtkWidget *w, gpointer data)
     filesel_set_path (rom_selector, prefs_get_attr ("rom_path"));
 }
 
+/****i* januae-gtk-ui-internal/did_extchange
+ *
+ *   NAME
+ *       did_extchange()
+ *
+ *   SYNOPSIS
+ *       static void did_extchange (GtkWidget *w, gpointer data)
+ *
+ *   FUNCTION
+ *       Disable the extended ROM change button, open its file selector, and initialize it from the configured ROM path.
+ *
+ *   INPUTS
+ *       w -- Unused callback widget.
+ *       data -- Unused callback data.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void did_extchange (GtkWidget *w, gpointer data)
 {
     gtk_widget_set_sensitive (ext_change_widget, 0);
@@ -1547,11 +1696,47 @@ static void did_extchange (GtkWidget *w, gpointer data)
 
 static GtkWidget *key_selector;
 
+/****i* januae-gtk-ui-internal/did_close_key
+ *
+ *   NAME
+ *       did_close_key()
+ *
+ *   SYNOPSIS
+ *       static void did_close_key (gpointer gdata)
+ *
+ *   FUNCTION
+ *       Re-enable the ROM key-file selection control after its chooser closes.
+ *
+ *   INPUTS
+ *       gdata -- Unused callback data.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void did_close_key (gpointer gdata)
 {
     gtk_widget_set_sensitive (key_change_widget, 1);
 }
 
+/****i* januae-gtk-ui-internal/did_key_select
+ *
+ *   NAME
+ *       did_key_select()
+ *
+ *   SYNOPSIS
+ *       static void did_key_select (GtkObject *o)
+ *
+ *   FUNCTION
+ *       Handle a selected ROM key file, including the AROS-specific check that the selected path names a file rather than only a directory.
+ *
+ *   INPUTS
+ *       o -- Unused callback sender; the current key selector is read from GUI state.
+ *
+ *   RESULT
+ *       None. Selection is skipped when the GUI is quitting.
+ *
+ ****************************************************************************/
 static void did_key_select (GtkObject *o)
 {
     const char *s = gtk_file_selection_get_filename (GTK_FILE_SELECTION (key_selector));
@@ -1605,6 +1790,25 @@ static void did_key_select (GtkObject *o)
     gtk_widget_destroy (key_selector);
 }
 
+/****i* januae-gtk-ui-internal/did_keychange
+ *
+ *   NAME
+ *       did_keychange()
+ *
+ *   SYNOPSIS
+ *       static void did_keychange (GtkWidget *w, gpointer data)
+ *
+ *   FUNCTION
+ *       Open the key-file chooser with the configured ROM directory and disable the change button until the chooser completes.
+ *
+ *   INPUTS
+ *       w -- Unused callback widget.
+ *       data -- Unused callback data.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void did_keychange (GtkWidget *w, gpointer data)
 {
     gtk_widget_set_sensitive (key_change_widget, 0);
@@ -1616,6 +1820,24 @@ static void did_keychange (GtkWidget *w, gpointer data)
     filesel_set_path (key_selector, prefs_get_attr ("rom_path"));
 }
 
+/****i* januae-gtk-ui-internal/add_empty_vbox
+ *
+ *   NAME
+ *       add_empty_vbox()
+ *
+ *   SYNOPSIS
+ *       static void add_empty_vbox (GtkWidget *tobox)
+ *
+ *   FUNCTION
+ *       Create and show an expandable vertical spacer box within the supplied GTK container.
+ *
+ *   INPUTS
+ *       tobox -- Destination GTK box.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void add_empty_vbox (GtkWidget *tobox)
 {
     GtkWidget *thing = gtk_vbox_new (FALSE, 0);
@@ -1623,6 +1845,24 @@ static void add_empty_vbox (GtkWidget *tobox)
     gtk_box_pack_start (GTK_BOX (tobox), thing, TRUE, TRUE, 0);
 }
 
+/****i* januae-gtk-ui-internal/add_empty_hbox
+ *
+ *   NAME
+ *       add_empty_hbox()
+ *
+ *   SYNOPSIS
+ *       static void add_empty_hbox (GtkWidget *tobox)
+ *
+ *   FUNCTION
+ *       Create and show an expandable horizontal spacer box within the supplied GTK container.
+ *
+ *   INPUTS
+ *       tobox -- Destination GTK box.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void add_empty_hbox (GtkWidget *tobox)
 {
     GtkWidget *thing = gtk_hbox_new (FALSE, 0);
@@ -1630,6 +1870,25 @@ static void add_empty_hbox (GtkWidget *tobox)
     gtk_box_pack_start (GTK_BOX (tobox), thing, TRUE, TRUE, 0);
 }
 
+/****i* januae-gtk-ui-internal/add_centered_to_vbox
+ *
+ *   NAME
+ *       add_centered_to_vbox()
+ *
+ *   SYNOPSIS
+ *       static void add_centered_to_vbox (GtkWidget *vbox, GtkWidget *w)
+ *
+ *   FUNCTION
+ *       Create a homogeneous horizontal box around a widget and pack the wrapper into a vertical container.
+ *
+ *   INPUTS
+ *       vbox -- Destination vertical box.
+ *       w -- Widget to center in a horizontal wrapper.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void add_centered_to_vbox (GtkWidget *vbox, GtkWidget *w)
 {
     GtkWidget *hbox = gtk_hbox_new (TRUE, 0);
@@ -1638,6 +1897,25 @@ static void add_centered_to_vbox (GtkWidget *vbox, GtkWidget *w)
     gtk_box_pack_start (GTK_BOX (vbox), hbox, FALSE, TRUE, 0);
 }
 
+/****i* januae-gtk-ui-internal/add_centered_to_hbox
+ *
+ *   NAME
+ *       add_centered_to_hbox()
+ *
+ *   SYNOPSIS
+ *       static void add_centered_to_hbox (GtkWidget *hbox, GtkWidget *w)
+ *
+ *   FUNCTION
+ *       Create a homogeneous vertical box around a widget and pack the wrapper into a horizontal container.
+ *
+ *   INPUTS
+ *       hbox -- Destination horizontal box.
+ *       w -- Widget to center in a vertical wrapper.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void add_centered_to_hbox (GtkWidget *hbox, GtkWidget *w)
 {
     GtkWidget *vbox = gtk_vbox_new (TRUE, 0);
@@ -1648,6 +1926,25 @@ static void add_centered_to_hbox (GtkWidget *hbox, GtkWidget *w)
 
 
 
+/****i* januae-gtk-ui-internal/make_labelled_widget
+ *
+ *   NAME
+ *       make_labelled_widget()
+ *
+ *   SYNOPSIS
+ *       static GtkWidget *make_labelled_widget (const char *str, GtkWidget *thing)
+ *
+ *   FUNCTION
+ *       Place a new GTK text label next to the supplied widget in a horizontal box. Both child widgets are shown.
+ *
+ *   INPUTS
+ *       str -- Text for the new label.
+ *       thing -- Widget to display next to the label.
+ *
+ *   RESULT
+ *       The new horizontal container; its visibility is controlled by the caller.
+ *
+ ****************************************************************************/
 static GtkWidget *make_labelled_widget (const char *str, GtkWidget *thing)
 {
     GtkWidget *label = gtk_label_new (str);
@@ -1662,6 +1959,26 @@ static GtkWidget *make_labelled_widget (const char *str, GtkWidget *thing)
     return hbox2;
 }
 
+/****i* januae-gtk-ui-internal/add_labelled_widget_centered
+ *
+ *   NAME
+ *       add_labelled_widget_centered()
+ *
+ *   SYNOPSIS
+ *       static GtkWidget *add_labelled_widget_centered (const char *str, GtkWidget *thing, GtkWidget *vbox)
+ *
+ *   FUNCTION
+ *       Construct a labelled widget row, show it, and add it through the vertical-container centering helper.
+ *
+ *   INPUTS
+ *       str -- Text for the new label.
+ *       thing -- Widget to label.
+ *       vbox -- Destination vertical box.
+ *
+ *   RESULT
+ *       The newly created labelled row.
+ *
+ ****************************************************************************/
 static GtkWidget *add_labelled_widget_centered (const char *str, GtkWidget *thing, GtkWidget *vbox)
 {
     GtkWidget *w = make_labelled_widget (str, thing);
@@ -1671,6 +1988,29 @@ static GtkWidget *add_labelled_widget_centered (const char *str, GtkWidget *thin
 }
 
 
+/****i* januae-gtk-ui-internal/make_radio_group_box_param
+ *
+ *   NAME
+ *       make_radio_group_box_param()
+ *
+ *   SYNOPSIS
+ *       GtkWidget *make_radio_group_box_param (const char *title, const char **labels, GtkWidget **saveptr, int horiz, void (*sigfunc) (void), GtkWidget *parameter)
+ *
+ *   FUNCTION
+ *       Construct a titled frame containing a horizontal or vertical radio group, forwarding the callback and user parameter to the group builder.
+ *
+ *   INPUTS
+ *       title -- Frame title.
+ *       labels -- Null-terminated radio-button labels.
+ *       saveptr -- Output locations for created buttons.
+ *       horiz -- Nonzero for horizontal layout.
+ *       sigfunc -- Selection callback.
+ *       parameter -- Widget supplied to the group callback.
+ *
+ *   RESULT
+ *       The frame containing the new radio group.
+ *
+ ****************************************************************************/
 GtkWidget *make_radio_group_box_param (const char *title, const char **labels,
 					GtkWidget **saveptr, int horiz,
 					void (*sigfunc) (void), 
@@ -1689,6 +2029,28 @@ GtkWidget *make_radio_group_box_param (const char *title, const char **labels,
     return frame;
 }
 
+/****i* januae-gtk-ui-internal/make_radio_group_box
+ *
+ *   NAME
+ *       make_radio_group_box()
+ *
+ *   SYNOPSIS
+ *       GtkWidget *make_radio_group_box (const char *title, const char **labels, GtkWidget **saveptr, int horiz, void (*sigfunc) (void))
+ *
+ *   FUNCTION
+ *       Construct a radio-group frame with no additional callback parameter.
+ *
+ *   INPUTS
+ *       title -- Frame title.
+ *       labels -- Null-terminated radio-button labels.
+ *       saveptr -- Output locations for created buttons.
+ *       horiz -- Nonzero for horizontal layout.
+ *       sigfunc -- Selection callback.
+ *
+ *   RESULT
+ *       The newly constructed radio-group frame.
+ *
+ ****************************************************************************/
 GtkWidget *make_radio_group_box (const char *title, const char **labels,
 					GtkWidget **saveptr, int horiz,
 					void (*sigfunc) (void)) {
@@ -1696,6 +2058,25 @@ GtkWidget *make_radio_group_box (const char *title, const char **labels,
 }
 
 
+/****i* januae-gtk-ui-internal/make_file_container
+ *
+ *   NAME
+ *       make_file_container()
+ *
+ *   SYNOPSIS
+ *       static GtkWidget *make_file_container (const char *title, GtkWidget *vbox)
+ *
+ *   FUNCTION
+ *       Add a titled frame with a padded horizontal button box to the supplied vertical container.
+ *
+ *   INPUTS
+ *       title -- Frame title.
+ *       vbox -- Destination vertical box.
+ *
+ *   RESULT
+ *       The button box within the new frame.
+ *
+ ****************************************************************************/
 static GtkWidget *make_file_container (const char *title, GtkWidget *vbox)
 {
     GtkWidget *thing = gtk_frame_new (title);
@@ -1710,6 +2091,24 @@ static GtkWidget *make_file_container (const char *title, GtkWidget *vbox)
     return buttonbox;
 }
 
+/****i* januae-gtk-ui-internal/make_file_widget
+ *
+ *   NAME
+ *       make_file_widget()
+ *
+ *   SYNOPSIS
+ *       static GtkWidget *make_file_widget (GtkWidget *buttonbox)
+ *
+ *   FUNCTION
+ *       Add an etched subframe containing an initially empty filename label to a file-control button box.
+ *
+ *   INPUTS
+ *       buttonbox -- Container for the filename display.
+ *
+ *   RESULT
+ *       The new label widget.
+ *
+ ****************************************************************************/
 static GtkWidget *make_file_widget (GtkWidget *buttonbox)
 {
     GtkWidget *thing, *subthing;
@@ -1728,6 +2127,24 @@ static GtkWidget *make_file_widget (GtkWidget *buttonbox)
     return thing;
 }
 
+/****i* januae-gtk-ui-internal/make_floppy_disks
+ *
+ *   NAME
+ *       make_floppy_disks()
+ *
+ *   SYNOPSIS
+ *       static void make_floppy_disks (GtkWidget *vbox)
+ *
+ *   FUNCTION
+ *       Create four floppy-drive file-entry controls, configure their labels and initial directories, and disable drives absent from the current preferences.
+ *
+ *   INPUTS
+ *       vbox -- Destination settings container.
+ *
+ *   RESULT
+ *       None. The widgets are attached to the supplied container.
+ *
+ ****************************************************************************/
 static void make_floppy_disks (GtkWidget *vbox)
 {
     char buf[5];
@@ -1808,6 +2225,24 @@ static void on_cpuidle_changed (void)
    DEBUG_LOG ("cpu_idle=%d\n", changed_prefs.cpu_idle);
 }
 
+/****i* januae-gtk-ui-internal/make_cpu_widgets
+ *
+ *   NAME
+ *       make_cpu_widgets()
+ *
+ *   SYNOPSIS
+ *       static void make_cpu_widgets (GtkWidget *vbox)
+ *
+ *   FUNCTION
+ *       Build and attach the CPU configuration panels and their controls to the supplied GTK container.
+ *
+ *   INPUTS
+ *       vbox -- Destination CPU settings container.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void make_cpu_widgets (GtkWidget *vbox)
 {
     GtkWidget *table;
@@ -1969,6 +2404,24 @@ static void on_launch_changed (void) {
   }
 }
 
+/****i* januae-gtk-ui-internal/make_sound_widgets
+ *
+ *   NAME
+ *       make_sound_widgets()
+ *
+ *   SYNOPSIS
+ *       static void make_sound_widgets (GtkWidget *vbox)
+ *
+ *   FUNCTION
+ *       Build sound mode, channel, and sound-configuration controls, disabling options unavailable on the host.
+ *
+ *   INPUTS
+ *       vbox -- Destination sound settings container.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void make_sound_widgets (GtkWidget *vbox)
 {
     GtkWidget *frame, *newbox;
@@ -2011,6 +2464,24 @@ void chipsize_changed (void) {
     }
 }
 
+/****i* januae-gtk-ui-internal/make_mem_widgets
+ *
+ *   NAME
+ *       make_mem_widgets()
+ *
+ *   SYNOPSIS
+ *       static void make_mem_widgets (GtkWidget *vbox)
+ *
+ *   FUNCTION
+ *       Build ROM file selectors and memory-size configuration controls for the emulator settings page.
+ *
+ *   INPUTS
+ *       vbox -- Destination memory settings container.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void make_mem_widgets (GtkWidget *vbox)
 {
     GtkWidget *hbox = gtk_hbox_new (FALSE, 10);
@@ -2089,6 +2560,24 @@ static void make_mem_widgets (GtkWidget *vbox)
 }
 
 #ifdef JIT
+/****i* januae-gtk-ui-internal/make_comp_widgets
+ *
+ *   NAME
+ *       make_comp_widgets()
+ *
+ *   SYNOPSIS
+ *       static void make_comp_widgets (GtkWidget *vbox)
+ *
+ *   FUNCTION
+ *       Build the compiler and JIT configuration controls, including memory access modes and cache-related settings.
+ *
+ *   INPUTS
+ *       vbox -- Destination compiler settings container.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void make_comp_widgets (GtkWidget *vbox)
 {
     GtkWidget *newbox;
@@ -2238,6 +2727,24 @@ static GtkWidget *make_joy_frame(int i) {
   return frame;
 }
 
+/****i* januae-gtk-ui-internal/make_joy_widgets
+ *
+ *   NAME
+ *       make_joy_widgets()
+ *
+ *   SYNOPSIS
+ *       static void make_joy_widgets (GtkWidget *dvbox)
+ *
+ *   FUNCTION
+ *       Create joystick-port configuration frames and, when configured, the Catweasel joystick control.
+ *
+ *   INPUTS
+ *       dvbox -- Destination joystick settings container.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void make_joy_widgets (GtkWidget *dvbox)
 {
     GtkWidget *joy1_frame;
@@ -2642,6 +3149,25 @@ static void make_hd_widgets (GtkWidget *dvbox)
  * and uses up the complete
  * horizontal space.
  *******************************/
+/****i* januae-gtk-ui-internal/make_config_frame
+ *
+ *   NAME
+ *       make_config_frame()
+ *
+ *   SYNOPSIS
+ *       static GtkWidget *make_config_frame (const char *title, GtkWidget *vbox)
+ *
+ *   FUNCTION
+ *       Add a titled configuration frame and vertically arranged, padded controls to the supplied container.
+ *
+ *   INPUTS
+ *       title -- Frame title.
+ *       vbox -- Destination configuration container.
+ *
+ *   RESULT
+ *       The newly created inner vertical box.
+ *
+ ****************************************************************************/
 static GtkWidget *make_config_frame (const char *title, GtkWidget *vbox) {
 
     GtkWidget *thing = gtk_frame_new (title);
@@ -2661,6 +3187,24 @@ static void config_descr_on_change (GtkObject *o, gpointer data) {
   strncpy(changed_prefs.description, gtk_entry_get_text(GTK_ENTRY(config_description_widget)), 250);
 }
 
+/****i* januae-gtk-ui-internal/make_about_widgets
+ *
+ *   NAME
+ *       make_about_widgets()
+ *
+ *   SYNOPSIS
+ *       static void make_about_widgets (GtkWidget *dvbox)
+ *
+ *   FUNCTION
+ *       Populate the About page with the emulator version and associated informational GTK widgets.
+ *
+ *   INPUTS
+ *       dvbox -- Destination About page container.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void make_about_widgets (GtkWidget *dvbox) {
 
     GtkWidget   *thing;
