@@ -201,6 +201,24 @@ struct uaedev_mount_info options_mountinfo;
  *
  ****************************************************************************/
 
+/****i* januae-filesys-internal/nr_units
+ *
+ *   NAME
+ *       nr_units()
+ *
+ *   SYNOPSIS
+ *       int nr_units (struct uaedev_mount_info *mountinfo)
+ *
+ *   FUNCTION
+ *       Return the number of configured mount units.
+ *
+ *   INPUTS
+ *       mountinfo -- Mount configuration to inspect.
+ *
+ *   RESULT
+ *       Number of entries in the mount information.
+ *
+ ****************************************************************************/
 int nr_units (struct uaedev_mount_info *mountinfo)
 {
     return mountinfo->num_units;
@@ -229,6 +247,25 @@ int nr_units (struct uaedev_mount_info *mountinfo)
  *
  ****************************************************************************/
 
+/****i* januae-filesys-internal/is_hardfile
+ *
+ *   NAME
+ *       is_hardfile()
+ *
+ *   SYNOPSIS
+ *       int is_hardfile (struct uaedev_mount_info *mountinfo, int unit_no)
+ *
+ *   FUNCTION
+ *       Classify a mount entry as a virtual filesystem, a whole hard drive, an RDB hardfile, or a geometry-based hardfile. A null mount configuration selects the current global configuration.
+ *
+ *   INPUTS
+ *       mountinfo -- Mount configuration, or null to use current_mountinfo.
+ *       unit_no -- Unit index in the selected configuration.
+ *
+ *   RESULT
+ *       One of the FILESYS_* mount classification constants.
+ *
+ ****************************************************************************/
 int is_hardfile (struct uaedev_mount_info *mountinfo, int unit_no)
 {
     if (!mountinfo)
@@ -265,6 +302,24 @@ int is_hardfile (struct uaedev_mount_info *mountinfo, int unit_no)
  *
  ****************************************************************************/
 
+/****i* januae-filesys-internal/close_filesys_unit
+ *
+ *   NAME
+ *       close_filesys_unit()
+ *
+ *   SYNOPSIS
+ *       static void close_filesys_unit (UnitInfo *uip)
+ *
+ *   FUNCTION
+ *       Close an open hardfile handle and release the unit strings and pipe storage; reset the released pointer fields.
+ *
+ *   INPUTS
+ *       uip -- Mount unit whose owned resources are released.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void close_filesys_unit (UnitInfo *uip)
 {
     if (uip->hf.handle != 0)
@@ -617,6 +672,25 @@ const char *add_filesys_unit (struct uaedev_mount_info *mountinfo,
  *
  ****************************************************************************/
 
+/****i* januae-filesys-internal/kill_filesys_unit
+ *
+ *   NAME
+ *       kill_filesys_unit()
+ *
+ *   SYNOPSIS
+ *       int kill_filesys_unit (struct uaedev_mount_info *mountinfo, int nr)
+ *
+ *   FUNCTION
+ *       Remove a configured mount unit, free its resources, and compact the remaining unit array.
+ *
+ *   INPUTS
+ *       mountinfo -- Mount configuration to modify.
+ *       nr -- Index of the unit to remove.
+ *
+ *   RESULT
+ *       Zero on success, or -1 for an invalid unit index.
+ *
+ ****************************************************************************/
 int kill_filesys_unit (struct uaedev_mount_info *mountinfo, int nr)
 {
     UnitInfo *uip = mountinfo->ui;
@@ -656,6 +730,26 @@ int kill_filesys_unit (struct uaedev_mount_info *mountinfo, int nr)
  *
  ****************************************************************************/
 
+/****i* januae-filesys-internal/move_filesys_unit
+ *
+ *   NAME
+ *       move_filesys_unit()
+ *
+ *   SYNOPSIS
+ *       int move_filesys_unit (struct uaedev_mount_info *mountinfo, int nr, int to)
+ *
+ *   FUNCTION
+ *       Reorder mount entries by shifting the intervening units while preserving the selected entry.
+ *
+ *   INPUTS
+ *       mountinfo -- Mount configuration to reorder.
+ *       nr -- Existing unit index.
+ *       to -- New index for that unit.
+ *
+ *   RESULT
+ *       Zero on success, or -1 for an invalid or unchanged destination.
+ *
+ ****************************************************************************/
 int move_filesys_unit (struct uaedev_mount_info *mountinfo, int nr, int to)
 {
     UnitInfo tmpui;
@@ -703,6 +797,26 @@ int move_filesys_unit (struct uaedev_mount_info *mountinfo, int nr, int to)
  *
  ****************************************************************************/
 
+/****i* januae-filesys-internal/sprintf_filesys_unit
+ *
+ *   NAME
+ *       sprintf_filesys_unit()
+ *
+ *   SYNOPSIS
+ *       int sprintf_filesys_unit (const struct uaedev_mount_info *mountinfo, char *buffer, int num)
+ *
+ *   FUNCTION
+ *       Format a human-readable summary of a directory mount or hardfile into the caller-provided buffer. The routine uses sprintf and does not take a buffer length.
+ *
+ *   INPUTS
+ *       mountinfo -- Mount configuration to inspect.
+ *       buffer -- Destination buffer for the formatted text.
+ *       num -- Unit index to describe.
+ *
+ *   RESULT
+ *       Zero on success, or -1 when the index is above the configured unit count.
+ *
+ ****************************************************************************/
 int sprintf_filesys_unit (const struct uaedev_mount_info *mountinfo, char *buffer, int num)
 {
     const UnitInfo *uip = mountinfo->ui;
@@ -795,6 +909,25 @@ void write_filesys_config (const struct uaedev_mount_info *mountinfo,
  *
  ****************************************************************************/
 
+/****i* januae-filesys-internal/dup_mountinfo
+ *
+ *   NAME
+ *       dup_mountinfo()
+ *
+ *   SYNOPSIS
+ *       static void dup_mountinfo (const struct uaedev_mount_info *mip, struct uaedev_mount_info *mip_d)
+ *
+ *   FUNCTION
+ *       Copy mount information and duplicate the owned mount-entry strings and open hardfile handles.
+ *
+ *   INPUTS
+ *       mip -- Source mount configuration.
+ *       mip_d -- Destination configuration.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void dup_mountinfo (const struct uaedev_mount_info *mip, struct uaedev_mount_info *mip_d)
 {
     int i;
@@ -837,6 +970,24 @@ static void dup_mountinfo (const struct uaedev_mount_info *mip, struct uaedev_mo
  *
  ****************************************************************************/
 
+/****i* januae-filesys-internal/free_mountinfo
+ *
+ *   NAME
+ *       free_mountinfo()
+ *
+ *   SYNOPSIS
+ *       void free_mountinfo (struct uaedev_mount_info *mip)
+ *
+ *   FUNCTION
+ *       Release every configured mount entry and reset the unit count; a null configuration is ignored.
+ *
+ *   INPUTS
+ *       mip -- Mount configuration to release, or null.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 void free_mountinfo (struct uaedev_mount_info *mip)
 {
     int i;
