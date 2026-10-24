@@ -2060,6 +2060,31 @@ STATIC_INLINE uae_u32 get_offset(int r)
     return live.state[r].val;
 }
 
+/****i* januae-compemu-internal/alloc_reg_hinted
+ *
+ *   NAME
+ *       alloc_reg_hinted()
+ *
+ *   SYNOPSIS
+ *       static  int alloc_reg_hinted(int r, int size, int willclobber, int hint)
+ *
+ *   FUNCTION
+ *       Choose a native register for a virtual register using size and allocation hints.
+ *
+ *   INPUTS
+ *       r -- virtual register.
+ *       size -- required operand size.
+ *       willclobber -- whether the requested value may be overwritten.
+ *       hint -- preferred native register.
+ *
+ *   RESULT
+ *       Selected native-register index.
+ *
+ *   NOTES
+ *       Scores native-register availability and usage; may evict or relocate tracked holders and updates the live register mapping.
+ *
+ ****************************************************************************/
+
 static  int alloc_reg_hinted(int r, int size, int willclobber, int hint)
 {
     int bestreg;

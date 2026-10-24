@@ -2357,6 +2357,28 @@ static Unit *startup_create_unit (UnitInfo *uinfo, uae_u32 port)
     return unit;
 }
 
+/****i* januae-filesys-internal/startup_handler
+ *
+ *   NAME
+ *       startup_handler()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 startup_handler (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Handle a DOS startup packet for an emulated filesystem unit.
+ *
+ *   INPUTS
+ *       context -- CPU trap context carrying the startup packet and port registers.
+ *
+ *   RESULT
+ *       Returns a value to the trap caller; also writes DOS packet results.
+ *
+ *   NOTES
+ *       Locates a matching configured unit, checks access to its host root, and initializes the mount state; failure writes ERROR_DEVICE_NOT_MOUNTED.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 startup_handler (TrapContext *context)
 {
     /* Just got the startup packet. It's in A4. DosBase is in A2,
@@ -3762,6 +3784,29 @@ static void action_examine_object (Unit *unit, dpacket packet)
    finished - they may never finish!  */
 
 #ifndef __AROS__
+/****i* januae-filesys-internal/populate_directory
+ *
+ *   NAME
+ *       populate_directory()
+ *
+ *   SYNOPSIS
+ *       static void populate_directory (Unit *unit, a_inode *base)
+ *
+ *   FUNCTION
+ *       Materialize host directory entries as cached inodes for ExNext traversal.
+ *
+ *   INPUTS
+ *       unit -- mounted filesystem unit.
+ *       base -- directory inode whose children are enumerated.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Compiled only outside __AROS__; preserves directory entries in memory for iteration and returns without population if opendir fails.
+ *
+ ****************************************************************************/
+
 static void populate_directory (Unit *unit, a_inode *base)
 {
     DIR *d = opendir (base->nname);
@@ -3915,6 +3960,29 @@ static void do_examine (Unit *unit, dpacket packet, ExamineKey *ek, uaecptr info
     PUT_PCK_RES1 (packet, DOS_FALSE);
     PUT_PCK_RES2 (packet, ERROR_NO_MORE_ENTRIES);
 }
+
+/****i* januae-filesys-internal/action_examine_next
+ *
+ *   NAME
+ *       action_examine_next()
+ *
+ *   SYNOPSIS
+ *       static void action_examine_next (Unit *unit, dpacket packet)
+ *
+ *   FUNCTION
+ *       Advance the directory enumeration described by an ExNext packet.
+ *
+ *   INPUTS
+ *       unit -- filesystem unit.
+ *       packet -- guest DOS packet containing lock and file information.
+ *
+ *   RESULT
+ *       Writes directory-entry data or DOS_FALSE and an error to the packet.
+ *
+ *   NOTES
+ *       Uses ExamineKey state, creating it for the initial special key; a missing or exhausted key reports ERROR_NO_MORE_ENTRIES.
+ *
+ ****************************************************************************/
 
 static void action_examine_next (Unit *unit, dpacket packet)
 {
@@ -5702,6 +5770,28 @@ extern void call_68k(TrapContext *context,
                      ULONG arg7,
                      ULONG arg8); /* for ami-win.c*/
 
+/****i* januae-filesys-internal/exter_int_helper
+ *
+ *   NAME
+ *       exter_int_helper()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 exter_int_helper (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Coordinate filesystem external interrupts and queued unit messages.
+ *
+ *   INPUTS
+ *       context -- trap context whose D0 value selects the interrupt operation.
+ *
+ *   RESULT
+ *       Operation-dependent trap result.
+ *
+ *   NOTES
+ *       Serializes interrupt acquisition through singlethread_int_sem; message acknowledgement behavior depends on UAE_FILESYS_THREADS.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 exter_int_helper (TrapContext *context)
 {
     UnitInfo *uip = current_mountinfo.ui;
@@ -6744,6 +6834,31 @@ static void dump_partinfo (const char *name, int num, uaecptr pp)
 
 #define rdbmnt write_log ("Mounting uaehf.device %d (%d) (size=%I64u):\n", unit_no, partnum, hfd->size);
 
+/****i* januae-filesys-internal/rdb_mount
+ *
+ *   NAME
+ *       rdb_mount()
+ *
+ *   SYNOPSIS
+ *       static int rdb_mount (UnitInfo *uip, int unit_no, unsigned int partnum, uaecptr parmpacket)
+ *
+ *   FUNCTION
+ *       Locate RDB partition metadata and populate the guest mount parameter packet.
+ *
+ *   INPUTS
+ *       uip -- unit configuration and hardfile.
+ *       unit_no -- configured hardfile unit.
+ *       partnum -- partition number.
+ *       parmpacket -- guest mount parameter packet.
+ *
+ *   RESULT
+ *       Returns the implementation-defined mount status or an error code.
+ *
+ *   NOTES
+ *       Examines RDB and partition blocks, rejects unsupported bad-block and drive-initialization metadata, and may write corrected RDB bytes to the backing hardfile.
+ *
+ ****************************************************************************/
+
 static int rdb_mount (UnitInfo *uip, int unit_no, unsigned int partnum, uaecptr parmpacket)
 {
     unsigned int lastblock = 63, blocksize, readblocksize;
@@ -7109,6 +7224,28 @@ static void get_new_device (int type, uaecptr parmpacket, char **devname, uaecpt
 }
 
 /* Fill in per-unit fields of a parampacket */
+/****i* januae-filesys-internal/filesys_dev_storeinfo
+ *
+ *   NAME
+ *       filesys_dev_storeinfo()
+ *
+ *   SYNOPSIS
+ *       static uae_u32 REGPARAM2 filesys_dev_storeinfo (TrapContext *context)
+ *
+ *   FUNCTION
+ *       Populate guest device-geometry and filesystem fields for the selected unit.
+ *
+ *   INPUTS
+ *       context -- trap context carrying the unit number and guest packet pointer.
+ *
+ *   RESULT
+ *       Returns a filesystem type, a negative error code, or the result of RDB mounting.
+ *
+ *   NOTES
+ *       Selects RDB mounting for partitioned hardfiles and writes a conventional parameter packet for other configured units.
+ *
+ ****************************************************************************/
+
 static uae_u32 REGPARAM2 filesys_dev_storeinfo (TrapContext *context)
 {
     UnitInfo *uip = current_mountinfo.ui;
@@ -7156,6 +7293,28 @@ static uae_u32 REGPARAM2 filesys_dev_storeinfo (TrapContext *context)
     return type;
 }
 
+/****i* januae-filesys-internal/filesys_install
+ *
+ *   NAME
+ *       filesys_install()
+ *
+ *   SYNOPSIS
+ *       void filesys_install (void)
+ *
+ *   FUNCTION
+ *       Register filesystem trap handlers and resident entry points in the emulated ROM area.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Emits trap stubs at fixed resident offsets, then restores the prior code emission position.
+ *
+ ****************************************************************************/
+
 void filesys_install (void)
 {
     uaecptr loop;
@@ -7200,6 +7359,28 @@ void filesys_install (void)
 
     org (loop);
 }
+
+/****i* januae-filesys-internal/filesys_install_code
+ *
+ *   NAME
+ *       filesys_install_code()
+ *
+ *   SYNOPSIS
+ *       void filesys_install_code (void)
+ *
+ *   FUNCTION
+ *       Emit the filesystem boot ROM code and record its entry-point offsets.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Aligns the output stream and expands filesys_bootrom.c into the current code-emission context.
+ *
+ ****************************************************************************/
 
 void filesys_install_code (void)
 {
