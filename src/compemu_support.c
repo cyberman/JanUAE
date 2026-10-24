@@ -1242,6 +1242,28 @@ static uae_s8 nstate[N_REGS];
 #define L_NEEDED -2
 #define L_UNNEEDED -3
 
+/****i* januae-compemu-internal/log_startblock
+ *
+ *   NAME
+ *       log_startblock()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void log_startblock(void)
+ *
+ *   FUNCTION
+ *       Reset the virtual- and native-register liveness logs to unknown at the start of a block.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Resets the complete vstate and nstate arrays.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void log_startblock(void)
 {
     int i;
@@ -1251,11 +1273,56 @@ STATIC_INLINE void log_startblock(void)
 	nstate[i]=L_UNKNOWN;
 }
 
+/****i* januae-compemu-internal/log_isused
+ *
+ *   NAME
+ *       log_isused()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void log_isused(int n)
+ *
+ *   FUNCTION
+ *       Mark a native register unavailable if its liveness is still unknown.
+ *
+ *   INPUTS
+ *       n -- native register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Does not overwrite an existing state.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void log_isused(int n)
 {
     if (nstate[n]==L_UNKNOWN)
 	nstate[n]=L_UNAVAIL;
 }
+
+/****i* januae-compemu-internal/log_isreg
+ *
+ *   NAME
+ *       log_isreg()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void log_isreg(int n, int r)
+ *
+ *   FUNCTION
+ *       Record an association between a native register and a virtual register when their liveness is unknown.
+ *
+ *   INPUTS
+ *       n -- native register index.
+ *       r -- virtual register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Marks the virtual register needed only when its state is unknown.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void log_isreg(int n, int r)
 {
@@ -1265,6 +1332,28 @@ STATIC_INLINE void log_isreg(int n, int r)
 	vstate[r]=L_NEEDED;
 }
 
+/****i* januae-compemu-internal/log_clobberreg
+ *
+ *   NAME
+ *       log_clobberreg()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void log_clobberreg(int r)
+ *
+ *   FUNCTION
+ *       Mark a virtual register unneeded if its liveness is unknown.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Preserves an existing liveness classification.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void log_clobberreg(int r)
 {
     if (vstate[r]==L_UNKNOWN)
@@ -1272,6 +1361,28 @@ STATIC_INLINE void log_clobberreg(int r)
 }
 
 /* This ends all possibility of clever register allocation */
+
+/****i* januae-compemu-internal/log_flush
+ *
+ *   NAME
+ *       log_flush()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void log_flush(void)
+ *
+ *   FUNCTION
+ *       Finalize unknown register-liveness entries before allocation.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Unknown virtual registers become needed; unknown native registers become unavailable.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void log_flush(void)
 {
@@ -1283,6 +1394,28 @@ STATIC_INLINE void log_flush(void)
 	if (nstate[i]==L_UNKNOWN)
 	    nstate[i]=L_UNAVAIL;
 }
+
+/****i* januae-compemu-internal/log_dump
+ *
+ *   NAME
+ *       log_dump()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void log_dump(void)
+ *
+ *   FUNCTION
+ *       Provide the register-liveness diagnostic entry point.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Returns immediately in this implementation; the logging statements below the return are unreachable.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void log_dump(void)
 {
@@ -1308,6 +1441,29 @@ STATIC_INLINE void log_dump(void)
  * register status handling. EMIT TIME!                             *
  ********************************************************************/
 
+/****i* januae-compemu-internal/set_status
+ *
+ *   NAME
+ *       set_status()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void set_status(int r, int status)
+ *
+ *   FUNCTION
+ *       Update the tracked status of a virtual register.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       status -- replacement register status.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Changing the status to ISCONST also logs the register as clobbered.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void set_status(int r, int status)
 {
     if (status==ISCONST)
@@ -1315,10 +1471,55 @@ STATIC_INLINE void set_status(int r, int status)
     live.state[r].status=status;
 }
 
+/****i* januae-compemu-internal/isinreg
+ *
+ *   NAME
+ *       isinreg()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int isinreg(int r)
+ *
+ *   FUNCTION
+ *       Check whether a virtual register currently resides in a native register.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *
+ *   RESULT
+ *       Nonzero for CLEAN or DIRTY; zero otherwise.
+ *
+ *   NOTES
+ *       Reads the current live register state.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int isinreg(int r)
 {
     return live.state[r].status==CLEAN || live.state[r].status==DIRTY;
 }
+
+/****i* januae-compemu-internal/adjust_nreg
+ *
+ *   NAME
+ *       adjust_nreg()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void adjust_nreg(int r, uae_u32 val)
+ *
+ *   FUNCTION
+ *       Emit an adjustment to a native register when an offset is nonzero.
+ *
+ *   INPUTS
+ *       r -- native register index.
+ *       val -- adjustment value.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Emits raw_lea_l_brr for nonzero val; emits nothing for zero.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void adjust_nreg(int r, uae_u32 val)
 {
@@ -1326,6 +1527,28 @@ STATIC_INLINE void adjust_nreg(int r, uae_u32 val)
 	return;
     raw_lea_l_brr(r,r,val);
 }
+
+/****i* januae-compemu-internal/tomem
+ *
+ *   NAME
+ *       tomem()
+ *
+ *   SYNOPSIS
+ *       static  void tomem(int r)
+ *
+ *   FUNCTION
+ *       Write a dirty virtual register back to its recorded memory location.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       May first materialize a deferred offset in an unlocked, singly held native register. Dirty byte, word, and long sizes use distinct stores; an unsupported size aborts.
+ *
+ ****************************************************************************/
 
 static  void tomem(int r)
 {
@@ -1356,15 +1579,81 @@ static  void tomem(int r)
     }
 }
 
+/****i* januae-compemu-internal/isconst
+ *
+ *   NAME
+ *       isconst()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int isconst(int r)
+ *
+ *   FUNCTION
+ *       Check whether a virtual register is represented by a constant.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *
+ *   RESULT
+ *       Nonzero when its status is ISCONST; zero otherwise.
+ *
+ *   NOTES
+ *       Reads the current live register state.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int isconst(int r)
 {
     return live.state[r].status==ISCONST;
 }
 
+/****i* januae-compemu-internal/is_const
+ *
+ *   NAME
+ *       is_const()
+ *
+ *   SYNOPSIS
+ *       int is_const(int r)
+ *
+ *   FUNCTION
+ *       Expose the constant-status check for a virtual register.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *
+ *   RESULT
+ *       The result of isconst(r).
+ *
+ *   NOTES
+ *       Does not materialize the constant.
+ *
+ ****************************************************************************/
+
 int is_const(int r)
 {
     return isconst(r);
 }
+
+/****i* januae-compemu-internal/writeback_const
+ *
+ *   NAME
+ *       writeback_const()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void writeback_const(int r)
+ *
+ *   FUNCTION
+ *       Emit a store of a tracked constant to its recorded memory location.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Returns without emission for nonconstants. An NF_HANDLER flush requirement triggers a diagnostic and abort; successful emission changes the state to INMEM.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void writeback_const(int r)
 {
@@ -1380,6 +1669,28 @@ STATIC_INLINE void writeback_const(int r)
     set_status(r,INMEM);
 }
 
+/****i* januae-compemu-internal/tomem_c
+ *
+ *   NAME
+ *       tomem_c()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void tomem_c(int r)
+ *
+ *   FUNCTION
+ *       Materialize a virtual register in memory using its current representation.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Uses writeback_const for constants and tomem otherwise.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void tomem_c(int r)
 {
     if (isconst(r)) {
@@ -1388,6 +1699,28 @@ STATIC_INLINE void tomem_c(int r)
     else
 	tomem(r);
 }
+
+/****i* januae-compemu-internal/evict
+ *
+ *   NAME
+ *       evict()
+ *
+ *   SYNOPSIS
+ *       static  void evict(int r)
+ *
+ *   FUNCTION
+ *       Disassociate a virtual register from its native register.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Returns when the virtual register is not resident. Writes back dirty state and updates the native register holder list; a sole locked holder triggers abort.
+ *
+ ****************************************************************************/
 
 static  void evict(int r)
 {
@@ -1415,6 +1748,28 @@ static  void evict(int r)
     set_status(r,INMEM);
 }
 
+/****i* januae-compemu-internal/free_nreg
+ *
+ *   NAME
+ *       free_nreg()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void free_nreg(int r)
+ *
+ *   FUNCTION
+ *       Evict all virtual registers held by a native register.
+ *
+ *   INPUTS
+ *       r -- native register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Evicts holders from the end of the list. Aborts if holders remain afterward.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void free_nreg(int r)
 {
     int i=live.nat[r].nholds;
@@ -1433,6 +1788,28 @@ STATIC_INLINE void free_nreg(int r)
 }
 
 /* Use with care! */
+/****i* januae-compemu-internal/isclean
+ *
+ *   NAME
+ *       isclean()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void isclean(int r)
+ *
+ *   FUNCTION
+ *       Mark a resident virtual register clean with a full-width valid value.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Returns for nonresident registers. Clears the deferred value and dirty size and sets validsize to four.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void isclean(int r)
 {
     if (!isinreg(r))
@@ -1443,11 +1820,56 @@ STATIC_INLINE void isclean(int r)
     set_status(r,CLEAN);
 }
 
+/****i* januae-compemu-internal/disassociate
+ *
+ *   NAME
+ *       disassociate()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void disassociate(int r)
+ *
+ *   FUNCTION
+ *       Clean and evict a virtual register.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Calls isclean before evict; neither operation affects a nonresident register.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void disassociate(int r)
 {
     isclean(r);
     evict(r);
 }
+
+/****i* januae-compemu-internal/set_const
+ *
+ *   NAME
+ *       set_const()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void set_const(int r, uae_u32 val)
+ *
+ *   FUNCTION
+ *       Replace a virtual register association with a tracked constant.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       val -- constant value.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Disassociates the previous register mapping, stores val, and sets status to ISCONST.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void set_const(int r, uae_u32 val)
 {
@@ -1455,6 +1877,28 @@ STATIC_INLINE void set_const(int r, uae_u32 val)
     live.state[r].val=val;
     set_status(r,ISCONST);
 }
+
+/****i* januae-compemu-internal/get_offset
+ *
+ *   NAME
+ *       get_offset()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u32 get_offset(int r)
+ *
+ *   FUNCTION
+ *       Read the tracked deferred value for a virtual register.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *
+ *   RESULT
+ *       The current live.state[r].val.
+ *
+ *   NOTES
+ *       Does not emit code or change the state.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE uae_u32 get_offset(int r)
 {
@@ -1582,10 +2026,56 @@ static  int alloc_reg_hinted(int r, int size, int willclobber, int hint)
     return bestreg;
 }
 
+/****i* januae-compemu-internal/alloc_reg
+ *
+ *   NAME
+ *       alloc_reg()
+ *
+ *   SYNOPSIS
+ *       static  int alloc_reg(int r, int size, int willclobber)
+ *
+ *   FUNCTION
+ *       Allocate a native register using the general allocator without a preferred native register.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       size -- requested operand size.
+ *       willclobber -- whether the caller will overwrite the value.
+ *
+ *   RESULT
+ *       The native register index returned by alloc_reg_hinted.
+ *
+ *   NOTES
+ *       Delegates with hint set to -1.
+ *
+ ****************************************************************************/
+
 static  int alloc_reg(int r, int size, int willclobber)
 {
     return alloc_reg_hinted(r,size,willclobber,-1);
 }
+
+/****i* januae-compemu-internal/unlock
+ *
+ *   NAME
+ *       unlock()
+ *
+ *   SYNOPSIS
+ *       static  void unlock(int r)
+ *
+ *   FUNCTION
+ *       Decrease the lock count on a native register.
+ *
+ *   INPUTS
+ *       r -- native register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Aborts if the register is not locked.
+ *
+ ****************************************************************************/
 
 static  void unlock(int r)
 {
@@ -1594,11 +2084,56 @@ static  void unlock(int r)
     live.nat[r].locked--;
 }
 
+/****i* januae-compemu-internal/setlock
+ *
+ *   NAME
+ *       setlock()
+ *
+ *   SYNOPSIS
+ *       static  void setlock(int r)
+ *
+ *   FUNCTION
+ *       Increase the lock count on a native register.
+ *
+ *   INPUTS
+ *       r -- native register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       The lock count is incremented without an additional range check here.
+ *
+ ****************************************************************************/
+
 static  void setlock(int r)
 {
     live.nat[r].locked++;
 }
 
+
+/****i* januae-compemu-internal/mov_nregs
+ *
+ *   NAME
+ *       mov_nregs()
+ *
+ *   SYNOPSIS
+ *       static void mov_nregs(int d, int s)
+ *
+ *   FUNCTION
+ *       Move native register contents and virtual-register holder associations to another native register.
+ *
+ *   INPUTS
+ *       d -- destination native register index.
+ *       s -- source native register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Returns when source and destination match. Evicts existing destination holders, emits a register move, transfers holder metadata and clears the source holder count.
+ *
+ ****************************************************************************/
 
 static void mov_nregs(int d, int s)
 {
@@ -1626,6 +2161,30 @@ static void mov_nregs(int d, int s)
     live.nat[s].nholds=0;
 }
 
+
+/****i* januae-compemu-internal/make_exclusive
+ *
+ *   NAME
+ *       make_exclusive()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void make_exclusive(int r, int size, int spec)
+ *
+ *   FUNCTION
+ *       Make a resident virtual register the sole holder of a native register where required.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       size -- requested access size.
+ *       spec -- preferred native register index for allocation.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Returns for nonresident or already exclusive registers. May evict other clean holders or allocate and copy to a distinct native register; inconsistent holder counts abort.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void make_exclusive(int r, int size, int spec)
 {
@@ -1698,10 +2257,56 @@ STATIC_INLINE void make_exclusive(int r, int size, int spec)
     unlock(rr);
 }
 
+/****i* januae-compemu-internal/add_offset
+ *
+ *   NAME
+ *       add_offset()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void add_offset(int r, uae_u32 off)
+ *
+ *   FUNCTION
+ *       Accumulate a deferred offset for a virtual register.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       off -- unsigned offset to add.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Adds off to the tracked val field without emitting code.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void add_offset(int r, uae_u32 off)
 {
     live.state[r].val+=off;
 }
+
+/****i* januae-compemu-internal/remove_offset
+ *
+ *   NAME
+ *       remove_offset()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void remove_offset(int r, int spec)
+ *
+ *   FUNCTION
+ *       Materialize a deferred offset in the native register representation.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       spec -- preferred native register index for allocation.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Returns for constants or zero offsets. May evict, allocate, or make the register exclusive; inconsistent size or holder state triggers abort.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void remove_offset(int r, int spec)
 {
@@ -1740,6 +2345,28 @@ STATIC_INLINE void remove_offset(int r, int spec)
     write_log ("JIT: Failed in remove_offset\n");
     abort();
 }
+
+/****i* januae-compemu-internal/remove_all_offsets
+ *
+ *   NAME
+ *       remove_all_offsets()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void remove_all_offsets(void)
+ *
+ *   FUNCTION
+ *       Materialize deferred offsets for all virtual registers.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Invokes remove_offset for every virtual register with no native-register preference.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void remove_all_offsets(void)
 {
