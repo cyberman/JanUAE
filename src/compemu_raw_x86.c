@@ -1626,6 +1626,26 @@ STATIC_INLINE void raw_jmp_r(R4 r)
     emit_byte(0xe0+r);
 }
 
+/****i* januae-x86-jit-internal/raw_jmp_m_indexed
+ *
+ *   NAME
+ *       raw_jmp_m_indexed()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_jmp_m_indexed(uae_u32 base, uae_u32 r, uae_u32 m)
+ *
+ *   FUNCTION
+ *       Emit an indirect x86 jump through a base address and scaled index.
+ *
+ *   INPUTS
+ *       base -- Absolute address of the indexed pointer table.
+ *       r -- Index register encoding.
+ *       m -- Index scale, restricted to 1, 2, 4, or 8.
+ *
+ *   RESULT
+ *       None. An unsupported scale terminates execution through abort().
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_jmp_m_indexed(uae_u32 base, uae_u32 r, uae_u32 m)
 {
     int mu;
@@ -1642,6 +1662,24 @@ STATIC_INLINE void raw_jmp_m_indexed(uae_u32 base, uae_u32 r, uae_u32 m)
     emit_long(base);
 }
 
+/****i* januae-x86-jit-internal/raw_jmp_m
+ *
+ *   NAME
+ *       raw_jmp_m()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_jmp_m(uae_u32 base)
+ *
+ *   FUNCTION
+ *       Emit an indirect x86 jump through a memory operand addressed by base.
+ *
+ *   INPUTS
+ *       base -- Absolute memory operand address.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_jmp_m(uae_u32 base)
 {
     emit_byte(0xff);
@@ -1649,18 +1687,72 @@ STATIC_INLINE void raw_jmp_m(uae_u32 base)
     emit_long(base);
 }
 
+/****i* januae-x86-jit-internal/raw_call
+ *
+ *   NAME
+ *       raw_call()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_call(uae_u32 t)
+ *
+ *   FUNCTION
+ *       Emit a near relative x86 call with a displacement calculated from the current code-emission target.
+ *
+ *   INPUTS
+ *       t -- Absolute call destination.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_call(uae_u32 t)
 {
     emit_byte(0xe8);
     emit_long(t-(uae_u32)target-4);
 }
 
+/****i* januae-x86-jit-internal/raw_jmp
+ *
+ *   NAME
+ *       raw_jmp()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_jmp(uae_u32 t)
+ *
+ *   FUNCTION
+ *       Emit a near relative unconditional x86 jump.
+ *
+ *   INPUTS
+ *       t -- Absolute jump destination.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_jmp(uae_u32 t)
 {
     emit_byte(0xe9);
     emit_long(t-(uae_u32)target-4);
 }
 
+/****i* januae-x86-jit-internal/raw_jl
+ *
+ *   NAME
+ *       raw_jl()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_jl(uae_u32 t)
+ *
+ *   FUNCTION
+ *       Emit a near relative signed-less-than conditional jump.
+ *
+ *   INPUTS
+ *       t -- Absolute jump destination.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_jl(uae_u32 t)
 {
     emit_byte(0x0f);
@@ -1668,6 +1760,24 @@ STATIC_INLINE void raw_jl(uae_u32 t)
     emit_long(t-(uae_u32)target-4);
 }
 
+/****i* januae-x86-jit-internal/raw_jz
+ *
+ *   NAME
+ *       raw_jz()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_jz(uae_u32 t)
+ *
+ *   FUNCTION
+ *       Emit a near relative zero/equal conditional jump.
+ *
+ *   INPUTS
+ *       t -- Absolute jump destination.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_jz(uae_u32 t)
 {
     emit_byte(0x0f);
@@ -1675,6 +1785,24 @@ STATIC_INLINE void raw_jz(uae_u32 t)
     emit_long(t-(uae_u32)target-4);
 }
 
+/****i* januae-x86-jit-internal/raw_jnz
+ *
+ *   NAME
+ *       raw_jnz()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_jnz(uae_u32 t)
+ *
+ *   FUNCTION
+ *       Emit a near relative nonzero/not-equal conditional jump.
+ *
+ *   INPUTS
+ *       t -- Absolute jump destination.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_jnz(uae_u32 t)
 {
     emit_byte(0x0f);
@@ -1682,48 +1810,210 @@ STATIC_INLINE void raw_jnz(uae_u32 t)
     emit_long(t-(uae_u32)target-4);
 }
 
+/****i* januae-x86-jit-internal/raw_jnz_l_oponly
+ *
+ *   NAME
+ *       raw_jnz_l_oponly()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_jnz_l_oponly(void)
+ *
+ *   FUNCTION
+ *       Emit only the opcode bytes for a near nonzero conditional jump, leaving its displacement to be emitted separately.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None. No displacement is emitted.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_jnz_l_oponly(void)
 {
     emit_byte(0x0f);
     emit_byte(0x85);
 }
 
+/****i* januae-x86-jit-internal/raw_jcc_l_oponly
+ *
+ *   NAME
+ *       raw_jcc_l_oponly()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_jcc_l_oponly(int cc)
+ *
+ *   FUNCTION
+ *       Emit only the two-byte near conditional-branch opcode for the selected condition code.
+ *
+ *   INPUTS
+ *       cc -- x86 condition-code selector used as an opcode offset.
+ *
+ *   RESULT
+ *       None. No displacement is emitted.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_jcc_l_oponly(int cc)
 {
     emit_byte(0x0f);
     emit_byte(0x80+cc);
 }
 
+/****i* januae-x86-jit-internal/raw_jnz_b_oponly
+ *
+ *   NAME
+ *       raw_jnz_b_oponly()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_jnz_b_oponly(void)
+ *
+ *   FUNCTION
+ *       Emit only the opcode for a short nonzero conditional jump.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None. No displacement is emitted.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_jnz_b_oponly(void)
 {
     emit_byte(0x75);
 }
 
+/****i* januae-x86-jit-internal/raw_jz_b_oponly
+ *
+ *   NAME
+ *       raw_jz_b_oponly()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_jz_b_oponly(void)
+ *
+ *   FUNCTION
+ *       Emit only the opcode for a short zero conditional jump.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None. No displacement is emitted.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_jz_b_oponly(void)
 {
     emit_byte(0x74);
 }
 
+/****i* januae-x86-jit-internal/raw_jmp_l_oponly
+ *
+ *   NAME
+ *       raw_jmp_l_oponly()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_jmp_l_oponly(void)
+ *
+ *   FUNCTION
+ *       Emit only the opcode for a near unconditional jump.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None. No displacement is emitted.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_jmp_l_oponly(void)
 {
     emit_byte(0xe9);
 }
 
+/****i* januae-x86-jit-internal/raw_jmp_b_oponly
+ *
+ *   NAME
+ *       raw_jmp_b_oponly()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_jmp_b_oponly(void)
+ *
+ *   FUNCTION
+ *       Emit only the opcode for a short unconditional jump.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None. No displacement is emitted.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_jmp_b_oponly(void)
 {
     emit_byte(0xeb);
 }
 
+/****i* januae-x86-jit-internal/raw_ret
+ *
+ *   NAME
+ *       raw_ret()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_ret(void)
+ *
+ *   FUNCTION
+ *       Emit the x86 near-return instruction.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_ret(void)
 {
     emit_byte(0xc3);
 }
 
+/****i* januae-x86-jit-internal/raw_nop
+ *
+ *   NAME
+ *       raw_nop()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_nop(void)
+ *
+ *   FUNCTION
+ *       Emit one single-byte x86 no-operation instruction.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_nop(void)
 {
     emit_byte(0x90);
 }
 
+/****i* januae-x86-jit-internal/raw_emit_nop_filler
+ *
+ *   NAME
+ *       raw_emit_nop_filler()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_emit_nop_filler (int nbytes)
+ *
+ *   FUNCTION
+ *       Emit the requested number of padding bytes using selected x86 no-operation instruction sequences.
+ *
+ *   INPUTS
+ *       nbytes -- Number of padding bytes requested.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_emit_nop_filler (int nbytes)
 {
     /* Source: GNU Binutils 2.12.90.0.15 */
@@ -1839,6 +2129,24 @@ STATIC_INLINE void raw_flags_to_reg(int r)
 }
 
 #define FLAG_NREG2 0  /* Set to -1 if any register will do */
+/****i* januae-x86-jit-internal/raw_reg_to_flags
+ *
+ *   NAME
+ *       raw_reg_to_flags()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_reg_to_flags(int r)
+ *
+ *   FUNCTION
+ *       Emit instructions to restore arithmetic status flags from the specified native register.
+ *
+ *   INPUTS
+ *       r -- Native register containing the encoded flag state.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_reg_to_flags(int r)
 {
   raw_cmp_b_ri(r,-127); /* set V */
@@ -1847,6 +2155,25 @@ STATIC_INLINE void raw_reg_to_flags(int r)
 
 /* Apparently, there are enough instructions between flag store and
    flag reload to avoid the partial memory stall */
+/****i* januae-x86-jit-internal/raw_load_flagreg
+ *
+ *   NAME
+ *       raw_load_flagreg()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_load_flagreg(uae_u32 target, uae_u32 r)
+ *
+ *   FUNCTION
+ *       Emit a load of the saved emulated flag register from its memory slot into a native register.
+ *
+ *   INPUTS
+ *       target -- Destination native register.
+ *       r -- Emulated flag register state index.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_load_flagreg(uae_u32 target, uae_u32 r)
 {
 #if 1
@@ -1858,6 +2185,25 @@ STATIC_INLINE void raw_load_flagreg(uae_u32 target, uae_u32 r)
 }
 
 /* FLAGX is word-sized */
+/****i* januae-x86-jit-internal/raw_load_flagx
+ *
+ *   NAME
+ *       raw_load_flagx()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_load_flagx(uae_u32 target, uae_u32 r)
+ *
+ *   FUNCTION
+ *       Emit a load of the saved X-flag value using a word or longword memory operand according to the destination register capabilities.
+ *
+ *   INPUTS
+ *       target -- Destination native register.
+ *       r -- Emulated X-flag state index.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_load_flagx(uae_u32 target, uae_u32 r)
 {
     if (live.nat[target].canword)
@@ -1868,6 +2214,26 @@ STATIC_INLINE void raw_load_flagx(uae_u32 target, uae_u32 r)
 
 #define NATIVE_FLAG_Z 0x40
 #define NATIVE_CC_EQ  4
+/****i* januae-x86-jit-internal/raw_flags_set_zero
+ *
+ *   NAME
+ *       raw_flags_set_zero()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_flags_set_zero(int f, int r, int t)
+ *
+ *   FUNCTION
+ *       Emit code to update the native zero flag from a register test while retaining the other saved flag bits.
+ *
+ *   INPUTS
+ *       f -- Native register used to preserve and restore the flag word.
+ *       r -- Native register supplying the zero test and temporary result.
+ *       t -- Native temporary register.
+ *
+ *   RESULT
+ *       None. The emitted sequence writes the processor flags.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_flags_set_zero(int f, int r, int t)
 {
     // FIXME: this is really suboptimal
@@ -1883,6 +2249,24 @@ STATIC_INLINE void raw_flags_set_zero(int f, int r, int t)
     raw_popfl();
 }
 
+/****i* januae-x86-jit-internal/raw_inc_sp
+ *
+ *   NAME
+ *       raw_inc_sp()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_inc_sp(int off)
+ *
+ *   FUNCTION
+ *       Emit an addition of the given byte offset to the native stack-pointer register.
+ *
+ *   INPUTS
+ *       off -- Stack-pointer adjustment in bytes.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_inc_sp(int off)
 {
     raw_add_l_ri(4,off);
@@ -2563,6 +2947,24 @@ x86_alignments[X86_PROCESSOR_max] = {
     { 16,  7, 16,  7, 16 }
 };
 
+/****i* januae-x86-jit-internal/x86_get_cpu_vendor
+ *
+ *   NAME
+ *       x86_get_cpu_vendor()
+ *
+ *   SYNOPSIS
+ *       static void x86_get_cpu_vendor (struct cpuinfo_x86 *c)
+ *
+ *   FUNCTION
+ *       Classify a CPUID vendor identification string into the supported internal vendor enumerator.
+ *
+ *   INPUTS
+ *       c -- CPU information structure whose vendor string is examined and vendor field updated.
+ *
+ *   RESULT
+ *       None. Unrecognized identifiers are classified as X86_VENDOR_UNKNOWN.
+ *
+ ****************************************************************************/
 static void x86_get_cpu_vendor (struct cpuinfo_x86 *c)
 {
     char *v = c->x86_vendor_id;
@@ -2589,6 +2991,25 @@ static void x86_get_cpu_vendor (struct cpuinfo_x86 *c)
 	c->x86_vendor = X86_VENDOR_UNKNOWN;
 }
 
+/****i* januae-x86-jit-internal/cpuid
+ *
+ *   NAME
+ *       cpuid()
+ *
+ *   SYNOPSIS
+ *       static void cpuid (uae_u32 op, uae_u32 *eax, uae_u32 *ebx, uae_u32 *ecx, uae_u32 *edx)
+ *
+ *   FUNCTION
+ *       Generate and execute a temporary native CPUID sequence, then copy the selected result registers to caller-provided outputs.
+ *
+ *   INPUTS
+ *       op -- CPUID operation selector.
+ *       eax, ebx, ecx, edx -- Optional output pointers; null pointers are skipped.
+ *
+ *   RESULT
+ *       None. Failure to allocate temporary executable cache storage calls abort().
+ *
+ ****************************************************************************/
 static void cpuid (uae_u32 op, uae_u32 *eax, uae_u32 *ebx, uae_u32 *ecx, uae_u32 *edx)
 {
     const int CPUID_SPACE = 4096;
@@ -2631,6 +3052,24 @@ static void cpuid (uae_u32 op, uae_u32 *eax, uae_u32 *ebx, uae_u32 *ecx, uae_u32
     cache_free (cpuid_space);
 }
 
+/****i* januae-x86-jit-internal/raw_init_cpu
+ *
+ *   NAME
+ *       raw_init_cpu()
+ *
+ *   SYNOPSIS
+ *       static void raw_init_cpu (void)
+ *
+ *   FUNCTION
+ *       Initialize x86 CPU capability state and collect vendor and processor features through CPUID.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None. Updates the shared CPU information structure.
+ *
+ ****************************************************************************/
 static void raw_init_cpu (void)
 {
     struct cpuinfo_x86 *c = &cpuinfo;
@@ -2804,6 +3243,24 @@ STATIC_INLINE void raw_fp_cleanup_drop(void)
     raw_fp_init();
 }
 
+/****i* januae-x86-jit-internal/make_tos
+ *
+ *   NAME
+ *       make_tos()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void make_tos(int r)
+ *
+ *   FUNCTION
+ *       Move an emulated floating-point register to the x87 stack top, creating a placeholder stack entry when it is not present.
+ *
+ *   INPUTS
+ *       r -- Emulated floating-point register index.
+ *
+ *   RESULT
+ *       None. Updates the live x87 stack-position mapping.
+ *
+ ****************************************************************************/
 STATIC_INLINE void make_tos(int r)
 {
     int p,q;
@@ -2830,6 +3287,25 @@ STATIC_INLINE void make_tos(int r)
     live.spos[q]=p;
 }
 
+/****i* januae-x86-jit-internal/make_tos2
+ *
+ *   NAME
+ *       make_tos2()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void make_tos2(int r, int r2)
+ *
+ *   FUNCTION
+ *       Arrange two emulated floating-point registers in the first two x87 stack positions.
+ *
+ *   INPUTS
+ *       r -- Register to place at the top.
+ *       r2 -- Register to place immediately beneath it.
+ *
+ *   RESULT
+ *       None. Updates the live x87 stack-position mapping.
+ *
+ ****************************************************************************/
 STATIC_INLINE void make_tos2(int r, int r2)
 {
     int q;
@@ -2854,6 +3330,24 @@ STATIC_INLINE void make_tos2(int r, int r2)
     make_tos(r); /* And r into 1 */
 }
 
+/****i* januae-x86-jit-internal/stackpos
+ *
+ *   NAME
+ *       stackpos()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int stackpos(int r)
+ *
+ *   FUNCTION
+ *       Return the x87 stack-relative position of an emulated floating-point register.
+ *
+ *   INPUTS
+ *       r -- Emulated floating-point register index.
+ *
+ *   RESULT
+ *       The offset from the current stack top. Invalid stack-state mappings call abort().
+ *
+ ****************************************************************************/
 STATIC_INLINE int stackpos(int r)
 {
     if (live.spos[r]<0)
@@ -2865,6 +3359,24 @@ STATIC_INLINE int stackpos(int r)
     return live.tos-live.spos[r];
 }
 
+/****i* januae-x86-jit-internal/usereg
+ *
+ *   NAME
+ *       usereg()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void usereg(int r)
+ *
+ *   FUNCTION
+ *       Ensure that an emulated floating-point register has an x87 stack slot.
+ *
+ *   INPUTS
+ *       r -- Emulated floating-point register index.
+ *
+ *   RESULT
+ *       None. Creates a placeholder entry if absent.
+ *
+ ****************************************************************************/
 STATIC_INLINE void usereg(int r)
 {
     if (live.spos[r]<0)
@@ -2873,6 +3385,24 @@ STATIC_INLINE void usereg(int r)
 
 /* This is called with one FP value in a reg *above* tos, which it will
    pop off the stack if necessary */
+/****i* januae-x86-jit-internal/tos_make
+ *
+ *   NAME
+ *       tos_make()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void tos_make(int r)
+ *
+ *   FUNCTION
+ *       Record a newly produced top-of-stack floating-point value in an emulated register, or store it into an existing slot and pop it.
+ *
+ *   INPUTS
+ *       r -- Destination emulated floating-point register index.
+ *
+ *   RESULT
+ *       None. Updates x87 stack tracking or emits a store-and-pop instruction.
+ *
+ ****************************************************************************/
 STATIC_INLINE void tos_make(int r)
 {
     if (live.spos[r]<0) {
