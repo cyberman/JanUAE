@@ -86,16 +86,70 @@ uae_u8 need_to_preserve[]={1,1,1,1,0,1,1,1};
 static int have_rat_stall; 	/* Partial registers stalls? */
 static int have_cmov;		/* We need to generate different code if we don't have cmov */
 
+/****i* januae-x86-jit-internal/swap16
+ *
+ *   NAME
+ *       swap16()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u16 swap16 (uae_u16 x)
+ *
+ *   FUNCTION
+ *       Reverse the byte order of a 16-bit value using shifts and masks.
+ *
+ *   INPUTS
+ *       x -- Input 16-bit value.
+ *
+ *   RESULT
+ *       The byte-swapped 16-bit value.
+ *
+ ****************************************************************************/
 STATIC_INLINE uae_u16 swap16 (uae_u16 x)
 {
     return ((x&0xff00)>>8)|((x&0x00ff)<<8);
 }
 
+/****i* januae-x86-jit-internal/swap32
+ *
+ *   NAME
+ *       swap32()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE uae_u32 swap32(uae_u32 x)
+ *
+ *   FUNCTION
+ *       Reverse the byte order of a 32-bit value using shifts and masks.
+ *
+ *   INPUTS
+ *       x -- Input 32-bit value.
+ *
+ *   RESULT
+ *       The byte-swapped 32-bit value.
+ *
+ ****************************************************************************/
 STATIC_INLINE uae_u32 swap32(uae_u32 x)
 {
     return ((x&0xff00)<<8)|((x&0x00ff)<<24)|((x&0xff0000)>>8)|((x&0xff000000)>>24);
 }
 
+/****i* januae-x86-jit-internal/isbyte
+ *
+ *   NAME
+ *       isbyte()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int isbyte(uae_s32 x)
+ *
+ *   FUNCTION
+ *       Determine whether a signed integer can be encoded as an eight-bit signed displacement.
+ *
+ *   INPUTS
+ *       x -- Signed integer to test.
+ *
+ *   RESULT
+ *       Nonzero if the value is in the range -128 through 127; otherwise zero.
+ *
+ ****************************************************************************/
 STATIC_INLINE int isbyte(uae_s32 x)
 {
   return (x>=-128 && x<=127);
@@ -1614,12 +1668,48 @@ LENDFUNC(WRITE,READ,0,raw_popfl,(void))
  * Unoptimizable stuff --- jump                                          *
  *************************************************************************/
 
+/****i* januae-x86-jit-internal/raw_call_r
+ *
+ *   NAME
+ *       raw_call_r()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_call_r(R4 r)
+ *
+ *   FUNCTION
+ *       Emit the x86 FF /2 instruction form for an indirect call through a register.
+ *
+ *   INPUTS
+ *       r -- x86 register encoding used for the call target.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_call_r(R4 r)
 {
     emit_byte(0xff);
     emit_byte(0xd0+r);
 }
 
+/****i* januae-x86-jit-internal/raw_jmp_r
+ *
+ *   NAME
+ *       raw_jmp_r()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_jmp_r(R4 r)
+ *
+ *   FUNCTION
+ *       Emit the x86 FF /4 instruction form for an indirect jump through a register.
+ *
+ *   INPUTS
+ *       r -- x86 register encoding used for the jump target.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_jmp_r(R4 r)
 {
     emit_byte(0xff);
@@ -2107,6 +2197,24 @@ STATIC_INLINE void raw_emit_nop_filler (int nbytes)
 
 #define FLAG_NREG1 0  /* Set to -1 if any register will do */
 
+/****i* januae-x86-jit-internal/raw_flags_to_reg
+ *
+ *   NAME
+ *       raw_flags_to_reg()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_flags_to_reg(int r)
+ *
+ *   FUNCTION
+ *       Capture selected host CPU flags in the JIT flag temporary and update the register-cache bookkeeping. The register-cache invariant is enforced by aborting on unexpected ownership.
+ *
+ *   INPUTS
+ *       r -- Native register index involved in flag transfer.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_flags_to_reg(int r)
 {
   raw_lahf(0);  /* Most flags in AH */
@@ -2295,6 +2403,25 @@ static int in_handler=0;
 static uae_u8 *veccode;
 
 # ifdef _WIN32
+/****i* januae-x86-jit-internal/Evaluae_Exception
+ *
+ *   NAME
+ *       Evaluae_Exception()
+ *
+ *   SYNOPSIS
+ *       int Evaluae_Exception ( LPEXCEPTION_POINTERS blah, int n_except )
+ *
+ *   FUNCTION
+ *       Handle a supported Windows access violation in generated code when direct memory access is enabled, or defer the exception to the system handler.
+ *
+ *   INPUTS
+ *       blah -- Pointer to the Windows exception and processor context.
+ *       n_except -- Exception status code.
+ *
+ *   RESULT
+ *       A Windows exception-disposition code.
+ *
+ ****************************************************************************/
 int Evaluae_Exception ( LPEXCEPTION_POINTERS blah, int n_except )
 {
     PEXCEPTION_RECORD pExceptRecord = NULL;
@@ -2596,6 +2723,24 @@ typedef void *CONTEXT_T;
  *
  * Returns 1 if handled, 0 otherwise
  */
+/****i* januae-x86-jit-internal/handle_access
+ *
+ *   NAME
+ *       handle_access()
+ *
+ *   SYNOPSIS
+ *       static int handle_access (CONTEXT_T context)
+ *
+ *   FUNCTION
+ *       Inspect a faulting generated instruction and attempt to repair or emulate the direct memory access by adjusting the supplied processor context.
+ *
+ *   INPUTS
+ *       context -- Platform-specific processor context for the fault.
+ *
+ *   RESULT
+ *       Nonzero if the access was handled; otherwise zero.
+ *
+ ****************************************************************************/
 static int handle_access (CONTEXT_T context)
 {
     uae_u8  *i    = (uae_u8 *) CONTEXT_EIP (context);
@@ -2853,6 +2998,26 @@ static int handle_access (CONTEXT_T context)
 /*
  * SIGSEGV handler
  */
+/****i* januae-x86-jit-internal/vec
+ *
+ *   NAME
+ *       vec()
+ *
+ *   SYNOPSIS
+ *       static void vec (int signum, struct siginfo *info, void *context)
+ *
+ *   FUNCTION
+ *       Dispatch a POSIX signal fault from generated code to the direct-access handler; report and terminate when the fault cannot be handled.
+ *
+ *   INPUTS
+ *       signum -- Delivered signal number.
+ *       info -- Signal information provided by the system.
+ *       context -- Platform-specific interrupted processor context.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void vec (int signum, struct siginfo *info, void *context)
 {
     uae_u8  *i    = (uae_u8 *) CONTEXT_EIP (context);
@@ -3208,6 +3373,24 @@ static void raw_init_cpu (void)
  *************************************************************************/
 
 
+/****i* januae-x86-jit-internal/raw_fp_init
+ *
+ *   NAME
+ *       raw_fp_init()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_fp_init(void)
+ *
+ *   FUNCTION
+ *       Reset x87 stack-position bookkeeping to an empty logical stack without emitting an x87 initialization instruction.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_fp_init(void)
 {
     int i;
@@ -3217,6 +3400,24 @@ STATIC_INLINE void raw_fp_init(void)
     live.tos=-1;  /* Stack is empty */
 }
 
+/****i* januae-x86-jit-internal/raw_fp_cleanup_drop
+ *
+ *   NAME
+ *       raw_fp_cleanup_drop()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_fp_cleanup_drop(void)
+ *
+ *   FUNCTION
+ *       Emit x87 pop operations to reduce the tracked floating-point stack depth. The alternative FINIT-based implementation remains disabled.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_fp_cleanup_drop(void)
 {
 #if 0
@@ -3964,6 +4165,24 @@ LOWFUNC(NONE,NONE,1,raw_ftst_r,(FR r))
 }
 LENDFUNC(NONE,NONE,1,raw_ftst_r,(FR r))
 
+/****i* januae-x86-jit-internal/raw_fflags_into_flags
+ *
+ *   NAME
+ *       raw_fflags_into_flags()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void raw_fflags_into_flags(int r)
+ *
+ *   FUNCTION
+ *       Emit x87 comparison and status-transfer instructions for the selected floating-point register, using the conditional-move capability path when available.
+ *
+ *   INPUTS
+ *       r -- Floating-point register identifier to compare.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 STATIC_INLINE void raw_fflags_into_flags(int r)
 {
     int p;
