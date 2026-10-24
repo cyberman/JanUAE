@@ -1173,6 +1173,28 @@ STATIC_INLINE uae_u8* get_target(void)
 
 static void bt_l_ri_noclobber(R4 r, IMM i);
 
+/****i* januae-compemu-internal/make_flags_live_internal
+ *
+ *   NAME
+ *       make_flags_live_internal()
+ *
+ *   SYNOPSIS
+ *       static void make_flags_live_internal(void)
+ *
+ *   FUNCTION
+ *       Restore the host condition flags from the saved flag register when they are not already valid.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Returns if the flags are already valid; aborts if neither valid register flags nor a valid saved copy is available.
+ *
+ ****************************************************************************/
+
 static void make_flags_live_internal(void)
 {
     if (live.flags_in_flags==VALID)
@@ -1195,6 +1217,28 @@ static void make_flags_live_internal(void)
     abort();
 }
 
+/****i* januae-compemu-internal/flags_to_stack
+ *
+ *   NAME
+ *       flags_to_stack()
+ *
+ *   SYNOPSIS
+ *       static void flags_to_stack(void)
+ *
+ *   FUNCTION
+ *       Preserve live condition flags in the tracked flag register before the native flags are overwritten.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       When flags are not important, marks the saved copy valid without generating a store; otherwise requires valid native flags.
+ *
+ ****************************************************************************/
+
 static void flags_to_stack(void)
 {
     if (live.flags_on_stack==VALID)
@@ -1214,6 +1258,28 @@ static void flags_to_stack(void)
     live.flags_on_stack=VALID;
 }
 
+/****i* januae-compemu-internal/clobber_flags
+ *
+ *   NAME
+ *       clobber_flags()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void clobber_flags(void)
+ *
+ *   FUNCTION
+ *       Preserve important flags if required and invalidate the native flag representation.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Does not invalidate the saved representation.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void clobber_flags(void)
 {
     if (live.flags_in_flags==VALID && live.flags_on_stack!=VALID)
@@ -1222,6 +1288,28 @@ STATIC_INLINE void clobber_flags(void)
 }
 
 /* Prepare for leaving the compiled stuff */
+/****i* januae-compemu-internal/flush_flags
+ *
+ *   NAME
+ *       flush_flags()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void flush_flags(void)
+ *
+ *   FUNCTION
+ *       Ensure the saved condition-flag representation is current before leaving generated code.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Delegates to flags_to_stack().
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void flush_flags(void)
 {
     flags_to_stack();
@@ -2376,6 +2464,31 @@ STATIC_INLINE void remove_all_offsets(void)
 	remove_offset(i,-1);
 }
 
+/****i* januae-compemu-internal/readreg_general
+ *
+ *   NAME
+ *       readreg_general()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int readreg_general(int r, int size, int spec, int can_offset)
+ *
+ *   FUNCTION
+ *       Acquire a locked native register containing a virtual register value of the requested width.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       size -- operand width in bytes.
+ *       spec -- preferred native register, or -1.
+ *       can_offset -- whether a deferred offset may remain.
+ *
+ *   RESULT
+ *       Locked native register index.
+ *
+ *   NOTES
+ *       May materialize deferred offsets, evict an incompatible resident mapping, allocate a register, or move to the requested native register. Warns on undefined input; invalid width aborts.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int readreg_general(int r, int size, int spec, int can_offset)
 {
     int n;
@@ -2426,21 +2539,115 @@ STATIC_INLINE int readreg_general(int r, int size, int spec, int can_offset)
 
 
 
+/****i* januae-compemu-internal/readreg
+ *
+ *   NAME
+ *       readreg()
+ *
+ *   SYNOPSIS
+ *       static int readreg(int r, int size)
+ *
+ *   FUNCTION
+ *       Read a virtual register through the general allocator without a native-register preference.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       size -- operand width in bytes.
+ *
+ *   RESULT
+ *       Locked native register index.
+ *
+ *   NOTES
+ *       Calls readreg_general with deferred offsets disabled.
+ *
+ ****************************************************************************/
+
 static int readreg(int r, int size)
 {
     return readreg_general(r,size,-1,0);
 }
+
+/****i* januae-compemu-internal/readreg_specific
+ *
+ *   NAME
+ *       readreg_specific()
+ *
+ *   SYNOPSIS
+ *       static int readreg_specific(int r, int size, int spec)
+ *
+ *   FUNCTION
+ *       Read a virtual register using a specified native register.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       size -- operand width in bytes.
+ *       spec -- required native register.
+ *
+ *   RESULT
+ *       Locked native register index.
+ *
+ *   NOTES
+ *       Forwards the native-register preference to readreg_general.
+ *
+ ****************************************************************************/
 
 static int readreg_specific(int r, int size, int spec)
 {
     return readreg_general(r,size,spec,0);
 }
 
+/****i* januae-compemu-internal/readreg_offset
+ *
+ *   NAME
+ *       readreg_offset()
+ *
+ *   SYNOPSIS
+ *       static int readreg_offset(int r, int size)
+ *
+ *   FUNCTION
+ *       Read a virtual register while permitting its tracked deferred offset to remain pending.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       size -- operand width in bytes.
+ *
+ *   RESULT
+ *       Locked native register index.
+ *
+ *   NOTES
+ *       Uses the general allocator with can_offset enabled.
+ *
+ ****************************************************************************/
+
 static int readreg_offset(int r, int size)
 {
     return readreg_general(r,size,-1,1);
 }
 
+
+/****i* januae-compemu-internal/writereg_general
+ *
+ *   NAME
+ *       writereg_general()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int writereg_general(int r, int size, int spec)
+ *
+ *   FUNCTION
+ *       Acquire an exclusive, locked native register for writing a virtual register.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       size -- write width in bytes.
+ *       spec -- preferred native register, or -1.
+ *
+ *   RESULT
+ *       Locked native register index.
+ *
+ *   NOTES
+ *       Updates the dirty and valid widths, marks the virtual register DIRTY and clears deferred offsets for full-width writes. Unsupported widths and inconsistent mappings abort.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE int writereg_general(int r, int size, int spec)
 {
@@ -2513,15 +2720,87 @@ STATIC_INLINE int writereg_general(int r, int size, int spec)
     return answer;
 }
 
+/****i* januae-compemu-internal/writereg
+ *
+ *   NAME
+ *       writereg()
+ *
+ *   SYNOPSIS
+ *       static int writereg(int r, int size)
+ *
+ *   FUNCTION
+ *       Acquire a writable native register without a native-register preference.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       size -- write width in bytes.
+ *
+ *   RESULT
+ *       Locked native register index.
+ *
+ *   NOTES
+ *       Delegates to writereg_general.
+ *
+ ****************************************************************************/
+
 static int writereg(int r, int size)
 {
     return writereg_general(r,size,-1);
 }
 
+/****i* januae-compemu-internal/writereg_specific
+ *
+ *   NAME
+ *       writereg_specific()
+ *
+ *   SYNOPSIS
+ *       static int writereg_specific(int r, int size, int spec)
+ *
+ *   FUNCTION
+ *       Acquire a writable virtual-register mapping in a specified native register.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       size -- write width in bytes.
+ *       spec -- required native register.
+ *
+ *   RESULT
+ *       Locked native register index.
+ *
+ *   NOTES
+ *       Delegates to writereg_general.
+ *
+ ****************************************************************************/
+
 static int writereg_specific(int r, int size, int spec)
 {
     return writereg_general(r,size,spec);
 }
+
+/****i* januae-compemu-internal/rmw_general
+ *
+ *   NAME
+ *       rmw_general()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int rmw_general(int r, int wsize, int rsize, int spec)
+ *
+ *   FUNCTION
+ *       Acquire an exclusive native register for a virtual-register read-modify-write operation.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       wsize -- write width in bytes.
+ *       rsize -- read width in bytes.
+ *       spec -- preferred native register, or -1.
+ *
+ *   RESULT
+ *       Locked native register index.
+ *
+ *   NOTES
+ *       Materializes deferred offsets, updates dirty and valid widths, and marks the value DIRTY. Write width smaller than read width or inconsistent mapping aborts.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE int rmw_general(int r, int wsize, int rsize, int spec)
 {
@@ -2589,10 +2868,59 @@ STATIC_INLINE int rmw_general(int r, int wsize, int rsize, int spec)
     return answer;
 }
 
+/****i* januae-compemu-internal/rmw
+ *
+ *   NAME
+ *       rmw()
+ *
+ *   SYNOPSIS
+ *       static int rmw(int r, int wsize, int rsize)
+ *
+ *   FUNCTION
+ *       Acquire a read-modify-write mapping without a native-register preference.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       wsize -- write width in bytes.
+ *       rsize -- read width in bytes.
+ *
+ *   RESULT
+ *       Locked native register index.
+ *
+ *   NOTES
+ *       Delegates to rmw_general.
+ *
+ ****************************************************************************/
+
 static int rmw(int r, int wsize, int rsize)
 {
     return rmw_general(r,wsize,rsize,-1);
 }
+
+/****i* januae-compemu-internal/rmw_specific
+ *
+ *   NAME
+ *       rmw_specific()
+ *
+ *   SYNOPSIS
+ *       static int rmw_specific(int r, int wsize, int rsize, int spec)
+ *
+ *   FUNCTION
+ *       Acquire a read-modify-write mapping in a specified native register.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *       wsize -- write width in bytes.
+ *       rsize -- read width in bytes.
+ *       spec -- required native register.
+ *
+ *   RESULT
+ *       Locked native register index.
+ *
+ *   NOTES
+ *       Delegates to rmw_general.
+ *
+ ****************************************************************************/
 
 static int rmw_specific(int r, int wsize, int rsize, int spec)
 {
@@ -2601,6 +2929,29 @@ static int rmw_specific(int r, int wsize, int rsize, int spec)
 
 
 /* needed for restoring the carry flag on non-P6 cores */
+/****i* januae-compemu-internal/bt_l_ri_noclobber
+ *
+ *   NAME
+ *       bt_l_ri_noclobber()
+ *
+ *   SYNOPSIS
+ *       static void bt_l_ri_noclobber(R4 r, IMM i)
+ *
+ *   FUNCTION
+ *       Emit a native bit test used to restore the carry flag on older host processors.
+ *
+ *   INPUTS
+ *       r -- virtual register containing the test value.
+ *       i -- immediate bit index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Reads two bytes when the bit index is below 16, otherwise four; releases the acquired register after emission.
+ *
+ ****************************************************************************/
+
 static void bt_l_ri_noclobber(R4 r, IMM i)
 {
     int size=4;
@@ -2615,6 +2966,28 @@ static void bt_l_ri_noclobber(R4 r, IMM i)
  * FPU register status handling. EMIT TIME!                         *
  ********************************************************************/
 
+/****i* januae-compemu-internal/f_tomem
+ *
+ *   NAME
+ *       f_tomem()
+ *
+ *   SYNOPSIS
+ *       static  void f_tomem(int r)
+ *
+ *   FUNCTION
+ *       Write a dirty virtual floating-point register to its backing memory.
+ *
+ *   INPUTS
+ *       r -- virtual floating-point register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Marks a dirty register CLEAN; emits no store for other states. Store format depends on USE_LONG_DOUBLE.
+ *
+ ****************************************************************************/
+
 static  void f_tomem(int r)
 {
     if (live.fate[r].status==DIRTY) {
@@ -2626,6 +2999,28 @@ static  void f_tomem(int r)
 	live.fate[r].status=CLEAN;
     }
 }
+
+/****i* januae-compemu-internal/f_tomem_drop
+ *
+ *   NAME
+ *       f_tomem_drop()
+ *
+ *   SYNOPSIS
+ *       static  void f_tomem_drop(int r)
+ *
+ *   FUNCTION
+ *       Write back and drop the native representation of a dirty floating-point register.
+ *
+ *   INPUTS
+ *       r -- virtual floating-point register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Marks DIRTY state INMEM after emitting the configured drop-store instruction; otherwise leaves state unchanged.
+ *
+ ****************************************************************************/
 
 static  void f_tomem_drop(int r)
 {
@@ -2640,10 +3035,54 @@ static  void f_tomem_drop(int r)
 }
 
 
+/****i* januae-compemu-internal/f_isinreg
+ *
+ *   NAME
+ *       f_isinreg()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int f_isinreg(int r)
+ *
+ *   FUNCTION
+ *       Test whether a virtual floating-point register has a native-register mapping.
+ *
+ *   INPUTS
+ *       r -- virtual floating-point register index.
+ *
+ *   RESULT
+ *       Nonzero for CLEAN or DIRTY; zero otherwise.
+ *
+ *   NOTES
+ *       Examines the current floating-point register state.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int f_isinreg(int r)
 {
     return live.fate[r].status==CLEAN || live.fate[r].status==DIRTY;
 }
+
+/****i* januae-compemu-internal/f_evict
+ *
+ *   NAME
+ *       f_evict()
+ *
+ *   SYNOPSIS
+ *       static void f_evict(int r)
+ *
+ *   FUNCTION
+ *       Remove a virtual floating-point register from its native holder list.
+ *
+ *   INPUTS
+ *       r -- virtual floating-point register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Writes back dirty data, updates the holder array and marks the virtual register INMEM. Evicting a sole locked holder aborts.
+ *
+ ****************************************************************************/
 
 static void f_evict(int r)
 {
@@ -2674,6 +3113,28 @@ static void f_evict(int r)
     live.fate[r].realreg=-1;
 }
 
+/****i* januae-compemu-internal/f_free_nreg
+ *
+ *   NAME
+ *       f_free_nreg()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void f_free_nreg(int r)
+ *
+ *   FUNCTION
+ *       Evict all virtual floating-point registers held by one native floating-point register.
+ *
+ *   INPUTS
+ *       r -- native floating-point register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Evicts holders from the end of the array; aborts if any holder remains.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void f_free_nreg(int r)
 {
     int i=live.fat[r].nholds;
@@ -2693,12 +3154,56 @@ STATIC_INLINE void f_free_nreg(int r)
 
 
 /* Use with care! */
+/****i* januae-compemu-internal/f_isclean
+ *
+ *   NAME
+ *       f_isclean()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void f_isclean(int r)
+ *
+ *   FUNCTION
+ *       Mark a resident virtual floating-point register CLEAN.
+ *
+ *   INPUTS
+ *       r -- virtual floating-point register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Does nothing when the virtual register is not resident; does not emit a store.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void f_isclean(int r)
 {
     if (!f_isinreg(r))
 	return;
     live.fate[r].status=CLEAN;
 }
+
+/****i* januae-compemu-internal/f_disassociate
+ *
+ *   NAME
+ *       f_disassociate()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void f_disassociate(int r)
+ *
+ *   FUNCTION
+ *       Clean and evict a virtual floating-point register.
+ *
+ *   INPUTS
+ *       r -- virtual floating-point register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Calls f_isclean before f_evict, suppressing a writeback of previously dirty resident data.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void f_disassociate(int r)
 {
@@ -2707,6 +3212,29 @@ STATIC_INLINE void f_disassociate(int r)
 }
 
 
+
+/****i* januae-compemu-internal/f_alloc_reg
+ *
+ *   NAME
+ *       f_alloc_reg()
+ *
+ *   SYNOPSIS
+ *       static  int f_alloc_reg(int r, int willclobber)
+ *
+ *   FUNCTION
+ *       Allocate a native floating-point register for a virtual floating-point value.
+ *
+ *   INPUTS
+ *       r -- virtual floating-point register index.
+ *       willclobber -- whether the caller will replace the prior value.
+ *
+ *   RESULT
+ *       Allocated native floating-point register index.
+ *
+ *   NOTES
+ *       Prefers a free, unlocked register; otherwise evicts an eligible mapping. Loads the old value unless clobbering; aborts if no register is available.
+ *
+ ****************************************************************************/
 
 static  int f_alloc_reg(int r, int willclobber)
 {
@@ -2760,6 +3288,28 @@ static  int f_alloc_reg(int r, int willclobber)
     return bestreg;
 }
 
+/****i* januae-compemu-internal/f_unlock
+ *
+ *   NAME
+ *       f_unlock()
+ *
+ *   SYNOPSIS
+ *       static  void f_unlock(int r)
+ *
+ *   FUNCTION
+ *       Release one lock on a native floating-point register.
+ *
+ *   INPUTS
+ *       r -- native floating-point register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Aborts if the register has no lock to release.
+ *
+ ****************************************************************************/
+
 static  void f_unlock(int r)
 {
     Dif (!live.fat[r].locked)
@@ -2767,10 +3317,54 @@ static  void f_unlock(int r)
     live.fat[r].locked--;
 }
 
+/****i* januae-compemu-internal/f_setlock
+ *
+ *   NAME
+ *       f_setlock()
+ *
+ *   SYNOPSIS
+ *       static  void f_setlock(int r)
+ *
+ *   FUNCTION
+ *       Increase the lock count on a native floating-point register.
+ *
+ *   INPUTS
+ *       r -- native floating-point register index.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Does not verify the current lock count.
+ *
+ ****************************************************************************/
+
 static  void f_setlock(int r)
 {
     live.fat[r].locked++;
 }
+
+/****i* januae-compemu-internal/f_readreg
+ *
+ *   NAME
+ *       f_readreg()
+ *
+ *   SYNOPSIS
+ *       static __inline__ int f_readreg(int r)
+ *
+ *   FUNCTION
+ *       Acquire a locked native floating-point register for reading.
+ *
+ *   INPUTS
+ *       r -- virtual floating-point register index.
+ *
+ *   RESULT
+ *       Locked native floating-point register index.
+ *
+ *   NOTES
+ *       Reuses a resident mapping or allocates and loads one, then updates its usage timestamp.
+ *
+ ****************************************************************************/
 
 static __inline__ int f_readreg(int r)
 {
@@ -2790,6 +3384,29 @@ static __inline__ int f_readreg(int r)
     live.fat[answer].touched=touchcnt++;
     return answer;
 }
+
+/****i* januae-compemu-internal/f_make_exclusive
+ *
+ *   NAME
+ *       f_make_exclusive()
+ *
+ *   SYNOPSIS
+ *       static __inline__ void f_make_exclusive(int r, int clobber)
+ *
+ *   FUNCTION
+ *       Make a virtual floating-point register the sole holder of its native register.
+ *
+ *   INPUTS
+ *       r -- virtual floating-point register index.
+ *       clobber -- whether the value may be overwritten without copying.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       May evict other clean holders or split the mapping into a new register; returns for nonresident or already exclusive mappings.
+ *
+ ****************************************************************************/
 
 static __inline__ void f_make_exclusive(int r, int clobber)
 {
@@ -2849,6 +3466,28 @@ static __inline__ void f_make_exclusive(int r, int clobber)
 }
 
 
+/****i* januae-compemu-internal/f_writereg
+ *
+ *   NAME
+ *       f_writereg()
+ *
+ *   SYNOPSIS
+ *       static __inline__ int f_writereg(int r)
+ *
+ *   FUNCTION
+ *       Acquire an exclusive native floating-point register for a write.
+ *
+ *   INPUTS
+ *       r -- virtual floating-point register index.
+ *
+ *   RESULT
+ *       Locked native floating-point register index.
+ *
+ *   NOTES
+ *       Makes the association exclusive, marks the virtual register DIRTY and updates its usage timestamp.
+ *
+ ****************************************************************************/
+
 static __inline__ int f_writereg(int r)
 {
     int n;
@@ -2868,6 +3507,28 @@ static __inline__ int f_writereg(int r)
     return answer;
 }
 
+/****i* januae-compemu-internal/f_rmw
+ *
+ *   NAME
+ *       f_rmw()
+ *
+ *   SYNOPSIS
+ *       static int f_rmw(int r)
+ *
+ *   FUNCTION
+ *       Acquire an exclusive native floating-point register for read-modify-write.
+ *
+ *   INPUTS
+ *       r -- virtual floating-point register index.
+ *
+ *   RESULT
+ *       Locked native floating-point register index.
+ *
+ *   NOTES
+ *       Preserves the old value when splitting shared registers, then marks the mapping DIRTY.
+ *
+ ****************************************************************************/
+
 static int f_rmw(int r)
 {
     int n;
@@ -2883,6 +3544,28 @@ static int f_rmw(int r)
     live.fat[n].touched=touchcnt++;
     return n;
 }
+
+/****i* januae-compemu-internal/fflags_into_flags_internal
+ *
+ *   NAME
+ *       fflags_into_flags_internal()
+ *
+ *   SYNOPSIS
+ *       static void fflags_into_flags_internal(uae_u32 tmp)
+ *
+ *   FUNCTION
+ *       Generate the transfer of floating-point condition flags into native CPU flags.
+ *
+ *   INPUTS
+ *       tmp -- temporary register argument accepted by the interface.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Clobbers the old native flags, reads FP_RESULT, emits the conversion, and unlocks that register; tmp is unused.
+ *
+ ****************************************************************************/
 
 static void fflags_into_flags_internal(uae_u32 tmp)
 {
