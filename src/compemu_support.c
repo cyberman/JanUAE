@@ -6249,6 +6249,28 @@ MENDFUNC(2,fmul_rr,(FRW d, FR s))
  * Support functions exposed to gencomp. CREATE time                *
  ********************************************************************/
 
+/****i* januae-compemu-internal/kill_rodent
+ *
+ *   NAME
+ *       kill_rodent()
+ *
+ *   SYNOPSIS
+ *       int kill_rodent(int r)
+ *
+ *   FUNCTION
+ *       Test whether an eligible virtual register meets the current rat-stall workaround conditions.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *
+ *   RESULT
+ *       Nonzero only when the workaround, stall flag and one qualifying register state are present.
+ *
+ *   NOTES
+ *       The test inspects register state; it does not change the mapping.
+ *
+ ****************************************************************************/
+
 int kill_rodent(int r)
 {
     return KILLTHERAT &&
@@ -6259,6 +6281,28 @@ int kill_rodent(int r)
 	 live.state[r].dirtysize==4);
 }
 
+/****i* januae-compemu-internal/get_const
+ *
+ *   NAME
+ *       get_const()
+ *
+ *   SYNOPSIS
+ *       uae_u32 get_const(int r)
+ *
+ *   FUNCTION
+ *       Retrieve the tracked constant value of a virtual register.
+ *
+ *   INPUTS
+ *       r -- virtual register index.
+ *
+ *   RESULT
+ *       Tracked constant value.
+ *
+ *   NOTES
+ *       Logs an error and aborts if the register is not constant.
+ *
+ ****************************************************************************/
+
 uae_u32 get_const(int r)
 {
 	Dif (!isconst(r)) {
@@ -6267,6 +6311,28 @@ uae_u32 get_const(int r)
 	}
     return live.state[r].val;
 }
+
+/****i* januae-compemu-internal/sync_m68k_pc
+ *
+ *   NAME
+ *       sync_m68k_pc()
+ *
+ *   SYNOPSIS
+ *       void sync_m68k_pc(void)
+ *
+ *   FUNCTION
+ *       Apply a deferred m68k program-counter offset to the native PC representation.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Emits an addition, advances comp_pc_p and clears the offset only when one is pending.
+ *
+ ****************************************************************************/
 
 void sync_m68k_pc(void)
 {
@@ -6283,6 +6349,28 @@ void sync_m68k_pc(void)
 
 uae_u32 scratch[VREGS];
 fptype  fscratch[VFREGS];
+
+/****i* januae-compemu-internal/init_comp
+ *
+ *   NAME
+ *       init_comp()
+ *
+ *   SYNOPSIS
+ *       void init_comp(void)
+ *
+ *   FUNCTION
+ *       Initialize JIT virtual and native register state, scratch storage, flags and floating-point support.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Binds the emulated CPU registers to backing storage, reserves host registers and invokes raw_fp_init().
+ *
+ ****************************************************************************/
 
 void init_comp(void)
 {
@@ -6374,6 +6462,30 @@ void init_comp(void)
     raw_fp_init();
 }
 
+
+/****i* januae-compemu-internal/vinton
+ *
+ *   NAME
+ *       vinton()
+ *
+ *   SYNOPSIS
+ *       static void vinton(int i, uae_s8* vton, int depth)
+ *
+ *   FUNCTION
+ *       Move a virtual register toward its target native-register assignment.
+ *
+ *   INPUTS
+ *       i -- virtual register index.
+ *       vton -- requested virtual-to-native register map.
+ *       depth -- recursion depth.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Recursively moves an occupying holder within the depth bound; aborts for an absent destination or a shared holder.
+ *
+ ****************************************************************************/
 
 static void vinton(int i, uae_s8* vton, int depth)
 {
@@ -6580,6 +6692,28 @@ static __inline__ void match_states(smallstate* s)
 #endif
 
 /* Only do this if you really mean it! The next call should be to init!*/
+/****i* januae-compemu-internal/flush
+ *
+ *   NAME
+ *       flush()
+ *
+ *   SYNOPSIS
+ *       void flush(int save_regs)
+ *
+ *   FUNCTION
+ *       Synchronize pending flags and program-counter updates and optionally write registers back.
+ *
+ *   INPUTS
+ *       save_regs -- whether to flush and release tracked register values.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Always flushes flags and the deferred PC offset; register writeback and FPU cleanup depend on save_regs. Logs when needflags remains set.
+ *
+ ****************************************************************************/
+
 void flush(int save_regs)
 {
     int i;
@@ -6632,6 +6766,28 @@ void flush(int save_regs)
     }
 }
 
+/****i* januae-compemu-internal/flush_keepflags
+ *
+ *   NAME
+ *       flush_keepflags()
+ *
+ *   SYNOPSIS
+ *       static void flush_keepflags(void)
+ *
+ *   FUNCTION
+ *       Write back and release eligible register state while retaining the current flag representation.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Writes eligible integer and floating-point values and drops the FPU native state; does not flush flags or the deferred PC offset.
+ *
+ ****************************************************************************/
+
 static void flush_keepflags(void)
 {
     int i;
@@ -6668,6 +6824,28 @@ static void flush_keepflags(void)
     raw_fp_cleanup_drop();
 }
 
+/****i* januae-compemu-internal/freescratch
+ *
+ *   NAME
+ *       freescratch()
+ *
+ *   SYNOPSIS
+ *       void freescratch(void)
+ *
+ *   FUNCTION
+ *       Discard scratch-only integer and floating-point register mappings.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Logs locked host integer registers other than register 4 before forgetting scratch mappings.
+ *
+ ****************************************************************************/
+
 void freescratch(void)
 {
     int i;
@@ -6691,6 +6869,28 @@ void freescratch(void)
  ********************************************************************/
 
 
+/****i* januae-compemu-internal/align_target
+ *
+ *   NAME
+ *       align_target()
+ *
+ *   SYNOPSIS
+ *       static void align_target (uae_u32 a)
+ *
+ *   FUNCTION
+ *       Pad the generated-code target to the requested alignment using native NOP filler.
+ *
+ *   INPUTS
+ *       a -- requested alignment boundary, or zero for no padding.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Uses raw_emit_nop_filler(); the alternate bytewise padding loop is unreachable in the current conditional.
+ *
+ ****************************************************************************/
+
 static void align_target (uae_u32 a)
 {
     if (!a)
@@ -6706,11 +6906,55 @@ static void align_target (uae_u32 a)
 }
 
 extern uae_u8* kickmemory;
+/****i* januae-compemu-internal/isinrom
+ *
+ *   NAME
+ *       isinrom()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE int isinrom (uae_uintptr addr)
+ *
+ *   FUNCTION
+ *       Check whether a host address falls inside the configured kickmemory interval.
+ *
+ *   INPUTS
+ *       addr -- host address to test.
+ *
+ *   RESULT
+ *       Nonzero for addresses in the half-open 512 KiB interval beginning at kickmemory.
+ *
+ *   NOTES
+ *       Uses address comparison only and does not validate the memory mapping.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE int isinrom (uae_uintptr addr)
 {
     return (addr >= (uae_uintptr) kickmemory &&
 	    addr <  (uae_uintptr) kickmemory + 8 * 65536);
 }
+
+/****i* januae-compemu-internal/flush_all
+ *
+ *   NAME
+ *       flush_all()
+ *
+ *   SYNOPSIS
+ *       static void flush_all(void)
+ *
+ *   FUNCTION
+ *       Write back eligible dirty integer values and evict all resident floating-point values.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Skips integer registers marked call-saved, then drops native floating-point state.
+ *
+ ****************************************************************************/
 
 static void flush_all(void)
 {
@@ -6731,6 +6975,28 @@ static void flush_all(void)
 
 /* Make sure all registers that will get clobbered by a call are
    save and sound in memory */
+/****i* januae-compemu-internal/prepare_for_call_1
+ *
+ *   NAME
+ *       prepare_for_call_1()
+ *
+ *   SYNOPSIS
+ *       static void prepare_for_call_1(void)
+ *
+ *   FUNCTION
+ *       Preserve register contents before emitting a call into a C routine.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Delegates to flush_all(); the implementation does not optimize preservation beyond that helper.
+ *
+ ****************************************************************************/
+
 static void prepare_for_call_1(void)
 {
     flush_all();  /* If there are registers that don't get clobbered,
@@ -6739,6 +7005,28 @@ static void prepare_for_call_1(void)
 
 /* We will call a C routine in a moment. That will clobber all registers,
    so we need to disassociate everything */
+/****i* januae-compemu-internal/prepare_for_call_2
+ *
+ *   NAME
+ *       prepare_for_call_2()
+ *
+ *   SYNOPSIS
+ *       static void prepare_for_call_2(void)
+ *
+ *   FUNCTION
+ *       Discard caller-clobbered native register associations after call preparation.
+ *
+ *   INPUTS
+ *       None.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Frees non-call-saved integer holders and floating-point holders; marks native condition flags invalid.
+ *
+ ****************************************************************************/
+
 static void prepare_for_call_2(void)
 {
     int i;
@@ -6760,12 +7048,58 @@ static void prepare_for_call_2(void)
  * Memory access and related functions, CREATE time                 *
  ********************************************************************/
 
+/****i* januae-compemu-internal/register_branch
+ *
+ *   NAME
+ *       register_branch()
+ *
+ *   SYNOPSIS
+ *       void register_branch (uae_u32 not_taken, uae_u32 taken, uae_u8 cond)
+ *
+ *   FUNCTION
+ *       Record the targets and condition of a generated conditional branch.
+ *
+ *   INPUTS
+ *       not_taken -- fall-through target.
+ *       taken -- taken target.
+ *       cond -- branch condition.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Updates next_pc_p, taken_pc_p and branch_cc without emitting machine code.
+ *
+ ****************************************************************************/
+
 void register_branch (uae_u32 not_taken, uae_u32 taken, uae_u8 cond)
 {
     next_pc_p = not_taken;
     taken_pc_p = taken;
     branch_cc = cond;
 }
+
+/****i* januae-compemu-internal/get_handler_address
+ *
+ *   NAME
+ *       get_handler_address()
+ *
+ *   SYNOPSIS
+ *       static uae_uintptr get_handler_address (uae_uintptr addr)
+ *
+ *   FUNCTION
+ *       Locate the storage cell for a compiled block direct-handler pointer.
+ *
+ *   INPUTS
+ *       addr -- address associated with the target compiled block.
+ *
+ *   RESULT
+ *       Host address of the direct_handler_to_use field.
+ *
+ *   NOTES
+ *       Requests block information without attaching saved state.
+ *
+ ****************************************************************************/
 
 static uae_uintptr get_handler_address (uae_uintptr addr)
 {
@@ -6774,12 +7108,57 @@ static uae_uintptr get_handler_address (uae_uintptr addr)
     return (uae_uintptr) &(bi->direct_handler_to_use);
 }
 
+/****i* januae-compemu-internal/get_handler
+ *
+ *   NAME
+ *       get_handler()
+ *
+ *   SYNOPSIS
+ *       static uae_uintptr get_handler (uae_uintptr addr)
+ *
+ *   FUNCTION
+ *       Read the current direct-handler pointer for a compiled block.
+ *
+ *   INPUTS
+ *       addr -- address associated with the target compiled block.
+ *
+ *   RESULT
+ *       Direct-handler pointer encoded as an integer address.
+ *
+ *   NOTES
+ *       Obtains the block record using get_blockinfo_addr_new().
+ *
+ ****************************************************************************/
+
 static uae_uintptr get_handler (uae_uintptr addr)
 {
     blockinfo *bi = get_blockinfo_addr_new ((void *) addr, 0);
 
     return (uae_uintptr) bi->direct_handler_to_use;
 }
+
+/****i* januae-compemu-internal/load_handler
+ *
+ *   NAME
+ *       load_handler()
+ *
+ *   SYNOPSIS
+ *       static void load_handler (int reg, uae_uintptr addr)
+ *
+ *   FUNCTION
+ *       Emit a load of the compiled-block direct-handler pointer into a native register.
+ *
+ *   INPUTS
+ *       reg -- destination native register.
+ *       addr -- compiled-block address.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Loads from the handler storage address rather than embedding the handler value.
+ *
+ ****************************************************************************/
 
 static void load_handler (int reg, uae_uintptr addr)
 {
@@ -6789,6 +7168,33 @@ static void load_handler (int reg, uae_uintptr addr)
 /* This version assumes that it is writing *real* memory, and *will* fail
  *  if that assumption is wrong! No branches, no second chances, just
  *  straight go-for-it attitude */
+/****i* januae-compemu-internal/writemem_real
+ *
+ *   NAME
+ *       writemem_real()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void writemem_real (int address, int source, int offset, int size, int tmp, int clobber)
+ *
+ *   FUNCTION
+ *       Emit a write to a directly addressable guest-memory bank.
+ *
+ *   INPUTS
+ *       address -- guest address register.
+ *       source -- source-value register.
+ *       offset -- bank-function offset, unused by this helper.
+ *       size -- transfer width in bytes.
+ *       tmp -- temporary native register.
+ *       clobber -- whether source may serve as the temporary register.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Uses NATMEM_OFFSET when enabled and canbang is set, otherwise indexes baseaddr; 16- and 32-bit transfers swap byte order.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void writemem_real (int address, int source, int offset, int size, int tmp, int clobber)
 {
     int f = tmp;
@@ -6828,6 +7234,32 @@ STATIC_INLINE void writemem_real (int address, int source, int offset, int size,
     }
 }
 
+/****i* januae-compemu-internal/writemem
+ *
+ *   NAME
+ *       writemem()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void writemem (int address, int source, int offset, int size, int tmp)
+ *
+ *   FUNCTION
+ *       Emit a memory-bank callback for a guest-memory write.
+ *
+ *   INPUTS
+ *       address -- guest address register.
+ *       source -- source-value register.
+ *       offset -- bank write-function offset.
+ *       size -- transfer width in bytes.
+ *       tmp -- temporary register.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Selects the bank from the high address bits, invokes its write function, and forgets the temporary.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void writemem (int address, int source, int offset, int size, int tmp)
 {
     int f = tmp;
@@ -6841,6 +7273,30 @@ STATIC_INLINE void writemem (int address, int source, int offset, int size, int 
     call_r_02 (f, address, source, 4, size);
     forget_about (tmp);
 }
+
+/****i* januae-compemu-internal/writebyte
+ *
+ *   NAME
+ *       writebyte()
+ *
+ *   SYNOPSIS
+ *       void writebyte (int address, int source, int tmp)
+ *
+ *   FUNCTION
+ *       Emit an eight-bit guest-memory write using the configured trust policy.
+ *
+ *   INPUTS
+ *       address -- guest address register.
+ *       source -- source register.
+ *       tmp -- temporary register.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Selects a special-memory helper when the write flag or byte distrust policy requires it.
+ *
+ ****************************************************************************/
 
 void writebyte (int address, int source, int tmp)
 {
@@ -6859,6 +7315,31 @@ void writebyte (int address, int source, int tmp)
 	writemem_real (address, source, 20, 1, tmp, 0);
 }
 
+/****i* januae-compemu-internal/writeword_general
+ *
+ *   NAME
+ *       writeword_general()
+ *
+ *   SYNOPSIS
+ *       void writeword_general (int address, int source, int tmp, int clobber)
+ *
+ *   FUNCTION
+ *       Emit a sixteen-bit guest-memory write using the configured trust policy.
+ *
+ *   INPUTS
+ *       address -- guest address register.
+ *       source -- source register.
+ *       tmp -- temporary register.
+ *       clobber -- whether the direct path may modify the source.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Selects the special-memory helper or a direct bank write according to runtime flags and word trust.
+ *
+ ****************************************************************************/
+
 void writeword_general (int address, int source, int tmp, int clobber)
 {
     int distrust;
@@ -6875,6 +7356,31 @@ void writeword_general (int address, int source, int tmp, int clobber)
     else
 	writemem_real (address, source, 16, 2, tmp, clobber);
 }
+
+/****i* januae-compemu-internal/writelong_general
+ *
+ *   NAME
+ *       writelong_general()
+ *
+ *   SYNOPSIS
+ *       void writelong_general (int address, int source, int tmp, int clobber)
+ *
+ *   FUNCTION
+ *       Emit a thirty-two-bit guest-memory write using the configured trust policy.
+ *
+ *   INPUTS
+ *       address -- guest address register.
+ *       source -- source register.
+ *       tmp -- temporary register.
+ *       clobber -- whether the direct path may modify the source.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Selects the special-memory helper or a direct bank write according to runtime flags and longword trust.
+ *
+ ****************************************************************************/
 
 void writelong_general (int address, int source, int tmp, int clobber)
 {
@@ -6896,6 +7402,32 @@ void writelong_general (int address, int source, int tmp, int clobber)
 /* This version assumes that it is reading *real* memory, and *will* fail
  *  if that assumption is wrong! No branches, no second chances, just
  *  straight go-for-it attitude */
+/****i* januae-compemu-internal/readmem_real
+ *
+ *   NAME
+ *       readmem_real()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void readmem_real (int address, int dest, int offset, int size, int tmp)
+ *
+ *   FUNCTION
+ *       Emit a read from directly addressable guest memory.
+ *
+ *   INPUTS
+ *       address -- guest address register.
+ *       dest -- destination register.
+ *       offset -- bank-function offset, unused by this helper.
+ *       size -- transfer width in bytes.
+ *       tmp -- temporary register.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Uses NATMEM_OFFSET when available and canbang is set, otherwise the baseaddr table; word and longword results are byte-swapped.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void readmem_real (int address, int dest, int offset, int size, int tmp)
 {
     int f = tmp;
@@ -6928,6 +7460,32 @@ STATIC_INLINE void readmem_real (int address, int dest, int offset, int size, in
     forget_about (tmp);
 }
 
+/****i* januae-compemu-internal/readmem
+ *
+ *   NAME
+ *       readmem()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void readmem (int address, int dest, int offset, int size, int tmp)
+ *
+ *   FUNCTION
+ *       Emit an indirect memory-bank callback for a guest-memory read.
+ *
+ *   INPUTS
+ *       address -- guest address register.
+ *       dest -- destination register.
+ *       offset -- bank read-function offset.
+ *       size -- transfer width in bytes.
+ *       tmp -- temporary register.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Selects the bank from the high address bits, calls its read function and forgets tmp.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void readmem (int address, int dest, int offset, int size, int tmp)
 {
     int f = tmp;
@@ -6941,6 +7499,30 @@ STATIC_INLINE void readmem (int address, int dest, int offset, int size, int tmp
     call_r_11 (dest, f, address, size, 4);
     forget_about (tmp);
 }
+
+/****i* januae-compemu-internal/readbyte
+ *
+ *   NAME
+ *       readbyte()
+ *
+ *   SYNOPSIS
+ *       void readbyte (int address, int dest, int tmp)
+ *
+ *   FUNCTION
+ *       Emit an eight-bit guest-memory read using the configured trust policy.
+ *
+ *   INPUTS
+ *       address -- guest address register.
+ *       dest -- destination register.
+ *       tmp -- temporary register.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Chooses special-memory handling when a read flag or byte distrust policy requires it.
+ *
+ ****************************************************************************/
 
 void readbyte (int address, int dest, int tmp)
 {
@@ -6959,6 +7541,30 @@ void readbyte (int address, int dest, int tmp)
 	readmem_real (address, dest, 8, 1, tmp);
 }
 
+/****i* januae-compemu-internal/readword
+ *
+ *   NAME
+ *       readword()
+ *
+ *   SYNOPSIS
+ *       void readword (int address, int dest, int tmp)
+ *
+ *   FUNCTION
+ *       Emit a sixteen-bit guest-memory read using the configured trust policy.
+ *
+ *   INPUTS
+ *       address -- guest address register.
+ *       dest -- destination register.
+ *       tmp -- temporary register.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Chooses special-memory handling when a read flag or word distrust policy requires it.
+ *
+ ****************************************************************************/
+
 void readword (int address, int dest, int tmp)
 {
     int distrust;
@@ -6975,6 +7581,30 @@ void readword (int address, int dest, int tmp)
     else
 	readmem_real (address, dest, 4, 2, tmp);
 }
+
+/****i* januae-compemu-internal/readlong
+ *
+ *   NAME
+ *       readlong()
+ *
+ *   SYNOPSIS
+ *       void readlong (int address, int dest, int tmp)
+ *
+ *   FUNCTION
+ *       Emit a thirty-two-bit guest-memory read using the configured trust policy.
+ *
+ *   INPUTS
+ *       address -- guest address register.
+ *       dest -- destination register.
+ *       tmp -- temporary register.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Chooses special-memory handling when a read flag or longword distrust policy requires it.
+ *
+ ****************************************************************************/
 
 void readlong (int address, int dest, int tmp)
 {
@@ -6994,10 +7624,58 @@ void readlong (int address, int dest, int tmp)
 }
 
 /* This one might appear a bit odd... */
+/****i* januae-compemu-internal/get_n_addr_old
+ *
+ *   NAME
+ *       get_n_addr_old()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void get_n_addr_old (int address, int dest, int tmp)
+ *
+ *   FUNCTION
+ *       Obtain a native-access address through the guest-memory bank callback.
+ *
+ *   INPUTS
+ *       address -- guest address register.
+ *       dest -- destination register.
+ *       tmp -- temporary register.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Uses readmem() with the native-address callback offset.
+ *
+ ****************************************************************************/
+
 STATIC_INLINE void get_n_addr_old (int address, int dest, int tmp)
 {
     readmem (address, dest, 24, 4, tmp);
 }
+
+/****i* januae-compemu-internal/get_n_addr_real
+ *
+ *   NAME
+ *       get_n_addr_real()
+ *
+ *   SYNOPSIS
+ *       STATIC_INLINE void get_n_addr_real (int address, int dest, int tmp)
+ *
+ *   FUNCTION
+ *       Compute a native pointer to directly addressable guest memory.
+ *
+ *   INPUTS
+ *       address -- guest address register.
+ *       dest -- destination register.
+ *       tmp -- temporary register.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Uses a NATMEM_OFFSET address when supported or adds the baseaddr table displacement.
+ *
+ ****************************************************************************/
 
 STATIC_INLINE void get_n_addr_real (int address, int dest, int tmp)
 {
@@ -7020,6 +7698,30 @@ STATIC_INLINE void get_n_addr_real (int address, int dest, int tmp)
     forget_about (tmp);
 }
 
+/****i* januae-compemu-internal/get_n_addr
+ *
+ *   NAME
+ *       get_n_addr()
+ *
+ *   SYNOPSIS
+ *       void get_n_addr (int address, int dest, int tmp)
+ *
+ *   FUNCTION
+ *       Select a native-address conversion path using the configured trust policy.
+ *
+ *   INPUTS
+ *       address -- guest address register.
+ *       dest -- destination register.
+ *       tmp -- temporary register.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Falls back to the bank callback for special memory or distrust; otherwise emits direct address conversion.
+ *
+ ****************************************************************************/
+
 void get_n_addr (int address, int dest, int tmp)
 {
     int distrust;
@@ -7036,6 +7738,30 @@ void get_n_addr (int address, int dest, int tmp)
     else
 	get_n_addr_real (address,dest,tmp);
 }
+
+/****i* januae-compemu-internal/get_n_addr_jmp
+ *
+ *   NAME
+ *       get_n_addr_jmp()
+ *
+ *   SYNOPSIS
+ *       void get_n_addr_jmp (int address, int dest, int tmp)
+ *
+ *   FUNCTION
+ *       Compute an aligned native guest-memory address for jump handling.
+ *
+ *   INPUTS
+ *       address -- guest address register.
+ *       dest -- destination register.
+ *       tmp -- temporary register.
+ *
+ *   RESULT
+ *       None.
+ *
+ *   NOTES
+ *       Uses baseaddr displacement and clears the least significant bit; the alternate get_n_addr() path is disabled.
+ *
+ ****************************************************************************/
 
 void get_n_addr_jmp (int address, int dest, int tmp)
 {
