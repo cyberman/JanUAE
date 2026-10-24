@@ -112,6 +112,21 @@ static int last_state = -1;
 /*
  * Set window title with some useful status info.
  */
+/****i* januae-sdlgfx-internal/set_window_title
+ *
+ *   NAME
+ *       set_window_title()
+ *
+ *   SYNOPSIS
+ *       static void set_window_title (void)
+ *
+ *   FUNCTION
+ *       Sets the SDL window and icon captions to the package name, adding a paused suffix when the emulator state is paused.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void set_window_title (void)
 {
     const char *title = PACKAGE_NAME;
@@ -129,6 +144,21 @@ static void set_window_title (void)
  * platform, but we need to know this to be able to map raw keys
  * and to work around any platform-specific quirks . . .
  */
+/****i* januae-sdlgfx-internal/get_sdlgfx_type
+ *
+ *   NAME
+ *       get_sdlgfx_type()
+ *
+ *   SYNOPSIS
+ *       int get_sdlgfx_type (void)
+ *
+ *   FUNCTION
+ *       Identifies the SDL video driver once and caches its mapped backend identifier.
+ *
+ *   RESULT
+ *       The known SDLGFX driver constant or SDLGFX_DRIVER_UNKNOWN.
+ *
+ ****************************************************************************/
 int get_sdlgfx_type (void)
 {
     char name[16] = "";
@@ -181,6 +211,27 @@ STATIC_INLINE unsigned long maskShift (unsigned long mask)
     return n;
 }
 
+/****i* januae-sdlgfx-internal/get_color
+ *
+ *   NAME
+ *       get_color()
+ *
+ *   SYNOPSIS
+ *       static int get_color (int r, int g, int b, xcolnr *cnp)
+ *
+ *   FUNCTION
+ *       Appends an RGB palette entry to arSDLColors and returns its assigned index through cnp.
+ *
+ *   INPUTS
+ *       r -- Red channel value.
+ *       g -- Green channel value.
+ *       b -- Blue channel value.
+ *       cnp -- Destination palette index.
+ *
+ *   RESULT
+ *       Returns 1; advances ncolors without an explicit capacity check.
+ *
+ ****************************************************************************/
 static int get_color (int r, int g, int b, xcolnr *cnp)
 {
     DEBUG_LOG ("Function: get_color\n");
@@ -192,6 +243,21 @@ static int get_color (int r, int g, int b, xcolnr *cnp)
     return 1;
 }
 
+/****i* januae-sdlgfx-internal/init_colors
+ *
+ *   NAME
+ *       init_colors()
+ *
+ *   SYNOPSIS
+ *       static int init_colors (void)
+ *
+ *   FUNCTION
+ *       Initializes color conversion for the current display depth, using 64K-color mapping above eight bits or an SDL palette otherwise.
+ *
+ *   RESULT
+ *       Returns 1; aborts when OpenGL is enabled with an eight-bit or lower depth.
+ *
+ ****************************************************************************/
 static int init_colors (void)
 {
     int i;
@@ -231,6 +297,27 @@ static int init_colors (void)
  * available. If not, find a supported screen mode which best
  * matches.
  */
+/****i* januae-sdlgfx-internal/find_best_mode
+ *
+ *   NAME
+ *       find_best_mode()
+ *
+ *   SYNOPSIS
+ *       static int find_best_mode (int *width, int *height, int depth, int fullscreen)
+ *
+ *   FUNCTION
+ *       Checks the requested SDL video mode and, when unavailable, chooses an available full-screen resolution from screenmode.
+ *
+ *   INPUTS
+ *       width -- Requested width or width output.
+ *       height -- Requested height or height output.
+ *       depth -- Requested display pixel depth.
+ *       fullscreen -- Whether the requested mode is full screen.
+ *
+ *   RESULT
+ *       Returns the SDL mode depth or 1 for a selected fallback, or 0 when no mode is available.
+ *
+ ****************************************************************************/
 static int find_best_mode (int *width, int *height, int depth, int fullscreen)
 {
     int found = 0;
@@ -271,6 +358,24 @@ static int find_best_mode (int *width, int *height, int depth, int fullscreen)
 /*
  * Map an SDL pixel format to a P96 pixel format
  */
+/****i* januae-sdlgfx-internal/get_p96_pixel_format
+ *
+ *   NAME
+ *       get_p96_pixel_format()
+ *
+ *   SYNOPSIS
+ *       static int get_p96_pixel_format (const struct SDL_PixelFormat *fmt)
+ *
+ *   FUNCTION
+ *       Maps SDL channel masks and pixel depth to a Picasso96 RGB format, accounting for endianness and the Quartz high-color exception.
+ *
+ *   INPUTS
+ *       fmt -- SDL pixel-format description.
+ *
+ *   RESULT
+ *       Returns the matching RGBFB value or RGBFB_NONE; compiled only with PICASSO96.
+ *
+ ****************************************************************************/
 static int get_p96_pixel_format (const struct SDL_PixelFormat *fmt)
 {
     if (fmt->BitsPerPixel == 8)
@@ -343,6 +448,26 @@ static int get_p96_pixel_format (const struct SDL_PixelFormat *fmt)
  * Returns a count of the number of supported modes, -1 if any mode is supported,
  * or 0 if there are no modes with this pixel format.
  */
+/****i* januae-sdlgfx-internal/find_screen_modes
+ *
+ *   NAME
+ *       find_screen_modes()
+ *
+ *   SYNOPSIS
+ *       static long find_screen_modes (struct SDL_PixelFormat *vfmt, SDL_Rect *mode_list, int mode_list_size)
+ *
+ *   FUNCTION
+ *       Enumerates full-screen hardware-surface modes, copying distinct consecutive resolutions into the caller buffer.
+ *
+ *   INPUTS
+ *       vfmt -- Pixel format used for SDL mode enumeration.
+ *       mode_list -- Destination mode array.
+ *       mode_list_size -- Maximum number of destination entries.
+ *
+ *   RESULT
+ *       Returns the number copied, -1 when SDL reports all modes supported, or 0 when none are available.
+ *
+ ****************************************************************************/
 static long find_screen_modes (struct SDL_PixelFormat *vfmt, SDL_Rect *mode_list, int mode_list_size)
 {
     long count = 0;
@@ -398,6 +523,24 @@ static int have_texture_rectangles;
 static int have_apple_client_storage;
 static int have_apple_texture_range;
 
+/****i* januae-sdlgfx-internal/round_up_to_power_of_2
+ *
+ *   NAME
+ *       round_up_to_power_of_2()
+ *
+ *   SYNOPSIS
+ *       static int round_up_to_power_of_2 (int value)
+ *
+ *   FUNCTION
+ *       Finds the first power of two at least as large as the requested value.
+ *
+ *   INPUTS
+ *       value -- Input integer.
+ *
+ *   RESULT
+ *       Returns a power of two, starting at 1; no overflow guard is present.
+ *
+ ****************************************************************************/
 static int round_up_to_power_of_2 (int value)
 {
     int result = 1;
@@ -408,6 +551,21 @@ static int round_up_to_power_of_2 (int value)
     return result;
 }
 
+/****i* januae-sdlgfx-internal/check_gl_extensions
+ *
+ *   NAME
+ *       check_gl_extensions()
+ *
+ *   SYNOPSIS
+ *       static void check_gl_extensions (void)
+ *
+ *   FUNCTION
+ *       Reads the OpenGL extension string and sets flags for rectangular textures and Apple texture extensions.
+ *
+ *   RESULT
+ *       None; the declared done guard is not set by this function.
+ *
+ ****************************************************************************/
 static void check_gl_extensions (void)
 {
     static int done = 0;
@@ -421,6 +579,25 @@ static void check_gl_extensions (void)
     }
 }
 
+/****i* januae-sdlgfx-internal/init_gl_display
+ *
+ *   NAME
+ *       init_gl_display()
+ *
+ *   SYNOPSIS
+ *       static void init_gl_display (GLsizei width, GLsizei height)
+ *
+ *   FUNCTION
+ *       Configures the viewport, orthographic projection, texturing target, and fixed-function OpenGL rendering state.
+ *
+ *   INPUTS
+ *       width -- Requested width or width output.
+ *       height -- Requested height or height output.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void init_gl_display (GLsizei width, GLsizei height)
 {
     glViewport (0, 0, width, height);
@@ -446,6 +623,24 @@ static void init_gl_display (GLsizei width, GLsizei height)
     return;
 }
 
+/****i* januae-sdlgfx-internal/free_gl_buffer
+ *
+ *   NAME
+ *       free_gl_buffer()
+ *
+ *   SYNOPSIS
+ *       static void free_gl_buffer (struct gl_buffer_t *buffer)
+ *
+ *   FUNCTION
+ *       Unbinds and deletes a texture, frees the shared SDL display surface, and clears the global display pointer.
+ *
+ *   INPUTS
+ *       buffer -- OpenGL texture-buffer descriptor.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void free_gl_buffer (struct gl_buffer_t *buffer)
 {
     glBindTexture (buffer->target, 0);
@@ -455,6 +650,27 @@ static void free_gl_buffer (struct gl_buffer_t *buffer)
     display = 0;
 }
 
+/****i* januae-sdlgfx-internal/alloc_gl_buffer
+ *
+ *   NAME
+ *       alloc_gl_buffer()
+ *
+ *   SYNOPSIS
+ *       static int alloc_gl_buffer (struct gl_buffer_t *buffer, int width, int height, int want_16bit)
+ *
+ *   FUNCTION
+ *       Creates an SDL software surface and associated OpenGL texture using rectangle or power-of-two dimensions.
+ *
+ *   INPUTS
+ *       buffer -- OpenGL texture-buffer descriptor.
+ *       width -- Requested width or width output.
+ *       height -- Requested height or height output.
+ *       want_16bit -- Request a 16-bit rather than 32-bit texture surface.
+ *
+ *   RESULT
+ *       Returns 1 after successful texture allocation; returns 0 when SDL surface creation or OpenGL texture allocation fails.
+ *
+ ****************************************************************************/
 static int alloc_gl_buffer (struct gl_buffer_t *buffer, int width, int height, int want_16bit)
 {
     GLenum tex_intformat;
@@ -574,6 +790,25 @@ STATIC_INLINE void render_gl_buffer (const struct gl_buffer_t *buffer, int first
  ** Buffer methods not implemented for this driver.
  **/
 
+/****i* januae-sdlgfx-internal/sdl_flush_line
+ *
+ *   NAME
+ *       sdl_flush_line()
+ *
+ *   SYNOPSIS
+ *       static void sdl_flush_line (struct vidbuf_description *gfxinfo, int line_no)
+ *
+ *   FUNCTION
+ *       Placeholder for per-line SDL buffer flushing; no operation is implemented.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *       line_no -- Video buffer line number.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void sdl_flush_line (struct vidbuf_description *gfxinfo, int line_no)
 {
 }
@@ -583,11 +818,47 @@ static void sdl_flush_line (struct vidbuf_description *gfxinfo, int line_no)
  ** Buffer methods for SDL surfaces that don't need locking
  **/
 
+/****i* januae-sdlgfx-internal/sdl_lock_nolock
+ *
+ *   NAME
+ *       sdl_lock_nolock()
+ *
+ *   SYNOPSIS
+ *       static int sdl_lock_nolock (struct vidbuf_description *gfxinfo)
+ *
+ *   FUNCTION
+ *       Accepts the lock request for an SDL surface that does not require locking.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *
+ *   RESULT
+ *       Returns 1 unconditionally.
+ *
+ ****************************************************************************/
 static int sdl_lock_nolock (struct vidbuf_description *gfxinfo)
 {
     return 1;
 }
 
+/****i* januae-sdlgfx-internal/sdl_unlock_nolock
+ *
+ *   NAME
+ *       sdl_unlock_nolock()
+ *
+ *   SYNOPSIS
+ *       static void sdl_unlock_nolock (struct vidbuf_description *gfxinfo)
+ *
+ *   FUNCTION
+ *       Placeholder unlock hook for an SDL surface that does not require locking.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void sdl_unlock_nolock (struct vidbuf_description *gfxinfo)
 {
 }
@@ -602,6 +873,24 @@ STATIC_INLINE void sdl_flush_block_nolock (struct vidbuf_description *gfxinfo, i
  ** Buffer methods for SDL surfaces that must be locked
  **/
 
+/****i* januae-sdlgfx-internal/sdl_lock
+ *
+ *   NAME
+ *       sdl_lock()
+ *
+ *   SYNOPSIS
+ *       static int sdl_lock (struct vidbuf_description *gfxinfo)
+ *
+ *   FUNCTION
+ *       Locks the SDL display surface and updates the video buffer pointer, pitch, and row maps when the pixel address changes.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *
+ *   RESULT
+ *       Returns 1 on SDL lock success and 0 on failure.
+ *
+ ****************************************************************************/
 static int sdl_lock (struct vidbuf_description *gfxinfo)
 {
     int success = 0;
@@ -624,6 +913,24 @@ static int sdl_lock (struct vidbuf_description *gfxinfo)
     return success;
 }
 
+/****i* januae-sdlgfx-internal/sdl_unlock
+ *
+ *   NAME
+ *       sdl_unlock()
+ *
+ *   SYNOPSIS
+ *       static void sdl_unlock (struct vidbuf_description *gfxinfo)
+ *
+ *   FUNCTION
+ *       Unlocks the current SDL display surface.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void sdl_unlock (struct vidbuf_description *gfxinfo)
 {
     DEBUG_LOG ("Function: unlock\n");
@@ -631,6 +938,26 @@ static void sdl_unlock (struct vidbuf_description *gfxinfo)
     SDL_UnlockSurface (display);
 }
 
+/****i* januae-sdlgfx-internal/sdl_flush_block
+ *
+ *   NAME
+ *       sdl_flush_block()
+ *
+ *   SYNOPSIS
+ *       static void sdl_flush_block (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+ *
+ *   FUNCTION
+ *       Temporarily unlocks an SDL surface, updates the specified line range, and locks the surface again.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *       first_line -- First line of the requested update.
+ *       last_line -- Last line of the requested update.
+ *
+ *   RESULT
+ *       None; the final SDL_LockSurface result is not checked.
+ *
+ ****************************************************************************/
 static void sdl_flush_block (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
     DEBUG_LOG ("Function: flush_block %d %d\n", first_line, last_line);
@@ -642,12 +969,52 @@ static void sdl_flush_block (struct vidbuf_description *gfxinfo, int first_line,
     SDL_LockSurface (display);
 }
 
+/****i* januae-sdlgfx-internal/sdl_flush_screen_dummy
+ *
+ *   NAME
+ *       sdl_flush_screen_dummy()
+ *
+ *   SYNOPSIS
+ *       static void sdl_flush_screen_dummy (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+ *
+ *   FUNCTION
+ *       Placeholder for whole-screen flush requests; performs no work.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *       first_line -- First line of the requested update.
+ *       last_line -- Last line of the requested update.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void sdl_flush_screen_dummy (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
 }
 
 #include "hrtimer.h"
 
+/****i* januae-sdlgfx-internal/sdl_flush_screen_flip
+ *
+ *   NAME
+ *       sdl_flush_screen_flip()
+ *
+ *   SYNOPSIS
+ *       static void sdl_flush_screen_flip (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+ *
+ *   FUNCTION
+ *       Blits the display surface to the screen, flips the screen buffer, and adds the measured flip duration to idletime.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *       first_line -- First line of the requested update.
+ *       last_line -- Last line of the requested update.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void sdl_flush_screen_flip (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
     frame_time_t start_time;
@@ -663,6 +1030,24 @@ static void sdl_flush_screen_flip (struct vidbuf_description *gfxinfo, int first
     idletime += sleep_time;
 }
 
+/****i* januae-sdlgfx-internal/sdl_flush_clear_screen
+ *
+ *   NAME
+ *       sdl_flush_clear_screen()
+ *
+ *   SYNOPSIS
+ *       static void sdl_flush_clear_screen (struct vidbuf_description *gfxinfo)
+ *
+ *   FUNCTION
+ *       Fills the display surface with black and updates its displayed rectangle when the surface exists.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void sdl_flush_clear_screen (struct vidbuf_description *gfxinfo)
 {
     DEBUG_LOG ("Function: flush_clear_screen\n");
@@ -680,15 +1065,71 @@ static void sdl_flush_clear_screen (struct vidbuf_description *gfxinfo)
  ** Buffer methods for SDL GL surfaces
  **/
 
+/****i* januae-sdlgfx-internal/sdl_gl_lock
+ *
+ *   NAME
+ *       sdl_gl_lock()
+ *
+ *   SYNOPSIS
+ *       static int sdl_gl_lock (struct vidbuf_description *gfxinfo)
+ *
+ *   FUNCTION
+ *       Accepts the OpenGL buffer lock hook without acquiring additional resources.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *
+ *   RESULT
+ *       Returns 1 unconditionally.
+ *
+ ****************************************************************************/
 static int sdl_gl_lock (struct vidbuf_description *gfxinfo)
 {
     return 1;
 }
 
+/****i* januae-sdlgfx-internal/sdl_gl_unlock
+ *
+ *   NAME
+ *       sdl_gl_unlock()
+ *
+ *   SYNOPSIS
+ *       static void sdl_gl_unlock (struct vidbuf_description *gfxinfo)
+ *
+ *   FUNCTION
+ *       OpenGL buffer unlock placeholder; performs no work.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void sdl_gl_unlock (struct vidbuf_description *gfxinfo)
 {
 }
 
+/****i* januae-sdlgfx-internal/sdl_gl_flush_block
+ *
+ *   NAME
+ *       sdl_gl_flush_block()
+ *
+ *   SYNOPSIS
+ *       static void sdl_gl_flush_block (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+ *
+ *   FUNCTION
+ *       Uploads the requested line range from the SDL-backed texture buffer.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *       first_line -- First line of the requested update.
+ *       last_line -- Last line of the requested update.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void sdl_gl_flush_block (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
     DEBUG_LOG ("Function: sdl_gl_flush_block %d %d\n", first_line, last_line);
@@ -697,6 +1138,26 @@ static void sdl_gl_flush_block (struct vidbuf_description *gfxinfo, int first_li
 }
 
 /* Single-buffered flush-screen method */
+/****i* januae-sdlgfx-internal/sdl_gl_flush_screen
+ *
+ *   NAME
+ *       sdl_gl_flush_screen()
+ *
+ *   SYNOPSIS
+ *       static void sdl_gl_flush_screen (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+ *
+ *   FUNCTION
+ *       Renders the requested line range and flushes pending OpenGL commands.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *       first_line -- First line of the requested update.
+ *       last_line -- Last line of the requested update.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void sdl_gl_flush_screen (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
     render_gl_buffer (&glbuffer, first_line, last_line);
@@ -704,6 +1165,26 @@ static void sdl_gl_flush_screen (struct vidbuf_description *gfxinfo, int first_l
 }
 
 /* Double-buffered flush-screen method */
+/****i* januae-sdlgfx-internal/sdl_gl_flush_screen_dbl
+ *
+ *   NAME
+ *       sdl_gl_flush_screen_dbl()
+ *
+ *   SYNOPSIS
+ *       static void sdl_gl_flush_screen_dbl (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+ *
+ *   FUNCTION
+ *       Renders the full display height and swaps OpenGL buffers without using the caller line range.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *       first_line -- First line of the requested update.
+ *       last_line -- Last line of the requested update.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void sdl_gl_flush_screen_dbl (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
     render_gl_buffer (&glbuffer, 0, display->h - 1);
@@ -711,6 +1192,26 @@ static void sdl_gl_flush_screen_dbl (struct vidbuf_description *gfxinfo, int fir
 }
 
 /* Double-buffered, vsynced flush-screen method */
+/****i* januae-sdlgfx-internal/sdl_gl_flush_screen_vsync
+ *
+ *   NAME
+ *       sdl_gl_flush_screen_vsync()
+ *
+ *   SYNOPSIS
+ *       static void sdl_gl_flush_screen_vsync (struct vidbuf_description *gfxinfo, int first_line, int last_line)
+ *
+ *   FUNCTION
+ *       Renders the full display, swaps GL buffers, and accumulates elapsed swap time in idletime.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *       first_line -- First line of the requested update.
+ *       last_line -- Last line of the requested update.
+ *
+ *   RESULT
+ *       None; there is no explicit swap-interval setup in this function.
+ *
+ ****************************************************************************/
 static void sdl_gl_flush_screen_vsync (struct vidbuf_description *gfxinfo, int first_line, int last_line)
 {
     frame_time_t start_time;
@@ -726,6 +1227,24 @@ static void sdl_gl_flush_screen_vsync (struct vidbuf_description *gfxinfo, int f
     idletime += sleep_time;
 }
 
+/****i* januae-sdlgfx-internal/sdl_gl_flush_clear_screen
+ *
+ *   NAME
+ *       sdl_gl_flush_clear_screen()
+ *
+ *   SYNOPSIS
+ *       static void sdl_gl_flush_clear_screen (struct vidbuf_description *gfxinfo)
+ *
+ *   FUNCTION
+ *       When a display exists, clears the OpenGL color and depth buffers twice, swapping after each clear.
+ *
+ *   INPUTS
+ *       gfxinfo -- Video buffer description.
+ *
+ *   RESULT
+ *       None.
+ *
+ ****************************************************************************/
 static void sdl_gl_flush_clear_screen (struct vidbuf_description *gfxinfo)
 {
     DEBUG_LOG ("Function: sdl_gl_flush_clear_screen\n");
