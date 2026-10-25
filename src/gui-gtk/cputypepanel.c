@@ -78,6 +78,18 @@ static const char *acclabels[]       = { "Normal", "Compatible", "Cycle Exact", 
 
 /****************************************************************************************/
 
+/****i* januae-gtk/cputypepanel_get_type ******************************************
+ *
+ * NAME
+ *     cputypepanel_get_type -- Register the CPU type selector as a GTK widget class.
+ *
+ * FUNCTION
+ *     Register the CPU type selector as a GTK widget class.
+ *
+ * RESULT
+ *     The GTK type identifier for CpuTypePanel.
+ *
+ ******************************************************************************/
 guint cputypepanel_get_type () {
 
     static guint cputypepanel_type = 0;
@@ -98,6 +110,18 @@ guint cputypepanel_get_type () {
     return cputypepanel_type;
 }
 
+/****i* januae-gtk/cputypepanel_class_init ******************************************
+ *
+ * NAME
+ *     cputypepanel_class_init -- Install the CPU, addressing and preference-refresh signals for the panel class.
+ *
+ * FUNCTION
+ *     Install the CPU, addressing and preference-refresh signals for the panel class.
+ *
+ * RESULT
+ *     None.
+ *
+ ******************************************************************************/
 static void cputypepanel_class_init (CpuTypePanelClass *class) {
 
     gtkutil_add_signals_to_class ((GtkObjectClass *)class,
@@ -110,6 +134,18 @@ static void cputypepanel_class_init (CpuTypePanelClass *class) {
     class->cputypepanel = NULL;
 }
 
+/****i* januae-gtk/cputypepanel_new ******************************************
+ *
+ * NAME
+ *     cputypepanel_new -- Create a CPU type panel and connect its preference-refresh callback.
+ *
+ * FUNCTION
+ *     Create a CPU type panel and connect its preference-refresh callback.
+ *
+ * RESULT
+ *     The newly allocated GTK widget.
+ *
+ ******************************************************************************/
 GtkWidget *cputypepanel_new (void) {
 
   CpuTypePanel *w = CPUTYPEPANEL (gtk_type_new (cputypepanel_get_type ()));
@@ -123,6 +159,18 @@ GtkWidget *cputypepanel_new (void) {
 
 /****************************************************************************************/
 
+/****i* januae-gtk/cputypepanel_init ******************************************
+ *
+ * NAME
+ *     cputypepanel_init -- Construct the CPU, address-width and accuracy radio-button groups.
+ *
+ * FUNCTION
+ *     Construct the CPU, address-width and accuracy radio-button groups.
+ *
+ * RESULT
+ *     None.
+ *
+ ******************************************************************************/
 static void cputypepanel_init (CpuTypePanel *ctpanel) {
 
   GtkWidget *cpuframe;
@@ -160,6 +208,18 @@ static void cputypepanel_init (CpuTypePanel *ctpanel) {
  * called through the signal "read-prefs"
  *
  */
+/****i* januae-gtk/read_prefs ******************************************
+ *
+ * NAME
+ *     read_prefs -- Populate the panel from current emulator preferences and refresh dependent controls.
+ *
+ * FUNCTION
+ *     Populate the panel from current emulator preferences and refresh dependent controls.
+ *
+ * RESULT
+ *     None.
+ *
+ ******************************************************************************/
 static void read_prefs (CpuTypePanel *ctpanel) {
 
   guint cpu;
@@ -197,6 +257,18 @@ static void read_prefs (CpuTypePanel *ctpanel) {
  * updates fpu/accuracy widgets dependent on cpulevel
  *
  */
+/****i* januae-gtk/update_state ******************************************
+ *
+ * NAME
+ *     update_state -- Constrain address width and accuracy controls according to the selected CPU.
+ *
+ * FUNCTION
+ *     Constrain address width and accuracy controls according to the selected CPU.
+ *
+ * RESULT
+ *     None.
+ *
+ ******************************************************************************/
 static void update_state (CpuTypePanel *ctpanel) {
   gint addr24bit;
   gint old_addr24bit;
@@ -258,6 +330,18 @@ static void update_state (CpuTypePanel *ctpanel) {
  *
  * user clicked on one of the cpu widgets
  */
+/****i* januae-gtk/on_cputype_changed ******************************************
+ *
+ * NAME
+ *     on_cputype_changed -- Update the CPU selection and emit signals when CPU or address width changes.
+ *
+ * FUNCTION
+ *     Update the CPU selection and emit signals when CPU or address width changes.
+ *
+ * RESULT
+ *     None.
+ *
+ ******************************************************************************/
 static void on_cputype_changed (GtkWidget *me, CpuTypePanel *ctpanel) {
 
   gint type;
@@ -322,6 +406,18 @@ static void on_cputype_changed (GtkWidget *me, CpuTypePanel *ctpanel) {
  *
  * addr24 enabled/disabled
  ******************************/
+/****i* januae-gtk/on_addr24enabled_toggled ******************************************
+ *
+ * NAME
+ *     on_addr24enabled_toggled -- Record the selected address width and signal an actual change.
+ *
+ * FUNCTION
+ *     Record the selected address width and signal an actual change.
+ *
+ * RESULT
+ *     None.
+ *
+ ******************************************************************************/
 static void on_addr24enabled_toggled (GtkWidget *me, CpuTypePanel *ctpanel) {
 
   gint old;
@@ -348,6 +444,18 @@ static void on_addr24enabled_toggled (GtkWidget *me, CpuTypePanel *ctpanel) {
  * compatible/cycle exact 
  * changed
  ******************************/
+/****i* januae-gtk/on_accuracy_changed ******************************************
+ *
+ * NAME
+ *     on_accuracy_changed -- Set normal, compatible or cycle-exact operation and signal an actual change.
+ *
+ * FUNCTION
+ *     Set normal, compatible or cycle-exact operation and signal an actual change.
+ *
+ * RESULT
+ *     None.
+ *
+ ******************************************************************************/
 static void on_accuracy_changed (GtkWidget *me, CpuTypePanel *ctpanel) {
   gint old_comp=ctpanel->compatible;
   gint old_cycl=ctpanel->cycleexact;
@@ -373,6 +481,18 @@ static void on_accuracy_changed (GtkWidget *me, CpuTypePanel *ctpanel) {
   }
 }
 
+/****i* januae-gtk/cputypepanel_set_cpulevel ******************************************
+ *
+ * NAME
+ *     cputypepanel_set_cpulevel -- Request a CPU selection through the panel change handler.
+ *
+ * FUNCTION
+ *     Request a CPU selection through the panel change handler.
+ *
+ * RESULT
+ *     None. The implementation maps levels above 68040 to 68060.
+ *
+ ******************************************************************************/
 void cputypepanel_set_cpulevel (CpuTypePanel *ctpanel, gint cpulevel) {
 
   if(cpulevel > CPULEVEL_68040) {
@@ -391,11 +511,35 @@ void cputypepanel_set_cpulevel (CpuTypePanel *ctpanel, gint cpulevel) {
   }
 }
 
+/****i* januae-gtk/cputypepanel_get_addr24bit ******************************************
+ *
+ * NAME
+ *     cputypepanel_get_addr24bit -- Read the address-width state held by the panel.
+ *
+ * FUNCTION
+ *     Read the address-width state held by the panel.
+ *
+ * RESULT
+ *     The stored 24-bit addressing flag.
+ *
+ ******************************************************************************/
 guint cputypepanel_get_addr24bit (CpuTypePanel *ctpanel) {
 
     return ctpanel->addr24bit;
 }
 
+/****i* januae-gtk/cputypepanel_set_addr24bit ******************************************
+ *
+ * NAME
+ *     cputypepanel_set_addr24bit -- Activate the requested address-width control when the CPU permits a choice.
+ *
+ * FUNCTION
+ *     Activate the requested address-width control when the CPU permits a choice.
+ *
+ * RESULT
+ *     None. CPU types outside the supported address-width range are ignored.
+ *
+ ******************************************************************************/
 void cputypepanel_set_addr24bit (CpuTypePanel *ctpanel, guint addr24bit) {
 
   /* TODO */
@@ -418,6 +562,18 @@ void cputypepanel_set_addr24bit (CpuTypePanel *ctpanel, guint addr24bit) {
  * both prefs.compatible and prefs.cycleexact
  * have an influence on our widgets
  ************************************************/
+/****i* januae-gtk/cputypepanel_set_accuracy ******************************************
+ *
+ * NAME
+ *     cputypepanel_set_accuracy -- Select the accuracy control for normal, compatible or cycle-exact operation.
+ *
+ * FUNCTION
+ *     Select the accuracy control for normal, compatible or cycle-exact operation.
+ *
+ * RESULT
+ *     None. Compatible mode takes precedence when both flags are set.
+ *
+ ******************************************************************************/
 void cputypepanel_set_accuracy (CpuTypePanel *ctpanel, gboolean compatible, gboolean cycleexact) {
 
   DEBUG_LOG("cputypepanel_set_accuracy(%d, %d)\n", compatible, cycleexact);

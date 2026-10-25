@@ -56,6 +56,18 @@
 /*
  * Create a list of signals and add them to a GTK+ class
  */
+/****i* januae-gtk/gtkutil_add_signals_to_class ******************************************
+ *
+ * NAME
+ *     gtkutil_add_signals_to_class -- Register a null-terminated sequence of named, no-argument GTK class signals.
+ *
+ * FUNCTION
+ *     Register a null-terminated sequence of named, no-argument GTK class signals.
+ *
+ * RESULT
+ *     None. The generated signal identifiers are written to the supplied array.
+ *
+ ******************************************************************************/
 void gtkutil_add_signals_to_class (GtkObjectClass *class, guint func_offset, guint *signals, ...)
 {
    va_list signames;
@@ -88,6 +100,18 @@ void gtkutil_add_signals_to_class (GtkObjectClass *class, guint func_offset, gui
  * <count> is the number of choices, and the choices
  * themselves are supplied as a list of strings.
  */
+/****i* januae-gtk/make_chooser ******************************************
+ *
+ * NAME
+ *     make_chooser -- Create a GTK combo selector from a counted list of string choices.
+ *
+ * FUNCTION
+ *     Create a GTK combo selector from a counted list of string choices.
+ *
+ * RESULT
+ *     The visible combo widget.
+ *
+ ******************************************************************************/
 GtkWidget *make_chooser (int count, ...)
 {
     GtkWidget *chooser;
@@ -111,6 +135,18 @@ GtkWidget *make_chooser (int count, ...)
     return chooser;
 }
 
+/****i* januae-gtk/make_label ******************************************
+ *
+ * NAME
+ *     make_label -- Create a right-aligned, vertically centered GTK label.
+ *
+ * FUNCTION
+ *     Create a right-aligned, vertically centered GTK label.
+ *
+ * RESULT
+ *     The visible label widget.
+ *
+ ******************************************************************************/
 GtkWidget *make_label (const char *string)
 {
     GtkWidget *label;
@@ -141,6 +177,18 @@ GtkWidget *make_labelled_button (const char *label, GtkAccelGroup *accel_group)
 #endif
 
 
+/****i* januae-gtk/make_panel ******************************************
+ *
+ * NAME
+ *     make_panel -- Create a labeled frame with the standard panel border and label alignment.
+ *
+ * FUNCTION
+ *     Create a labeled frame with the standard panel border and label alignment.
+ *
+ * RESULT
+ *     The visible frame widget.
+ *
+ ******************************************************************************/
 GtkWidget *make_panel (const char *name)
 {
     GtkWidget *panel;
@@ -153,6 +201,18 @@ GtkWidget *make_panel (const char *name)
     return panel;
 }
 
+/****i* januae-gtk/make_xtable ******************************************
+ *
+ * NAME
+ *     make_xtable -- Create a GTK table with standard borders and row and column spacing.
+ *
+ * FUNCTION
+ *     Create a GTK table with standard borders and row and column spacing.
+ *
+ * RESULT
+ *     The visible table widget.
+ *
+ ******************************************************************************/
 GtkWidget *make_xtable( int width, int height )
 {
     GtkWidget *table;
@@ -171,6 +231,18 @@ GtkWidget *make_xtable( int width, int height )
  * Add some padding to a vbox or hbox which will consume
  * space when the box is resized to larger than default size
  */
+/****i* januae-gtk/add_box_padding ******************************************
+ *
+ * NAME
+ *     add_box_padding -- Pack an expanding empty vertical box into an existing box.
+ *
+ * FUNCTION
+ *     Pack an expanding empty vertical box into an existing box.
+ *
+ * RESULT
+ *     None.
+ *
+ ******************************************************************************/
 void add_box_padding (GtkWidget *box)
 {
     GtkWidget *vbox;
@@ -184,6 +256,18 @@ void add_box_padding (GtkWidget *box)
  * Add some padding to a table which will consime space when
  * when the table is resized to larger than default size
  */
+/****i* januae-gtk/add_table_padding ******************************************
+ *
+ * NAME
+ *     add_table_padding -- Attach an expanding empty vertical box to a table cell.
+ *
+ * FUNCTION
+ *     Attach an expanding empty vertical box to a table cell.
+ *
+ * RESULT
+ *     None.
+ *
+ ******************************************************************************/
 void add_table_padding (GtkWidget *table, int x, int y)
 {
     GtkWidget *vbox;
@@ -201,6 +285,18 @@ void add_table_padding (GtkWidget *table, int x, int y)
  * <width> is the the number of columns the widget will take up
  * <xflags> are the attachment flags that will apply horizontally
  */
+/****i* januae-gtk/add_to_table ******************************************
+ *
+ * NAME
+ *     add_to_table -- Attach a widget to a table row using the supplied horizontal flags.
+ *
+ * FUNCTION
+ *     Attach a widget to a table row using the supplied horizontal flags.
+ *
+ * RESULT
+ *     None. Vertical attachment flags are zero.
+ *
+ ******************************************************************************/
 void add_to_table(GtkWidget *table, GtkWidget *widget, int x, int y, int width, int xflags)
 {
   gtk_table_attach (GTK_TABLE (table), widget, x, x+width, y, y+1,
@@ -214,6 +310,18 @@ void add_to_table(GtkWidget *table, GtkWidget *widget, int x, int y, int width, 
  *
  * Creates a table and add a list of widgets to it.
  */
+/****i* januae-gtk/gtkutil_add_table ******************************************
+ *
+ * NAME
+ *     gtkutil_add_table -- Populate a GTK table using row separators and a sentinel-terminated widget list.
+ *
+ * FUNCTION
+ *     Populate a GTK table using row separators and a sentinel-terminated widget list.
+ *
+ * RESULT
+ *     The constructed and displayed table.
+ *
+ ******************************************************************************/
 GtkWidget *gtkutil_add_table (GtkWidget *container, ...)
 {
     va_list contents;
@@ -258,6 +366,18 @@ GtkWidget *gtkutil_add_table (GtkWidget *container, ...)
     return table;
 }
 
+/****i* januae-gtk/gtkutil_make_radio_group ******************************************
+ *
+ * NAME
+ *     gtkutil_make_radio_group -- Create a horizontal radio-button group from null-terminated labels.
+ *
+ * FUNCTION
+ *     Create a horizontal radio-button group from null-terminated labels.
+ *
+ * RESULT
+ *     The containing horizontal box. Widget pointers are written to the caller array.
+ *
+ ******************************************************************************/
 GtkWidget *gtkutil_make_radio_group (GSList *group, GtkWidget **buttons, ...)
 {
     GtkWidget *hbox;
@@ -295,6 +415,18 @@ GtkWidget *gtkutil_make_radio_group (GSList *group, GtkWidget **buttons, ...)
  * build as many entries, as there are labels
  *************************************************************/
 
+/****i* januae-gtk/make_radio_group ******************************************
+ *
+ * NAME
+ *     make_radio_group -- Build radio buttons and delegate to the parameter-aware group helper.
+ *
+ * FUNCTION
+ *     Build radio buttons and delegate to the parameter-aware group helper.
+ *
+ * RESULT
+ *     The number of radio buttons created.
+ *
+ ******************************************************************************/
 int make_radio_group (const char **labels, GtkWidget *tobox,
 		      GtkWidget **saveptr, gint t1, gint t2,
 		      void (*sigfunc) (void), int count, GSList *group) {
@@ -303,6 +435,18 @@ int make_radio_group (const char **labels, GtkWidget *tobox,
                                  sigfunc,count,group,NULL);
 }
 
+/****i* januae-gtk/make_radio_group_param ******************************************
+ *
+ * NAME
+ *     make_radio_group_param -- Create radio buttons, connect clicked callbacks and terminate the widget-pointer array.
+ *
+ * FUNCTION
+ *     Create radio buttons, connect clicked callbacks and terminate the widget-pointer array.
+ *
+ * RESULT
+ *     The number of radio buttons created. A negative limit accepts labels up to the internal cap.
+ *
+ ******************************************************************************/
 int make_radio_group_param (const char **label, GtkWidget *tobox,
 			      GtkWidget **saveptr, gint t1, gint t2,
 			      void (*sigfunc) (void), int count, GSList *group,
@@ -337,6 +481,18 @@ int make_radio_group_param (const char **label, GtkWidget *tobox,
 }
 
 
+/****i* januae-gtk/make_radio_group_box_1_param ******************************************
+ *
+ * NAME
+ *     make_radio_group_box_1_param -- Arrange labeled radio buttons across grouped GTK boxes with a callback parameter.
+ *
+ * FUNCTION
+ *     Arrange labeled radio buttons across grouped GTK boxes with a callback parameter.
+ *
+ * RESULT
+ *     The containing frame.
+ *
+ ******************************************************************************/
 GtkWidget *make_radio_group_box_1_param (const char *title, const char **labels,
 					  GtkWidget **saveptr, int horiz,
 					  void (*sigfunc) (void), int elts_per_column, GtkWidget *parameter) {
@@ -364,6 +520,18 @@ GtkWidget *make_radio_group_box_1_param (const char *title, const char **labels,
 }
 
 
+/****i* januae-gtk/make_radio_group_box_1 ******************************************
+ *
+ * NAME
+ *     make_radio_group_box_1 -- Arrange labeled radio buttons across grouped GTK boxes without a callback parameter.
+ *
+ * FUNCTION
+ *     Arrange labeled radio buttons across grouped GTK boxes without a callback parameter.
+ *
+ * RESULT
+ *     The containing frame.
+ *
+ ******************************************************************************/
 GtkWidget *make_radio_group_box_1 (const char *title, const char **labels,
 					  GtkWidget **saveptr, int horiz,
 					  void (*sigfunc) (void), int elts_per_column) {
