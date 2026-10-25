@@ -3484,8 +3484,8 @@ uae_u8 *mapped_malloc (size_t s, const char *file)
 *       base - Host address of the mapping or allocation.
 *
 *   NOTES
-*       Available with NATMEM_OFFSET and without WIN32. Disables direct access
-*       if the registered mapping is not found.
+*       Available with NATMEM_OFFSET and without WIN32. An unregistered address
+*       is passed to free(); this function does not change canbang.
 *
 ****************************************************************************
 *
