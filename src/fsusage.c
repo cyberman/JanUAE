@@ -36,6 +36,31 @@
    BLOCKS FROMSIZE-byte blocks, rounding away from zero.
    TOSIZE must be positive.  Return -1 if FROMSIZE is not positive.  */
 
+/****i* januae-fsusage/adjust_blocks
+*
+*   NAME
+*       adjust_blocks()
+*
+*   SYNOPSIS
+*       static long adjust_blocks (long blocks, int fromsize, int tosize);
+*
+*   FUNCTION
+*       Convert a signed filesystem block count to the requested block size.
+*
+*   INPUTS
+*       blocks - Signed count of source blocks.
+*       fromsize - Positive source block size in bytes.
+*       tosize - Positive target block size in bytes.
+*
+*   RESULT
+*       Converted count; -1 if fromsize is nonpositive. A nonpositive tosize calls abort().
+*
+*   NOTES
+*       Integer arithmetic uses the implementation's fixed size ratios, with a correction for small blocks.
+*
+****************************************************************************
+*
+*/
 static long
 adjust_blocks (long blocks, int fromsize, int tosize)
 {
@@ -52,6 +77,31 @@ adjust_blocks (long blocks, int fromsize, int tosize)
     return (blocks + (blocks < 0 ? -1 : 1)) / (tosize / fromsize);
 }
 
+/****i* januae-fsusage/get_fs_usage
+*
+*   NAME
+*       get_fs_usage()
+*
+*   SYNOPSIS
+*       int get_fs_usage (const char *path, const char *disk, struct fs_usage *fsp);
+*
+*   FUNCTION
+*       Obtain filesystem capacity and availability through the selected host API.
+*
+*   INPUTS
+*       path - Host path whose containing filesystem is queried.
+*       disk - Device name used by host methods that require one.
+*       fsp - Output structure receiving capacity and free-space values.
+*
+*   RESULT
+*       Zero for success, -1 for failure.
+*
+*   NOTES
+*       There are separate Windows, AmigaOS and Unix implementations. Field availability and error handling vary by host; Windows fills only fsu_blocks and fsu_bavail in this implementation.
+*
+****************************************************************************
+*
+*/
 #ifdef _WIN32
 #include "sysdeps.h"
 #include <windows.h>
@@ -170,6 +220,31 @@ int get_fs_usage (const char *path, const char *disk, struct fs_usage *fsp)
    Return the actual number of bytes read, zero for EOF, or negative
    for an error.  */
 
+/****i* januae-fsusage/safe_read
+*
+*   NAME
+*       safe_read()
+*
+*   SYNOPSIS
+*       static int safe_read (int desc, char *ptr, int len);
+*
+*   FUNCTION
+*       Read up to len bytes from a descriptor, retrying interrupted reads when EINTR is available.
+*
+*   INPUTS
+*       desc - Open file descriptor.
+*       ptr - Destination buffer.
+*       len - Requested byte count.
+*
+*   RESULT
+*       Actual byte count, zero at end of file, or a negative read error; nonpositive len is returned unchanged.
+*
+*   NOTES
+*       Compiled only for non-Windows, non-AmigaOS targets.
+*
+****************************************************************************
+*
+*/
 static int
 safe_read (int desc, char *ptr, int len)
 {

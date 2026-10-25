@@ -809,6 +809,29 @@ static int get_floppy_speed (void)
 }
 
 #ifdef DEBUG_DRIVE_ID
+/****i* januae-disk/drive_id_name
+*
+*   NAME
+*       drive_id_name()
+*
+*   SYNOPSIS
+*       static const char *drive_id_name (drive *drv);
+*
+*   FUNCTION
+*       Map a debug-only floppy drive identification code to its short label.
+*
+*   INPUTS
+*       drv - Drive containing the identification code.
+*
+*   RESULT
+*       A static label for recognized 3.5HD, 5.25SD or 3.5DD types, otherwise UNKNOWN.
+*
+*   NOTES
+*       Defined only with DEBUG_DRIVE_ID.
+*
+****************************************************************************
+*
+*/
 static const char *drive_id_name (drive *drv)
     {
     switch (drv->drive_id) {

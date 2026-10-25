@@ -2733,6 +2733,26 @@ void gfx_set_picasso_state (int on)
 	DX_SetPalette (0, 256);
 }
 
+/****i* januae-sdlgfx/gfx_lock_picasso
+*
+*   NAME
+*       gfx_lock_picasso()
+*
+*   SYNOPSIS
+*       uae_u8 *gfx_lock_picasso (void);
+*
+*   FUNCTION
+*       Return the active Picasso96 pixel buffer and update its scanline stride.
+*
+*   RESULT
+*       Pixel buffer of the SDL screen or the OpenGL display surface.
+*
+*   NOTES
+*       SDL_LockSurface is called when required, without checking its return value. OpenGL builds use the display buffer when use_gl is enabled.
+*
+****************************************************************************
+*
+*/
 uae_u8 *gfx_lock_picasso (void)
 {
     DEBUG_LOG ("Function: gfx_lock_picasso\n");

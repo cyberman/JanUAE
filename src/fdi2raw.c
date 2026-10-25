@@ -110,6 +110,29 @@ static const char *datalog (const uae_u8 *src, unsigned int len) { return ""; }
 
 #ifdef DEBUG
 static int fdi_allocated;
+/****i* januae-fdi2raw/fdi_free
+*
+*   NAME
+*       fdi_free()
+*
+*   SYNOPSIS
+*       static void fdi_free (void *p);
+*
+*   FUNCTION
+*       Free a tracked FDI allocation and update debug allocation accounting.
+*
+*   INPUTS
+*       p - Pointer returned by the debug fdi_malloc helper.
+*
+*   RESULT
+*       None. A null pointer is ignored.
+*
+*   NOTES
+*       Defined only when DEBUG is enabled; otherwise fdi_free is a macro alias of free.
+*
+****************************************************************************
+*
+*/
 static void fdi_free (void *p)
 {
 	int size;
@@ -120,6 +143,29 @@ static void fdi_free (void *p)
 	write_log ("%d freed (%d)\n", size, fdi_allocated);
 	free ((int*)p -	1);
 }
+/****i* januae-fdi2raw/fdi_malloc
+*
+*   NAME
+*       fdi_malloc()
+*
+*   SYNOPSIS
+*       static void *fdi_malloc (int size);
+*
+*   FUNCTION
+*       Allocate an FDI buffer with a size header for debug accounting.
+*
+*   INPUTS
+*       size - Requested payload size in bytes.
+*
+*   RESULT
+*       Pointer immediately after the stored size header.
+*
+*   NOTES
+*       Defined only with DEBUG; otherwise fdi_malloc expands to xmalloc. Allocation uses xmalloc and the header counts toward allocation size.
+*
+****************************************************************************
+*
+*/
 static void *fdi_malloc	(int size)
 {
 	void *p	= xmalloc (size	+ sizeof (int));
