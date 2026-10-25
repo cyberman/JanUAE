@@ -44,6 +44,16 @@ static void on_adjust_changed   (GtkWidget *w, CpuSpeedPanel *cspanel);
 static void on_idleenabled_toggled (GtkWidget *w, CpuSpeedPanel *cspanel);
 static void on_idlerate_changed (GtkWidget *w, CpuSpeedPanel *cspanel);
 
+/****i* januae-gtk-internal/cpuspeedpanel_get_type
+    NAME
+        cpuspeedpanel_get_type -- Register the CPU speed panel as a GTK frame subclass on first use.
+    FUNCTION
+        Register the CPU speed panel as a GTK frame subclass on first use.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 guint cpuspeedpanel_get_type () {
 
   static guint cpuspeedpanel_type = 0;
@@ -75,6 +85,16 @@ enum {
 
 static guint cpuspeedpanel_signals[LAST_SIGNAL];
 
+/****i* januae-gtk-internal/cpuspeedpanel_class_init
+    NAME
+        cpuspeedpanel_class_init -- Register the CPU speed and idle change signals on the panel class.
+    FUNCTION
+        Register the CPU speed and idle change signals on the panel class.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 static void cpuspeedpanel_class_init (CpuSpeedPanelClass *class)
 {
     gtkutil_add_signals_to_class ((GtkObjectClass *)class,
@@ -86,6 +106,16 @@ static void cpuspeedpanel_class_init (CpuSpeedPanelClass *class)
     class->cpuspeedpanel = NULL;
 }
 
+/****i* januae-gtk-internal/cpuspeedpanel_init
+    NAME
+        cpuspeedpanel_init -- Create the speed selector, cycle adjustment and STOP-idling controls and connect their callbacks.
+    FUNCTION
+        Create the speed selector, cycle adjustment and STOP-idling controls and connect their callbacks.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 static void cpuspeedpanel_init (CpuSpeedPanel *cspanel)
 {
     GtkWidget *table;
@@ -137,6 +167,16 @@ static void cpuspeedpanel_init (CpuSpeedPanel *cspanel)
     update_state (cspanel);
 }
 
+/****i* januae-gtk-internal/update_state
+    NAME
+        update_state -- Enable or disable speed and idle controls according to the selected CPU speed mode.
+    FUNCTION
+        Enable or disable speed and idle controls according to the selected CPU speed mode.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 static void update_state (CpuSpeedPanel *cspanel)
 {
     //guint speed = GTK_COMBO (cspanel->speed_widget)->choice;
@@ -149,6 +189,16 @@ static void update_state (CpuSpeedPanel *cspanel)
 
 }
 
+/****i* januae-gtk-internal/on_speed_changed
+    NAME
+        on_speed_changed -- Translate the selected speed mode into the stored CPU speed and emit cpuspeed-changed.
+    FUNCTION
+        Translate the selected speed mode into the stored CPU speed and emit cpuspeed-changed.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 static void on_speed_changed (GtkWidget *w, CpuSpeedPanel *cspanel)
 {
     //int speed_choice = GTK_COMBO(cspanel->speed_widget)->choice;
@@ -169,12 +219,32 @@ static void on_speed_changed (GtkWidget *w, CpuSpeedPanel *cspanel)
     update_state (cspanel);
 }
 
+/****i* januae-gtk-internal/on_adjust_changed
+    NAME
+        on_adjust_changed -- Store the cycles-per-instruction slider value and emit cpuspeed-changed.
+    FUNCTION
+        Store the cycles-per-instruction slider value and emit cpuspeed-changed.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 static void on_adjust_changed (GtkWidget *w, CpuSpeedPanel *cspanel)
 {
     cspanel->cpuspeed = (guint)GTK_ADJUSTMENT (GTK_RANGE (cspanel->adjust_widget)->adjustment)->value;
     gtk_signal_emit_by_name (GTK_OBJECT(cspanel), "cpuspeed-changed");
 }
 
+/****i* januae-gtk-internal/on_idleenabled_toggled
+    NAME
+        on_idleenabled_toggled -- Toggle STOP-instruction idling, update the idle rate, and emit cpuidle-changed.
+    FUNCTION
+        Toggle STOP-instruction idling, update the idle rate, and emit cpuidle-changed.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 static void on_idleenabled_toggled (GtkWidget *w, CpuSpeedPanel *cspanel)
 {
     cspanel->idleenabled = gtk_toggle_button_get_active (GTK_TOGGLE_BUTTON (cspanel->idleenabled_widget));
@@ -186,12 +256,32 @@ static void on_idleenabled_toggled (GtkWidget *w, CpuSpeedPanel *cspanel)
     gtk_signal_emit_by_name (GTK_OBJECT(cspanel), "cpuidle-changed");
 }
 
+/****i* januae-gtk-internal/on_idlerate_changed
+    NAME
+        on_idlerate_changed -- Convert the slider value into the stored idle rate and emit cpuidle-changed.
+    FUNCTION
+        Convert the slider value into the stored idle rate and emit cpuidle-changed.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 static void on_idlerate_changed (GtkWidget *w, CpuSpeedPanel *cspanel)
 {
     cspanel->cpuidle = (21 - GTK_ADJUSTMENT (GTK_RANGE (cspanel->idlerate_widget)->adjustment)->value)*15;
     gtk_signal_emit_by_name (GTK_OBJECT(cspanel), "cpuidle-changed");
 }
 
+/****i* januae-gtk-internal/cpuspeedpanel_new
+    NAME
+        cpuspeedpanel_new -- Allocate and return a new CPU speed panel widget.
+    FUNCTION
+        Allocate and return a new CPU speed panel widget.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 GtkWidget *cpuspeedpanel_new (void)
 {
     CpuSpeedPanel *w = CPUSPEEDPANEL (gtk_type_new (cpuspeedpanel_get_type ()));
@@ -199,6 +289,16 @@ GtkWidget *cpuspeedpanel_new (void)
     return GTK_WIDGET (w);
 }
 
+/****i* januae-gtk-internal/cpuspeedpanel_set_cpuspeed
+    NAME
+        cpuspeedpanel_set_cpuspeed -- Select the speed mode for the supplied CPU speed and update the adjustable slider when applicable.
+    FUNCTION
+        Select the speed mode for the supplied CPU speed and update the adjustable slider when applicable.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 void cpuspeedpanel_set_cpuspeed (CpuSpeedPanel *cspanel, gint cpuspeed) {
 
 	int choice = 0;
@@ -225,6 +325,16 @@ void cpuspeedpanel_set_cpuspeed (CpuSpeedPanel *cspanel, gint cpuspeed) {
 	update_state (cspanel);
 }
 
+/****i* januae-gtk-internal/cpuspeedpanel_set_cpuidle
+    NAME
+        cpuspeedpanel_set_cpuidle -- Set the STOP-idling checkbox and idle slider from a requested idle rate.
+    FUNCTION
+        Set the STOP-idling checkbox and idle slider from a requested idle rate.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 void cpuspeedpanel_set_cpuidle (CpuSpeedPanel *cspanel, guint cpuidle)
 {
     int enable_idle = cpuidle > 0;

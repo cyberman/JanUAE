@@ -51,6 +51,16 @@ static void floppyfileentry_class_init (FloppyFileEntryClass *class);
 static void on_eject (GtkWidget *w, FloppyFileEntry *ffe);
 static void on_insert (GtkWidget *w, FloppyFileEntry *ffe);
 
+/****i* januae-gtk-internal/floppyfileentry_get_type
+    NAME
+        floppyfileentry_get_type -- Register the FloppyFileEntry frame subclass on first use and return its GTK type identifier.
+    FUNCTION
+        Register the FloppyFileEntry frame subclass on first use and return its GTK type identifier.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 guint floppyfileentry_get_type ()
 {
     static guint floppyfileentry_type = 0;
@@ -78,6 +88,16 @@ enum {
 
 static guint floppyfileentry_signals[LAST_SIGNAL];
 
+/****i* januae-gtk-internal/floppyfileentry_class_init
+    NAME
+        floppyfileentry_class_init -- Register the disc-changed signal and initialize the class callback.
+    FUNCTION
+        Register the disc-changed signal and initialize the class callback.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 static void floppyfileentry_class_init (FloppyFileEntryClass *class)
 {
     gtkutil_add_signals_to_class ((GtkObjectClass *)class,
@@ -91,6 +111,16 @@ static void floppyfileentry_class_init (FloppyFileEntryClass *class)
 
 static gchar *ffe_currentdir;
 
+/****i* januae-gtk-internal/floppyfileentry_init
+    NAME
+        floppyfileentry_init -- Build the drive name, activity LED, image path, and insert/eject controls for a new entry.
+    FUNCTION
+        Build the drive name, activity LED, image path, and insert/eject controls for a new entry.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 static void floppyfileentry_init (FloppyFileEntry *ffe)
 {
     GtkWidget *hbox;
@@ -136,6 +166,16 @@ static void floppyfileentry_init (FloppyFileEntry *ffe)
 }
 
 
+/****i* januae-gtk-internal/on_eject
+    NAME
+        on_eject -- Clear the selected image, disable Eject, and emit disc-changed.
+    FUNCTION
+        Clear the selected image, disable Eject, and emit disc-changed.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 static void on_eject (GtkWidget *w, FloppyFileEntry *ffe)
 {
     if (ffe->filename)
@@ -147,6 +187,16 @@ static void on_eject (GtkWidget *w, FloppyFileEntry *ffe)
     gtk_signal_emit_by_name (GTK_OBJECT (ffe), "disc-changed");
 }
 
+/****i* januae-gtk-internal/on_filesel_close
+    NAME
+        on_filesel_close -- Close the file selector and restore the availability of the insert and eject controls.
+    FUNCTION
+        Close the file selector and restore the availability of the insert and eject controls.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 static void on_filesel_close (FloppyFileEntry *ffe, gpointer data)
 {
   DebOut("Entered\n");
@@ -158,6 +208,16 @@ static void on_filesel_close (FloppyFileEntry *ffe, gpointer data)
   DebOut("Left\n");
 }
 
+/****i* januae-gtk-internal/on_filesel_ok
+    NAME
+        on_filesel_ok -- Accept an existing selected file as the disk image, or remember the selected directory; emit disc-changed only for a file.
+    FUNCTION
+        Accept an existing selected file as the disk image, or remember the selected directory; emit disc-changed only for a file.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 static void on_filesel_ok (FloppyFileEntry *ffe, gpointer data)
 {
     const gchar *fname = gtk_file_selection_get_filename (GTK_FILE_SELECTION (ffe->filesel));
@@ -211,6 +271,16 @@ static void on_filesel_ok (FloppyFileEntry *ffe, gpointer data)
 	gtk_widget_set_sensitive (ffe->eject_button, 1);
 }
 
+/****i* januae-gtk-internal/on_insert
+    NAME
+        on_insert -- Display the file selector for this drive and temporarily disable the insertion controls.
+    FUNCTION
+        Display the file selector for this drive and temporarily disable the insertion controls.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 static void on_insert (GtkWidget *w, FloppyFileEntry *ffe)
 {
     gchar *title;
@@ -249,6 +319,16 @@ static void on_insert (GtkWidget *w, FloppyFileEntry *ffe)
 	g_free (title);
 }
 
+/****i* januae-gtk-internal/floppyfileentry_new
+    NAME
+        floppyfileentry_new -- Allocate a new FloppyFileEntry widget using the registered GTK type.
+    FUNCTION
+        Allocate a new FloppyFileEntry widget using the registered GTK type.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 GtkWidget *floppyfileentry_new (void)
 {
     FloppyFileEntry *w = FLOPPYFILEENTRY (gtk_type_new (floppyfileentry_get_type ()));
@@ -256,6 +336,16 @@ GtkWidget *floppyfileentry_new (void)
     return GTK_WIDGET (w);
 }
 
+/****i* januae-gtk-internal/floppyfileentry_set_drivename
+    NAME
+        floppyfileentry_set_drivename -- Replace the stored drive name used in the file selection dialog title.
+    FUNCTION
+        Replace the stored drive name used in the file selection dialog title.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 void floppyfileentry_set_drivename (FloppyFileEntry *ffe, const gchar *drivename)
 {
     if (ffe->drivename)
@@ -263,6 +353,16 @@ void floppyfileentry_set_drivename (FloppyFileEntry *ffe, const gchar *drivename
     ffe->drivename = g_strdup (drivename);
 }
 
+/****i* januae-gtk-internal/floppyfileentry_set_currentdir
+    NAME
+        floppyfileentry_set_currentdir -- Set the shared initial directory for disk image selectors, appending a trailing slash when necessary.
+    FUNCTION
+        Set the shared initial directory for disk image selectors, appending a trailing slash when necessary.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 void floppyfileentry_set_currentdir (FloppyFileEntry *ffe, const gchar *pathname)
 {
     int len = strlen (pathname);
@@ -279,6 +379,16 @@ void floppyfileentry_set_currentdir (FloppyFileEntry *ffe, const gchar *pathname
 				   NULL);
 }
 
+/****i* januae-gtk-internal/floppyfileentry_set_filename
+    NAME
+        floppyfileentry_set_filename -- Replace the selected image name and update the path display and eject sensitivity; does not emit disc-changed.
+    FUNCTION
+        Replace the selected image name and update the path display and eject sensitivity; does not emit disc-changed.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 void floppyfileentry_set_filename (FloppyFileEntry *ffe, const gchar *filename)
 {
     gtk_entry_set_text (GTK_ENTRY (ffe->path_widget), filename);
@@ -298,16 +408,46 @@ void floppyfileentry_set_filename (FloppyFileEntry *ffe, const gchar *filename)
 #if GTK_MAJOR_VERSION > 2
 G_CONST_RETURN
 #endif
+/****i* januae-gtk-internal/floppyfileentry_get_filename
+    NAME
+        floppyfileentry_get_filename -- Return the currently stored disk image pathname, or NULL when no image is selected.
+    FUNCTION
+        Return the currently stored disk image pathname, or NULL when no image is selected.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 gchar *floppyfileentry_get_filename (FloppyFileEntry *ffe)
 {
     return ffe->filename;
 }
 
+/****i* januae-gtk-internal/floppyfileentry_set_label
+    NAME
+        floppyfileentry_set_label -- Set the frame label for the floppy drive entry.
+    FUNCTION
+        Set the frame label for the floppy drive entry.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 void floppyfileentry_set_label (FloppyFileEntry *ffe, const gchar *label)
 {
     gtk_frame_set_label (GTK_FRAME (ffe), label);
 }
 
+/****i* januae-gtk-internal/floppyfileentry_set_led
+    NAME
+        floppyfileentry_set_led -- Set the floppy drive LED to green when active and black otherwise.
+    FUNCTION
+        Set the floppy drive LED to green when active and black otherwise.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 void floppyfileentry_set_led (FloppyFileEntry *ffe, gboolean state)
 {
     GdkColor color;
@@ -320,6 +460,16 @@ void floppyfileentry_set_led (FloppyFileEntry *ffe, gboolean state)
     led_set_color (LED (ffe->led), color);
 }
 
+/****i* januae-gtk-internal/floppyfileentry_do_dialog
+    NAME
+        floppyfileentry_do_dialog -- Open the same disk image selector used by the Insert button.
+    FUNCTION
+        Open the same disk image selector used by the Insert button.
+    INPUTS
+        See the C function signature; callback arguments and panel pointers belong to the GTK owner.
+    RESULT
+        See the C return type; void functions do not return a value.
+****/
 void floppyfileentry_do_dialog (FloppyFileEntry *ffe)
 {
     on_insert (NULL, ffe);
