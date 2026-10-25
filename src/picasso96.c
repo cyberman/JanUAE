@@ -551,7 +551,7 @@ STATIC_INLINE uae_u8 GetBytesPerPixel (uae_u32 RGBfmt)
  *       host-side RenderInfo.
  *
  *   INPUTS
- *       amigamemptr -- Guest address of the source/destination P96 structure.
+ *       amigamemptr -- Guest address of the source P96 RenderInfo structure.
  *       ri -- Output host RenderInfo.
  *
  *   RESULT
@@ -594,7 +594,7 @@ static int CopyRenderInfoStructureA2U (uaecptr amigamemptr,
  *       offsets, pens and mode.
  *
  *   INPUTS
- *       amigamemptr -- Guest address of the source/destination P96 structure.
+ *       amigamemptr -- Guest address of the source P96 Pattern structure.
  *       pattern -- Output host Pattern.
  *
  *   RESULT
@@ -638,7 +638,7 @@ static int CopyPatternStructureA2U (uaecptr amigamemptr,
  *       memory into a host mapping.
  *
  *   INPUTS
- *       amigamemptr -- Guest address of the source/destination P96 structure.
+ *       amigamemptr -- Guest address of the source P96 color-index mapping.
  *       cim -- Output color-index mapping.
  *
  *   NOTES
@@ -669,7 +669,7 @@ static void CopyColorIndexMappingA2U (uaecptr amigamemptr,
  *       BitMap.
  *
  *   INPUTS
- *       amigamemptr -- Guest address of the source/destination P96 structure.
+ *       amigamemptr -- Guest address of the source P96 BitMap structure.
  *       bm -- Output host-side Amiga BitMap descriptor.
  *
  *   RESULT
@@ -731,7 +731,7 @@ static int CopyBitMapStructureA2U (uaecptr amigamemptr, struct BitMap *bm)
  *       two pens.
  *
  *   INPUTS
- *       amigamemptr -- Guest address of the source/destination P96 structure.
+ *       amigamemptr -- Guest address of the source P96 Template structure.
  *       tmpl -- Output host-side P96 Template.
  *
  *   RESULT
@@ -775,7 +775,7 @@ static int CopyTemplateStructureA2U (uaecptr amigamemptr,
  *
  *   INPUTS
  *       libres -- Host-side LibResolution description.
- *       amigamemptr -- Guest address of the source/destination P96 structure.
+ *       amigamemptr -- Guest address of the destination P96 LibResolution structure.
  *
  *   NOTES
  *       Requires the destination to lie in translated gfx memory; clears the
@@ -1753,7 +1753,7 @@ uae_u32 REGPARAM2 picasso_FindCard (struct regstruct *regs)
  *       add its address to the matching LibResolution depth slot.
  *
  *   INPUTS
- *       amigamemptr -- Guest address of the source/destination P96 structure.
+ *       amigamemptr -- Guest address of the destination P96 mode-information structure.
  *       res -- In/out LibResolution depth-mode slots.
  *       dm -- Host mode description.
  *
