@@ -2616,6 +2616,32 @@ static uae_u32 REGPARAM2 startup_handler (TrapContext *context)
     return 0;
 }
 
+/****i* januae-filesys-internal/do_info *****************************
+*
+*   NAME
+*       do_info() -- Populate an Amiga InfoData structure for a mounted host directory.
+*
+*   SYNOPSIS
+*       static void do_info (Unit *unit, dpacket packet, uaecptr info);
+*
+*   FUNCTION
+*       Populate an Amiga InfoData structure for a mounted host directory.
+*
+*   INPUTS
+*       unit - Mounted filesystem unit.
+*       packet - DOS packet receiving status and any host error.
+*       info - Emulated address of the InfoData output structure.
+*
+*   RESULT
+*       On host filesystem usage failure, reports DOS_FALSE and dos_errno(). Otherwise writes block counts, unit identity, write-protection state, volume pointer, and DOS_TRUE.
+*
+*   NOTES
+*       The host usage count is halved before reporting 1024-byte blocks. The output structure must be writable in emulated memory.
+*
+****************************************************************************
+*
+*/
+
 static void
 do_info (Unit *unit, dpacket packet, uaecptr info)
 {
@@ -2641,12 +2667,62 @@ do_info (Unit *unit, dpacket packet, uaecptr info)
     PUT_PCK_RES1 (packet, DOS_TRUE);
 }
 
+/****i* januae-filesys-internal/action_disk_info ********************
+*
+*   NAME
+*       action_disk_info() -- Handle ACTION_DISK_INFO for a mounted host directory.
+*
+*   SYNOPSIS
+*       static void action_disk_info (Unit *unit, dpacket packet);
+*
+*   FUNCTION
+*       Handle ACTION_DISK_INFO for a mounted host directory.
+*
+*   INPUTS
+*       unit - Filesystem unit receiving the DOS action.
+*       packet - Packet whose first argument points to InfoData in BPTR form.
+*
+*   RESULT
+*       Delegates to do_info(), which sets the packet status and output fields.
+*
+*   NOTES
+*       Converts the first packet argument from a BPTR by shifting left two bits.
+*
+****************************************************************************
+*
+*/
+
 static void
 action_disk_info (Unit *unit, dpacket packet)
 {
     TRACE(("ACTION_DISK_INFO\n"));
     do_info(unit, packet, GET_PCK_ARG1 (packet) << 2);
 }
+
+/****i* januae-filesys-internal/action_info *************************
+*
+*   NAME
+*       action_info() -- Handle ACTION_INFO for a mounted host directory.
+*
+*   SYNOPSIS
+*       static void action_info (Unit *unit, dpacket packet);
+*
+*   FUNCTION
+*       Handle ACTION_INFO for a mounted host directory.
+*
+*   INPUTS
+*       unit - Filesystem unit receiving the DOS action.
+*       packet - Packet whose second argument points to InfoData in BPTR form.
+*
+*   RESULT
+*       Delegates to do_info(), which sets the packet status and output fields.
+*
+*   NOTES
+*       Converts the second packet argument from a BPTR by shifting left two bits.
+*
+****************************************************************************
+*
+*/
 
 static void
 action_info (Unit *unit, dpacket packet)
@@ -3487,6 +3563,33 @@ const int diff = (8 * 365 + 2) * (24 * 60 * 60);
  * Convert host time (seconds since the start of the Unix Epoch) to
  * Amiga date-stamp
  */
+/****i* januae-filesys-internal/get_time ****************************
+*
+*   NAME
+*       get_time() -- Convert a host timestamp to an Amiga DateStamp.
+*
+*   SYNOPSIS
+*       static void get_time (time_t t, long* days, long* mins, long* ticks);
+*
+*   FUNCTION
+*       Convert a host timestamp to an Amiga DateStamp.
+*
+*   INPUTS
+*       t - Host timestamp in seconds since the Unix epoch.
+*       days - Receives days since the Amiga epoch.
+*       mins - Receives minutes since midnight.
+*       ticks - Receives the remaining seconds at 50 ticks per second.
+*
+*   RESULT
+*       Writes the three DateStamp components through the supplied pointers.
+*
+*   NOTES
+*       On non-Windows, non-AmigaOS hosts, optional localtime_r()/timegm() support adjusts for local time; without those features the conversion uses the epoch offset directly.
+*
+****************************************************************************
+*
+*/
+
 static void
 get_time (time_t t, long* days, long* mins, long* ticks)
 {
@@ -3528,6 +3631,32 @@ get_time (time_t t, long* days, long* mins, long* ticks)
  * Convert Amiga date-stamp to host time in seconds since the start
  * of the Unix epoch
  */
+/****i* januae-filesys-internal/put_time ****************************
+*
+*   NAME
+*       put_time() -- Convert an Amiga DateStamp into a host timestamp.
+*
+*   SYNOPSIS
+*       static time_t put_time (long days, long mins, long ticks);
+*
+*   FUNCTION
+*       Convert an Amiga DateStamp into a host timestamp.
+*
+*   INPUTS
+*       days - Days since the Amiga epoch.
+*       mins - Minutes since midnight.
+*       ticks - Time within the minute at 50 ticks per second.
+*
+*   RESULT
+*       Seconds since the Unix epoch, represented as time_t.
+*
+*   NOTES
+*       Fractional ticks are discarded by integer division. Host timezone conversion is conditional; on __AROS__ the gmtime_r()/mktime() adjustment is bypassed.
+*
+****************************************************************************
+*
+*/
+
 static time_t
 put_time (long days, long mins, long ticks)
 {
@@ -5858,11 +5987,61 @@ action_rename_object (Unit *unit, dpacket packet)
     gui_hd_led (2);
 }
 
+/****i* januae-filesys-internal/action_current_volume ***************
+*
+*   NAME
+*       action_current_volume() -- Return the BPTR of the current mounted volume.
+*
+*   SYNOPSIS
+*       static void action_current_volume (Unit *unit, dpacket packet);
+*
+*   FUNCTION
+*       Return the BPTR of the current mounted volume.
+*
+*   INPUTS
+*       unit - Mounted filesystem unit.
+*       packet - DOS packet receiving the volume BPTR.
+*
+*   RESULT
+*       Sets dp_Res1 to unit->volume shifted right by two bits.
+*
+*   NOTES
+*       Does not inspect or modify the packet error field.
+*
+****************************************************************************
+*
+*/
+
 static void
 action_current_volume (Unit *unit, dpacket packet)
 {
     PUT_PCK_RES1 (packet, unit->volume >> 2);
 }
+
+/****i* januae-filesys-internal/action_rename_disk ******************
+*
+*   NAME
+*       action_rename_disk() -- Update the emulated volume name for a writable host-directory unit.
+*
+*   SYNOPSIS
+*       static void action_rename_disk (Unit *unit, dpacket packet);
+*
+*   FUNCTION
+*       Update the emulated volume name for a writable host-directory unit.
+*
+*   INPUTS
+*       unit - Mounted filesystem unit.
+*       packet - DOS packet whose first argument is a BPTR to a length-prefixed name.
+*
+*   RESULT
+*       Sets DOS_FALSE with ERROR_DISK_WRITE_PROTECTED for a read-only unit; otherwise replaces the in-memory volume name and sets DOS_TRUE.
+*
+*   NOTES
+*       Reads the name from emulated memory and updates the volume node; it does not rename the host directory.
+*
+****************************************************************************
+*
+*/
 
 static void
 action_rename_disk (Unit *unit, dpacket packet)
@@ -5894,11 +6073,61 @@ action_rename_disk (Unit *unit, dpacket packet)
     PUT_PCK_RES1 (packet, DOS_TRUE);
 }
 
+/****i* januae-filesys-internal/action_is_filesystem ****************
+*
+*   NAME
+*       action_is_filesystem() -- Report that the mounted unit implements a filesystem.
+*
+*   SYNOPSIS
+*       static void action_is_filesystem (Unit *unit, dpacket packet);
+*
+*   FUNCTION
+*       Report that the mounted unit implements a filesystem.
+*
+*   INPUTS
+*       unit - Filesystem unit (unused).
+*       packet - DOS packet receiving the result.
+*
+*   RESULT
+*       Unconditionally sets dp_Res1 to DOS_TRUE.
+*
+*   NOTES
+*       This handler performs no host filesystem probe.
+*
+****************************************************************************
+*
+*/
+
 static void
 action_is_filesystem (Unit *unit, dpacket packet)
 {
     PUT_PCK_RES1 (packet, DOS_TRUE);
 }
+
+/****i* januae-filesys-internal/action_flush ************************
+*
+*   NAME
+*       action_flush() -- Acknowledge a DOS flush request for the mounted host directory.
+*
+*   SYNOPSIS
+*       static void action_flush (Unit *unit, dpacket packet);
+*
+*   FUNCTION
+*       Acknowledge a DOS flush request for the mounted host directory.
+*
+*   INPUTS
+*       unit - Filesystem unit (unused).
+*       packet - DOS packet receiving the result.
+*
+*   RESULT
+*       Unconditionally sets dp_Res1 to DOS_TRUE.
+*
+*   NOTES
+*       The implementation does not call sync(); the host flush operation is commented out.
+*
+****************************************************************************
+*
+*/
 
 static void
 action_flush (Unit *unit, dpacket packet)
