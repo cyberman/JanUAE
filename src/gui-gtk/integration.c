@@ -96,6 +96,23 @@ static guint jintegration_signals[LAST_SIGNAL];
 /***********************************************
  * jintegration_class_init
  ***********************************************/
+/****i* januae-gui-gtk/jintegration_class_init ******************************************
+*
+*   NAME
+*       jintegration_class_init()
+*
+*   SYNOPSIS
+*       static void jintegration_class_init (jIntegrationClass *class);
+*
+*   FUNCTION
+*       Register the integration widget signals and retain the parent GTK class.
+*
+*   INPUTS
+*       class - GTK class being initialized
+*
+****************************************************************************
+*
+*/
 static void jintegration_class_init (jIntegrationClass *class) {
   GtkWidgetClass *widget_class;
   GtkObjectClass *object_class;
@@ -125,6 +142,23 @@ static void jintegration_class_init (jIntegrationClass *class) {
  *
  * empty, as we do it in jintegration_new.
  ***********************************************/
+/****i* januae-gui-gtk/jintegration_init ************************************************
+*
+*   NAME
+*       jintegration_init()
+*
+*   SYNOPSIS
+*       static void jintegration_init (jIntegration *disp);
+*
+*   FUNCTION
+*       Initialize the integration widget instance; this hook currently performs no work.
+*
+*   INPUTS
+*       disp - New widget instance
+*
+****************************************************************************
+*
+*/
 static void jintegration_init (jIntegration *disp) {
 
 }
@@ -135,6 +169,23 @@ static void jintegration_init (jIntegration *disp) {
  * return type, if none exists.
  * create new type otherwise.
  ***********************************************/
+/****i* januae-gui-gtk/jintegration_get_type ********************************************
+*
+*   NAME
+*       jintegration_get_type()
+*
+*   SYNOPSIS
+*       GType jintegration_get_type (void);
+*
+*   FUNCTION
+*       Register and return the GTK horizontal-box subclass used by the integration panel.
+*
+*   RESULT
+*       The registered GType.
+*
+****************************************************************************
+*
+*/
 GType jintegration_get_type (void) {
 
   static GType jintegration_type = 0;
@@ -161,6 +212,23 @@ GType jintegration_get_type (void) {
 /***********************************************
  * jintegration_new
  ***********************************************/
+/****i* januae-gui-gtk/jintegration_new *************************************************
+*
+*   NAME
+*       jintegration_new()
+*
+*   SYNOPSIS
+*       GtkWidget* jintegration_new (void);
+*
+*   FUNCTION
+*       Allocate the integration panel, build its controls and connect preference and status signals.
+*
+*   RESULT
+*       The newly allocated integration widget.
+*
+****************************************************************************
+*
+*/
 GtkWidget* jintegration_new (void) {
   GtkWidget *jdisp;
 
@@ -208,6 +276,23 @@ static void jintegration_destroy(GtkObject *object) {
  *
  * it is called through the signal "read-prefs"
  ***********************************************/
+/****i* januae-gui-gtk/read_prefs *******************************************************
+*
+*   NAME
+*       read_prefs()
+*
+*   SYNOPSIS
+*       static void read_prefs (jIntegration *j);
+*
+*   FUNCTION
+*       Select the coherence, clipboard, mouse and launcher combo entries from currprefs.
+*
+*   INPUTS
+*       j - Integration widget instance
+*
+****************************************************************************
+*
+*/
 static void read_prefs (jIntegration *j) {
 
   gtk_list_select_item (GTK_LIST (GTK_COMBO (j->combo_coherence)->list), currprefs.jcoherence);
@@ -230,6 +315,24 @@ extern ULONG aos3_launch_task;
  *
  * status is not used any more. 
  ***********************************************/
+/****i* januae-gui-gtk/change_lock ******************************************************
+*
+*   NAME
+*       change_lock()
+*
+*   SYNOPSIS
+*       static void change_lock (jIntegration *j, gboolean status);
+*
+*   FUNCTION
+*       Update daemon-status labels from task handles; the status argument is ignored.
+*
+*   INPUTS
+*       j - Integration widget instance
+*       status - Unused status flag
+*
+****************************************************************************
+*
+*/
 static void change_lock (jIntegration *j, gboolean status) {
   int i;
   gboolean cdrunning;
@@ -270,6 +373,23 @@ static void change_lock (jIntegration *j, gboolean status) {
  * used to lock all widgets, now as status
  * is ignored, just calls change_lock
  ***********************************************/
+/****i* januae-gui-gtk/lock_it **********************************************************
+*
+*   NAME
+*       lock_it()
+*
+*   SYNOPSIS
+*       static void lock_it (jIntegration *j);
+*
+*   FUNCTION
+*       Refresh daemon-status labels through change_lock; this does not disable controls.
+*
+*   INPUTS
+*       j - Integration widget instance
+*
+****************************************************************************
+*
+*/
 static void lock_it (jIntegration *j) {
 
   change_lock(j, FALSE);
@@ -278,6 +398,23 @@ static void lock_it (jIntegration *j) {
 /***********************************************
  * unlock_it
  ***********************************************/
+/****i* januae-gui-gtk/unlock_it ********************************************************
+*
+*   NAME
+*       unlock_it()
+*
+*   SYNOPSIS
+*       static void unlock_it (jIntegration *j);
+*
+*   FUNCTION
+*       Refresh daemon-status labels through change_lock; this does not enable controls.
+*
+*   INPUTS
+*       j - Integration widget instance
+*
+****************************************************************************
+*
+*/
 static void unlock_it (jIntegration *j) {
 
   change_lock(j, TRUE);
@@ -285,6 +422,27 @@ static void unlock_it (jIntegration *j) {
 
 /************************** callbacks *************************/
 
+/****i* januae-gui-gtk/clipboard_changed ************************************************
+*
+*   NAME
+*       clipboard_changed()
+*
+*   SYNOPSIS
+*       static void clipboard_changed(GtkWidget *me, jIntegration *j);
+*
+*   FUNCTION
+*       Copy the selected clipboard mode into the panel state and emit clipboard-changed.
+*
+*   INPUTS
+*       me - GTK signal source
+*       j - Integration widget instance
+*
+*   NOTES
+*       No signal is emitted when the GTK list has no selection.
+*
+****************************************************************************
+*
+*/
 static void clipboard_changed(GtkWidget *me, jIntegration *j) {
 
   GtkList *list   = GTK_LIST (GTK_COMBO (j->combo_clip)->list);
@@ -303,6 +461,27 @@ static void clipboard_changed(GtkWidget *me, jIntegration *j) {
 
 }
 
+/****i* januae-gui-gtk/mouse_changed ****************************************************
+*
+*   NAME
+*       mouse_changed()
+*
+*   SYNOPSIS
+*       static void mouse_changed(GtkWidget *win, jIntegration *j);
+*
+*   FUNCTION
+*       Copy the selected mouse mode into the panel state and emit mouse-changed.
+*
+*   INPUTS
+*       win - GTK signal source
+*       j - Integration widget instance
+*
+*   NOTES
+*       No signal is emitted when the GTK list has no selection.
+*
+****************************************************************************
+*
+*/
 static void mouse_changed(GtkWidget *win, jIntegration *j) {
 
   GtkList *list   = GTK_LIST (GTK_COMBO (j->combo_mouse)->list);
@@ -320,6 +499,27 @@ static void mouse_changed(GtkWidget *win, jIntegration *j) {
   g_signal_emit_by_name(j,"mouse-changed",j);
 }
 
+/****i* januae-gui-gtk/coherence_changed ************************************************
+*
+*   NAME
+*       coherence_changed()
+*
+*   SYNOPSIS
+*       static void coherence_changed(GtkWidget *win, jIntegration *j);
+*
+*   FUNCTION
+*       Copy the selected coherent-mode value into the panel state and emit coherent-changed.
+*
+*   INPUTS
+*       win - GTK signal source
+*       j - Integration widget instance
+*
+*   NOTES
+*       No signal is emitted when the GTK list has no selection.
+*
+****************************************************************************
+*
+*/
 static void coherence_changed(GtkWidget *win, jIntegration *j) {
 
   GtkList *list   = GTK_LIST (GTK_COMBO (j->combo_coherence)->list);
@@ -337,6 +537,27 @@ static void coherence_changed(GtkWidget *win, jIntegration *j) {
   g_signal_emit_by_name(j,"coherent-changed",j);
 }
 
+/****i* januae-gui-gtk/launch_changed ***************************************************
+*
+*   NAME
+*       launch_changed()
+*
+*   SYNOPSIS
+*       static void launch_changed(GtkWidget *me, jIntegration *j);
+*
+*   FUNCTION
+*       Copy the selected launcher mode into the panel state and emit launch-changed.
+*
+*   INPUTS
+*       me - GTK signal source
+*       j - Integration widget instance
+*
+*   NOTES
+*       No signal is emitted when the GTK list has no selection.
+*
+****************************************************************************
+*
+*/
 static void launch_changed(GtkWidget *me, jIntegration *j) {
 
   GtkList *list   = GTK_LIST (GTK_COMBO (j->combo_launch)->list);
@@ -361,6 +582,29 @@ static void launch_changed(GtkWidget *me, jIntegration *j) {
  * small helper, to create a combo_box
  * with some seletections
  ***********************************************/
+/****i* januae-gui-gtk/make_combo *******************************************************
+*
+*   NAME
+*       make_combo()
+*
+*   SYNOPSIS
+*       GtkWidget *make_combo(int count, ...);
+*
+*   FUNCTION
+*       Create a GTK combo populated with the supplied number of string choices.
+*
+*   INPUTS
+*       count - Number of string options
+*
+*   NOTES
+*       Variadic choices are interpreted as strings; the caller supplies count values.
+*
+*   RESULT
+*       The populated GTK combo widget.
+*
+****************************************************************************
+*
+*/
 GtkWidget *make_combo(int count, ...) {
   GtkWidget *combo;
   GList     *list = NULL;
@@ -393,6 +637,30 @@ GtkWidget *make_combo(int count, ...) {
  * daemon:  text to display after the select widget
  * sigfunc: function to call, if select changes
  **************************************************/
+/****i* januae-gui-gtk/make_line ********************************************************
+*
+*   NAME
+*       make_line()
+*
+*   SYNOPSIS
+*       static GtkWidget *make_line(jIntegration *j, GtkWidget **select, GtkWidget **label, char *topic, char *daemon, void (*sigfunc) (void));
+*
+*   FUNCTION
+*       Create a framed selector and daemon-status label and connect the combo popup hide callback.
+*
+*   INPUTS
+*       j - Integration widget instance
+*       select - Receives the selector widget
+*       label - Receives the status label
+*       topic - Frame title
+*       daemon - Initial status label text
+*
+*   RESULT
+*       The framed integration control.
+*
+****************************************************************************
+*
+*/
 static GtkWidget *make_line(jIntegration *j,
                             GtkWidget **select, GtkWidget **label, 
                             char *topic, char *daemon, 
@@ -429,6 +697,23 @@ static GtkWidget *make_line(jIntegration *j,
  * GUI anyways, as it only talks through signals
  * to the integration widget.
  **************************************************/
+/****i* januae-gui-gtk/make_integration_widgets *****************************************
+*
+*   NAME
+*       make_integration_widgets()
+*
+*   SYNOPSIS
+*       static void make_integration_widgets (GtkWidget *vbox);
+*
+*   FUNCTION
+*       Populate the integration panel with coherence, mouse, clipboard and launcher selectors.
+*
+*   INPUTS
+*       vbox - Panel container
+*
+****************************************************************************
+*
+*/
 static void make_integration_widgets (GtkWidget *vbox) {
   jIntegration  *j=JINTEGRATION(vbox);
   GtkWidget *box;

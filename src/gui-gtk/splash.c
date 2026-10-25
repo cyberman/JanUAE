@@ -62,6 +62,23 @@ static guint jsplash_signals[LAST_SIGNAL];
 /***********************************************
  * jsplash_class_init
  ***********************************************/
+/****i* januae-gui-gtk/jsplash_class_init ***********************************************
+*
+*   NAME
+*       jsplash_class_init()
+*
+*   SYNOPSIS
+*       static void jsplash_class_init (jSplashClass *class);
+*
+*   FUNCTION
+*       Register the splash widget text-changed and time-changed signals.
+*
+*   INPUTS
+*       class - GTK class being initialized
+*
+****************************************************************************
+*
+*/
 static void jsplash_class_init (jSplashClass *class) {
   GtkWidgetClass *widget_class;
   GtkObjectClass *object_class;
@@ -83,6 +100,23 @@ static void jsplash_class_init (jSplashClass *class) {
  *
  * empty, as we do it in jsplash_new.
  ***********************************************/
+/****i* januae-gui-gtk/jsplash_init *****************************************************
+*
+*   NAME
+*       jsplash_init()
+*
+*   SYNOPSIS
+*       static void jsplash_init (jSplash *splash);
+*
+*   FUNCTION
+*       Run the splash instance initialization hook, which currently writes a debug message only.
+*
+*   INPUTS
+*       splash - Splash widget instance
+*
+****************************************************************************
+*
+*/
 static void jsplash_init (jSplash *splash) {
 
   DEBUG_LOG("jsplash_init\n");
@@ -95,6 +129,23 @@ static void jsplash_init (jSplash *splash) {
  * return type, if none exists.
  * create new type otherwise.
  ***********************************************/
+/****i* januae-gui-gtk/jsplash_get_type *************************************************
+*
+*   NAME
+*       jsplash_get_type()
+*
+*   SYNOPSIS
+*       GType jsplash_get_type (void);
+*
+*   FUNCTION
+*       Register and return the GTK window subclass used for the splash widget.
+*
+*   RESULT
+*       The registered GType.
+*
+****************************************************************************
+*
+*/
 GType jsplash_get_type (void) {
 
   static GType jsplash_type = 0;
@@ -122,6 +173,23 @@ GType jsplash_get_type (void) {
 /***********************************************
  * jsplash_new
  ***********************************************/
+/****i* januae-gui-gtk/jsplash_new ******************************************************
+*
+*   NAME
+*       jsplash_new()
+*
+*   SYNOPSIS
+*       GtkWidget* jsplash_new (void);
+*
+*   FUNCTION
+*       Create a splash window containing the placeholder Hello World button.
+*
+*   RESULT
+*       The newly allocated splash widget.
+*
+****************************************************************************
+*
+*/
 GtkWidget* jsplash_new (void) {
   GtkWidget *jsplash;
   GtkWidget *button;
@@ -165,20 +233,92 @@ static void jsplash_destroy(GtkObject *object) {
 
 /************************** callbacks *************************/
 
+/****i* januae-gui-gtk/text_changed *****************************************************
+*
+*   NAME
+*       text_changed()
+*
+*   SYNOPSIS
+*       static void text_changed(GtkWidget *me, jSplash *j);
+*
+*   FUNCTION
+*       Log a TODO message; no splash text is updated.
+*
+*   INPUTS
+*       me - GTK signal source
+*       j - Integration widget instance
+*
+****************************************************************************
+*
+*/
 static void text_changed(GtkWidget *me, jSplash *j) {
 
   DEBUG_LOG("TODO!\n");
 
 }
 
+/****i* januae-gui-gtk/time_changed *****************************************************
+*
+*   NAME
+*       time_changed()
+*
+*   SYNOPSIS
+*       static void time_changed(GtkWidget *win, jSplash *j);
+*
+*   FUNCTION
+*       Log a TODO message; no splash timing display is updated.
+*
+*   INPUTS
+*       win - GTK signal source
+*       j - Integration widget instance
+*
+****************************************************************************
+*
+*/
 static void time_changed(GtkWidget *win, jSplash *j) {
 
   DEBUG_LOG("TODO!\n");
 }
 
+/****i* januae-gui-gtk/hide *************************************************************
+*
+*   NAME
+*       hide()
+*
+*   SYNOPSIS
+*       static void hide(GtkWidget *win, jSplash *j);
+*
+*   FUNCTION
+*       Placeholder callback with no current behavior.
+*
+*   INPUTS
+*       win - GTK signal source
+*       j - Integration widget instance
+*
+****************************************************************************
+*
+*/
 static void hide(GtkWidget *win, jSplash *j) {
 }
 
+/****i* januae-gui-gtk/show *************************************************************
+*
+*   NAME
+*       show()
+*
+*   SYNOPSIS
+*       static void show(GtkWidget *me, jSplash *j);
+*
+*   FUNCTION
+*       Placeholder callback with no current behavior.
+*
+*   INPUTS
+*       me - GTK signal source
+*       j - Integration widget instance
+*
+****************************************************************************
+*
+*/
 static void show(GtkWidget *me, jSplash *j) {
 
 
