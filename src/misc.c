@@ -177,6 +177,24 @@ static uae_u32 REGPARAM2 misc_demux (TrapContext *context)
 }
 
 
+/****i* januae-core-internal/misc_hsync_stuff ******************************************************
+ *
+ *   NAME
+ *       misc_hsync_stuff() -- Perform host integration work on an emulated horizontal-sync event.
+ *
+ *   SYNOPSIS
+ *       void misc_hsync_stuff (void);
+ *
+ *   FUNCTION
+ *       Under AHI, periodically requests sound-buffer updates while ahi_on is set. On its first invocation, installs the misc_demux trap at the fixed RTAREA entry address.
+ *
+ *   NOTES
+ *       The trap-installation guard is static; subsequent calls do not rebuild the stub. AHI processing depends on the AHI build option.
+ *
+ **************************************************************************
+ *
+ */
+
 void misc_hsync_stuff (void)
 {
     static int misc_demux_installed;

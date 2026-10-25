@@ -26,6 +26,27 @@ char *my_strdup (const char *s)
 
 #endif
 
+/****i* januae-core-internal/xmalloc ***************************************************************
+ *
+ *   NAME
+ *       xmalloc() -- Allocate an uninitialized buffer or terminate on allocation failure.
+ *
+ *   SYNOPSIS
+ *       void *xmalloc (size_t n);
+ *
+ *   FUNCTION
+ *       Returns the pointer supplied by malloc().
+ *
+ *   INPUTS
+ *       n - Number of bytes to allocate.
+ *
+ *   NOTES
+ *       If malloc() returns NULL, logs the requested size and aborts the process. The caller releases successful allocations with xfree() or free().
+ *
+ **************************************************************************
+ *
+ */
+
 void *xmalloc (size_t n)
 {
     void *a = malloc (n);
@@ -36,6 +57,28 @@ void *xmalloc (size_t n)
     return a;
 }
 
+/****i* januae-core-internal/xcalloc ***************************************************************
+ *
+ *   NAME
+ *       xcalloc() -- Allocate zero-initialized storage or terminate on allocation failure.
+ *
+ *   SYNOPSIS
+ *       void *xcalloc (size_t n, size_t size);
+ *
+ *   FUNCTION
+ *       Returns the pointer supplied by calloc().
+ *
+ *   INPUTS
+ *       n - Number of elements.
+ *       size - Size of each element in bytes.
+ *
+ *   NOTES
+ *       If calloc() returns NULL, logs the requested total size and aborts the process. The caller must free a successful allocation.
+ *
+ **************************************************************************
+ *
+ */
+
 void *xcalloc (size_t n, size_t size)
 {
     void *a = calloc (n, size);
@@ -45,6 +88,27 @@ void *xcalloc (size_t n, size_t size)
     }
     return a;
 }
+
+/****i* januae-core-internal/xfree *****************************************************************
+ *
+ *   NAME
+ *       xfree() -- Release storage allocated by the emulator allocation helpers.
+ *
+ *   SYNOPSIS
+ *       void xfree (void *ptr);
+ *
+ *   FUNCTION
+ *       Calls free() with the supplied pointer.
+ *
+ *   INPUTS
+ *       ptr - Allocation pointer to release, or NULL.
+ *
+ *   NOTES
+ *       Accepts NULL with the semantics of the C library free().
+ *
+ **************************************************************************
+ *
+ */
 
 void xfree (void *ptr)
 {

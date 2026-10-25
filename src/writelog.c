@@ -44,6 +44,27 @@ static FILE *logfile=NULL;
  * Call with NULL to close a previously opened log file.
  */
 
+/****i* januae-core-internal/set_logfile ***********************************************************
+ *
+ *   NAME
+ *       set_logfile() -- Select a file for subsequent emulator diagnostics.
+ *
+ *   SYNOPSIS
+ *       void set_logfile (const char *logfile_name);
+ *
+ *   FUNCTION
+ *       Opens a nonempty filename for writing and switches to that stream when fopen() succeeds. NULL or an empty string closes the active file.
+ *
+ *   INPUTS
+ *       logfile_name - Output filename, or NULL or an empty string to close the active file.
+ *
+ *   NOTES
+ *       An unsuccessful fopen() leaves the previous stream selected. Replacing one non-NULL filename with another does not close the previous stream in this implementation.
+ *
+ **************************************************************************
+ *
+ */
+
 void set_logfile (const char *logfile_name) {
 
   FILE *newfile;
@@ -63,6 +84,28 @@ void set_logfile (const char *logfile_name) {
     }
   }
 }
+
+/****i* januae-core-internal/write_log *************************************************************
+ *
+ *   NAME
+ *       write_log() -- Write a formatted diagnostic message to the selected logging stream.
+ *
+ *   SYNOPSIS
+ *       void write_log (const char *fmt, ...);
+ *
+ *   FUNCTION
+ *       Uses vfprintf() to the selected file or stderr when HAVE_VFPRINTF is defined. The fallback implementation forwards eight integer arguments to fprintf() and uses stdout when no file is configured.
+ *
+ *   INPUTS
+ *       fmt - printf-style format string.
+ *       ... - Values matching the format string.
+ *
+ *   NOTES
+ *       The fallback cannot safely represent arbitrary varargs types. No newline or flush is inserted automatically.
+ *
+ **************************************************************************
+ *
+ */
 
 void write_log (const char *fmt, ...) {
 
@@ -93,6 +136,21 @@ void write_log (const char *fmt, ...) {
   }
 #endif
 }
+
+/****i* januae-core-internal/flush_log *************************************************************
+ *
+ *   NAME
+ *       flush_log() -- Flush the currently selected diagnostic output stream.
+ *
+ *   SYNOPSIS
+ *       void flush_log (void);
+ *
+ *   FUNCTION
+ *       Calls fflush() for the active log file, or stderr when no file is configured.
+ *
+ **************************************************************************
+ *
+ */
 
 void flush_log (void) {
 
