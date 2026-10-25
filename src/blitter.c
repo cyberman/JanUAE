@@ -282,6 +282,9 @@ static void blitter_dump (void)
  *       Select the DMA-channel code for a blitter cycle from the initial and
  *       repeating timing diagrams.
  *
+ *   INPUTS
+ *       cycles - Offset into the active blitter DMA timing diagram.
+ *
  *   RESULT
  *       The channel or idle-cycle code at the given cycle offset.
  *
@@ -309,6 +312,9 @@ STATIC_INLINE int channel_state (unsigned int cycles)
  *
  *   FUNCTION
  *       Check whether the bus is available to the blitter at a horizontal position.
+ *
+ *   INPUTS
+ *       hpos - Horizontal DMA slot to check in the cycle-line map.
  *
  *   RESULT
  *       1 for an available bus slot, 0 for a busy or bitplane-DMA slot, or -1 for a
@@ -864,6 +870,9 @@ static int blitter_vcounter1, blitter_vcounter2;
  *   FUNCTION
  *       Run cycle-exact line-mode DMA through the supplied horizontal position.
  *
+ *   INPUTS
+ *       hpos - Horizontal position through which line-mode DMA is processed.
+ *
  *   NOTES
  *       Processes only available DMA slots and finishes when the vertical line
  *       count reaches zero; requires CPUEMU_6.
@@ -1134,6 +1143,9 @@ STATIC_INLINE int blitter_doddma (void)
  *       Fetch the selected A, B or C DMA word and advance cycle-exact block-blitter
  *       counters.
  *
+ *   INPUTS
+ *       ch - Source DMA channel code; 1 selects A, 2 selects B, and 3 selects C.
+ *
  *   NOTES
  *       Channel values 1, 2 and 3 select A, B and C; other values perform no source
  *       fetch. Available with CPUEMU_6.
@@ -1199,6 +1211,9 @@ STATIC_INLINE void blitter_dodma (unsigned int ch)
  *   FUNCTION
  *       Advance the active blitter to the requested horizontal position in
  *       cycle-exact mode.
+ *
+ *   INPUTS
+ *       hpos - Target horizontal position for cycle-exact blitter progress.
  *
  *   NOTES
  *       When CPUEMU_6 is not defined, this entry point is a no-op. Otherwise it
@@ -1361,6 +1376,9 @@ static void blitter_force_finish (void)
  *       Decode the blitter control registers into line, fill, descending and
  *       channel timing state.
  *
+ *   INPUTS
+ *       con - Control mask used when decoding the blitter state.
+ *
  *   NOTES
  *       Updates shifts, DMA cycle counts and the active timing diagram. The con
  *       bitmask controls whether the fill carry is refreshed.
@@ -1466,6 +1484,9 @@ static void blit_modset (void)
  *   FUNCTION
  *       Refresh control decoding and channel modulos while a blit is active.
  *
+ *   INPUTS
+ *       bltcon - Nonzero to request control-register decoding during an active blit.
+ *
  *   NOTES
  *       A nonzero bltcon argument requests control redecoding; performs no work
  *       when the blitter is done.
@@ -1492,6 +1513,9 @@ void reset_blit (unsigned int bltcon)
  *   FUNCTION
  *       Start a new blitter operation using the current control registers, sizes
  *       and DMA configuration.
+ *
+ *   INPUTS
+ *       hpos - Horizontal position supplied when starting the operation.
  *
  *   NOTES
  *       Initializes line or block state, sets the CPU nasty flag when requested and
@@ -1602,6 +1626,10 @@ void do_blitter (unsigned int hpos)
  *       Synchronize a pending blit when the emulated CPU accesses blitter-dependent
  *       state.
  *
+ *   INPUTS
+ *       hpos - Horizontal position to reach in cycle-exact mode.
+ *       hack - Enables the early-line guard that can defer non-cycle-exact processing.
+ *
  *   NOTES
  *       In cycle-exact mode advances to hpos; otherwise invokes the event handler
  *       unless the optional first-line guard suppresses it.
@@ -1694,6 +1722,12 @@ unsigned int blitnasty (void)
  *       Estimate and accumulate non-cycle-exact blitter delay caused by competing
  *       bitplane DMA.
  *
+ *   INPUTS
+ *       ddfstrt - First display-fetch position used to estimate bus contention.
+ *       ddfstop - Last display-fetch position used to estimate bus contention.
+ *       totalcycles - Number of DMA cycles in the measured interval.
+ *       freecycles - DMA cycles not occupied by display fetches.
+ *
  *   NOTES
  *       Updates the slowdown only with valid cycle geometry and when not drawing a
  *       line; uses cached geometry to recalculate delay.
@@ -1740,6 +1774,9 @@ void blitter_slowdown (int ddfstrt, int ddfstop, unsigned int totalcycles, unsig
  *
  *   FUNCTION
  *       Restore the limited blitter-active flag from the save-state stream.
+ *
+ *   INPUTS
+ *       src - Save-state input pointer passed to the restore reader.
  *
  *   RESULT
  *       The source pointer supplied by the caller.
@@ -1798,6 +1835,10 @@ void restore_blitter_finish (void)
  *   FUNCTION
  *       Record the limited blitter completion state and forcibly finish running
  *       transfers before saving.
+ *
+ *   INPUTS
+ *       len - Output pointer receiving the serialized byte count.
+ *       dstptr - Optional caller-provided destination buffer.
  *
  *   RESULT
  *       The caller-provided destination or an allocated fallback buffer.
