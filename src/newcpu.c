@@ -2802,9 +2802,8 @@ static void m68k_run_2a (void)
 *       static void m68k_run_2 (void);
 *
 *   FUNCTION
-*       In CPUEMU_0 builds, fetch and dispatch successive opcodes, charge cycles
-*       and handle special conditions; the alternative build definition is
-*       empty.
+*       This definition is an empty stub selected when CPUEMU_0 is not
+*       defined. It does not fetch or execute instructions.
 *
 ***************************************************************************
 *
@@ -2823,9 +2822,8 @@ static void m68k_run_2 (void)
 *       static void m68k_run_2p (void);
 *
 *   FUNCTION
-*       In CPUEMU_0 builds, retain a two-word prefetch stream when fetching
-*       opcodes, dispatch instruction handlers and process cycles and special
-*       conditions; the alternative build definition is empty.
+*       This definition is an empty stub selected when CPUEMU_0 is not
+*       defined. It does not fetch or execute instructions.
 *
 ***************************************************************************
 *
@@ -2847,9 +2845,9 @@ static void m68k_run_2p (void)
 *       static void m68k_run_2p (void);
 *
 *   FUNCTION
-*       In CPUEMU_0 builds, retain a two-word prefetch stream when fetching
-*       opcodes, dispatch instruction handlers and process cycles and special
-*       conditions; the alternative build definition is empty.
+*       When CPUEMU_0 is defined, fetch instructions using a two-word
+*       prefetch stream, dispatch opcodes and process cycles and special
+*       conditions.
 *
 ***************************************************************************
 *
@@ -2900,9 +2898,8 @@ static void m68k_run_2p (void)
 *       static void m68k_run_2 (void);
 *
 *   FUNCTION
-*       In CPUEMU_0 builds, fetch and dispatch successive opcodes, charge cycles
-*       and handle special conditions; the alternative build definition is
-*       empty.
+*       When CPUEMU_0 is defined, fetch and dispatch opcodes, account for
+*       CPU cycles and handle pending special conditions.
 *
 ***************************************************************************
 *
@@ -3290,9 +3287,9 @@ void sm68k_disasm (char *instrname, char *instrcode, uaecptr addr, uaecptr *next
 *       void m68k_dumpstate (void *f, uaecptr *nextpc);
 *
 *   FUNCTION
-*       When debugger or Enforcer output is enabled, print CPU registers,
-*       status, optional FPU and prefetch information and the next instruction;
-*       the alternative build definition does nothing.
+*       Print the current data, address and status registers, optional
+*       floating-point and prefetch state, and a disassembly of the
+*       current instruction. Update nextpc when supplied.
 *
 *   INPUTS
 *       f - Output stream or output handle selected by the caller.
@@ -3371,9 +3368,8 @@ void m68k_dumpstate (void *f, uaecptr *nextpc)
 *       void m68k_dumpstate (void *f, uaecptr *nextpc);
 *
 *   FUNCTION
-*       When debugger or Enforcer output is enabled, print CPU registers,
-*       status, optional FPU and prefetch information and the next instruction;
-*       the alternative build definition does nothing.
+*       This conditionally compiled alternative performs no output and
+*       leaves nextpc untouched.
 *
 *   INPUTS
 *       f - Output stream or output handle selected by the caller.
