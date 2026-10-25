@@ -133,6 +133,18 @@ static const char *centering_labels[] = {
 
 static jDisplayClass *parent_class= NULL;
 
+/****i* januae-display/jdisplay_class_init ******************************************
+ *
+ * NAME
+ *     jdisplay_class_init -- Register the display panel signals on its GTK class.
+ *
+ * FUNCTION
+ *     Register the display panel signals on its GTK class.
+ *
+ * RESULT
+ *     None. The parent widget class is retained.
+ *
+ ******************************************************************************/
 static void jdisplay_class_init (jDisplayClass *class) {
   GtkWidgetClass *widget_class;
   GtkObjectClass *object_class;
@@ -160,11 +172,35 @@ static void jdisplay_class_init (jDisplayClass *class) {
 
 }
 
+/****i* januae-display/jdisplay_init ******************************************
+ *
+ * NAME
+ *     jdisplay_init -- Initialize a newly allocated display panel instance.
+ *
+ * FUNCTION
+ *     Initialize a newly allocated display panel instance.
+ *
+ * RESULT
+ *     None. This initializer currently performs no setup.
+ *
+ ******************************************************************************/
 static void jdisplay_init (jDisplay *disp) {
 
   //printf("jdisplay_init(%lx)\n",disp);
 }
 
+/****i* januae-display/jdisplay_get_type ******************************************
+ *
+ * NAME
+ *     jdisplay_get_type -- Register the display panel as a GTK horizontal-box subtype on first use.
+ *
+ * FUNCTION
+ *     Register the display panel as a GTK horizontal-box subtype on first use.
+ *
+ * RESULT
+ *     The registered GTK type identifier.
+ *
+ ******************************************************************************/
 GType jdisplay_get_type (void) {
 
   static GType jdisplay_type = 0;
@@ -188,6 +224,18 @@ GType jdisplay_get_type (void) {
   return jdisplay_type;
 }
 
+/****i* januae-display/jdisplay_new ******************************************
+ *
+ * NAME
+ *     jdisplay_new -- Create the display panel, build its controls and connect preference and lock signals.
+ *
+ * FUNCTION
+ *     Create the display panel, build its controls and connect preference and lock signals.
+ *
+ * RESULT
+ *     The newly allocated display panel widget.
+ *
+ ******************************************************************************/
 GtkWidget* jdisplay_new (void) {
   GtkWidget *jdisp;
 
@@ -220,6 +268,18 @@ GtkWidget* jdisplay_new (void) {
  *
  * it is called through the signal "read-prefs"
  ***********************************************/
+/****i* januae-display/read_prefs ******************************************
+ *
+ * NAME
+ *     read_prefs -- Update display controls and cached panel settings from current emulator preferences.
+ *
+ * FUNCTION
+ *     Update display controls and cached panel settings from current emulator preferences.
+ *
+ * RESULT
+ *     None. An unrecognized chipset mask is reported to standard output.
+ *
+ ******************************************************************************/
 static void read_prefs (jDisplay *j) {
   gchar  *t;
   GList *r;
@@ -347,6 +407,18 @@ static void read_prefs (jDisplay *j) {
 
 }
 
+/****i* januae-display/change_lock ******************************************
+ *
+ * NAME
+ *     change_lock -- Enable or disable the editable screen, window and display settings controls.
+ *
+ * FUNCTION
+ *     Enable or disable the editable screen, window and display settings controls.
+ *
+ * RESULT
+ *     None.
+ *
+ ******************************************************************************/
 static void change_lock (jDisplay *j, gboolean status) {
   int i;
 
@@ -393,6 +465,18 @@ static void change_lock (jDisplay *j, gboolean status) {
  * if J-UAE is running, we should disable
  * the according options
  ***********************************************/
+/****i* januae-display/lock_it ******************************************
+ *
+ * NAME
+ *     lock_it -- Disable display preference editing through the common lock helper.
+ *
+ * FUNCTION
+ *     Disable display preference editing through the common lock helper.
+ *
+ * RESULT
+ *     None.
+ *
+ ******************************************************************************/
 static void lock_it (jDisplay *j) {
 
   change_lock(j, FALSE);
@@ -401,12 +485,36 @@ static void lock_it (jDisplay *j) {
 /***********************************************
  * unlock_it
  ***********************************************/
+/****i* januae-display/unlock_it ******************************************
+ *
+ * NAME
+ *     unlock_it -- Enable display preference editing through the common lock helper.
+ *
+ * FUNCTION
+ *     Enable display preference editing through the common lock helper.
+ *
+ * RESULT
+ *     None.
+ *
+ ******************************************************************************/
 static void unlock_it (jDisplay *j) {
 
   change_lock(j, TRUE);
 }
 
 /* create possible AROS resolutions for full screen mode */
+/****i* januae-display/create_resolutions ******************************************
+ *
+ * NAME
+ *     create_resolutions -- Enumerate available AROS screen modes and format the resolution choices.
+ *
+ * FUNCTION
+ *     Enumerate available AROS screen modes and format the resolution choices.
+ *
+ * RESULT
+ *     A list of resolution descriptions; availability depends on the AROS display API.
+ *
+ ******************************************************************************/
 static GList *create_resolutions(void) {
 
   GList *result=NULL;
@@ -438,6 +546,18 @@ static GList *create_resolutions(void) {
 /* second parameter is always NULL */
 
 /* OCS, ECS Agnus, ECS Denise, Full ECS, AGA */
+/****i* januae-display/chipset_changed ******************************************
+ *
+ * NAME
+ *     chipset_changed -- Translate the selected chipset radio button into the panel chipset mask.
+ *
+ * FUNCTION
+ *     Translate the selected chipset radio button into the panel chipset mask.
+ *
+ * RESULT
+ *     None. The callback emits the corresponding display-change signal.
+ *
+ ******************************************************************************/
 static void chipset_changed(GtkWidget *me, jDisplay *j) {
   ULONG i;
 
@@ -474,6 +594,18 @@ static void chipset_changed(GtkWidget *me, jDisplay *j) {
   g_signal_emit_by_name(j,"chipset-changed",j);
 }
 
+/****i* januae-display/palntsc_changed ******************************************
+ *
+ * NAME
+ *     palntsc_changed -- Record the PAL or NTSC radio-button selection.
+ *
+ * FUNCTION
+ *     Record the PAL or NTSC radio-button selection.
+ *
+ * RESULT
+ *     None. Unrecognized widgets are reported rather than mapped to a valid mode.
+ *
+ ******************************************************************************/
 static void palntsc_changed(GtkWidget *me, jDisplay *j) {
 
   if(me == j->pal_ntsc_widget[0]) {
@@ -490,6 +622,18 @@ static void palntsc_changed(GtkWidget *me, jDisplay *j) {
   g_signal_emit_by_name(j,"chipset-changed",j);
 }
 
+/****i* januae-display/linemode_changed ******************************************
+ *
+ * NAME
+ *     linemode_changed -- Record the selected normal, doubled or scanline display mode.
+ *
+ * FUNCTION
+ *     Record the selected normal, doubled or scanline display mode.
+ *
+ * RESULT
+ *     None. A change signal is emitted for a recognized option.
+ *
+ ******************************************************************************/
 static void linemode_changed(GtkWidget *me, jDisplay *j) {
   ULONG i;
 
@@ -513,6 +657,18 @@ static void linemode_changed(GtkWidget *me, jDisplay *j) {
   g_signal_emit_by_name(j,"linemode-changed",j);
 }
 
+/****i* januae-display/centering_changed ******************************************
+ *
+ * NAME
+ *     centering_changed -- Update horizontal and vertical centering flags from the selected radio button.
+ *
+ * FUNCTION
+ *     Update horizontal and vertical centering flags from the selected radio button.
+ *
+ * RESULT
+ *     None. Centering controls are disabled by the current build configuration.
+ *
+ ******************************************************************************/
 static void centering_changed(GtkWidget *me, jDisplay *j) {
   ULONG i;
 
@@ -541,6 +697,18 @@ static void centering_changed(GtkWidget *me, jDisplay *j) {
   g_signal_emit_by_name(j,"centering-changed",j);
 }
 
+/****i* januae-display/settings_changed ******************************************
+ *
+ * NAME
+ *     settings_changed -- Record aspect-ratio, low-resolution and full-screen toggle changes.
+ *
+ * FUNCTION
+ *     Record aspect-ratio, low-resolution and full-screen toggle changes.
+ *
+ * RESULT
+ *     None. The changed display settings are signaled to the panel.
+ *
+ ******************************************************************************/
 static void settings_changed(GtkWidget *me, jDisplay *j) {
 
   if     (me == j->settings_correctaspect) {
@@ -565,6 +733,18 @@ static void settings_changed(GtkWidget *me, jDisplay *j) {
   g_signal_emit_by_name(j,"settings-changed",j);
 }
 
+/****i* januae-display/screen_changed ******************************************
+ *
+ * NAME
+ *     screen_changed -- Update the selected full-screen display resolution or Workbench-clone setting.
+ *
+ * FUNCTION
+ *     Update the selected full-screen display resolution or Workbench-clone setting.
+ *
+ * RESULT
+ *     None. Screen mode lookup is performed when a concrete mode is selected.
+ *
+ ******************************************************************************/
 static void screen_changed(GtkWidget *me, jDisplay *j) {
   gchar **wh;
   gint selected;
@@ -608,6 +788,18 @@ static void screen_changed(GtkWidget *me, jDisplay *j) {
   g_signal_emit_by_name(j, "screen-changed", j);
 }
 
+/****i* januae-display/window_changed ******************************************
+ *
+ * NAME
+ *     window_changed -- Parse window size entries into the stored width and height settings.
+ *
+ * FUNCTION
+ *     Parse window size entries into the stored width and height settings.
+ *
+ * RESULT
+ *     None. Numeric conversion uses atoi without additional validation.
+ *
+ ******************************************************************************/
 static void window_changed(GtkWidget *me, jDisplay *j) {
 
   j->gfx_width_win =atoi(gtk_entry_get_text (GTK_ENTRY (j->screen_width)));
@@ -617,6 +809,18 @@ static void window_changed(GtkWidget *me, jDisplay *j) {
 }
 
 /********************* make_display_widgets *******************/
+/****i* januae-display/make_display_widgets ******************************************
+ *
+ * NAME
+ *     make_display_widgets -- Construct display configuration groups and connect their GTK callbacks.
+ *
+ * FUNCTION
+ *     Construct display configuration groups and connect their GTK callbacks.
+ *
+ * RESULT
+ *     None. The supplied widget receives the constructed controls.
+ *
+ ******************************************************************************/
 static void make_display_widgets (GtkWidget *vbox) {
   jDisplay  *j=JDISPLAY(vbox);
   GtkWidget *box;
