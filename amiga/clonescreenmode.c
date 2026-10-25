@@ -66,6 +66,27 @@ struct ScreenModePrefs screenmodeprefs;
 
 /*********************************************************************************************/
 
+/****i* januae-guest-screenmode/Prefs_Load ***********************************
+*
+*   NAME
+*       Prefs_Load() -- Load guest screen-mode preferences from a DOS path.
+*
+*   SYNOPSIS
+*       static BOOL Prefs_Load(STRPTR from);
+*
+*   FUNCTION
+*       Open the specified file for reading and pass its DOS file handle to
+*       Prefs_ImportFH(). Close the handle before returning.
+*
+*   INPUTS
+*       from - Path of the guest preferences file to read.
+*
+*   RESULT
+*       The value returned by Prefs_ImportFH(), or FALSE if Open() fails.
+*
+***************************************************************************
+*/
+
 static BOOL Prefs_Load(STRPTR from)
 {
     BOOL retval = FALSE;
@@ -81,6 +102,35 @@ static BOOL Prefs_Load(STRPTR from)
 }
 
 /*********************************************************************************************/
+
+/****i* januae-guest-screenmode/Prefs_ImportFH ******************************
+*
+*   NAME
+*       Prefs_ImportFH() -- Read a guest screen-mode preferences chunk.
+*
+*   SYNOPSIS
+*       BOOL Prefs_ImportFH(BPTR fh);
+*
+*   FUNCTION
+*       Scan the supplied DOS stream for a PREF/SCRM IFF chunk and copy its
+*       screen-mode fields into the module's current preference structure.
+*
+*   INPUTS
+*       fh - Open DOS file handle; ownership remains with the caller.
+*
+*   RESULT
+*       FALSE on IFF-handle allocation failure or a failed StopChunk() or
+*       ParseIFF() operation; otherwise TRUE, including some unsuccessful
+*       read/open paths.
+*
+*   NOTES
+*       ReadChunkBytes() errors are printed without clearing the success
+*       flag. A missing or unreadable IFF stream is not consistently reported
+*       through the result. Callers must not interpret TRUE as a guarantee
+*       that preferences were updated.
+*
+***************************************************************************
+*/
 
 BOOL Prefs_ImportFH(BPTR fh)
 {
@@ -149,6 +199,35 @@ BOOL Prefs_ImportFH(BPTR fh)
 }
 
 /*********************************************************************************************/
+
+/****i* januae-guest-screenmode/Prefs_Write *********************************
+*
+*   NAME
+*       Prefs_Write() -- Write screen-mode preferences for a host resolution.
+*
+*   SYNOPSIS
+*       BOOL Prefs_Write(BPTR fh, WORD width, WORD height, WORD depth);
+*
+*   FUNCTION
+*       Resolve a guest display ID from the requested dimensions and write
+*       a PREF IFF stream containing a preference header and SCRM chunk.
+*
+*   INPUTS
+*       fh - Open DOS file handle for output; the caller closes it.
+*       width, height - Requested display dimensions.
+*       depth - Supplied guest bit depth.
+*
+*   RESULT
+*       FALSE if no matching mode exists, IFF allocation fails, or OpenIFF()
+*       fails; otherwise TRUE.
+*
+*   NOTES
+*       The depth argument is not used when populating saveprefs: the stored
+*       depth comes from screenmodeprefs. Several chunk write and close
+*       errors are logged or ignored rather than propagated in the result.
+*
+***************************************************************************
+*/
 
 BOOL Prefs_Write(BPTR fh, WORD width, WORD height, WORD depth)
 {
@@ -230,6 +309,23 @@ BOOL Prefs_Write(BPTR fh, WORD width, WORD height, WORD depth)
     return success;
 }
 
+/****i* januae-guest-screenmode/usage ***************************************
+*
+*   NAME
+*       usage() -- Print supported screen-mode clone options.
+*
+*   SYNOPSIS
+*       void usage(char *myname);
+*
+*   FUNCTION
+*       Write the ENV, ENVARC and PRETEND invocation forms to standard output.
+*
+*   INPUTS
+*       myname - Command name displayed in the usage line.
+*
+***************************************************************************
+*/
+
 void usage(char *myname) {
   printf("Usage: %s [ENV|ENVARC|PRETEND]\n", myname);
   printf("       Clone host screen resolution to 68k ENV\n");
@@ -244,6 +340,37 @@ void usage(char *myname) {
   printf(" PRETEND:\n");
   printf("  just print resolution and depth to STDOUT\n");
 }
+
+/****i* januae-guest-screenmode/main ****************************************
+*
+*   NAME
+*       main() -- Transfer the host screen dimensions into guest preferences.
+*
+*   SYNOPSIS
+*       int main(int argc, char **argv);
+*
+*   FUNCTION
+*       Accept ENV, ENVARC or PRETEND, open the guest system libraries, and
+*       query the host display dimensions through the Janus AD_GET_JOB trap.
+*       PRETEND prints the values; the other modes load the existing ENVARC
+*       settings and write updated screen-mode preferences to the selected
+*       guest destination.
+*
+*   INPUTS
+*       argc, argv - Optional destination or PRETEND command argument.
+*
+*   RESULT
+*       On the normal success path, terminate the process with status zero;
+*       input, allocation, library, trap, load or write failures terminate
+*       with nonzero status.
+*
+*   NOTES
+*       This entrypoint calls exit() and does not return normally. The
+*       preference writer's success report is not a complete check of IFF
+*       write integrity.
+*
+***************************************************************************
+*/
 
 int main(int argc, char **argv) {
   BPTR fh           =NULL;
