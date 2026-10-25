@@ -140,6 +140,10 @@ typedef struct
 *   FUNCTION
 *       Read one byte from a zfile and store its unsigned value in *pi.
 *
+*   INPUTS
+*       fin - Archive stream to read.
+*       pi - Receives the byte value when a byte is available.
+*
 *   RESULT
 *       UNZ_OK after one byte; UNZ_EOF when no byte is read.
 *
@@ -177,6 +181,10 @@ local int unzlocal_getByte(fin,pi)
 *
 *   FUNCTION
 *       Read a two-byte little-endian value from the archive stream.
+*
+*   INPUTS
+*       fin - Archive stream to read.
+*       pX - Receives the decoded 16-bit value or zero on an incomplete read.
 *
 *   RESULT
 *       UNZ_OK on a complete read; otherwise the underlying byte-read status.
@@ -219,6 +227,10 @@ local int unzlocal_getShort (fin,pX)
 *
 *   FUNCTION
 *       Read a four-byte little-endian value from the archive stream.
+*
+*   INPUTS
+*       fin - Archive stream to read.
+*       pX - Receives the decoded 32-bit value or zero on an incomplete read.
 *
 *   RESULT
 *       UNZ_OK on a complete read; otherwise the underlying byte-read status.
@@ -272,6 +284,10 @@ local int unzlocal_getLong (fin,pX)
 *   FUNCTION
 *       Compare two NUL-terminated filenames after folding ASCII lowercase
 *       letters to uppercase.
+*
+*   INPUTS
+*       fileName1 - First NUL-terminated filename.
+*       fileName2 - Second NUL-terminated filename.
 *
 *   RESULT
 *       A negative, zero, or positive value according to the comparison.
@@ -329,6 +345,11 @@ local int strcmpcasenosensitive_internal (fileName1,fileName2)
 *       Compare ZIP entry names using case-sensitive or ASCII case-insensitive
 *       comparison.
 *
+*   INPUTS
+*       fileName1 - First filename to compare.
+*       fileName2 - Second filename to compare.
+*       iCaseSensitivity - Comparison mode (1 for sensitive, 2 for insensitive, 0 for default).
+*
 *   RESULT
 *       The comparison result from the selected string comparison.
 *
@@ -366,6 +387,9 @@ extern int ZEXPORT unzStringFileNameCompare (fileName1,fileName2,iCaseSensitivit
 *   FUNCTION
 *       Search backward near the end of the archive for the ZIP
 *       end-of-central-directory signature.
+*
+*   INPUTS
+*       fin - Seekable ZIP archive stream.
 *
 *   RESULT
 *       The located file offset, or zero when no signature is found or a
@@ -445,6 +469,9 @@ local uLong unzlocal_SearchCentralDir(fin)
 *   FUNCTION
 *       Parse the ZIP end record and allocate an archive cursor for the
 *       supplied zfile.
+*
+*   INPUTS
+*       fin - ZIP archive stream; ownership transfers to the returned handle on success.
 *
 *   RESULT
 *       An allocated ZIP handle or NULL if the end record cannot be validated.
@@ -554,6 +581,9 @@ extern unzFile ZEXPORT unzOpen (fin)
 *       Release the archive cursor, its current entry stream if any, and the
 *       underlying zfile.
 *
+*   INPUTS
+*       file - ZIP archive handle to close.
+*
 *   RESULT
 *       UNZ_OK on a non-NULL handle; UNZ_PARAMERROR for NULL.
 *
@@ -593,6 +623,10 @@ extern int ZEXPORT unzClose (file)
 *   FUNCTION
 *       Copy the archive entry count and global comment length to the caller.
 *
+*   INPUTS
+*       file - Open ZIP archive handle.
+*       pglobal_info - Output storage for archive-wide metadata; must not be NULL.
+*
 *   RESULT
 *       UNZ_OK or UNZ_PARAMERROR for a NULL archive handle.
 *
@@ -625,6 +659,10 @@ extern int ZEXPORT unzGetGlobalInfo (file,pglobal_info)
 *
 *   FUNCTION
 *       Decode a ZIP DOS timestamp into date and time fields.
+*
+*   INPUTS
+*       ulDosDate - Packed DOS date and time value.
+*       ptm - Receives decoded time fields; must not be NULL.
 *
 *   NOTES
 *       The date is interpreted in DOS year/month/day and two-second
@@ -677,6 +715,17 @@ local int unzlocal_GetCurrentFileInfoInternal OF((unzFile file,
 *   FUNCTION
 *       Read the current ZIP central-directory header and optionally copy its
 *       metadata, filename, extra field and comment.
+*
+*   INPUTS
+*       file - Archive handle with a selected entry.
+*       pfile_info - Optional public metadata output.
+*       pfile_info_internal - Optional internal metadata output.
+*       szFileName - Optional filename output buffer.
+*       fileNameBufferSize - Size of the filename buffer.
+*       extraField - Optional extra-field output buffer.
+*       extraFieldBufferSize - Size of the extra-field buffer.
+*       szComment - Optional entry-comment output buffer.
+*       commentBufferSize - Size of the comment buffer.
 *
 *   RESULT
 *       UNZ_OK, UNZ_PARAMERROR, UNZ_BADZIPFILE or UNZ_ERRNO.
@@ -863,6 +912,16 @@ local int unzlocal_GetCurrentFileInfoInternal (file,
 *       Retrieve public metadata and optional central-directory fields for the
 *       selected entry.
 *
+*   INPUTS
+*       file - Archive handle with a selected entry.
+*       pfile_info - Optional entry metadata output.
+*       szFileName - Optional filename output buffer.
+*       fileNameBufferSize - Size of the filename output buffer.
+*       extraField - Optional extra-field output buffer.
+*       extraFieldBufferSize - Size of the extra-field output buffer.
+*       szComment - Optional entry-comment output buffer.
+*       commentBufferSize - Size of the comment output buffer.
+*
 *   RESULT
 *       The status returned by the internal central-directory reader.
 *
@@ -904,6 +963,9 @@ extern int ZEXPORT unzGetCurrentFileInfo (file,
 *       Select the first entry in the ZIP central directory and update its
 *       metadata.
 *
+*   INPUTS
+*       file - Archive handle whose cursor is reset to the first entry.
+*
 *   RESULT
 *       UNZ_OK, UNZ_PARAMERROR or an entry-header read error.
 *
@@ -941,6 +1003,9 @@ extern int ZEXPORT unzGoToFirstFile (file)
 *
 *   FUNCTION
 *       Advance the central-directory cursor to the next entry.
+*
+*   INPUTS
+*       file - Archive handle whose current entry cursor is advanced.
 *
 *   RESULT
 *       UNZ_OK, UNZ_END_OF_LIST_OF_FILE, UNZ_PARAMERROR or a header read
@@ -989,6 +1054,11 @@ extern int ZEXPORT unzGoToNextFile (file)
 *   FUNCTION
 *       Search directory entries by name with the specified case-sensitivity
 *       mode.
+*
+*   INPUTS
+*       file - Archive handle whose entries are searched.
+*       szFileName - NUL-terminated entry name to find.
+*       iCaseSensitivity - Case-comparison mode passed to the filename comparator.
 *
 *   RESULT
 *       UNZ_OK if found; UNZ_END_OF_LIST_OF_FILE if absent; otherwise a
@@ -1060,6 +1130,12 @@ extern int ZEXPORT unzLocateFile (file, szFileName, iCaseSensitivity)
 *       Validate the local ZIP entry header against the selected
 *       central-directory entry and determine its data and extra-field
 *       offsets.
+*
+*   INPUTS
+*       s - Archive cursor for the selected entry.
+*       piSizeVar - Receives variable local-header length.
+*       poffset_local_extrafield - Receives local extra-field offset.
+*       psize_local_extrafield - Receives local extra-field length.
 *
 *   RESULT
 *       UNZ_OK, UNZ_BADZIPFILE or UNZ_ERRNO.
@@ -1168,6 +1244,9 @@ local int unzlocal_CheckCurrentFileCoherencyHeader (s,piSizeVar,
 *   FUNCTION
 *       Open the selected entry for stored or raw-DEFLATE data access,
 *       allocating decompression state and a read buffer.
+*
+*   INPUTS
+*       file - Archive handle with a selected entry to open for reading.
 *
 *   RESULT
 *       UNZ_OK, UNZ_PARAMERROR, UNZ_BADZIPFILE or UNZ_INTERNALERROR.
@@ -1285,6 +1364,11 @@ extern int ZEXPORT unzOpenCurrentFile (file)
 *   FUNCTION
 *       Copy up to len uncompressed entry bytes into buf, using stored-data
 *       reads or raw DEFLATE inflation.
+*
+*   INPUTS
+*       file - Archive handle with an open entry stream.
+*       buf - Destination buffer for uncompressed data.
+*       len - Maximum number of bytes to read into buf.
 *
 *   RESULT
 *       Positive byte count, zero at end of entry, or a negative ZIP/zlib
@@ -1437,6 +1521,9 @@ extern int ZEXPORT unzReadCurrentFile  (file, buf, len)
 *       Report the total uncompressed bytes already delivered from the current
 *       entry.
 *
+*   INPUTS
+*       file - Archive handle with an open entry stream.
+*
 *   RESULT
 *       Current uncompressed offset; UNZ_PARAMERROR for an absent archive or
 *       unopened entry.
@@ -1474,6 +1561,9 @@ extern z_off_t ZEXPORT unztell (file)
 *
 *   FUNCTION
 *       Test whether the current entry has no uncompressed bytes remaining.
+*
+*   INPUTS
+*       file - Archive handle with an open entry stream.
 *
 *   RESULT
 *       1 at end, 0 otherwise; UNZ_PARAMERROR for a missing handle or entry
@@ -1519,6 +1609,11 @@ extern int ZEXPORT unzeof (file)
 *   FUNCTION
 *       Inspect the local-header extra field of the current entry, optionally
 *       copying bytes to buf.
+*
+*   INPUTS
+*       file - Archive handle with an open entry stream.
+*       buf - Optional destination; NULL requests the remaining field length.
+*       len - Maximum number of extra-field bytes to copy when buf is non-NULL.
 *
 *   RESULT
 *       Remaining extra-field length when buf is NULL; bytes requested or a
@@ -1587,6 +1682,9 @@ extern int ZEXPORT unzGetLocalExtrafield (file,buf,len)
 *       Close the current entry stream, release its inflater and read buffer,
 *       and verify CRC if completely consumed.
 *
+*   INPUTS
+*       file - Archive handle whose current entry stream is closed.
+*
 *   RESULT
 *       UNZ_OK or UNZ_CRCERROR after a complete read; UNZ_PARAMERROR for
 *       invalid state.
@@ -1650,6 +1748,11 @@ extern int ZEXPORT unzCloseCurrentFile (file)
 *
 *   FUNCTION
 *       Read up to uSizeBuf bytes of the ZIP archive global comment.
+*
+*   INPUTS
+*       file - Archive handle whose global comment is read.
+*       szComment - Destination buffer for comment bytes.
+*       uSizeBuf - Maximum number of bytes to copy into szComment.
 *
 *   RESULT
 *       Bytes read; UNZ_PARAMERROR for a NULL handle or UNZ_ERRNO on I/O
