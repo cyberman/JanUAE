@@ -9723,6 +9723,37 @@ const uae_u8 *restore_custom (const uae_u8 *src)
 
 extern uae_u16 serper;
 
+/****i* januae-custom-frame-memory/save_custom ****************************
+ *
+ *   NAME
+ *       save_custom() -- Serialize the custom-chip register state.
+ *
+ *   SYNOPSIS
+ *       uae_u8 *save_custom (uae_u32 *len, uae_u8 *dstptr, int full);
+ *
+ *   FUNCTION
+ *       Write a chipset identifier and a fixed-order image of custom-chip
+ *       registers, including disk, DMA, copper, bitplane and display state.
+ *       When full is nonzero, also include the additional reserved words and
+ *       sprite registers selected by this serialization format.
+ *
+ *   INPUTS
+ *       len - Receives the number of bytes written; must be writable.
+ *       dstptr - Destination storage, or NULL to allocate a buffer.
+ *       full - Selects the extended register image when nonzero.
+ *
+ *   RESULT
+ *       Destination buffer containing the serialized register image.
+ *       When dstptr is NULL, the returned buffer is allocated by this function
+ *       and must be released by its caller.
+ *
+ *   NOTES
+ *       Available with SAVESTATE or DEBUGGER. A caller-supplied destination
+ *       must have sufficient capacity. The implementation does not check
+ *       allocation failure before writing the register image.
+ *
+ ****************************************************************************/
+
 uae_u8 *save_custom (uae_u32 *len, uae_u8 *dstptr, int full)
 {
     uae_u8 *dstbak, *dst;
@@ -9912,6 +9943,32 @@ const uae_u8 *restore_custom_agacolors (const uae_u8 *src)
     return src;
 }
 
+/****i* januae-custom-frame-memory/save_custom_agacolors *****************
+ *
+ *   NAME
+ *       save_custom_agacolors() -- Serialize the AGA color-register bank.
+ *
+ *   SYNOPSIS
+ *       uae_u8 *save_custom_agacolors (uae_u32 *len, uae_u8 *dstptr);
+ *
+ *   FUNCTION
+ *       Write 256 32-bit color-register values in register order. When AGA
+ *       support is disabled, write zero values instead.
+ *
+ *   INPUTS
+ *       len - Receives the serialized byte count; must be writable.
+ *       dstptr - Destination buffer, or NULL to allocate one.
+ *
+ *   RESULT
+ *       Destination buffer. If allocated by this function, the caller owns
+ *       the returned allocation.
+ *
+ *   NOTES
+ *       Available with SAVESTATE. A supplied destination must hold 1024
+ *       bytes. Allocation failure is not checked before serialization.
+ *
+ ****************************************************************************/
+
 uae_u8 *save_custom_agacolors (uae_u32 *len, uae_u8 *dstptr)
 {
     uae_u8 *dstbak, *dst;
@@ -9970,6 +10027,33 @@ const uae_u8 *restore_custom_sprite (unsigned int num, const uae_u8 *src)
     spr[num].armed = RB;
     return src;
 }
+
+/****i* januae-custom-frame-memory/save_custom_sprite ********************
+ *
+ *   NAME
+ *       save_custom_sprite() -- Serialize one custom-chip sprite.
+ *
+ *   SYNOPSIS
+ *       uae_u8 *save_custom_sprite (unsigned int num, uae_u32 *len,
+ *                                   uae_u8 *dstptr);
+ *
+ *   FUNCTION
+ *       Write the sprite pointer, position and control registers, four
+ *       pairs of data words, and the sprite's armed flag in save-state order.
+ *
+ *   INPUTS
+ *       num - Index of the sprite to save; must identify an existing sprite.
+ *       len - Receives the number of bytes written; must be writable.
+ *       dstptr - Destination storage, or NULL to allocate 25 bytes.
+ *
+ *   RESULT
+ *       Destination buffer. The caller owns it if this function allocated it.
+ *
+ *   NOTES
+ *       Available with SAVESTATE. The function does not check num, buffer
+ *       capacity, or allocation failure. The caller must provide valid values.
+ *
+ ****************************************************************************/
 
 uae_u8 *save_custom_sprite (unsigned int num, uae_u32 *len, uae_u8 *dstptr)
 {
