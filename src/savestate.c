@@ -391,7 +391,9 @@ uae_u8 restore_u8_func (const uae_u8 **dstp)
 *       A newly allocated zero-terminated string.
 *
 *   NOTES
-*       The caller owns the returned allocation.
+*       The caller owns the returned allocation. The input must contain a
+*       readable zero terminator: this function does not accept a length
+*       bound, and it does not check whether malloc() succeeds.
 *
 ****************************************************************************
 *

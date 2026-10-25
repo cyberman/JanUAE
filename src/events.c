@@ -100,7 +100,9 @@ void init_eventtab (void)
 *
 *   FUNCTION
 *       Examine active event entries and set the global next-event cycle to
-*       the earliest pending deadline.
+ *       the earliest pending deadline. If no event is active, the minimum
+*       remains the unsigned all-ones sentinel and nextevent wraps to the
+*       preceding cycle in the unsigned cycle counter.
 *
 *   INPUTS
 *       None.
